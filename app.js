@@ -1,6 +1,11 @@
 // Application State
 let elements = [];
 let selectedElement = null;
+let labelSettings = {
+  width: 4,
+  height: 6,
+  dpmm: 8,
+};
 
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
@@ -9,12 +14,36 @@ const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutput = document.getElementById("zpl-output");
 const copyBtn = document.getElementById("copy-btn");
+const labelWidth = document.getElementById("label-width");
+const labelHeight = document.getElementById("label-height");
+const labelDpmm = document.getElementById("label-dpmm");
+const previewImage = document.getElementById("preview-image");
+const previewLoading = document.getElementById("preview-loading");
+const previewError = document.getElementById("preview-error");
+const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
   addTextBtn.addEventListener("click", addTextElement);
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
   copyBtn.addEventListener("click", copyZPL);
+  refreshPreviewBtn.addEventListener("click", updatePreview);
+
+  // Label settings event listeners
+  labelWidth.addEventListener("input", (e) => {
+    labelSettings.width = parseFloat(e.target.value) || 4;
+    updatePreview();
+  });
+
+  labelHeight.addEventListener("input", (e) => {
+    labelSettings.height = parseFloat(e.target.value) || 6;
+    updatePreview();
+  });
+
+  labelDpmm.addEventListener("change", (e) => {
+    labelSettings.dpmm = parseInt(e.target.value) || 8;
+    updatePreview();
+  });
 
   // Set up event delegation for elements list (only once)
   elementsList.addEventListener("click", (e) => {
@@ -47,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   updateZPLOutput();
+  updatePreview();
 });
 
 // Add Text Element
@@ -168,16 +198,19 @@ function renderTextProperties(element) {
     element.text = e.target.value;
     updateZPLOutput();
     updateElementsList();
+    updatePreview();
   });
 
   document.getElementById("prop-font-size").addEventListener("input", (e) => {
     element.fontSize = parseInt(e.target.value) || 30;
     updateZPLOutput();
+    updatePreview();
   });
 
   document.getElementById("prop-font-width").addEventListener("input", (e) => {
     element.fontWidth = parseInt(e.target.value) || 30;
     updateZPLOutput();
+    updatePreview();
   });
 }
 
@@ -215,33 +248,39 @@ function renderBarcodeProperties(element) {
     element.x = parseInt(e.target.value) || 0;
     updateZPLOutput();
     updateElementsList();
+    updatePreview();
   });
 
   document.getElementById("prop-y").addEventListener("input", (e) => {
     element.y = parseInt(e.target.value) || 0;
     updateZPLOutput();
     updateElementsList();
+    updatePreview();
   });
 
   document.getElementById("prop-data").addEventListener("input", (e) => {
     element.data = e.target.value;
     updateZPLOutput();
     updateElementsList();
+    updatePreview();
   });
 
   document.getElementById("prop-height").addEventListener("input", (e) => {
     element.height = parseInt(e.target.value) || 50;
     updateZPLOutput();
+    updatePreview();
   });
 
   document.getElementById("prop-width").addEventListener("input", (e) => {
     element.width = parseFloat(e.target.value) || 2;
     updateZPLOutput();
+    updatePreview();
   });
 
   document.getElementById("prop-ratio").addEventListener("input", (e) => {
     element.ratio = parseFloat(e.target.value) || 2.0;
     updateZPLOutput();
+    updatePreview();
   });
 }
 
@@ -249,12 +288,68 @@ function renderBarcodeProperties(element) {
 function updateZPLOutput() {
   if (elements.length === 0) {
     zplOutput.value = "";
+    updatePreview();
     return;
   }
 
   // Start with ZPL header (^XA) and end with footer (^XZ)
   const zplCommands = elements.map((element) => element.render()).join("\n");
   zplOutput.value = `^XA\n${zplCommands}\n^XZ`;
+
+  // Update preview when ZPL changes
+  updatePreview();
+}
+
+// Update Preview using Labelary API
+async function updatePreview() {
+  const zpl = zplOutput.value.trim();
+
+  // Hide preview elements
+  previewImage.style.display = "none";
+  previewError.style.display = "none";
+
+  if (!zpl || elements.length === 0) {
+    return;
+  }
+
+  // Show loading indicator
+  previewLoading.style.display = "block";
+
+  try {
+    const { width, height, dpmm } = labelSettings;
+    const url = `https://api.labelary.com/v1/printers/${dpmm}dpmm/labels/${width}x${height}/0/`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: zpl,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const imageUrl = URL.createObjectURL(blob);
+
+    previewImage.src = imageUrl;
+    previewImage.style.display = "block";
+    previewImage.onload = () => {
+      // Clean up old object URL
+      URL.revokeObjectURL(imageUrl);
+    };
+
+    previewError.style.display = "none";
+  } catch (error) {
+    console.error("Preview error:", error);
+    previewError.textContent = `Error loading preview: ${error.message}`;
+    previewError.style.display = "block";
+    previewImage.style.display = "none";
+  } finally {
+    previewLoading.style.display = "none";
+  }
 }
 
 // Copy ZPL to Clipboard

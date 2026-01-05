@@ -1,57 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZPL Template Creator</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
     <div class="container">
-        <header>
-            <h1>ZPL Template Creator</h1>
-            <p>Create custom ZPL templates for Zebra printers</p>
-        </header>
+      <header>
+        <h1>ZPL Template Creator</h1>
+        <p>Create custom ZPL templates for Zebra printers</p>
+      </header>
 
-        <div class="main-content">
-            <div class="sidebar">
-                <div class="section">
-                    <h2>Add Element</h2>
-                    <div class="element-buttons">
-                        <button id="add-text-btn" class="btn btn-primary">Add Text</button>
-                        <button id="add-barcode-btn" class="btn btn-primary">Add Barcode</button>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h2>Elements</h2>
-                    <div id="elements-list" class="elements-list">
-                        <p class="empty-state">No elements added yet</p>
-                    </div>
-                </div>
+      <div class="main-content">
+        <div class="sidebar">
+          <div class="section">
+            <h2>Label Settings</h2>
+            <div class="label-settings">
+              <div class="property-group">
+                <label>Width (inches)</label>
+                <input
+                  type="number"
+                  id="label-width"
+                  value="4"
+                  min="0.1"
+                  max="15"
+                  step="0.1"
+                />
+              </div>
+              <div class="property-group">
+                <label>Height (inches)</label>
+                <input
+                  type="number"
+                  id="label-height"
+                  value="6"
+                  min="0.1"
+                  max="15"
+                  step="0.1"
+                />
+              </div>
+              <div class="property-group">
+                <label>Print Density (dpmm)</label>
+                <select id="label-dpmm">
+                  <option value="6">6 dpmm</option>
+                  <option value="8" selected>8 dpmm</option>
+                  <option value="12">12 dpmm</option>
+                  <option value="24">24 dpmm</option>
+                </select>
+              </div>
             </div>
+          </div>
 
-            <div class="editor-area">
-                <div class="section">
-                    <h2>Properties</h2>
-                    <div id="properties-panel" class="properties-panel">
-                        <p class="empty-state">Select an element to edit properties</p>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h2>ZPL Output</h2>
-                    <div class="output-container">
-                        <textarea id="zpl-output" readonly class="zpl-output"></textarea>
-                        <button id="copy-btn" class="btn btn-secondary">Copy ZPL</button>
-                    </div>
-                </div>
+          <div class="section">
+            <h2>Add Element</h2>
+            <div class="element-buttons">
+              <button id="add-text-btn" class="btn btn-primary">
+                Add Text
+              </button>
+              <button id="add-barcode-btn" class="btn btn-primary">
+                Add Barcode
+              </button>
             </div>
+          </div>
+
+          <div class="section">
+            <h2>Elements</h2>
+            <div id="elements-list" class="elements-list">
+              <p class="empty-state">No elements added yet</p>
+            </div>
+          </div>
         </div>
+
+        <div class="editor-area">
+          <div class="section">
+            <h2>Preview</h2>
+            <div class="preview-container">
+              <div
+                id="preview-loading"
+                class="preview-loading"
+                style="display: none"
+              >
+                <p>Loading preview...</p>
+              </div>
+              <div
+                id="preview-error"
+                class="preview-error"
+                style="display: none"
+              ></div>
+              <img
+                id="preview-image"
+                class="preview-image"
+                alt="Label preview"
+                style="display: none"
+              />
+              <button id="refresh-preview-btn" class="btn btn-primary">
+                Refresh Preview
+              </button>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Properties</h2>
+            <div id="properties-panel" class="properties-panel">
+              <p class="empty-state">Select an element to edit properties</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>ZPL Output</h2>
+            <div class="output-container">
+              <textarea id="zpl-output" readonly class="zpl-output"></textarea>
+              <button id="copy-btn" class="btn btn-secondary">Copy ZPL</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="elements.js"></script>
     <script src="app.js"></script>
-</body>
+  </body>
 </html>
-
