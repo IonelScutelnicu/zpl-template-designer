@@ -32,17 +32,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
     labelSettings.width = parseFloat(e.target.value) || 101.6;
-    updatePreview();
   });
 
   labelHeight.addEventListener("input", (e) => {
     labelSettings.height = parseFloat(e.target.value) || 152.4;
-    updatePreview();
   });
 
   labelDpmm.addEventListener("change", (e) => {
     labelSettings.dpmm = parseInt(e.target.value) || 8;
-    updatePreview();
   });
 
   // Set up event delegation for elements list (only once)
@@ -76,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   updateZPLOutput();
-  updatePreview();
 });
 
 // Add Text Element
@@ -198,19 +194,16 @@ function renderTextProperties(element) {
     element.text = e.target.value;
     updateZPLOutput();
     updateElementsList();
-    updatePreview();
   });
 
   document.getElementById("prop-font-size").addEventListener("input", (e) => {
     element.fontSize = parseInt(e.target.value) || 30;
     updateZPLOutput();
-    updatePreview();
   });
 
   document.getElementById("prop-font-width").addEventListener("input", (e) => {
     element.fontWidth = parseInt(e.target.value) || 30;
     updateZPLOutput();
-    updatePreview();
   });
 }
 
@@ -248,39 +241,33 @@ function renderBarcodeProperties(element) {
     element.x = parseInt(e.target.value) || 0;
     updateZPLOutput();
     updateElementsList();
-    updatePreview();
   });
 
   document.getElementById("prop-y").addEventListener("input", (e) => {
     element.y = parseInt(e.target.value) || 0;
     updateZPLOutput();
     updateElementsList();
-    updatePreview();
   });
 
   document.getElementById("prop-data").addEventListener("input", (e) => {
     element.data = e.target.value;
     updateZPLOutput();
     updateElementsList();
-    updatePreview();
   });
 
   document.getElementById("prop-height").addEventListener("input", (e) => {
     element.height = parseInt(e.target.value) || 50;
     updateZPLOutput();
-    updatePreview();
   });
 
   document.getElementById("prop-width").addEventListener("input", (e) => {
     element.width = parseFloat(e.target.value) || 2;
     updateZPLOutput();
-    updatePreview();
   });
 
   document.getElementById("prop-ratio").addEventListener("input", (e) => {
     element.ratio = parseFloat(e.target.value) || 2.0;
     updateZPLOutput();
-    updatePreview();
   });
 }
 
@@ -288,16 +275,12 @@ function renderBarcodeProperties(element) {
 function updateZPLOutput() {
   if (elements.length === 0) {
     zplOutput.value = "";
-    updatePreview();
     return;
   }
 
   // Start with ZPL header (^XA) and end with footer (^XZ)
   const zplCommands = elements.map((element) => element.render()).join("\n");
   zplOutput.value = `^XA\n${zplCommands}\n^XZ`;
-
-  // Update preview when ZPL changes
-  updatePreview();
 }
 
 // Update Preview using Labelary API
