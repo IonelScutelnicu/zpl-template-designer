@@ -2,8 +2,8 @@
 let elements = [];
 let selectedElement = null;
 let labelSettings = {
-  width: 4,
-  height: 6,
+  width: 101.6, // in mm (4 inches)
+  height: 152.4, // in mm (6 inches)
   dpmm: 8,
 };
 
@@ -31,12 +31,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
-    labelSettings.width = parseFloat(e.target.value) || 4;
+    labelSettings.width = parseFloat(e.target.value) || 101.6;
     updatePreview();
   });
 
   labelHeight.addEventListener("input", (e) => {
-    labelSettings.height = parseFloat(e.target.value) || 6;
+    labelSettings.height = parseFloat(e.target.value) || 152.4;
     updatePreview();
   });
 
@@ -317,7 +317,10 @@ async function updatePreview() {
 
   try {
     const { width, height, dpmm } = labelSettings;
-    const url = `https://api.labelary.com/v1/printers/${dpmm}dpmm/labels/${width}x${height}/0/`;
+    // Convert mm to inches for the API (1 inch = 25.4 mm)
+    const widthInches = width / 25.4;
+    const heightInches = height / 25.4;
+    const url = `https://api.labelary.com/v1/printers/${dpmm}dpmm/labels/${widthInches}x${heightInches}/0/`;
 
     const response = await fetch(url, {
       method: "POST",
