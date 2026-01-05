@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZPL Template Creator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ZPL Template Creator</h1>
+            <p>Create custom ZPL templates for Zebra printers</p>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="section">
+                    <h2>Add Element</h2>
+                    <div class="element-buttons">
+                        <button id="add-text-btn" class="btn btn-primary">Add Text</button>
+                        <button id="add-barcode-btn" class="btn btn-primary">Add Barcode</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Elements</h2>
+                    <div id="elements-list" class="elements-list">
+                        <p class="empty-state">No elements added yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="editor-area">
+                <div class="section">
+                    <h2>Properties</h2>
+                    <div id="properties-panel" class="properties-panel">
+                        <p class="empty-state">Select an element to edit properties</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>ZPL Output</h2>
+                    <div class="output-container">
+                        <textarea id="zpl-output" readonly class="zpl-output"></textarea>
+                        <button id="copy-btn" class="btn btn-secondary">Copy ZPL</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="elements.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+

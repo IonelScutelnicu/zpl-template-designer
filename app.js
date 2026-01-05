@@ -1,0 +1,274 @@
+// Application State
+let elements = [];
+let selectedElement = null;
+
+// DOM Elements
+const addTextBtn = document.getElementById("add-text-btn");
+const addBarcodeBtn = document.getElementById("add-barcode-btn");
+const elementsList = document.getElementById("elements-list");
+const propertiesPanel = document.getElementById("properties-panel");
+const zplOutput = document.getElementById("zpl-output");
+const copyBtn = document.getElementById("copy-btn");
+
+// Initialize
+document.addEventListener("DOMContentLoaded", () => {
+  addTextBtn.addEventListener("click", addTextElement);
+  addBarcodeBtn.addEventListener("click", addBarcodeElement);
+  copyBtn.addEventListener("click", copyZPL);
+
+  // Set up event delegation for elements list (only once)
+  elementsList.addEventListener("click", (e) => {
+    // Check if delete button was clicked (either directly or as closest parent)
+    const deleteBtn = e.target.closest(".delete-btn");
+    if (deleteBtn || e.target.classList.contains("delete-btn")) {
+      e.stopPropagation();
+      e.preventDefault();
+      const btn = deleteBtn || e.target;
+      const idStr = btn.getAttribute("data-id");
+      if (idStr) {
+        deleteElement(idStr);
+      }
+      return;
+    }
+
+    // Check if element item was clicked (but not the delete button)
+    const elementItem = e.target.closest(".element-item");
+    if (elementItem) {
+      const idStr = elementItem.getAttribute("data-id");
+      if (idStr) {
+        // Find element by comparing string representations of IDs
+        selectedElement = elements.find((el) => String(el.id) === idStr);
+        if (selectedElement) {
+          updateElementsList();
+          renderPropertiesPanel();
+        }
+      }
+    }
+  });
+
+  updateZPLOutput();
+});
+
+// Add Text Element
+function addTextElement() {
+  const textElement = new TextElement(50, 50, "Sample Text", 30, 30);
+  elements.push(textElement);
+  selectedElement = textElement;
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+}
+
+// Add Barcode Element
+function addBarcodeElement() {
+  const barcodeElement = new BarcodeElement(50, 100, "1234567890", 50, 2, 2.0);
+  elements.push(barcodeElement);
+  selectedElement = barcodeElement;
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+}
+
+// Update Elements List
+function updateElementsList() {
+  if (elements.length === 0) {
+    elementsList.innerHTML = '<p class="empty-state">No elements added yet</p>';
+    return;
+  }
+
+  elementsList.innerHTML = elements
+    .map((element) => {
+      const isActive =
+        selectedElement && String(selectedElement.id) === String(element.id);
+      return `
+            <div class="element-item ${isActive ? "active" : ""}" data-id="${
+        element.id
+      }">
+                <div class="element-info">
+                    <div class="element-type">${element.type}</div>
+                    <div class="element-details">${element.getDisplayName()}</div>
+                </div>
+                <button class="delete-btn" data-id="${
+                  element.id
+                }">Delete</button>
+            </div>
+        `;
+    })
+    .join("");
+}
+
+// Delete Element
+function deleteElement(id) {
+  // Convert id to string for reliable comparison
+  const idStr = String(id);
+  // Filter out the element with matching ID (compare as strings)
+  elements = elements.filter((el) => String(el.id) !== idStr);
+  if (selectedElement && String(selectedElement.id) === idStr) {
+    selectedElement = null;
+  }
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+}
+
+// Render Properties Panel
+function renderPropertiesPanel() {
+  if (!selectedElement) {
+    propertiesPanel.innerHTML =
+      '<p class="empty-state">Select an element to edit properties</p>';
+    return;
+  }
+
+  if (selectedElement.type === "TEXT") {
+    renderTextProperties(selectedElement);
+  } else if (selectedElement.type === "BARCODE") {
+    renderBarcodeProperties(selectedElement);
+  }
+}
+
+// Render Text Properties
+function renderTextProperties(element) {
+  propertiesPanel.innerHTML = `
+        <div class="property-group">
+            <label>X Position</label>
+            <input type="number" id="prop-x" value="${element.x}" min="0">
+        </div>
+        <div class="property-group">
+            <label>Y Position</label>
+            <input type="number" id="prop-y" value="${element.y}" min="0">
+        </div>
+        <div class="property-group">
+            <label>Text</label>
+            <input type="text" id="prop-text" value="${element.text}">
+        </div>
+        <div class="property-group">
+            <label>Font Size (Height)</label>
+            <input type="number" id="prop-font-size" value="${element.fontSize}" min="1" max="32000">
+        </div>
+        <div class="property-group">
+            <label>Font Width</label>
+            <input type="number" id="prop-font-width" value="${element.fontWidth}" min="1" max="32000">
+        </div>
+    `;
+
+  // Add event listeners
+  document.getElementById("prop-x").addEventListener("input", (e) => {
+    element.x = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-y").addEventListener("input", (e) => {
+    element.y = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-text").addEventListener("input", (e) => {
+    element.text = e.target.value;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-font-size").addEventListener("input", (e) => {
+    element.fontSize = parseInt(e.target.value) || 30;
+    updateZPLOutput();
+  });
+
+  document.getElementById("prop-font-width").addEventListener("input", (e) => {
+    element.fontWidth = parseInt(e.target.value) || 30;
+    updateZPLOutput();
+  });
+}
+
+// Render Barcode Properties
+function renderBarcodeProperties(element) {
+  propertiesPanel.innerHTML = `
+        <div class="property-group">
+            <label>X Position</label>
+            <input type="number" id="prop-x" value="${element.x}" min="0">
+        </div>
+        <div class="property-group">
+            <label>Y Position</label>
+            <input type="number" id="prop-y" value="${element.y}" min="0">
+        </div>
+        <div class="property-group">
+            <label>Barcode Data</label>
+            <input type="text" id="prop-data" value="${element.data}">
+        </div>
+        <div class="property-group">
+            <label>Height</label>
+            <input type="number" id="prop-height" value="${element.height}" min="1" max="1000">
+        </div>
+        <div class="property-group">
+            <label>Width Multiplier</label>
+            <input type="number" id="prop-width" value="${element.width}" min="1" max="10" step="0.1">
+        </div>
+        <div class="property-group">
+            <label>Ratio</label>
+            <input type="number" id="prop-ratio" value="${element.ratio}" min="1" max="10" step="0.1">
+        </div>
+    `;
+
+  // Add event listeners
+  document.getElementById("prop-x").addEventListener("input", (e) => {
+    element.x = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-y").addEventListener("input", (e) => {
+    element.y = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-data").addEventListener("input", (e) => {
+    element.data = e.target.value;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-height").addEventListener("input", (e) => {
+    element.height = parseInt(e.target.value) || 50;
+    updateZPLOutput();
+  });
+
+  document.getElementById("prop-width").addEventListener("input", (e) => {
+    element.width = parseFloat(e.target.value) || 2;
+    updateZPLOutput();
+  });
+
+  document.getElementById("prop-ratio").addEventListener("input", (e) => {
+    element.ratio = parseFloat(e.target.value) || 2.0;
+    updateZPLOutput();
+  });
+}
+
+// Update ZPL Output
+function updateZPLOutput() {
+  if (elements.length === 0) {
+    zplOutput.value = "";
+    return;
+  }
+
+  // Start with ZPL header (^XA) and end with footer (^XZ)
+  const zplCommands = elements.map((element) => element.render()).join("\n");
+  zplOutput.value = `^XA\n${zplCommands}\n^XZ`;
+}
+
+// Copy ZPL to Clipboard
+function copyZPL() {
+  zplOutput.select();
+  zplOutput.setSelectionRange(0, 99999); // For mobile devices
+  document.execCommand("copy");
+
+  // Visual feedback
+  const originalText = copyBtn.textContent;
+  copyBtn.textContent = "Copied!";
+  copyBtn.style.background = "#28a745";
+  setTimeout(() => {
+    copyBtn.textContent = originalText;
+    copyBtn.style.background = "";
+  }, 2000);
+}
