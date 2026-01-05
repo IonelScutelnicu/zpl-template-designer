@@ -21,6 +21,9 @@ const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
+const exportBtn = document.getElementById("export-btn");
+const importBtn = document.getElementById("import-btn");
+const importFile = document.getElementById("import-file");
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
@@ -28,6 +31,9 @@ document.addEventListener("DOMContentLoaded", () => {
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
+  exportBtn.addEventListener("click", exportTemplate);
+  importBtn.addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", handleFileImport);
 
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
@@ -352,4 +358,135 @@ function copyZPL() {
     copyBtn.textContent = originalText;
     copyBtn.style.background = "";
   }, 2000);
+}
+
+// Export Template to JSON
+function exportTemplate() {
+  const template = {
+    version: "1.0",
+    labelSettings: labelSettings,
+    elements: elements.map((element) => {
+      const elementData = {
+        type: element.type,
+        x: element.x,
+        y: element.y,
+      };
+
+      if (element.type === "TEXT") {
+        elementData.text = element.text;
+        elementData.fontSize = element.fontSize;
+        elementData.fontWidth = element.fontWidth;
+      } else if (element.type === "BARCODE") {
+        elementData.data = element.data;
+        elementData.height = element.height;
+        elementData.width = element.width;
+        elementData.ratio = element.ratio;
+      }
+
+      return elementData;
+    }),
+  };
+
+  const json = JSON.stringify(template, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "zpl-template.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Handle File Import
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const template = JSON.parse(e.target.result);
+      importTemplate(template);
+    } catch (error) {
+      alert("Error importing template: " + error.message);
+    }
+  };
+  reader.readAsText(file);
+
+  // Reset file input so the same file can be imported again
+  event.target.value = "";
+}
+
+// Import Template from JSON
+function importTemplate(template) {
+  // Validate template structure
+  if (!template.elements || !Array.isArray(template.elements)) {
+    alert("Invalid template format: missing elements array");
+    return;
+  }
+
+  if (!template.labelSettings) {
+    alert("Invalid template format: missing label settings");
+    return;
+  }
+
+  // Clear current elements
+  elements = [];
+  selectedElement = null;
+
+  // Import label settings
+  if (template.labelSettings.width !== undefined) {
+    labelSettings.width = template.labelSettings.width;
+    labelWidth.value = labelSettings.width;
+  }
+  if (template.labelSettings.height !== undefined) {
+    labelSettings.height = template.labelSettings.height;
+    labelHeight.value = labelSettings.height;
+  }
+  if (template.labelSettings.dpmm !== undefined) {
+    labelSettings.dpmm = template.labelSettings.dpmm;
+    labelDpmm.value = labelSettings.dpmm;
+  }
+
+  // Recreate elements from template
+  template.elements.forEach((elementData) => {
+    let element;
+
+    if (elementData.type === "TEXT") {
+      element = new TextElement(
+        elementData.x || 0,
+        elementData.y || 0,
+        elementData.text || "",
+        elementData.fontSize || 30,
+        elementData.fontWidth || 30
+      );
+    } else if (elementData.type === "BARCODE") {
+      element = new BarcodeElement(
+        elementData.x || 0,
+        elementData.y || 0,
+        elementData.data || "",
+        elementData.height || 50,
+        elementData.width || 2,
+        elementData.ratio || 2.0
+      );
+    } else {
+      console.warn("Unknown element type:", elementData.type);
+      return;
+    }
+
+    // Generate new ID for imported element (don't preserve old IDs)
+    elements.push(element);
+  });
+
+  // Update UI
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+
+  // Trigger preview refresh
+  updatePreview();
 }

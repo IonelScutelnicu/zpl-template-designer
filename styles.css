@@ -225,6 +225,17 @@ header p {
   gap: 10px;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-group .btn {
+  flex: 1;
+  min-width: 120px;
+}
+
 .zpl-output {
   width: 100%;
   min-height: 200px;
