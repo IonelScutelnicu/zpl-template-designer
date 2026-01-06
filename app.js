@@ -2,9 +2,12 @@
 let elements = [];
 let selectedElement = null;
 let labelSettings = {
-  width: 100, // in mm (4 inches)
-  height: 50, // in mm (6 inches)
+  width: 100, // in mm
+  height: 50, // in mm
   dpmm: 8,
+  homeX: 0, // ^LH x position
+  homeY: 0, // ^LH y position
+  labelTop: 0, // ^LT label top shift
 };
 
 // DOM Elements
@@ -21,6 +24,9 @@ const importFile = document.getElementById("import-file");
 const labelWidth = document.getElementById("label-width");
 const labelHeight = document.getElementById("label-height");
 const labelDpmm = document.getElementById("label-dpmm");
+const homeX = document.getElementById("home-x");
+const homeY = document.getElementById("home-y");
+const labelTop = document.getElementById("label-top");
 const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
@@ -49,6 +55,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   labelDpmm.addEventListener("change", (e) => {
     labelSettings.dpmm = parseInt(e.target.value) || 8;
+  });
+
+  // Position offset event listeners
+  homeX.addEventListener("input", (e) => {
+    labelSettings.homeX = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+  });
+
+  homeY.addEventListener("input", (e) => {
+    labelSettings.homeY = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+  });
+
+  labelTop.addEventListener("input", (e) => {
+    labelSettings.labelTop = parseInt(e.target.value) || 0;
+    updateZPLOutput();
   });
 
   // Set up event delegation for elements list (only once)
@@ -295,9 +317,18 @@ function updateZPLOutput() {
     return;
   }
 
-  // Start with ZPL header (^XA) and end with footer (^XZ)
+  // Build ZPL with position offset commands
+  const { homeX: hx, homeY: hy, labelTop: lt } = labelSettings;
+
+  let zplHeader = "^XA\n";
+
+  // Add position offset comment and commands
+  zplHeader += "^FX --- Page Offset (x, y) ^FS\n";
+  zplHeader += `^LH${hx},${hy}\n`;
+  zplHeader += `^LT${lt}\n`;
+
   const zplCommands = elements.map((element) => element.render()).join("\n");
-  zplOutput.value = `^XA\n${zplCommands}\n^XZ`;
+  zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
 }
 
 // Update Preview using Labelary API
@@ -471,6 +502,18 @@ function importTemplate(template) {
   if (template.labelSettings.dpmm !== undefined) {
     labelSettings.dpmm = template.labelSettings.dpmm;
     labelDpmm.value = labelSettings.dpmm;
+  }
+  if (template.labelSettings.homeX !== undefined) {
+    labelSettings.homeX = template.labelSettings.homeX;
+    homeX.value = labelSettings.homeX;
+  }
+  if (template.labelSettings.homeY !== undefined) {
+    labelSettings.homeY = template.labelSettings.homeY;
+    homeY.value = labelSettings.homeY;
+  }
+  if (template.labelSettings.labelTop !== undefined) {
+    labelSettings.labelTop = template.labelSettings.labelTop;
+    labelTop.value = labelSettings.labelTop;
   }
 
   // Recreate elements from template

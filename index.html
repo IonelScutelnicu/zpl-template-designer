@@ -75,6 +75,33 @@
             </div>
           </div>
 
+          <!-- Position Offset -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <h2 class="font-semibold text-gray-800">Position Offset</h2>
+            </div>
+            <div class="p-5 space-y-4">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Home X</label>
+                  <input type="number" id="home-x" value="0" min="0" step="1"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Home Y</label>
+                  <input type="number" id="home-y" value="0" min="0" step="1"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Label Top Shift</label>
+                <input type="number" id="label-top" value="0" step="1"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2" />
+                <p class="text-xs text-gray-500 mt-1">Positive = down, Negative = up</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Add Elements -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
