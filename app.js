@@ -7,6 +7,9 @@ let labelSettings = {
   dpmm: 8,
   printOrientation: "N", // N = normal, I = inverted
   mediaDarkness: 25, // ~SD value (0-30)
+  printSpeed: 4, // ^PR value (2-14)
+  slewSpeed: 4, // ^PR value (2-14)
+  backfeedSpeed: 4, // ^PR value (2-14)
   homeX: 0, // ^LH x position
   homeY: 0, // ^LH y position
   labelTop: 0, // ^LT label top shift
@@ -31,6 +34,9 @@ const homeY = document.getElementById("home-y");
 const labelTop = document.getElementById("label-top");
 const printOrientation = document.getElementById("print-orientation");
 const mediaDarkness = document.getElementById("media-darkness");
+const printSpeed = document.getElementById("print-speed");
+const slewSpeed = document.getElementById("slew-speed");
+const backfeedSpeed = document.getElementById("backfeed-speed");
 const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
@@ -70,6 +76,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   mediaDarkness.addEventListener("input", (e) => {
     labelSettings.mediaDarkness = parseInt(e.target.value) || 25;
+    updateZPLOutput();
+  });
+
+  printSpeed.addEventListener("input", (e) => {
+    labelSettings.printSpeed = parseInt(e.target.value) || 4;
+    updateZPLOutput();
+  });
+
+  slewSpeed.addEventListener("input", (e) => {
+    labelSettings.slewSpeed = parseInt(e.target.value) || 4;
+    updateZPLOutput();
+  });
+
+  backfeedSpeed.addEventListener("input", (e) => {
+    labelSettings.backfeedSpeed = parseInt(e.target.value) || 4;
     updateZPLOutput();
   });
 
@@ -334,7 +355,7 @@ function updateZPLOutput() {
   }
 
   // Build ZPL with settings commands
-  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md } = labelSettings;
+  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs } = labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -343,6 +364,9 @@ function updateZPLOutput() {
 
   // Add print width command
   zplHeader += `^PW${printWidthDots}\n`;
+
+  // Add print speed command
+  zplHeader += `^PR${ps},${ss},${bs}\n`;
 
   // Add print orientation command
   zplHeader += `^PO${po}\n`;
@@ -549,6 +573,18 @@ function importTemplate(template) {
   if (template.labelSettings.mediaDarkness !== undefined) {
     labelSettings.mediaDarkness = template.labelSettings.mediaDarkness;
     mediaDarkness.value = labelSettings.mediaDarkness;
+  }
+  if (template.labelSettings.printSpeed !== undefined) {
+    labelSettings.printSpeed = template.labelSettings.printSpeed;
+    printSpeed.value = labelSettings.printSpeed;
+  }
+  if (template.labelSettings.slewSpeed !== undefined) {
+    labelSettings.slewSpeed = template.labelSettings.slewSpeed;
+    slewSpeed.value = labelSettings.slewSpeed;
+  }
+  if (template.labelSettings.backfeedSpeed !== undefined) {
+    labelSettings.backfeedSpeed = template.labelSettings.backfeedSpeed;
+    backfeedSpeed.value = labelSettings.backfeedSpeed;
   }
 
   // Recreate elements from template
