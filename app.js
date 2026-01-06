@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
     labelSettings.width = parseFloat(e.target.value) || 100;
+    updateZPLOutput();
   });
 
   labelHeight.addEventListener("input", (e) => {
@@ -59,6 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   labelDpmm.addEventListener("change", (e) => {
     labelSettings.dpmm = parseInt(e.target.value) || 8;
+    updateZPLOutput();
   });
 
   printOrientation.addEventListener("change", (e) => {
@@ -332,20 +334,23 @@ function updateZPLOutput() {
   }
 
   // Build ZPL with settings commands
-  const { homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md } = labelSettings;
+  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md } = labelSettings;
+
+  // Calculate print width in dots (width in mm × dpmm)
+  const printWidthDots = Math.round(width * dpmm);
 
   let zplHeader = "^XA\n";
 
-  // Add print orientation comment and command
-  zplHeader += "^FX --- Print Orientation (POI = inverted, PON = normal) ^FS\n";
+  // Add print width command
+  zplHeader += `^PW${printWidthDots}\n`;
+
+  // Add print orientation command
   zplHeader += `^PO${po}\n`;
 
-  // Add media darkness comment and command
-  zplHeader += `^FX --- Fixed Media Darkness: ${md} ^FS\n`;
+  // Add media darkness command
   zplHeader += `~SD${md}\n`;
 
-  // Add position offset comment and commands
-  zplHeader += "^FX --- Page Offset (x, y) ^FS\n";
+  // Add position offset commands
   zplHeader += `^LH${hx},${hy}\n`;
   zplHeader += `^LT${lt}\n`;
 
