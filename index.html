@@ -75,6 +75,32 @@
             </div>
           </div>
 
+          <!-- Print Orientation -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <h2 class="font-semibold text-gray-800">Print Orientation</h2>
+            </div>
+            <div class="p-5">
+              <select id="print-orientation"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2">
+                <option value="N" selected>Normal (PON)</option>
+                <option value="I">Inverted (POI)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Media Darkness -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <h2 class="font-semibold text-gray-800">Media Darkness</h2>
+            </div>
+            <div class="p-5">
+              <input type="number" id="media-darkness" value="25" min="0" max="30" step="1"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2" />
+              <p class="text-xs text-gray-500 mt-1">Value 0-30 (default: 25)</p>
+            </div>
+          </div>
+
           <!-- Position Offset -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">

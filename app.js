@@ -5,6 +5,8 @@ let labelSettings = {
   width: 100, // in mm
   height: 50, // in mm
   dpmm: 8,
+  printOrientation: "N", // N = normal, I = inverted
+  mediaDarkness: 25, // ~SD value (0-30)
   homeX: 0, // ^LH x position
   homeY: 0, // ^LH y position
   labelTop: 0, // ^LT label top shift
@@ -27,6 +29,8 @@ const labelDpmm = document.getElementById("label-dpmm");
 const homeX = document.getElementById("home-x");
 const homeY = document.getElementById("home-y");
 const labelTop = document.getElementById("label-top");
+const printOrientation = document.getElementById("print-orientation");
+const mediaDarkness = document.getElementById("media-darkness");
 const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
@@ -55,6 +59,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   labelDpmm.addEventListener("change", (e) => {
     labelSettings.dpmm = parseInt(e.target.value) || 8;
+  });
+
+  printOrientation.addEventListener("change", (e) => {
+    labelSettings.printOrientation = e.target.value || "N";
+    updateZPLOutput();
+  });
+
+  mediaDarkness.addEventListener("input", (e) => {
+    labelSettings.mediaDarkness = parseInt(e.target.value) || 25;
+    updateZPLOutput();
   });
 
   // Position offset event listeners
@@ -317,10 +331,18 @@ function updateZPLOutput() {
     return;
   }
 
-  // Build ZPL with position offset commands
-  const { homeX: hx, homeY: hy, labelTop: lt } = labelSettings;
+  // Build ZPL with settings commands
+  const { homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md } = labelSettings;
 
   let zplHeader = "^XA\n";
+
+  // Add print orientation comment and command
+  zplHeader += "^FX --- Print Orientation (POI = inverted, PON = normal) ^FS\n";
+  zplHeader += `^PO${po}\n`;
+
+  // Add media darkness comment and command
+  zplHeader += `^FX --- Fixed Media Darkness: ${md} ^FS\n`;
+  zplHeader += `~SD${md}\n`;
 
   // Add position offset comment and commands
   zplHeader += "^FX --- Page Offset (x, y) ^FS\n";
@@ -514,6 +536,14 @@ function importTemplate(template) {
   if (template.labelSettings.labelTop !== undefined) {
     labelSettings.labelTop = template.labelSettings.labelTop;
     labelTop.value = labelSettings.labelTop;
+  }
+  if (template.labelSettings.printOrientation !== undefined) {
+    labelSettings.printOrientation = template.labelSettings.printOrientation;
+    printOrientation.value = labelSettings.printOrientation;
+  }
+  if (template.labelSettings.mediaDarkness !== undefined) {
+    labelSettings.mediaDarkness = template.labelSettings.mediaDarkness;
+    mediaDarkness.value = labelSettings.mediaDarkness;
   }
 
   // Recreate elements from template
