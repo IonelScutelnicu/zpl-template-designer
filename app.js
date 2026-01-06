@@ -2,8 +2,8 @@
 let elements = [];
 let selectedElement = null;
 let labelSettings = {
-  width: 101.6, // in mm (4 inches)
-  height: 152.4, // in mm (6 inches)
+  width: 100, // in mm (4 inches)
+  height: 50, // in mm (6 inches)
   dpmm: 8,
 };
 
@@ -40,11 +40,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
-    labelSettings.width = parseFloat(e.target.value) || 101.6;
+    labelSettings.width = parseFloat(e.target.value) || 100;
   });
 
   labelHeight.addEventListener("input", (e) => {
-    labelSettings.height = parseFloat(e.target.value) || 152.4;
+    labelSettings.height = parseFloat(e.target.value) || 50;
   });
 
   labelDpmm.addEventListener("change", (e) => {
@@ -92,6 +92,7 @@ function addTextElement() {
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
+  updatePreview();
 }
 
 // Add Barcode Element
@@ -102,6 +103,7 @@ function addBarcodeElement() {
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
+  updatePreview();
 }
 
 // Add Box Element
@@ -112,6 +114,7 @@ function addBoxElement() {
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
+  updatePreview();
 }
 
 // Update Elements List
@@ -125,9 +128,9 @@ function updateElementsList() {
     .map((element) => {
       const isActive =
         selectedElement && String(selectedElement.id) === String(element.id);
-      
-      const activeClasses = isActive 
-        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" 
+
+      const activeClasses = isActive
+        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
         : "border-gray-200 hover:border-indigo-300 hover:shadow-md";
 
       return `
@@ -163,6 +166,7 @@ function deleteElement(id) {
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
+  updatePreview();
 }
 
 // Helper to generate input HTML
@@ -198,7 +202,7 @@ function renderPropertiesPanel() {
 
   // Common wrapper with fade-in effect
   let content = '';
-  
+
   if (selectedElement.type === "TEXT") {
     content = renderTextPropertiesHTML(selectedElement);
   } else if (selectedElement.type === "BARCODE") {
@@ -212,33 +216,33 @@ function renderPropertiesPanel() {
 }
 
 function renderTextPropertiesHTML(element) {
-    return `
-        ${createInputGroup("X Position", "prop-x", element.x, "number", {min: 0})}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", {min: 0})}
+  return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Text", "prop-text", element.text)}
-        ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", {min: 1, max: 32000})}
-        ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", {min: 1, max: 32000})}
+        ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
+        ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
     `;
 }
 
 function renderBarcodePropertiesHTML(element) {
-    return `
-        ${createInputGroup("X Position", "prop-x", element.x, "number", {min: 0})}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", {min: 0})}
+  return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Barcode Data", "prop-data", element.data)}
-        ${createInputGroup("Height", "prop-height", element.height, "number", {min: 1, max: 1000})}
-        ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", {min: 1, max: 10, step: 0.1})}
-        ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", {min: 1, max: 10, step: 0.1})}
+        ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
+        ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
+        ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
     `;
 }
 
 function renderBoxPropertiesHTML(element) {
-    return `
-        ${createInputGroup("X Position", "prop-x", element.x, "number", {min: 0})}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", {min: 0})}
-        ${createInputGroup("Width", "prop-width", element.width, "number", {min: 1, max: 32000})}
-        ${createInputGroup("Height", "prop-height", element.height, "number", {min: 1, max: 32000})}
-        ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", {min: 1, max: 32000})}
+  return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+        ${createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+        ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
+        ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
             <select id="prop-color" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm">
@@ -246,41 +250,41 @@ function renderBoxPropertiesHTML(element) {
                 <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
             </select>
         </div>
-        ${createInputGroup("Rounding", "prop-rounding", element.rounding, "number", {min: 0, max: 32000})}
+        ${createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
     `;
 }
 
 function attachPropertyListeners(element) {
-    // Common interactions
-    const attach = (id, field, parser = (v)=>v) => {
-        const el = document.getElementById(id);
-        if(!el) return;
-        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-             element[field] = parser(e.target.value);
-             updateZPLOutput();
-             updateElementsList(); // Update list to refect changes (like display name)
-        });
-    };
+  // Common interactions
+  const attach = (id, field, parser = (v) => v) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+      element[field] = parser(e.target.value);
+      updateZPLOutput();
+      updateElementsList(); // Update list to refect changes (like display name)
+    });
+  };
 
-    attach("prop-x", "x", (v) => parseInt(v) || 0);
-    attach("prop-y", "y", (v) => parseInt(v) || 0);
+  attach("prop-x", "x", (v) => parseInt(v) || 0);
+  attach("prop-y", "y", (v) => parseInt(v) || 0);
 
-    if (element.type === "TEXT") {
-        attach("prop-text", "text");
-        attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
-        attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
-    } else if (element.type === "BARCODE") {
-        attach("prop-data", "data");
-        attach("prop-height", "height", (v) => parseInt(v) || 50);
-        attach("prop-width", "width", (v) => parseFloat(v) || 2);
-        attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
-    } else if (element.type === "BOX") {
-        attach("prop-width", "width", (v) => parseInt(v) || 100);
-        attach("prop-height", "height", (v) => parseInt(v) || 50);
-        attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
-        attach("prop-color", "color");
-        attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
-    }
+  if (element.type === "TEXT") {
+    attach("prop-text", "text");
+    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
+    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+  } else if (element.type === "BARCODE") {
+    attach("prop-data", "data");
+    attach("prop-height", "height", (v) => parseInt(v) || 50);
+    attach("prop-width", "width", (v) => parseFloat(v) || 2);
+    attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
+  } else if (element.type === "BOX") {
+    attach("prop-width", "width", (v) => parseInt(v) || 100);
+    attach("prop-height", "height", (v) => parseInt(v) || 50);
+    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    attach("prop-color", "color");
+    attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+  }
 }
 
 
@@ -360,11 +364,11 @@ function copyZPL() {
   // Visual feedback
   const originalText = copyBtn.textContent;
   const originalClasses = copyBtn.className;
-  
+
   copyBtn.textContent = "Copied!";
   copyBtn.classList.remove('bg-gray-800', 'hover:bg-gray-900');
   copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-  
+
   setTimeout(() => {
     copyBtn.textContent = originalText;
     copyBtn.className = originalClasses;
