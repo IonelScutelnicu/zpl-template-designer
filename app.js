@@ -15,12 +15,16 @@ const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutput = document.getElementById("zpl-output");
 const copyBtn = document.getElementById("copy-btn");
+const exportBtn = document.getElementById("export-btn");
+const importBtn = document.getElementById("import-btn");
+const importFile = document.getElementById("import-file");
 const labelWidth = document.getElementById("label-width");
 const labelHeight = document.getElementById("label-height");
 const labelDpmm = document.getElementById("label-dpmm");
 const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
+const previewPlaceholder = document.getElementById("preview-placeholder");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
 
 // Initialize
@@ -113,7 +117,7 @@ function addBoxElement() {
 // Update Elements List
 function updateElementsList() {
   if (elements.length === 0) {
-    elementsList.innerHTML = '<p class="empty-state">No elements added yet</p>';
+    elementsList.innerHTML = '<p class="text-center text-gray-400 py-8 italic text-sm">No elements added yet</p>';
     return;
   }
 
@@ -121,17 +125,26 @@ function updateElementsList() {
     .map((element) => {
       const isActive =
         selectedElement && String(selectedElement.id) === String(element.id);
+      
+      const activeClasses = isActive 
+        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500" 
+        : "border-gray-200 hover:border-indigo-300 hover:shadow-md";
+
       return `
-            <div class="element-item ${isActive ? "active" : ""}" data-id="${
-        element.id
-      }">
-                <div class="element-info">
-                    <div class="element-type">${element.type}</div>
-                    <div class="element-details">${element.getDisplayName()}</div>
+            <div class="element-item group relative flex justify-between items-center p-3 mb-2 rounded-lg border transition-all cursor-pointer shadow-sm ${activeClasses}" data-id="${element.id}">
+                <div class="flex-1 min-w-0 pr-2">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                          ${element.type}
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-600 mt-1 truncate font-medium">${element.getDisplayName()}</div>
                 </div>
-                <button class="delete-btn" data-id="${
-                  element.id
-                }">Delete</button>
+                <button class="delete-btn opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-500 hover:bg-red-50 rounded-md" title="Delete" data-id="${element.id}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
             </div>
         `;
     })
@@ -152,231 +165,124 @@ function deleteElement(id) {
   updateZPLOutput();
 }
 
+// Helper to generate input HTML
+function createInputGroup(label, id, value, type = "text", options = {}) {
+  const { min, max, step } = options;
+  const attributes = [
+    min !== undefined ? `min="${min}"` : "",
+    max !== undefined ? `max="${max}"` : "",
+    step !== undefined ? `step="${step}"` : "",
+  ].join(" ");
+
+  return `
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+        <input 
+            type="${type}" 
+            id="${id}" 
+            value="${value}" 
+            ${attributes}
+            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm"
+        >
+    </div>
+  `;
+}
+
 // Render Properties Panel
 function renderPropertiesPanel() {
   if (!selectedElement) {
     propertiesPanel.innerHTML =
-      '<p class="empty-state">Select an element to edit properties</p>';
+      '<p class="text-center text-gray-400 py-12 italic">Select an element to edit properties</p>';
     return;
   }
 
+  // Common wrapper with fade-in effect
+  let content = '';
+  
   if (selectedElement.type === "TEXT") {
-    renderTextProperties(selectedElement);
+    content = renderTextPropertiesHTML(selectedElement);
   } else if (selectedElement.type === "BARCODE") {
-    renderBarcodeProperties(selectedElement);
+    content = renderBarcodePropertiesHTML(selectedElement);
   } else if (selectedElement.type === "BOX") {
-    renderBoxProperties(selectedElement);
+    content = renderBoxPropertiesHTML(selectedElement);
   }
+
+  propertiesPanel.innerHTML = `<div class="animate-fade-in">${content}</div>`;
+  attachPropertyListeners(selectedElement);
 }
 
-// Render Text Properties
-function renderTextProperties(element) {
-  propertiesPanel.innerHTML = `
-        <div class="property-group">
-            <label>X Position</label>
-            <input type="number" id="prop-x" value="${element.x}" min="0">
-        </div>
-        <div class="property-group">
-            <label>Y Position</label>
-            <input type="number" id="prop-y" value="${element.y}" min="0">
-        </div>
-        <div class="property-group">
-            <label>Text</label>
-            <input type="text" id="prop-text" value="${element.text}">
-        </div>
-        <div class="property-group">
-            <label>Font Size (Height)</label>
-            <input type="number" id="prop-font-size" value="${element.fontSize}" min="1" max="32000">
-        </div>
-        <div class="property-group">
-            <label>Font Width</label>
-            <input type="number" id="prop-font-width" value="${element.fontWidth}" min="1" max="32000">
-        </div>
+function renderTextPropertiesHTML(element) {
+    return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", {min: 0})}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", {min: 0})}
+        ${createInputGroup("Text", "prop-text", element.text)}
+        ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", {min: 1, max: 32000})}
+        ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", {min: 1, max: 32000})}
     `;
-
-  // Add event listeners
-  document.getElementById("prop-x").addEventListener("input", (e) => {
-    element.x = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-y").addEventListener("input", (e) => {
-    element.y = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-text").addEventListener("input", (e) => {
-    element.text = e.target.value;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-font-size").addEventListener("input", (e) => {
-    element.fontSize = parseInt(e.target.value) || 30;
-    updateZPLOutput();
-  });
-
-  document.getElementById("prop-font-width").addEventListener("input", (e) => {
-    element.fontWidth = parseInt(e.target.value) || 30;
-    updateZPLOutput();
-  });
 }
 
-// Render Barcode Properties
-function renderBarcodeProperties(element) {
-  propertiesPanel.innerHTML = `
-        <div class="property-group">
-            <label>X Position</label>
-            <input type="number" id="prop-x" value="${element.x}" min="0">
-        </div>
-        <div class="property-group">
-            <label>Y Position</label>
-            <input type="number" id="prop-y" value="${element.y}" min="0">
-        </div>
-        <div class="property-group">
-            <label>Barcode Data</label>
-            <input type="text" id="prop-data" value="${element.data}">
-        </div>
-        <div class="property-group">
-            <label>Height</label>
-            <input type="number" id="prop-height" value="${element.height}" min="1" max="1000">
-        </div>
-        <div class="property-group">
-            <label>Width Multiplier</label>
-            <input type="number" id="prop-width" value="${element.width}" min="1" max="10" step="0.1">
-        </div>
-        <div class="property-group">
-            <label>Ratio</label>
-            <input type="number" id="prop-ratio" value="${element.ratio}" min="1" max="10" step="0.1">
-        </div>
+function renderBarcodePropertiesHTML(element) {
+    return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", {min: 0})}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", {min: 0})}
+        ${createInputGroup("Barcode Data", "prop-data", element.data)}
+        ${createInputGroup("Height", "prop-height", element.height, "number", {min: 1, max: 1000})}
+        ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", {min: 1, max: 10, step: 0.1})}
+        ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", {min: 1, max: 10, step: 0.1})}
     `;
-
-  // Add event listeners
-  document.getElementById("prop-x").addEventListener("input", (e) => {
-    element.x = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-y").addEventListener("input", (e) => {
-    element.y = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-data").addEventListener("input", (e) => {
-    element.data = e.target.value;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-height").addEventListener("input", (e) => {
-    element.height = parseInt(e.target.value) || 50;
-    updateZPLOutput();
-  });
-
-  document.getElementById("prop-width").addEventListener("input", (e) => {
-    element.width = parseFloat(e.target.value) || 2;
-    updateZPLOutput();
-  });
-
-  document.getElementById("prop-ratio").addEventListener("input", (e) => {
-    element.ratio = parseFloat(e.target.value) || 2.0;
-    updateZPLOutput();
-  });
 }
 
-// Render Box Properties
-function renderBoxProperties(element) {
-  propertiesPanel.innerHTML = `
-        <div class="property-group">
-            <label>X Position</label>
-            <input type="number" id="prop-x" value="${element.x}" min="0">
-        </div>
-        <div class="property-group">
-            <label>Y Position</label>
-            <input type="number" id="prop-y" value="${element.y}" min="0">
-        </div>
-        <div class="property-group">
-            <label>Width</label>
-            <input type="number" id="prop-width" value="${
-              element.width
-            }" min="1" max="32000">
-        </div>
-        <div class="property-group">
-            <label>Height</label>
-            <input type="number" id="prop-height" value="${
-              element.height
-            }" min="1" max="32000">
-        </div>
-        <div class="property-group">
-            <label>Thickness</label>
-            <input type="number" id="prop-thickness" value="${
-              element.thickness
-            }" min="1" max="32000">
-        </div>
-        <div class="property-group">
-            <label>Color</label>
-            <select id="prop-color">
-                <option value="B" ${
-                  element.color === "B" ? "selected" : ""
-                }>Black</option>
-                <option value="W" ${
-                  element.color === "W" ? "selected" : ""
-                }>White</option>
+function renderBoxPropertiesHTML(element) {
+    return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", {min: 0})}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", {min: 0})}
+        ${createInputGroup("Width", "prop-width", element.width, "number", {min: 1, max: 32000})}
+        ${createInputGroup("Height", "prop-height", element.height, "number", {min: 1, max: 32000})}
+        ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", {min: 1, max: 32000})}
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
+            <select id="prop-color" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm">
+                <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
+                <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
             </select>
         </div>
-        <div class="property-group">
-            <label>Rounding</label>
-            <input type="number" id="prop-rounding" value="${
-              element.rounding
-            }" min="0" max="32000">
-        </div>
+        ${createInputGroup("Rounding", "prop-rounding", element.rounding, "number", {min: 0, max: 32000})}
     `;
-
-  // Add event listeners
-  document.getElementById("prop-x").addEventListener("input", (e) => {
-    element.x = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-y").addEventListener("input", (e) => {
-    element.y = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-width").addEventListener("input", (e) => {
-    element.width = parseInt(e.target.value) || 100;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-height").addEventListener("input", (e) => {
-    element.height = parseInt(e.target.value) || 50;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-thickness").addEventListener("input", (e) => {
-    element.thickness = parseInt(e.target.value) || 3;
-    updateZPLOutput();
-  });
-
-  document.getElementById("prop-color").addEventListener("change", (e) => {
-    element.color = e.target.value;
-    updateZPLOutput();
-    updateElementsList();
-  });
-
-  document.getElementById("prop-rounding").addEventListener("input", (e) => {
-    element.rounding = parseInt(e.target.value) || 0;
-    updateZPLOutput();
-  });
 }
+
+function attachPropertyListeners(element) {
+    // Common interactions
+    const attach = (id, field, parser = (v)=>v) => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+             element[field] = parser(e.target.value);
+             updateZPLOutput();
+             updateElementsList(); // Update list to refect changes (like display name)
+        });
+    };
+
+    attach("prop-x", "x", (v) => parseInt(v) || 0);
+    attach("prop-y", "y", (v) => parseInt(v) || 0);
+
+    if (element.type === "TEXT") {
+        attach("prop-text", "text");
+        attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
+        attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+    } else if (element.type === "BARCODE") {
+        attach("prop-data", "data");
+        attach("prop-height", "height", (v) => parseInt(v) || 50);
+        attach("prop-width", "width", (v) => parseFloat(v) || 2);
+        attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
+    } else if (element.type === "BOX") {
+        attach("prop-width", "width", (v) => parseInt(v) || 100);
+        attach("prop-height", "height", (v) => parseInt(v) || 50);
+        attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+        attach("prop-color", "color");
+        attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+    }
+}
+
 
 // Update ZPL Output
 function updateZPLOutput() {
@@ -394,16 +300,18 @@ function updateZPLOutput() {
 async function updatePreview() {
   const zpl = zplOutput.value.trim();
 
-  // Hide preview elements
-  previewImage.style.display = "none";
-  previewError.style.display = "none";
+  // Reset states
+  previewImage.classList.add('hidden');
+  previewError.classList.add('hidden');
+  previewPlaceholder.classList.add('hidden');
 
   if (!zpl || elements.length === 0) {
+    previewPlaceholder.classList.remove('hidden');
     return;
   }
 
   // Show loading indicator
-  previewLoading.style.display = "block";
+  previewLoading.classList.remove('hidden');
 
   try {
     const { width, height, dpmm } = labelSettings;
@@ -428,20 +336,18 @@ async function updatePreview() {
     const imageUrl = URL.createObjectURL(blob);
 
     previewImage.src = imageUrl;
-    previewImage.style.display = "block";
+    previewImage.classList.remove('hidden');
     previewImage.onload = () => {
       // Clean up old object URL
       URL.revokeObjectURL(imageUrl);
     };
 
-    previewError.style.display = "none";
   } catch (error) {
     console.error("Preview error:", error);
     previewError.textContent = `Error loading preview: ${error.message}`;
-    previewError.style.display = "block";
-    previewImage.style.display = "none";
+    previewError.classList.remove('hidden');
   } finally {
-    previewLoading.style.display = "none";
+    previewLoading.classList.add('hidden');
   }
 }
 
@@ -453,11 +359,15 @@ function copyZPL() {
 
   // Visual feedback
   const originalText = copyBtn.textContent;
+  const originalClasses = copyBtn.className;
+  
   copyBtn.textContent = "Copied!";
-  copyBtn.style.background = "#28a745";
+  copyBtn.classList.remove('bg-gray-800', 'hover:bg-gray-900');
+  copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+  
   setTimeout(() => {
     copyBtn.textContent = originalText;
-    copyBtn.style.background = "";
+    copyBtn.className = originalClasses;
   }, 2000);
 }
 

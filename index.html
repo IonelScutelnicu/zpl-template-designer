@@ -1,132 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZPL Template Creator</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="container">
-      <header>
-        <h1>ZPL Template Creator</h1>
-        <p>Create custom ZPL templates for Zebra printers</p>
-      </header>
 
-      <div class="main-content">
-        <div class="sidebar">
-          <div class="section">
-            <h2>Label Settings</h2>
-            <div class="label-settings">
-              <div class="property-group">
-                <label>Width (mm)</label>
-                <input
-                  type="number"
-                  id="label-width"
-                  value="101.6"
-                  min="2.54"
-                  max="381"
-                  step="0.1"
-                />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZPL Template Creator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Custom scrollbar for better look */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #c7c7c7;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+  <div class="min-h-screen flex flex-col">
+    <header class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-6 py-8">
+        <h1 class="text-3xl font-bold tracking-tight">ZPL Template Creator</h1>
+        <p class="mt-2 text-indigo-100 text-lg">Create custom ZPL templates for Zebra printers with ease</p>
+      </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto w-full px-6 py-8">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Sidebar: Settings & Elements -->
+        <aside class="lg:col-span-3 space-y-6">
+          <!-- Label Settings -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <h2 class="font-semibold text-gray-800">Label Settings</h2>
+            </div>
+            <div class="p-5 space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Width (mm)</label>
+                <input type="number" id="label-width" value="101.6" min="2.54" max="381" step="0.1"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2" />
               </div>
-              <div class="property-group">
-                <label>Height (mm)</label>
-                <input
-                  type="number"
-                  id="label-height"
-                  value="152.4"
-                  min="2.54"
-                  max="381"
-                  step="0.1"
-                />
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Height (mm)</label>
+                <input type="number" id="label-height" value="152.4" min="2.54" max="381" step="0.1"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2" />
               </div>
-              <div class="property-group">
-                <label>Print Density (dpmm)</label>
-                <select id="label-dpmm">
-                  <option value="6">6 dpmm</option>
-                  <option value="8" selected>8 dpmm</option>
-                  <option value="12">12 dpmm</option>
-                  <option value="24">24 dpmm</option>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Print Density</label>
+                <select id="label-dpmm"
+                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2">
+                  <option value="6">6 dpmm (152 dpi)</option>
+                  <option value="8" selected>8 dpmm (203 dpi)</option>
+                  <option value="12">12 dpmm (300 dpi)</option>
+                  <option value="24">24 dpmm (600 dpi)</option>
                 </select>
               </div>
             </div>
           </div>
 
-           <div class="section">
-             <h2>Add Element</h2>
-             <div class="element-buttons">
-               <button id="add-text-btn" class="btn btn-primary">
-                 Add Text
-               </button>
-               <button id="add-barcode-btn" class="btn btn-primary">
-                 Add Barcode
-               </button>
-               <button id="add-box-btn" class="btn btn-primary">
-                 Add Box
-               </button>
-             </div>
-           </div>
-
-          <div class="section">
-            <h2>Elements</h2>
-            <div id="elements-list" class="elements-list">
-              <p class="empty-state">No elements added yet</p>
+          <!-- Add Elements -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <h2 class="font-semibold text-gray-800">Add Element</h2>
             </div>
-          </div>
-        </div>
-
-        <div class="editor-area">
-          <div class="section">
-            <h2>Preview</h2>
-            <div class="preview-container">
-              <div
-                id="preview-loading"
-                class="preview-loading"
-                style="display: none"
-              >
-                <p>Loading preview...</p>
-              </div>
-              <div
-                id="preview-error"
-                class="preview-error"
-                style="display: none"
-              ></div>
-              <img
-                id="preview-image"
-                class="preview-image"
-                alt="Label preview"
-                style="display: none"
-              />
-              <button id="refresh-preview-btn" class="btn btn-primary">
-                Refresh Preview
+            <div class="p-5 flex flex-col gap-3">
+              <button id="add-text-btn"
+                class="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-50 font-medium py-2 px-4 rounded-lg transition-all duration-200">
+                <span class="text-xl">+</span> Add Text
+              </button>
+              <button id="add-barcode-btn"
+                class="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-50 font-medium py-2 px-4 rounded-lg transition-all duration-200">
+                <span class="text-xl">+</span> Add Barcode
+              </button>
+              <button id="add-box-btn"
+                class="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 text-indigo-700 hover:border-indigo-500 hover:bg-indigo-50 font-medium py-2 px-4 rounded-lg transition-all duration-200">
+                <span class="text-xl">+</span> Add Box
               </button>
             </div>
           </div>
 
-          <div class="section">
-            <h2>Properties</h2>
-            <div id="properties-panel" class="properties-panel">
-              <p class="empty-state">Select an element to edit properties</p>
+          <!-- Elements List -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+              <h2 class="font-semibold text-gray-800">Elements</h2>
+            </div>
+            <div id="elements-list" class="p-4 space-y-2 max-h-[400px] overflow-y-auto">
+              <p class="text-center text-gray-400 py-8 italic text-sm">No elements added yet</p>
             </div>
           </div>
+        </aside>
 
-          <div class="section">
-            <h2>ZPL Output</h2>
-            <div class="output-container">
-              <textarea id="zpl-output" readonly class="zpl-output"></textarea>
-              <div class="button-group">
-                <button id="copy-btn" class="btn btn-secondary">Copy ZPL</button>
-                <button id="export-btn" class="btn btn-secondary">Export Template</button>
-                <button id="import-btn" class="btn btn-secondary">Import Template</button>
-                <input type="file" id="import-file" accept=".json" style="display: none" />
+        <!-- Main Area: Preview & Properties -->
+        <div class="lg:col-span-9 space-y-6">
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Preview Section -->
+            <div
+              class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[500px]">
+              <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4 flex justify-between items-center">
+                <h2 class="font-semibold text-gray-800">Preview</h2>
+                <button id="refresh-preview-btn"
+                  class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5 rounded-md font-medium transition-colors">
+                  Refresh Preview
+                </button>
+              </div>
+              <div class="p-6 flex-grow flex flex-col items-center justify-center bg-gray-50/30">
+                <div id="preview-loading" class="hidden text-indigo-600 font-medium animate-pulse">
+                  Loading preview...
+                </div>
+                <div id="preview-error"
+                  class="hidden bg-red-50 text-red-700 p-4 rounded-lg text-sm border border-red-100 max-w-md text-center">
+                </div>
+                <img id="preview-image"
+                  class="hidden max-w-full max-h-[450px] shadow-lg border border-gray-200 rounded-sm bg-white object-contain"
+                  alt="Label preview" />
+                <div id="preview-placeholder" class="text-gray-400 text-sm italic">
+                  Click refresh to see preview
+                </div>
+              </div>
+            </div>
+
+            <!-- Properties Section -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+              <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+                <h2 class="font-semibold text-gray-800">Properties</h2>
+              </div>
+              <div id="properties-panel" class="p-6 flex-grow">
+                <p class="text-center text-gray-400 py-12 italic">Select an element to edit properties</p>
               </div>
             </div>
           </div>
+
+          <!-- ZPL Output Section -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div
+              class="border-b border-gray-100 bg-gray-50/50 px-5 py-4 flex flex-wrap justify-between items-center gap-4">
+              <h2 class="font-semibold text-gray-800">ZPL Output</h2>
+              <div class="flex gap-2">
+                <button id="copy-btn"
+                  class="bg-gray-800 hover:bg-gray-900 text-white text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">
+                  Copy ZPL
+                </button>
+                <button id="export-btn"
+                  class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">
+                  Export
+                </button>
+                <button id="import-btn"
+                  class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">
+                  Import
+                </button>
+                <input type="file" id="import-file" accept=".json" style="display: none" />
+              </div>
+            </div>
+            <div class="p-0">
+              <textarea id="zpl-output" readonly
+                class="w-full h-48 p-4 font-mono text-sm bg-slate-50 text-slate-700 focus:outline-none resize-none border-none"
+                placeholder="ZPL code will appear here..."></textarea>
+            </div>
+          </div>
+
         </div>
       </div>
-    </div>
+    </main>
+  </div>
 
-    <script src="elements.js"></script>
-    <script src="app.js"></script>
-  </body>
+  <script src="elements.js"></script>
+  <script src="app.js"></script>
+</body>
+
 </html>
