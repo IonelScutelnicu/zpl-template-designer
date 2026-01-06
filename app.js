@@ -10,6 +10,7 @@ let labelSettings = {
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
+const addBoxBtn = document.getElementById("add-box-btn");
 const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutput = document.getElementById("zpl-output");
@@ -21,14 +22,12 @@ const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
-const exportBtn = document.getElementById("export-btn");
-const importBtn = document.getElementById("import-btn");
-const importFile = document.getElementById("import-file");
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
   addTextBtn.addEventListener("click", addTextElement);
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
+  addBoxBtn.addEventListener("click", addBoxElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
   exportBtn.addEventListener("click", exportTemplate);
@@ -101,6 +100,16 @@ function addBarcodeElement() {
   updateZPLOutput();
 }
 
+// Add Box Element
+function addBoxElement() {
+  const boxElement = new BoxElement(50, 150, 100, 50, 3, "B", 0);
+  elements.push(boxElement);
+  selectedElement = boxElement;
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+}
+
 // Update Elements List
 function updateElementsList() {
   if (elements.length === 0) {
@@ -155,6 +164,8 @@ function renderPropertiesPanel() {
     renderTextProperties(selectedElement);
   } else if (selectedElement.type === "BARCODE") {
     renderBarcodeProperties(selectedElement);
+  } else if (selectedElement.type === "BOX") {
+    renderBoxProperties(selectedElement);
   }
 }
 
@@ -277,6 +288,96 @@ function renderBarcodeProperties(element) {
   });
 }
 
+// Render Box Properties
+function renderBoxProperties(element) {
+  propertiesPanel.innerHTML = `
+        <div class="property-group">
+            <label>X Position</label>
+            <input type="number" id="prop-x" value="${element.x}" min="0">
+        </div>
+        <div class="property-group">
+            <label>Y Position</label>
+            <input type="number" id="prop-y" value="${element.y}" min="0">
+        </div>
+        <div class="property-group">
+            <label>Width</label>
+            <input type="number" id="prop-width" value="${
+              element.width
+            }" min="1" max="32000">
+        </div>
+        <div class="property-group">
+            <label>Height</label>
+            <input type="number" id="prop-height" value="${
+              element.height
+            }" min="1" max="32000">
+        </div>
+        <div class="property-group">
+            <label>Thickness</label>
+            <input type="number" id="prop-thickness" value="${
+              element.thickness
+            }" min="1" max="32000">
+        </div>
+        <div class="property-group">
+            <label>Color</label>
+            <select id="prop-color">
+                <option value="B" ${
+                  element.color === "B" ? "selected" : ""
+                }>Black</option>
+                <option value="W" ${
+                  element.color === "W" ? "selected" : ""
+                }>White</option>
+            </select>
+        </div>
+        <div class="property-group">
+            <label>Rounding</label>
+            <input type="number" id="prop-rounding" value="${
+              element.rounding
+            }" min="0" max="32000">
+        </div>
+    `;
+
+  // Add event listeners
+  document.getElementById("prop-x").addEventListener("input", (e) => {
+    element.x = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-y").addEventListener("input", (e) => {
+    element.y = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-width").addEventListener("input", (e) => {
+    element.width = parseInt(e.target.value) || 100;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-height").addEventListener("input", (e) => {
+    element.height = parseInt(e.target.value) || 50;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-thickness").addEventListener("input", (e) => {
+    element.thickness = parseInt(e.target.value) || 3;
+    updateZPLOutput();
+  });
+
+  document.getElementById("prop-color").addEventListener("change", (e) => {
+    element.color = e.target.value;
+    updateZPLOutput();
+    updateElementsList();
+  });
+
+  document.getElementById("prop-rounding").addEventListener("input", (e) => {
+    element.rounding = parseInt(e.target.value) || 0;
+    updateZPLOutput();
+  });
+}
+
 // Update ZPL Output
 function updateZPLOutput() {
   if (elements.length === 0) {
@@ -381,6 +482,12 @@ function exportTemplate() {
         elementData.height = element.height;
         elementData.width = element.width;
         elementData.ratio = element.ratio;
+      } else if (element.type === "BOX") {
+        elementData.width = element.width;
+        elementData.height = element.height;
+        elementData.thickness = element.thickness;
+        elementData.color = element.color;
+        elementData.rounding = element.rounding;
       }
 
       return elementData;
@@ -472,6 +579,16 @@ function importTemplate(template) {
         elementData.height || 50,
         elementData.width || 2,
         elementData.ratio || 2.0
+      );
+    } else if (elementData.type === "BOX") {
+      element = new BoxElement(
+        elementData.x || 0,
+        elementData.y || 0,
+        elementData.width || 100,
+        elementData.height || 50,
+        elementData.thickness || 3,
+        elementData.color || "B",
+        elementData.rounding || 0
       );
     } else {
       console.warn("Unknown element type:", elementData.type);
