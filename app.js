@@ -10,6 +10,9 @@ let labelSettings = {
   printSpeed: 4, // ^PR value (2-14)
   slewSpeed: 4, // ^PR value (2-14)
   backfeedSpeed: 4, // ^PR value (2-14)
+  fontId: "K", // ^CW font identifier
+  fontFile: "font_name.TTF", // ^CW font file name
+  defaultFontHeight: 20, // ^CF default font height
   homeX: 0, // ^LH x position
   homeY: 0, // ^LH y position
   labelTop: 0, // ^LT label top shift
@@ -37,6 +40,9 @@ const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
 const backfeedSpeed = document.getElementById("backfeed-speed");
+const fontId = document.getElementById("font-id");
+const fontFile = document.getElementById("font-file");
+const defaultFontHeight = document.getElementById("default-font-height");
 const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
@@ -91,6 +97,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   backfeedSpeed.addEventListener("input", (e) => {
     labelSettings.backfeedSpeed = parseInt(e.target.value) || 4;
+    updateZPLOutput();
+  });
+
+  // Font settings event listeners
+  fontId.addEventListener("input", (e) => {
+    labelSettings.fontId = e.target.value || "K";
+    updateZPLOutput();
+  });
+
+  fontFile.addEventListener("input", (e) => {
+    labelSettings.fontFile = e.target.value || "font_name.TTF";
+    updateZPLOutput();
+  });
+
+  defaultFontHeight.addEventListener("input", (e) => {
+    labelSettings.defaultFontHeight = parseInt(e.target.value) || 20;
     updateZPLOutput();
   });
 
@@ -355,7 +377,7 @@ function updateZPLOutput() {
   }
 
   // Build ZPL with settings commands
-  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs } = labelSettings;
+  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh } = labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -377,6 +399,13 @@ function updateZPLOutput() {
   // Add position offset commands
   zplHeader += `^LH${hx},${hy}\n`;
   zplHeader += `^LT${lt}\n`;
+
+  zplHeader += `^CI28\n`;
+  zplHeader += `^MTT\n`;
+
+  // Add font configuration commands
+  zplHeader += `^CW${fid},${ffile}\n`;
+  zplHeader += `^CF${fid},${dfh}\n`;
 
   const zplCommands = elements.map((element) => element.render()).join("\n");
   zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
@@ -585,6 +614,18 @@ function importTemplate(template) {
   if (template.labelSettings.backfeedSpeed !== undefined) {
     labelSettings.backfeedSpeed = template.labelSettings.backfeedSpeed;
     backfeedSpeed.value = labelSettings.backfeedSpeed;
+  }
+  if (template.labelSettings.fontId !== undefined) {
+    labelSettings.fontId = template.labelSettings.fontId;
+    fontId.value = labelSettings.fontId;
+  }
+  if (template.labelSettings.fontFile !== undefined) {
+    labelSettings.fontFile = template.labelSettings.fontFile;
+    fontFile.value = labelSettings.fontFile;
+  }
+  if (template.labelSettings.defaultFontHeight !== undefined) {
+    labelSettings.defaultFontHeight = template.labelSettings.defaultFontHeight;
+    defaultFontHeight.value = labelSettings.defaultFontHeight;
   }
 
   // Recreate elements from template
