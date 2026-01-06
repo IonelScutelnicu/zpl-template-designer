@@ -77,8 +77,19 @@
 
           <!-- Print Orientation -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4 flex justify-between items-center">
               <h2 class="font-semibold text-gray-800">Print Orientation</h2>
+              <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-po.html"
+                target="_blank" rel="noopener noreferrer"
+                class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1 transition-colors"
+                title="View ^PO command documentation">
+                Docs
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             </div>
             <div class="p-5">
               <select id="print-orientation"
@@ -91,8 +102,19 @@
 
           <!-- Media Darkness -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4 flex justify-between items-center">
               <h2 class="font-semibold text-gray-800">Media Darkness</h2>
+              <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-sd.html"
+                target="_blank" rel="noopener noreferrer"
+                class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1 transition-colors"
+                title="View ~SD command documentation">
+                Docs
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             </div>
             <div class="p-5">
               <input type="number" id="media-darkness" value="25" min="0" max="30" step="1"
@@ -103,8 +125,32 @@
 
           <!-- Position Offset -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4">
+            <div class="border-b border-gray-100 bg-gray-50/50 px-5 py-4 flex justify-between items-center">
               <h2 class="font-semibold text-gray-800">Position Offset</h2>
+              <div class="flex gap-2">
+                <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-lh.html"
+                  target="_blank" rel="noopener noreferrer"
+                  class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="View ^LH command documentation">
+                  ^LH
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+                <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-lt.html"
+                  target="_blank" rel="noopener noreferrer"
+                  class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="View ^LT command documentation">
+                  ^LT
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
             </div>
             <div class="p-5 space-y-4">
               <div class="grid grid-cols-2 gap-3">
@@ -205,7 +251,20 @@
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div
               class="border-b border-gray-100 bg-gray-50/50 px-5 py-4 flex flex-wrap justify-between items-center gap-4">
-              <h2 class="font-semibold text-gray-800">ZPL Output</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="font-semibold text-gray-800">ZPL Output</h2>
+                <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands.html" target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="View ZPL Commands documentation">
+                  Docs
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
               <div class="flex gap-2">
                 <button id="copy-btn"
                   class="bg-gray-800 hover:bg-gray-900 text-white text-sm px-4 py-2 rounded-lg transition-colors shadow-sm">
