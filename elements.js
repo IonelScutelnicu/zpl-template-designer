@@ -94,3 +94,38 @@ class BoxElement extends ZPLElement {
     }
 }
 
+// Text Block Element Class
+class TextBlockElement extends ZPLElement {
+    constructor(x = 0, y = 0, text = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0) {
+        super(x, y);
+        this.type = 'TEXTBLOCK';
+        this.text = text;
+        this.fontSize = fontSize;
+        this.fontWidth = fontWidth;
+        this.blockWidth = blockWidth;
+        this.maxLines = maxLines;
+        this.lineSpacing = lineSpacing;
+        this.justification = justification;
+        this.hangingIndent = hangingIndent;
+    }
+
+    render() {
+        // ZPL format: ^FOx,y^A0N,height,width^FBa,b,c,d,e^FDtext^FS
+        // ^FO - Field Origin (position)
+        // ^A0N - Font specification (0 = default font, N = normal orientation)
+        // ^FB - Field Block
+        //   a = block width in dots
+        //   b = maximum number of lines
+        //   c = line spacing adjustment
+        //   d = text justification (L/C/R/J)
+        //   e = hanging indent in dots
+        // ^FD - Field Data
+        // ^FS - Field Separator
+        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.text}^FS`;
+    }
+
+    getDisplayName() {
+        return `Text Block: "${this.text.substring(0, 20)}${this.text.length > 20 ? '...' : ''}"`;
+    }
+}
+
