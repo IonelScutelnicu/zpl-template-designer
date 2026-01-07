@@ -22,6 +22,7 @@ let labelSettings = {
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
+const addTextBlockBtn = document.getElementById("add-textblock-btn");
 const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutput = document.getElementById("zpl-output");
@@ -54,6 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
   addTextBtn.addEventListener("click", addTextElement);
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
   addBoxBtn.addEventListener("click", addBoxElement);
+  addTextBlockBtn.addEventListener("click", addTextBlockElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
   exportBtn.addEventListener("click", exportTemplate);
@@ -198,6 +200,17 @@ function addBoxElement() {
   updatePreview();
 }
 
+// Add Text Block Element
+function addTextBlockElement() {
+  const textBlockElement = new TextBlockElement(50, 200, "Sample text that can wrap across multiple lines", 30, 30, 200, 3, 0, "L", 0);
+  elements.push(textBlockElement);
+  selectedElement = textBlockElement;
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+  updatePreview();
+}
+
 // Update Elements List
 function updateElementsList() {
   if (elements.length === 0) {
@@ -290,6 +303,8 @@ function renderPropertiesPanel() {
     content = renderBarcodePropertiesHTML(selectedElement);
   } else if (selectedElement.type === "BOX") {
     content = renderBoxPropertiesHTML(selectedElement);
+  } else if (selectedElement.type === "TEXTBLOCK") {
+    content = renderTextBlockPropertiesHTML(selectedElement);
   }
 
   propertiesPanel.innerHTML = `<div class="animate-fade-in">${content}</div>`;
@@ -335,6 +350,36 @@ function renderBoxPropertiesHTML(element) {
     `;
 }
 
+function renderTextBlockPropertiesHTML(element) {
+  return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Text</label>
+            <textarea
+                id="prop-text"
+                rows="3"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm"
+            >${element.text}</textarea>
+        </div>
+        ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
+        ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
+        ${createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
+        ${createInputGroup("Max Lines", "prop-max-lines", element.maxLines, "number", { min: 1, max: 9999 })}
+        ${createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: -9999, max: 9999 })}
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Text Justification</label>
+            <select id="prop-justification" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm">
+                <option value="L" ${element.justification === "L" ? "selected" : ""}>Left</option>
+                <option value="C" ${element.justification === "C" ? "selected" : ""}>Center</option>
+                <option value="R" ${element.justification === "R" ? "selected" : ""}>Right</option>
+                <option value="J" ${element.justification === "J" ? "selected" : ""}>Justified</option>
+            </select>
+        </div>
+        ${createInputGroup("Hanging Indent (dots)", "prop-hanging-indent", element.hangingIndent, "number", { min: 0, max: 9999 })}
+    `;
+}
+
 function attachPropertyListeners(element) {
   // Common interactions
   const attach = (id, field, parser = (v) => v) => {
@@ -365,6 +410,15 @@ function attachPropertyListeners(element) {
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-color", "color");
     attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+  } else if (element.type === "TEXTBLOCK") {
+    attach("prop-text", "text");
+    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
+    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+    attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
+    attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
+    attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
+    attach("prop-justification", "justification");
+    attach("prop-hanging-indent", "hangingIndent", (v) => parseInt(v) || 0);
   }
 }
 
@@ -513,6 +567,15 @@ function exportTemplate() {
         elementData.thickness = element.thickness;
         elementData.color = element.color;
         elementData.rounding = element.rounding;
+      } else if (element.type === "TEXTBLOCK") {
+        elementData.text = element.text;
+        elementData.fontSize = element.fontSize;
+        elementData.fontWidth = element.fontWidth;
+        elementData.blockWidth = element.blockWidth;
+        elementData.maxLines = element.maxLines;
+        elementData.lineSpacing = element.lineSpacing;
+        elementData.justification = element.justification;
+        elementData.hangingIndent = element.hangingIndent;
       }
 
       return elementData;
@@ -658,6 +721,19 @@ function importTemplate(template) {
         elementData.thickness || 3,
         elementData.color || "B",
         elementData.rounding || 0
+      );
+    } else if (elementData.type === "TEXTBLOCK") {
+      element = new TextBlockElement(
+        elementData.x || 0,
+        elementData.y || 0,
+        elementData.text || "",
+        elementData.fontSize || 30,
+        elementData.fontWidth || 30,
+        elementData.blockWidth || 200,
+        elementData.maxLines || 1,
+        elementData.lineSpacing || 0,
+        elementData.justification || "L",
+        elementData.hangingIndent || 0
       );
     } else {
       console.warn("Unknown element type:", elementData.type);
