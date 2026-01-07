@@ -214,7 +214,7 @@ function addTextBlockElement() {
 // Update Elements List
 function updateElementsList() {
   if (elements.length === 0) {
-    elementsList.innerHTML = '<p class="text-center text-gray-400 py-8 italic text-sm">No elements added yet</p>';
+    elementsList.innerHTML = '<p class="text-center text-slate-400 py-8 italic text-xs">No elements added yet</p>';
     return;
   }
 
@@ -224,21 +224,21 @@ function updateElementsList() {
         selectedElement && String(selectedElement.id) === String(element.id);
 
       const activeClasses = isActive
-        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
-        : "border-gray-200 hover:border-indigo-300 hover:shadow-md";
+        ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+        : "border-slate-200 hover:border-blue-300 hover:shadow-sm bg-white";
 
       return `
-            <div class="element-item group relative flex justify-between items-center p-3 mb-2 rounded-lg border transition-all cursor-pointer shadow-sm ${activeClasses}" data-id="${element.id}">
+            <div class="element-item group relative flex justify-between items-center p-2.5 mb-1.5 rounded-md border transition-all cursor-pointer ${activeClasses}" data-id="${element.id}">
                 <div class="flex-1 min-w-0 pr-2">
                     <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                        <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-800">
                           ${element.type}
                         </span>
                     </div>
-                    <div class="text-sm text-gray-600 mt-1 truncate font-medium">${element.getDisplayName()}</div>
+                    <div class="text-xs text-slate-600 mt-1 truncate font-medium">${element.getDisplayName()}</div>
                 </div>
-                <button class="delete-btn opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-500 hover:bg-red-50 rounded-md" title="Delete" data-id="${element.id}">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button class="delete-btn opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-500 hover:bg-red-50 rounded" title="Delete" data-id="${element.id}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
@@ -273,14 +273,14 @@ function createInputGroup(label, id, value, type = "text", options = {}) {
   ].join(" ");
 
   return `
-    <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">${label}</label>
+    <div class="mb-3">
+        <label class="block text-xs font-medium text-slate-700 mb-1">${label}</label>
         <input 
             type="${type}" 
             id="${id}" 
             value="${value}" 
             ${attributes}
-            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm"
+            class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
     </div>
   `;
@@ -290,7 +290,7 @@ function createInputGroup(label, id, value, type = "text", options = {}) {
 function renderPropertiesPanel() {
   if (!selectedElement) {
     propertiesPanel.innerHTML =
-      '<p class="text-center text-gray-400 py-12 italic">Select an element to edit properties</p>';
+      '<p class="text-center text-slate-400 py-12 italic text-sm">Select an element to edit properties</p>';
     return;
   }
 
@@ -339,9 +339,9 @@ function renderBoxPropertiesHTML(element) {
         ${createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
-            <select id="prop-color" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm">
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
+            <select id="prop-color" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
                 <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
                 <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
             </select>
@@ -354,12 +354,12 @@ function renderTextBlockPropertiesHTML(element) {
   return `
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Text</label>
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Text</label>
             <textarea
                 id="prop-text"
                 rows="3"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm"
+                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
             >${element.text}</textarea>
         </div>
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
@@ -367,9 +367,9 @@ function renderTextBlockPropertiesHTML(element) {
         ${createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
         ${createInputGroup("Max Lines", "prop-max-lines", element.maxLines, "number", { min: 1, max: 9999 })}
         ${createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: -9999, max: 9999 })}
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Text Justification</label>
-            <select id="prop-justification" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-gray-50 border p-2 text-sm">
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Text Justification</label>
+            <select id="prop-justification" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
                 <option value="L" ${element.justification === "L" ? "selected" : ""}>Left</option>
                 <option value="C" ${element.justification === "C" ? "selected" : ""}>Center</option>
                 <option value="R" ${element.justification === "R" ? "selected" : ""}>Right</option>
@@ -531,7 +531,7 @@ function copyZPL() {
   const originalClasses = copyBtn.className;
 
   copyBtn.textContent = "Copied!";
-  copyBtn.classList.remove('bg-gray-800', 'hover:bg-gray-900');
+  copyBtn.classList.remove('bg-slate-800', 'hover:bg-slate-700');
   copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
 
   setTimeout(() => {
