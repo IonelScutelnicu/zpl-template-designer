@@ -10,8 +10,8 @@ let labelSettings = {
   printSpeed: 4, // ^PR value (2-14)
   slewSpeed: 4, // ^PR value (2-14)
   backfeedSpeed: 4, // ^PR value (2-14)
-  fontId: "K", // ^CW font identifier
-  fontFile: "tt0003m_.TTF", // ^CW font file name
+  fontId: "0", // ^CW font identifier
+  fontFile: "", // ^CW font file name (empty = no ^CW command)
   defaultFontHeight: 20, // ^CF default font height
   homeX: 0, // ^LH x position
   homeY: 0, // ^LH y position
@@ -104,12 +104,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Font settings event listeners
   fontId.addEventListener("input", (e) => {
-    labelSettings.fontId = e.target.value || "K";
+    labelSettings.fontId = e.target.value || "0";
     updateZPLOutput();
   });
 
   fontFile.addEventListener("input", (e) => {
-    labelSettings.fontFile = e.target.value || "tt0003m_.TTF";
+    labelSettings.fontFile = e.target.value;
     updateZPLOutput();
   });
 
@@ -317,6 +317,11 @@ function renderTextPropertiesHTML(element) {
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
         ${createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
+            <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
+                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        </div>
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
     `;
@@ -365,6 +370,11 @@ function renderTextBlockPropertiesHTML(element) {
                 class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
             >${element.previewText}</textarea>
         </div>
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
+            <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
+                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+        </div>
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
@@ -401,6 +411,7 @@ function attachPropertyListeners(element) {
   if (element.type === "TEXT") {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
+    attach("prop-font-id", "fontId");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
   } else if (element.type === "BARCODE") {
@@ -418,6 +429,7 @@ function attachPropertyListeners(element) {
   } else if (element.type === "TEXTBLOCK") {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
+    attach("prop-font-id", "fontId");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
@@ -463,11 +475,13 @@ function updateZPLOutput() {
   zplHeader += `^CI28\n`;
   zplHeader += `^MTT\n`;
 
-  // Add font configuration commands
-  zplHeader += `^CW${fid},${ffile}\n`;
+  // Add font configuration commands (only include ^CW if font file is set)
+  if (ffile && ffile.trim() !== '') {
+    zplHeader += `^CW${fid},${ffile}\n`;
+  }
   zplHeader += `^CF${fid},${dfh}\n`;
 
-  const zplCommands = elements.map((element) => element.render()).join("\n");
+  const zplCommands = elements.map((element) => element.render(fid)).join("\n");
   zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
 }
 
@@ -498,10 +512,12 @@ async function updatePreview() {
   zplHeader += `^LT${lt}\n`;
   zplHeader += `^CI28\n`;
   zplHeader += `^MTT\n`;
-  zplHeader += `^CW${fid},${ffile}\n`;
+  if (ffile && ffile.trim() !== '') {
+    zplHeader += `^CW${fid},${ffile}\n`;
+  }
   zplHeader += `^CF${fid},${dfh}\n`;
 
-  const zplCommands = elements.map((element) => element.renderPreview()).join("\n");
+  const zplCommands = elements.map((element) => element.renderPreview(fid)).join("\n");
   const previewZpl = `${zplHeader}${zplCommands}\n^XZ`;
 
   // Show loading indicator
@@ -579,6 +595,7 @@ function exportTemplate() {
       if (element.type === "TEXT") {
         elementData.placeholder = element.placeholder;
         elementData.previewText = element.previewText;
+        elementData.fontId = element.fontId;
         elementData.fontSize = element.fontSize;
         elementData.fontWidth = element.fontWidth;
       } else if (element.type === "BARCODE") {
@@ -596,6 +613,7 @@ function exportTemplate() {
       } else if (element.type === "TEXTBLOCK") {
         elementData.placeholder = element.placeholder;
         elementData.previewText = element.previewText;
+        elementData.fontId = element.fontId;
         elementData.fontSize = element.fontSize;
         elementData.fontWidth = element.fontWidth;
         elementData.blockWidth = element.blockWidth;
@@ -729,7 +747,8 @@ function importTemplate(template) {
         elementData.previewText || elementData.text || "",
         elementData.fontSize || 30,
         elementData.fontWidth || 30,
-        elementData.placeholder || ""
+        elementData.placeholder || "",
+        elementData.fontId || ""
       );
     } else if (elementData.type === "BARCODE") {
       element = new BarcodeElement(
@@ -763,7 +782,8 @@ function importTemplate(template) {
         elementData.lineSpacing || 0,
         elementData.justification || "L",
         elementData.hangingIndent || 0,
-        elementData.placeholder || ""
+        elementData.placeholder || "",
+        elementData.fontId || ""
       );
     } else {
       console.warn("Unknown element type:", elementData.type);
