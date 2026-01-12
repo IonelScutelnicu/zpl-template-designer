@@ -13,10 +13,11 @@ class ZPLElement {
 
 // TEXT Element Class
 class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, text = '', fontSize = 30, fontWidth = 30) {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '') {
         super(x, y);
         this.type = 'TEXT';
-        this.text = text;
+        this.previewText = previewText;
+        this.placeholder = placeholder;
         this.fontSize = fontSize;
         this.fontWidth = fontWidth;
     }
@@ -25,22 +26,30 @@ class TextElement extends ZPLElement {
         // ZPL format: ^FOx,y^A0N,height,width^FDtext^FS
         // ^FO - Field Origin (position)
         // ^A0N - Font specification (0 = default font, N = normal orientation)
-        // ^FD - Field Data
+        // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
-        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FD${this.text}^FS`;
+        const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
+        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FD${content}^FS`;
+    }
+
+    renderPreview() {
+        // Uses preview text for Labelary API visualization
+        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
-        return `Text: "${this.text.substring(0, 20)}${this.text.length > 20 ? '...' : ''}"`;
+        const displayText = this.placeholder || this.previewText;
+        return `Text: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 }
 
 // Barcode Element Class
 class BarcodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, data = '', height = 50, width = 2, ratio = 2.0) {
+    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '') {
         super(x, y);
         this.type = 'BARCODE';
-        this.data = data;
+        this.previewData = previewData;
+        this.placeholder = placeholder;
         this.height = height;
         this.width = width;
         this.ratio = ratio;
@@ -51,13 +60,20 @@ class BarcodeElement extends ZPLElement {
         // ^FO - Field Origin (position)
         // ^BY - Barcode field defaults (width multiplier, height ratio, ratio)
         // ^BCN - Code 128 barcode (N = normal orientation)
-        // ^FD - Field Data
+        // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
-        return `^FO${this.x},${this.y}^BY${this.width},${this.height},${this.ratio}^BCN,${this.height}^FD${this.data}^FS`;
+        const content = this.placeholder ? `%${this.placeholder}%` : this.previewData;
+        return `^FO${this.x},${this.y}^BY${this.width},${this.height},${this.ratio}^BCN,${this.height}^FD${content}^FS`;
+    }
+
+    renderPreview() {
+        // Uses preview data for Labelary API visualization
+        return `^FO${this.x},${this.y}^BY${this.width},${this.height},${this.ratio}^BCN,${this.height}^FD${this.previewData}^FS`;
     }
 
     getDisplayName() {
-        return `Barcode: "${this.data.substring(0, 20)}${this.data.length > 20 ? '...' : ''}"`;
+        const displayText = this.placeholder || this.previewData;
+        return `Barcode: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 }
 
@@ -89,6 +105,11 @@ class BoxElement extends ZPLElement {
         }
     }
 
+    renderPreview() {
+        // Box has no text content, so render and renderPreview are identical
+        return this.render();
+    }
+
     getDisplayName() {
         return `Box: ${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
     }
@@ -96,10 +117,11 @@ class BoxElement extends ZPLElement {
 
 // Text Block Element Class
 class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, text = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0) {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '') {
         super(x, y);
         this.type = 'TEXTBLOCK';
-        this.text = text;
+        this.previewText = previewText;
+        this.placeholder = placeholder;
         this.fontSize = fontSize;
         this.fontWidth = fontWidth;
         this.blockWidth = blockWidth;
@@ -119,13 +141,20 @@ class TextBlockElement extends ZPLElement {
         //   c = line spacing adjustment
         //   d = text justification (L/C/R/J)
         //   e = hanging indent in dots
-        // ^FD - Field Data
+        // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
-        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.text}^FS`;
+        const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
+        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+    }
+
+    renderPreview() {
+        // Uses preview text for Labelary API visualization
+        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
-        return `Text Block: "${this.text.substring(0, 20)}${this.text.length > 20 ? '...' : ''}"`;
+        const displayText = this.placeholder || this.previewText;
+        return `Text Block: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 }
 
