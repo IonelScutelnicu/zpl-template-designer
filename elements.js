@@ -13,28 +13,31 @@ class ZPLElement {
 
 // TEXT Element Class
 class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '') {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '', fontId = '') {
         super(x, y);
         this.type = 'TEXT';
         this.previewText = previewText;
         this.placeholder = placeholder;
+        this.fontId = fontId; // Element-level font override (empty = use label default)
         this.fontSize = fontSize;
         this.fontWidth = fontWidth;
     }
 
-    render() {
-        // ZPL format: ^FOx,y^A0N,height,width^FDtext^FS
+    render(defaultFontId = '0') {
+        // ZPL format: ^FOx,y^A{fontId}N,height,width^FDtext^FS
         // ^FO - Field Origin (position)
-        // ^A0N - Font specification (0 = default font, N = normal orientation)
+        // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
         // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
+        const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
-        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FD${content}^FS`;
+        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FD${content}^FS`;
     }
 
-    renderPreview() {
+    renderPreview(defaultFontId = '0') {
         // Uses preview text for Labelary API visualization
-        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
+        const fontId = this.fontId || defaultFontId;
+        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
@@ -117,11 +120,12 @@ class BoxElement extends ZPLElement {
 
 // Text Block Element Class
 class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '') {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '') {
         super(x, y);
         this.type = 'TEXTBLOCK';
         this.previewText = previewText;
         this.placeholder = placeholder;
+        this.fontId = fontId; // Element-level font override (empty = use label default)
         this.fontSize = fontSize;
         this.fontWidth = fontWidth;
         this.blockWidth = blockWidth;
@@ -131,10 +135,10 @@ class TextBlockElement extends ZPLElement {
         this.hangingIndent = hangingIndent;
     }
 
-    render() {
-        // ZPL format: ^FOx,y^A0N,height,width^FBa,b,c,d,e^FDtext^FS
+    render(defaultFontId = '0') {
+        // ZPL format: ^FOx,y^A{fontId}N,height,width^FBa,b,c,d,e^FDtext^FS
         // ^FO - Field Origin (position)
-        // ^A0N - Font specification (0 = default font, N = normal orientation)
+        // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
         // ^FB - Field Block
         //   a = block width in dots
         //   b = maximum number of lines
@@ -143,13 +147,15 @@ class TextBlockElement extends ZPLElement {
         //   e = hanging indent in dots
         // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
+        const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
-        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
     }
 
-    renderPreview() {
+    renderPreview(defaultFontId = '0') {
         // Uses preview text for Labelary API visualization
-        return `^FO${this.x},${this.y}^A0N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
+        const fontId = this.fontId || defaultFontId;
+        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
