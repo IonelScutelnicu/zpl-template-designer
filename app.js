@@ -159,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selectedElement) {
           updateElementsList();
           renderPropertiesPanel();
+          updatePreview(); // Auto-refresh preview to show debug highlight
         }
       }
     }
@@ -517,7 +518,34 @@ async function updatePreview() {
   }
   zplHeader += `^CF${fid},${dfh}\n`;
 
-  const zplCommands = elements.map((element) => element.renderPreview(fid)).join("\n");
+  const zplCommands = elements.map((element) => {
+    let cmd = element.renderPreview(fid);
+
+    // Add debug highlight box for selected TEXT or TEXTBLOCK elements
+    if (selectedElement && String(element.id) === String(selectedElement.id) &&
+      (element.type === "TEXT" || element.type === "TEXTBLOCK")) {
+      // Calculate element dimensions
+      let boxWidth, boxHeight;
+
+      if (element.type === "TEXTBLOCK") {
+        // TEXTBLOCK uses the defined blockWidth
+        boxWidth = element.blockWidth || 200;
+        boxHeight = (element.fontSize || 30) * (element.maxLines || 1) + 10;
+      } else {
+        // TEXT: estimate width based on text length and font
+        const text = element.previewText || '';
+        boxWidth = Math.max(text.length * (element.fontWidth || 30) * 0.6, 50);
+        boxHeight = (element.fontSize || 30) + 10;
+      }
+
+      // Add a highlight box around the element
+      const padding = 5;
+      const highlightBox = `^FO${Math.max(0, element.x - padding)},${Math.max(0, element.y - padding)}^GB${boxWidth + padding * 2},${boxHeight + padding * 2},2,B^FS`;
+      cmd = highlightBox + "\n" + cmd;
+    }
+
+    return cmd;
+  }).join("\n");
   const previewZpl = `${zplHeader}${zplCommands}\n^XZ`;
 
   // Show loading indicator
