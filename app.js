@@ -315,7 +315,8 @@ function renderTextPropertiesHTML(element) {
   return `
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Text", "prop-text", element.text)}
+        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
     `;
@@ -325,7 +326,8 @@ function renderBarcodePropertiesHTML(element) {
   return `
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Barcode Data", "prop-data", element.data)}
+        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
         ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
         ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
         ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
@@ -354,13 +356,14 @@ function renderTextBlockPropertiesHTML(element) {
   return `
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
         <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Text</label>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
             <textarea
-                id="prop-text"
+                id="prop-preview-text"
                 rows="3"
                 class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-            >${element.text}</textarea>
+            >${element.previewText}</textarea>
         </div>
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
@@ -396,11 +399,13 @@ function attachPropertyListeners(element) {
   attach("prop-y", "y", (v) => parseInt(v) || 0);
 
   if (element.type === "TEXT") {
-    attach("prop-text", "text");
+    attach("prop-placeholder", "placeholder");
+    attach("prop-preview-text", "previewText");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
   } else if (element.type === "BARCODE") {
-    attach("prop-data", "data");
+    attach("prop-placeholder", "placeholder");
+    attach("prop-preview-data", "previewData");
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-width", "width", (v) => parseFloat(v) || 2);
     attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
@@ -411,7 +416,8 @@ function attachPropertyListeners(element) {
     attach("prop-color", "color");
     attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
   } else if (element.type === "TEXTBLOCK") {
-    attach("prop-text", "text");
+    attach("prop-placeholder", "placeholder");
+    attach("prop-preview-text", "previewText");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
@@ -467,23 +473,41 @@ function updateZPLOutput() {
 
 // Update Preview using Labelary API
 async function updatePreview() {
-  const zpl = zplOutput.value.trim();
-
   // Reset states
   previewImage.classList.add('hidden');
   previewError.classList.add('hidden');
   previewPlaceholder.classList.add('hidden');
 
-  if (!zpl || elements.length === 0) {
+  if (elements.length === 0) {
     previewPlaceholder.classList.remove('hidden');
     return;
   }
+
+  // Generate preview ZPL using renderPreview() method
+  const { width, height, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh } = labelSettings;
+
+  // Calculate print width in dots (width in mm × dpmm)
+  const printWidthDots = Math.round(width * dpmm);
+
+  let zplHeader = "^XA\n";
+  zplHeader += `^PW${printWidthDots}\n`;
+  zplHeader += `^PR${ps},${ss},${bs}\n`;
+  zplHeader += `^PO${po}\n`;
+  zplHeader += `~SD${md}\n`;
+  zplHeader += `^LH${hx},${hy}\n`;
+  zplHeader += `^LT${lt}\n`;
+  zplHeader += `^CI28\n`;
+  zplHeader += `^MTT\n`;
+  zplHeader += `^CW${fid},${ffile}\n`;
+  zplHeader += `^CF${fid},${dfh}\n`;
+
+  const zplCommands = elements.map((element) => element.renderPreview()).join("\n");
+  const previewZpl = `${zplHeader}${zplCommands}\n^XZ`;
 
   // Show loading indicator
   previewLoading.classList.remove('hidden');
 
   try {
-    const { width, height, dpmm } = labelSettings;
     // Convert mm to inches for the API (1 inch = 25.4 mm)
     const widthInches = width / 25.4;
     const heightInches = height / 25.4;
@@ -494,7 +518,7 @@ async function updatePreview() {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: zpl,
+      body: previewZpl,
     });
 
     if (!response.ok) {
@@ -553,11 +577,13 @@ function exportTemplate() {
       };
 
       if (element.type === "TEXT") {
-        elementData.text = element.text;
+        elementData.placeholder = element.placeholder;
+        elementData.previewText = element.previewText;
         elementData.fontSize = element.fontSize;
         elementData.fontWidth = element.fontWidth;
       } else if (element.type === "BARCODE") {
-        elementData.data = element.data;
+        elementData.placeholder = element.placeholder;
+        elementData.previewData = element.previewData;
         elementData.height = element.height;
         elementData.width = element.width;
         elementData.ratio = element.ratio;
@@ -568,7 +594,8 @@ function exportTemplate() {
         elementData.color = element.color;
         elementData.rounding = element.rounding;
       } else if (element.type === "TEXTBLOCK") {
-        elementData.text = element.text;
+        elementData.placeholder = element.placeholder;
+        elementData.previewText = element.previewText;
         elementData.fontSize = element.fontSize;
         elementData.fontWidth = element.fontWidth;
         elementData.blockWidth = element.blockWidth;
@@ -699,18 +726,20 @@ function importTemplate(template) {
       element = new TextElement(
         elementData.x || 0,
         elementData.y || 0,
-        elementData.text || "",
+        elementData.previewText || elementData.text || "",
         elementData.fontSize || 30,
-        elementData.fontWidth || 30
+        elementData.fontWidth || 30,
+        elementData.placeholder || ""
       );
     } else if (elementData.type === "BARCODE") {
       element = new BarcodeElement(
         elementData.x || 0,
         elementData.y || 0,
-        elementData.data || "",
+        elementData.previewData || elementData.data || "",
         elementData.height || 50,
         elementData.width || 2,
-        elementData.ratio || 2.0
+        elementData.ratio || 2.0,
+        elementData.placeholder || ""
       );
     } else if (elementData.type === "BOX") {
       element = new BoxElement(
@@ -726,14 +755,15 @@ function importTemplate(template) {
       element = new TextBlockElement(
         elementData.x || 0,
         elementData.y || 0,
-        elementData.text || "",
+        elementData.previewText || elementData.text || "",
         elementData.fontSize || 30,
         elementData.fontWidth || 30,
         elementData.blockWidth || 200,
         elementData.maxLines || 1,
         elementData.lineSpacing || 0,
         elementData.justification || "L",
-        elementData.hangingIndent || 0
+        elementData.hangingIndent || 0,
+        elementData.placeholder || ""
       );
     } else {
       console.warn("Unknown element type:", elementData.type);
