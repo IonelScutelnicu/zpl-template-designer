@@ -44,6 +44,13 @@ class TextElement extends ZPLElement {
         const displayText = this.placeholder || this.previewText;
         return `Text: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
+
+    getBounds() {
+        // Estimate text dimensions
+        const width = Math.max(this.previewText.length * (this.fontWidth || 30) * 0.6, 50);
+        const height = (this.fontSize || 30) + 10;
+        return { x: this.x, y: this.y, width, height };
+    }
 }
 
 // Barcode Element Class
@@ -77,6 +84,13 @@ class BarcodeElement extends ZPLElement {
     getDisplayName() {
         const displayText = this.placeholder || this.previewData;
         return `Barcode: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+    }
+
+    getBounds() {
+        // Estimate barcode dimensions
+        const width = Math.max(this.previewData.length * 10, 100);
+        const height = this.height;
+        return { x: this.x, y: this.y, width, height };
     }
 }
 
@@ -115,6 +129,10 @@ class BoxElement extends ZPLElement {
 
     getDisplayName() {
         return `Box: ${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
+    }
+
+    getBounds() {
+        return { x: this.x, y: this.y, width: this.width, height: this.height };
     }
 }
 
@@ -162,6 +180,12 @@ class TextBlockElement extends ZPLElement {
         const displayText = this.placeholder || this.previewText;
         return `Text Block: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
+
+    getBounds() {
+        const width = this.blockWidth || 200;
+        const height = (this.fontSize || 30) * (this.maxLines || 1) + 10;
+        return { x: this.x, y: this.y, width, height };
+    }
 }
 
 // QR Code Element Class
@@ -200,6 +224,12 @@ class QRCodeElement extends ZPLElement {
     getDisplayName() {
         const displayText = this.placeholder || this.previewData;
         return `QR Code: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+    }
+
+    getBounds() {
+        // QR code size based on magnification
+        const size = this.magnification * 20;
+        return { x: this.x, y: this.y, width: size, height: size };
     }
 }
 
