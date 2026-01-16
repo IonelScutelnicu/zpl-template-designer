@@ -50,9 +50,55 @@ const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
 const previewPlaceholder = document.getElementById("preview-placeholder");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
+const togglePreviewModeBtn = document.getElementById("toggle-preview-mode-btn");
+const labelCanvas = document.getElementById("label-canvas");
+const apiPreviewContainer = document.getElementById("api-preview-container");
+
+// Canvas and interaction state
+let canvasRenderer = null;
+let interactionHandler = null;
+let previewMode = 'canvas'; // 'canvas' or 'api'
 
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
+  // Initialize canvas renderer
+  canvasRenderer = new CanvasRenderer('label-canvas');
+
+  // Initialize interaction handler
+  interactionHandler = new InteractionHandler(canvasRenderer, elements, labelSettings, {
+    onElementSelected: (element) => {
+      selectedElement = element;
+      updateElementsList();
+      renderPropertiesPanel();
+      renderCanvasPreview();
+    },
+    onElementDragging: (element) => {
+      // Update canvas in real-time during drag
+      renderCanvasPreview();
+      // Update properties panel X/Y inputs if properties panel is showing this element
+      if (selectedElement && selectedElement.id === element.id) {
+        const propX = document.getElementById('prop-x');
+        const propY = document.getElementById('prop-y');
+        if (propX) propX.value = element.x;
+        if (propY) propY.value = element.y;
+      }
+    },
+    onElementDragEnd: (element) => {
+      // Finalize drag - update ZPL output
+      updateZPLOutput();
+      renderCanvasPreview();
+      renderPropertiesPanel();
+    },
+    onElementMoved: (element) => {
+      // Keyboard nudge - update everything
+      updateZPLOutput();
+      renderCanvasPreview();
+      renderPropertiesPanel();
+    },
+    getSelectedElement: () => selectedElement
+  });
+
+  // Add button event listeners
   addTextBtn.addEventListener("click", addTextElement);
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
   addQRCodeBtn.addEventListener("click", addQRCodeElement);
@@ -60,6 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
+  togglePreviewModeBtn.addEventListener("click", togglePreviewMode);
   exportBtn.addEventListener("click", exportTemplate);
   importBtn.addEventListener("click", () => importFile.click());
   importFile.addEventListener("change", handleFileImport);
@@ -68,15 +115,18 @@ document.addEventListener("DOMContentLoaded", () => {
   labelWidth.addEventListener("input", (e) => {
     labelSettings.width = parseFloat(e.target.value) || 100;
     updateZPLOutput();
+    renderCanvasPreview();
   });
 
   labelHeight.addEventListener("input", (e) => {
     labelSettings.height = parseFloat(e.target.value) || 50;
+    renderCanvasPreview();
   });
 
   labelDpmm.addEventListener("change", (e) => {
     labelSettings.dpmm = parseInt(e.target.value) || 8;
     updateZPLOutput();
+    renderCanvasPreview();
   });
 
   printOrientation.addEventListener("change", (e) => {
@@ -167,18 +217,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Initialize refresh button visibility (hidden in canvas mode by default)
+  refreshPreviewBtn.classList.add('hidden');
+
   updateZPLOutput();
+  renderCanvasPreview();
 });
+
+// Render Canvas Preview
+function renderCanvasPreview() {
+  if (!canvasRenderer) return;
+  canvasRenderer.renderCanvas(elements, labelSettings, selectedElement);
+}
+
+// Toggle Preview Mode
+function togglePreviewMode() {
+  if (previewMode === 'canvas') {
+    // Switch to API mode
+    previewMode = 'api';
+    labelCanvas.classList.add('hidden');
+    apiPreviewContainer.classList.remove('hidden');
+    togglePreviewModeBtn.textContent = 'API Mode';
+    togglePreviewModeBtn.classList.remove('bg-slate-50', 'text-slate-600');
+    togglePreviewModeBtn.classList.add('bg-blue-50', 'text-blue-600');
+    refreshPreviewBtn.classList.remove('hidden'); // Show refresh button
+    updatePreview(); // Auto-refresh API preview
+  } else {
+    // Switch to Canvas mode
+    previewMode = 'canvas';
+    labelCanvas.classList.remove('hidden');
+    apiPreviewContainer.classList.add('hidden');
+    togglePreviewModeBtn.textContent = 'Canvas Mode';
+    togglePreviewModeBtn.classList.remove('bg-blue-50', 'text-blue-600');
+    togglePreviewModeBtn.classList.add('bg-slate-50', 'text-slate-600');
+    refreshPreviewBtn.classList.add('hidden'); // Hide refresh button
+    renderCanvasPreview();
+  }
+}
 
 // Add Text Element
 function addTextElement() {
   const textElement = new TextElement(50, 50, "Sample Text", 30, 30);
   elements.push(textElement);
   selectedElement = textElement;
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-  updatePreview();
+  renderCanvasPreview();
 }
 
 // Add Barcode Element
@@ -186,10 +272,11 @@ function addBarcodeElement() {
   const barcodeElement = new BarcodeElement(50, 100, "1234567890", 50, 2, 2.0);
   elements.push(barcodeElement);
   selectedElement = barcodeElement;
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-  updatePreview();
+  renderCanvasPreview();
 }
 
 // Add QR Code Element
@@ -197,10 +284,11 @@ function addQRCodeElement() {
   const qrcodeElement = new QRCodeElement(50, 150, "https://example.com", 2, 5, "Q");
   elements.push(qrcodeElement);
   selectedElement = qrcodeElement;
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-  updatePreview();
+  renderCanvasPreview();
 }
 
 // Add Box Element
@@ -208,10 +296,11 @@ function addBoxElement() {
   const boxElement = new BoxElement(50, 150, 100, 50, 3, "B", 0);
   elements.push(boxElement);
   selectedElement = boxElement;
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-  updatePreview();
+  renderCanvasPreview();
 }
 
 // Add Text Block Element
@@ -219,10 +308,11 @@ function addTextBlockElement() {
   const textBlockElement = new TextBlockElement(50, 200, "Sample text that can wrap across multiple lines", 30, 30, 200, 3, 0, "L", 0);
   elements.push(textBlockElement);
   selectedElement = textBlockElement;
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-  updatePreview();
+  renderCanvasPreview();
 }
 
 // Update Elements List
@@ -271,10 +361,11 @@ function deleteElement(id) {
   if (selectedElement && String(selectedElement.id) === idStr) {
     selectedElement = null;
   }
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-  updatePreview();
+  renderCanvasPreview();
 }
 
 // Helper to generate input HTML
@@ -451,6 +542,7 @@ function attachPropertyListeners(element) {
       element[field] = parser(e.target.value);
       updateZPLOutput();
       updateElementsList(); // Update list to refect changes (like display name)
+      renderCanvasPreview(); // Update canvas to reflect changes
     });
   };
 
@@ -893,10 +985,9 @@ function importTemplate(template) {
   });
 
   // Update UI
+  interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
-
-  // Trigger preview refresh
-  updatePreview();
+  renderCanvasPreview();
 }
