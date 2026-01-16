@@ -21,6 +21,7 @@ let labelSettings = {
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
+const addQRCodeBtn = document.getElementById("add-qrcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
 const addTextBlockBtn = document.getElementById("add-textblock-btn");
 const elementsList = document.getElementById("elements-list");
@@ -54,6 +55,7 @@ const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
 document.addEventListener("DOMContentLoaded", () => {
   addTextBtn.addEventListener("click", addTextElement);
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
+  addQRCodeBtn.addEventListener("click", addQRCodeElement);
   addBoxBtn.addEventListener("click", addBoxElement);
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
   copyBtn.addEventListener("click", copyZPL);
@@ -190,6 +192,17 @@ function addBarcodeElement() {
   updatePreview();
 }
 
+// Add QR Code Element
+function addQRCodeElement() {
+  const qrcodeElement = new QRCodeElement(50, 150, "https://example.com", 2, 5, "Q");
+  elements.push(qrcodeElement);
+  selectedElement = qrcodeElement;
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+  updatePreview();
+}
+
 // Add Box Element
 function addBoxElement() {
   const boxElement = new BoxElement(50, 150, 100, 50, 3, "B", 0);
@@ -306,6 +319,8 @@ function renderPropertiesPanel() {
     content = renderBoxPropertiesHTML(selectedElement);
   } else if (selectedElement.type === "TEXTBLOCK") {
     content = renderTextBlockPropertiesHTML(selectedElement);
+  } else if (selectedElement.type === "QRCODE") {
+    content = renderQRCodePropertiesHTML(selectedElement);
   }
 
   propertiesPanel.innerHTML = `<div class="animate-fade-in">${content}</div>`;
@@ -394,6 +409,39 @@ function renderTextBlockPropertiesHTML(element) {
     `;
 }
 
+function renderQRCodePropertiesHTML(element) {
+  return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Preview Data</label>
+            <textarea
+                id="prop-preview-data"
+                rows="2"
+                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >${element.previewData}</textarea>
+        </div>
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Model</label>
+            <select id="prop-model" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="1" ${element.model === 1 ? "selected" : ""}>Model 1 (Original)</option>
+                <option value="2" ${element.model === 2 ? "selected" : ""}>Model 2 (Enhanced)</option>
+            </select>
+        </div>
+        ${createInputGroup("Magnification", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Error Correction</label>
+            <select id="prop-error-correction" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="H" ${element.errorCorrection === "H" ? "selected" : ""}>H - Ultra-High (30%)</option>
+                <option value="Q" ${element.errorCorrection === "Q" ? "selected" : ""}>Q - Quality (25%)</option>
+                <option value="M" ${element.errorCorrection === "M" ? "selected" : ""}>M - Medium (15%)</option>
+                <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>L - Low (7%)</option>
+            </select>
+        </div>
+    `;
+}
+
 function attachPropertyListeners(element) {
   // Common interactions
   const attach = (id, field, parser = (v) => v) => {
@@ -438,6 +486,12 @@ function attachPropertyListeners(element) {
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
     attach("prop-justification", "justification");
     attach("prop-hanging-indent", "hangingIndent", (v) => parseInt(v) || 0);
+  } else if (element.type === "QRCODE") {
+    attach("prop-placeholder", "placeholder");
+    attach("prop-preview-data", "previewData");
+    attach("prop-model", "model", (v) => parseInt(v) || 2);
+    attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
+    attach("prop-error-correction", "errorCorrection");
   }
 }
 
@@ -649,6 +703,12 @@ function exportTemplate() {
         elementData.lineSpacing = element.lineSpacing;
         elementData.justification = element.justification;
         elementData.hangingIndent = element.hangingIndent;
+      } else if (element.type === "QRCODE") {
+        elementData.placeholder = element.placeholder;
+        elementData.previewData = element.previewData;
+        elementData.model = element.model;
+        elementData.magnification = element.magnification;
+        elementData.errorCorrection = element.errorCorrection;
       }
 
       return elementData;
@@ -812,6 +872,16 @@ function importTemplate(template) {
         elementData.hangingIndent || 0,
         elementData.placeholder || "",
         elementData.fontId || ""
+      );
+    } else if (elementData.type === "QRCODE") {
+      element = new QRCodeElement(
+        elementData.x || 0,
+        elementData.y || 0,
+        elementData.previewData || elementData.data || "",
+        elementData.model || 2,
+        elementData.magnification || 5,
+        elementData.errorCorrection || "Q",
+        elementData.placeholder || ""
       );
     } else {
       console.warn("Unknown element type:", elementData.type);
