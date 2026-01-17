@@ -53,6 +53,9 @@ class InteractionHandler {
 
       // Update cursor
       this.canvas.style.cursor = 'grab';
+
+      // Select immediately on mouse down (for drag or click)
+      this.callbacks.onElementSelected(element);
     } else {
       // Clicked on empty canvas - deselect
       this.callbacks.onElementSelected(null);
@@ -112,8 +115,7 @@ class InteractionHandler {
 
     if (clickDuration < 200 && distance < 5) {
       // This was a click, not a drag
-      const element = this.getElementAtPosition(coords.x, coords.y);
-      this.callbacks.onElementSelected(element);
+      // Selection already handled in mousedown
     }
 
     if (this.isDragging) {
