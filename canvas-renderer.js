@@ -322,23 +322,32 @@ class CanvasRenderer {
     const thickness = element.thickness * this.scale;
     const rounding = element.rounding * this.scale;
 
-    this.ctx.lineWidth = thickness;
     this.ctx.strokeStyle = element.color === 'B' ? '#000000' : '#FFFFFF';
     this.ctx.fillStyle = element.color === 'B' ? '#000000' : '#FFFFFF';
 
     if (thickness >= width || thickness >= height) {
-      // Filled box
+      // Filled box (thickness fills entire box)
       if (rounding > 0) {
         this.roundRect(x, y, width, height, rounding, true, false);
       } else {
         this.ctx.fillRect(x, y, width, height);
       }
     } else {
-      // Outlined box
+      // Outlined box with inset stroke
+      // Adjust the stroke path so the thickness stays inside the element bounds
+      const insetX = x + thickness / 2;
+      const insetY = y + thickness / 2;
+      const insetWidth = width - thickness;
+      const insetHeight = height - thickness;
+
+      this.ctx.lineWidth = thickness;
+
       if (rounding > 0) {
-        this.roundRect(x, y, width, height, rounding, false, true);
+        // Adjust rounding to be relative to inset dimensions
+        const insetRounding = Math.max(0, rounding - thickness / 2);
+        this.roundRect(insetX, insetY, insetWidth, insetHeight, insetRounding, false, true);
       } else {
-        this.ctx.strokeRect(x, y, width, height);
+        this.ctx.strokeRect(insetX, insetY, insetWidth, insetHeight);
       }
     }
   }
