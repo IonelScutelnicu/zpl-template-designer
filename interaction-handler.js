@@ -22,6 +22,10 @@ class InteractionHandler {
     this.mouseDownX = 0;
     this.mouseDownY = 0;
 
+    // Resize state
+    this.isResizing = false;
+    this.resizeHandle = null; // 'br' only for now
+
     this.setupEventListeners();
   }
 
@@ -40,6 +44,19 @@ class InteractionHandler {
     this.mouseDownTime = Date.now();
     this.mouseDownX = coords.x;
     this.mouseDownY = coords.y;
+
+    // Check for resize handle click first (if element is selected)
+    const selectedElement = this.callbacks.getSelectedElement();
+    if (selectedElement && selectedElement.type === 'TEXTBLOCK') {
+      const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
+      if (handle === 'br') {
+        this.isResizing = true;
+        this.resizeHandle = handle;
+        this.dragElement = selectedElement; // Use same drag element ref
+        this.canvas.style.cursor = 'nwse-resize';
+        return; // Skip drag/select logic
+      }
+    }
 
     // Find element at position
     const element = this.getElementAtPosition(coords.x, coords.y);
@@ -64,6 +81,27 @@ class InteractionHandler {
 
   handleMouseMove(e) {
     const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
+
+    // Handle Resize
+    if (this.isResizing && this.dragElement) {
+      if (this.dragElement.type === 'TEXTBLOCK') {
+        // Calculate new width/height
+        // BR handle: coords are new bottom-right
+        const newWidth = Math.max(50, coords.x - this.dragElement.x);
+        const newHeight = Math.max(30, coords.y - this.dragElement.y);
+
+        // Update properties
+        this.dragElement.blockWidth = Math.round(newWidth);
+
+        // Calculate max lines based on height and font size
+        const lineHeight = (this.dragElement.fontSize || 30);
+        this.dragElement.maxLines = Math.max(1, Math.round((newHeight - 10) / lineHeight));
+
+        // Trigger updates
+        this.callbacks.onElementDragging(this.dragElement);
+      }
+      return;
+    }
 
     if (this.dragElement) {
       // Calculate distance moved
@@ -99,6 +137,15 @@ class InteractionHandler {
       }
     } else {
       // Update cursor based on hover
+      const selectedElement = this.callbacks.getSelectedElement();
+      if (selectedElement && selectedElement.type === 'TEXTBLOCK') {
+        const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
+        if (handle === 'br') {
+          this.canvas.style.cursor = 'nwse-resize';
+          return;
+        }
+      }
+
       const element = this.getElementAtPosition(coords.x, coords.y);
       this.canvas.style.cursor = element ? 'grab' : 'default';
     }
@@ -118,6 +165,12 @@ class InteractionHandler {
       // Selection already handled in mousedown
     }
 
+    if (this.isResizing) {
+      this.isResizing = false;
+      this.resizeHandle = null;
+      this.callbacks.onElementDragEnd(this.dragElement); // Reuse drag end callback for resize end
+    }
+
     if (this.isDragging) {
       // Finalize drag
       this.callbacks.onElementDragEnd(this.dragElement);
@@ -130,10 +183,11 @@ class InteractionHandler {
   }
 
   handleMouseLeave(e) {
-    if (this.isDragging) {
+    if (this.isDragging || this.isResizing) {
       // Finalize drag if mouse leaves canvas
       this.callbacks.onElementDragEnd(this.dragElement);
       this.isDragging = false;
+      this.isResizing = false;
     }
 
     this.dragElement = null;
@@ -200,6 +254,38 @@ class InteractionHandler {
       ) {
         return element;
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get resize handle at position
+   */
+  getHandleAtPosition(x, y, element) {
+    if (!element) return null;
+
+    // We need the scale to calculate handle size in dots
+    // The handle is drawn as 6px square in screen coordinates
+    // So in dot coordinates it is 6 / scale
+    const scale = this.renderer.scale;
+    const handleSizeDots = 10 / scale; // Use slightly larger hit area (10px) 
+    const hsHalf = handleSizeDots / 2;
+
+    const bounds = element.getBounds();
+    const bx = bounds.x;
+    const by = bounds.y;
+    const bw = bounds.width;
+    const bh = bounds.height;
+
+    // Check BR handle
+    if (
+      x >= bx + bw - hsHalf &&
+      x <= bx + bw + hsHalf &&
+      y >= by + bh - hsHalf &&
+      y <= by + bh + hsHalf
+    ) {
+      return 'br';
     }
 
     return null;

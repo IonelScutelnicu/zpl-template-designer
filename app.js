@@ -83,6 +83,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const propY = document.getElementById('prop-y');
         if (propX) propX.value = element.x;
         if (propY) propY.value = element.y;
+
+        // Update size properties if they exist (for resizing)
+        if (element.type === 'TEXTBLOCK') {
+          const propBlockWidth = document.getElementById('prop-block-width');
+          const propMaxLines = document.getElementById('prop-max-lines');
+          if (propBlockWidth) propBlockWidth.value = element.blockWidth;
+          if (propMaxLines) propMaxLines.value = element.maxLines;
+        }
       }
     },
     onElementDragEnd: (element) => {
