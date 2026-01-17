@@ -90,6 +90,11 @@ document.addEventListener("DOMContentLoaded", () => {
           const propMaxLines = document.getElementById('prop-max-lines');
           if (propBlockWidth) propBlockWidth.value = element.blockWidth;
           if (propMaxLines) propMaxLines.value = element.maxLines;
+        } else if (element.type === 'BOX') {
+          const propWidth = document.getElementById('prop-width');
+          const propHeight = document.getElementById('prop-height');
+          if (propWidth) propWidth.value = element.width;
+          if (propHeight) propHeight.value = element.height;
         }
       }
     },
