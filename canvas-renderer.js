@@ -383,18 +383,33 @@ class CanvasRenderer {
     this.ctx.setLineDash([]);
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
 
-    // Draw resize handles (corners) - disabled for MVP, but visual indicator
+    // Draw resize handles
     const handleSize = 6;
     this.ctx.fillStyle = '#3B82F6';
 
-    // Top-left
-    this.ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
-    // Top-right
-    this.ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
-    // Bottom-left
-    this.ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
-    // Bottom-right
-    this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+    // For BOX elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX') {
+      // Corner handles
+      this.ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-left
+      this.ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-right
+      this.ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-left
+      this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-right
+
+      // Edge handles
+      this.ctx.fillRect(x + width / 2 - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top
+      this.ctx.fillRect(x + width - handleSize / 2, y + height / 2 - handleSize / 2, handleSize, handleSize); // Right
+      this.ctx.fillRect(x + width / 2 - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom
+      this.ctx.fillRect(x - handleSize / 2, y + height / 2 - handleSize / 2, handleSize, handleSize); // Left
+    } else if (element.type === 'TEXTBLOCK') {
+      // For TEXTBLOCK, only show bottom-right handle
+      this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+    } else {
+      // For other elements, show 4 corner handles
+      this.ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-left
+      this.ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-right
+      this.ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-left
+      this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-right
+    }
   }
 
   /**

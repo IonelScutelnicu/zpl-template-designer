@@ -47,13 +47,23 @@ class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && selectedElement.type === 'TEXTBLOCK') {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
-      if (handle === 'br') {
+      if (handle) {
         this.isResizing = true;
         this.resizeHandle = handle;
         this.dragElement = selectedElement; // Use same drag element ref
-        this.canvas.style.cursor = 'nwse-resize';
+
+        // Store original position and size for resize calculations
+        this.resizeStartX = selectedElement.x;
+        this.resizeStartY = selectedElement.y;
+        this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
+        this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || 30) * (selectedElement.maxLines || 1);
+        this.resizeMouseStartX = coords.x;
+        this.resizeMouseStartY = coords.y;
+
+        // Set cursor based on handle
+        this.canvas.style.cursor = this.getCursorForHandle(handle);
         return; // Skip drag/select logic
       }
     }
@@ -85,19 +95,86 @@ class InteractionHandler {
     // Handle Resize
     if (this.isResizing && this.dragElement) {
       if (this.dragElement.type === 'TEXTBLOCK') {
-        // Calculate new width/height
-        // BR handle: coords are new bottom-right
+        // TEXTBLOCK only supports bottom-right resize
         const newWidth = Math.max(50, coords.x - this.dragElement.x);
         const newHeight = Math.max(30, coords.y - this.dragElement.y);
 
-        // Update properties
         this.dragElement.blockWidth = Math.round(newWidth);
-
-        // Calculate max lines based on height and font size
         const lineHeight = (this.dragElement.fontSize || 30);
         this.dragElement.maxLines = Math.max(1, Math.round((newHeight - 10) / lineHeight));
 
-        // Trigger updates
+        this.callbacks.onElementDragging(this.dragElement);
+      } else if (this.dragElement.type === 'BOX') {
+        // Calculate mouse delta from resize start
+        const dx = coords.x - this.resizeMouseStartX;
+        const dy = coords.y - this.resizeMouseStartY;
+
+        let newX = this.resizeStartX;
+        let newY = this.resizeStartY;
+        let newWidth = this.resizeStartWidth;
+        let newHeight = this.resizeStartHeight;
+
+        // Apply resize based on handle type
+        switch (this.resizeHandle) {
+          case 'tl': // Top-left
+            newX = this.resizeStartX + dx;
+            newY = this.resizeStartY + dy;
+            newWidth = this.resizeStartWidth - dx;
+            newHeight = this.resizeStartHeight - dy;
+            break;
+          case 'tr': // Top-right
+            newY = this.resizeStartY + dy;
+            newWidth = this.resizeStartWidth + dx;
+            newHeight = this.resizeStartHeight - dy;
+            break;
+          case 'bl': // Bottom-left
+            newX = this.resizeStartX + dx;
+            newWidth = this.resizeStartWidth - dx;
+            newHeight = this.resizeStartHeight + dy;
+            break;
+          case 'br': // Bottom-right
+            newWidth = this.resizeStartWidth + dx;
+            newHeight = this.resizeStartHeight + dy;
+            break;
+          case 't': // Top
+            newY = this.resizeStartY + dy;
+            newHeight = this.resizeStartHeight - dy;
+            break;
+          case 'r': // Right
+            newWidth = this.resizeStartWidth + dx;
+            break;
+          case 'b': // Bottom
+            newHeight = this.resizeStartHeight + dy;
+            break;
+          case 'l': // Left
+            newX = this.resizeStartX + dx;
+            newWidth = this.resizeStartWidth - dx;
+            break;
+        }
+
+        // Enforce minimum size
+        const minSize = 10;
+        if (newWidth < minSize) {
+          newWidth = minSize;
+          // Adjust position if resizing from left
+          if (this.resizeHandle.includes('l') || this.resizeHandle === 'l') {
+            newX = this.resizeStartX + this.resizeStartWidth - minSize;
+          }
+        }
+        if (newHeight < minSize) {
+          newHeight = minSize;
+          // Adjust position if resizing from top
+          if (this.resizeHandle.includes('t') || this.resizeHandle === 't') {
+            newY = this.resizeStartY + this.resizeStartHeight - minSize;
+          }
+        }
+
+        // Update element
+        this.dragElement.x = Math.round(newX);
+        this.dragElement.y = Math.round(newY);
+        this.dragElement.width = Math.round(newWidth);
+        this.dragElement.height = Math.round(newHeight);
+
         this.callbacks.onElementDragging(this.dragElement);
       }
       return;
@@ -138,10 +215,10 @@ class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && selectedElement.type === 'TEXTBLOCK') {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
-        if (handle === 'br') {
-          this.canvas.style.cursor = 'nwse-resize';
+        if (handle) {
+          this.canvas.style.cursor = this.getCursorForHandle(handle);
           return;
         }
       }
@@ -269,7 +346,7 @@ class InteractionHandler {
     // The handle is drawn as 6px square in screen coordinates
     // So in dot coordinates it is 6 / scale
     const scale = this.renderer.scale;
-    const handleSizeDots = 10 / scale; // Use slightly larger hit area (10px) 
+    const handleSizeDots = 10 / scale; // Use slightly larger hit area (10px)
     const hsHalf = handleSizeDots / 2;
 
     const bounds = element.getBounds();
@@ -278,17 +355,68 @@ class InteractionHandler {
     const bw = bounds.width;
     const bh = bounds.height;
 
-    // Check BR handle
-    if (
-      x >= bx + bw - hsHalf &&
-      x <= bx + bw + hsHalf &&
-      y >= by + bh - hsHalf &&
-      y <= by + bh + hsHalf
-    ) {
-      return 'br';
+    // For BOX elements, check all 8 handles
+    if (element.type === 'BOX') {
+      // Corner handles (check these first as they have priority)
+      // Top-left
+      if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {
+        return 'tl';
+      }
+      // Top-right
+      if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {
+        return 'tr';
+      }
+      // Bottom-left
+      if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
+        return 'bl';
+      }
+      // Bottom-right
+      if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
+        return 'br';
+      }
+
+      // Edge handles
+      // Top
+      if (x >= bx + bw / 2 - hsHalf && x <= bx + bw / 2 + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {
+        return 't';
+      }
+      // Right
+      if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
+        return 'r';
+      }
+      // Bottom
+      if (x >= bx + bw / 2 - hsHalf && x <= bx + bw / 2 + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
+        return 'b';
+      }
+      // Left
+      if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
+        return 'l';
+      }
+    } else if (element.type === 'TEXTBLOCK') {
+      // For TEXTBLOCK, only check bottom-right handle
+      if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
+        return 'br';
+      }
     }
 
     return null;
+  }
+
+  /**
+   * Get cursor style for a given resize handle
+   */
+  getCursorForHandle(handle) {
+    const cursorMap = {
+      'tl': 'nwse-resize',  // Top-left
+      'tr': 'nesw-resize',  // Top-right
+      'bl': 'nesw-resize',  // Bottom-left
+      'br': 'nwse-resize',  // Bottom-right
+      't': 'ns-resize',     // Top
+      'r': 'ew-resize',     // Right
+      'b': 'ns-resize',     // Bottom
+      'l': 'ew-resize'      // Left
+    };
+    return cursorMap[handle] || 'default';
   }
 
   /**
