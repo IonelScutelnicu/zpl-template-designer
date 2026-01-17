@@ -97,6 +97,12 @@ document.addEventListener("DOMContentLoaded", () => {
       renderCanvasPreview();
       renderPropertiesPanel();
     },
+    onElementDeleted: (element) => {
+      if (previewMode === 'canvas') {
+        const idStr = String(element.id);
+        deleteElement(idStr);
+      }
+    },
     getSelectedElement: () => selectedElement
   });
 

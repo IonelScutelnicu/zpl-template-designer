@@ -168,6 +168,11 @@ class InteractionHandler {
         selectedElement.y = Math.min(maxY, selectedElement.y + moveAmount);
         moved = true;
         break;
+      case 'Delete':
+        if (this.callbacks.onElementDeleted) {
+          this.callbacks.onElementDeleted(selectedElement);
+        }
+        break;
     }
 
     if (moved) {
