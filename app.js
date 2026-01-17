@@ -50,7 +50,9 @@ const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
 const previewPlaceholder = document.getElementById("preview-placeholder");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
-const togglePreviewModeBtn = document.getElementById("toggle-preview-mode-btn");
+const togglePreviewModeBtn = null; // Deprecated
+const modeCanvasBtn = document.getElementById("mode-canvas-btn");
+const modeApiBtn = document.getElementById("mode-api-btn");
 const labelCanvas = document.getElementById("label-canvas");
 const apiPreviewContainer = document.getElementById("api-preview-container");
 
@@ -106,7 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
-  togglePreviewModeBtn.addEventListener("click", togglePreviewMode);
+  // Mode switching
+  modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
+  modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
   exportBtn.addEventListener("click", exportTemplate);
   importBtn.addEventListener("click", () => importFile.click());
   importFile.addEventListener("change", handleFileImport);
@@ -217,8 +221,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Initialize refresh button visibility (hidden in canvas mode by default)
-  refreshPreviewBtn.classList.add('hidden');
+  // Initialize functionality
+  setPreviewMode('canvas');
 
   updateZPLOutput();
   renderCanvasPreview();
@@ -230,28 +234,44 @@ function renderCanvasPreview() {
   canvasRenderer.renderCanvas(elements, labelSettings, selectedElement);
 }
 
-// Toggle Preview Mode
-function togglePreviewMode() {
-  if (previewMode === 'canvas') {
-    // Switch to API mode
-    previewMode = 'api';
-    labelCanvas.classList.add('hidden');
-    apiPreviewContainer.classList.remove('hidden');
-    togglePreviewModeBtn.textContent = 'API Mode';
-    togglePreviewModeBtn.classList.remove('bg-slate-50', 'text-slate-600');
-    togglePreviewModeBtn.classList.add('bg-blue-50', 'text-blue-600');
-    refreshPreviewBtn.classList.remove('hidden'); // Show refresh button
-    updatePreview(); // Auto-refresh API preview
-  } else {
-    // Switch to Canvas mode
-    previewMode = 'canvas';
+// Set Preview Mode
+function setPreviewMode(mode) {
+  previewMode = mode;
+
+  // Reset button styles
+  const activeClass = ["bg-white", "text-slate-700", "shadow-sm"];
+  const inactiveClass = ["text-slate-500", "hover:text-slate-700"];
+
+  if (mode === 'canvas') {
+    // UI Logic
     labelCanvas.classList.remove('hidden');
     apiPreviewContainer.classList.add('hidden');
-    togglePreviewModeBtn.textContent = 'Canvas Mode';
-    togglePreviewModeBtn.classList.remove('bg-blue-50', 'text-blue-600');
-    togglePreviewModeBtn.classList.add('bg-slate-50', 'text-slate-600');
-    refreshPreviewBtn.classList.add('hidden'); // Hide refresh button
+
+    // Update buttons
+    modeCanvasBtn.classList.add(...activeClass);
+    modeCanvasBtn.classList.remove(...inactiveClass);
+    modeApiBtn.classList.remove(...activeClass);
+    modeApiBtn.classList.add(...inactiveClass);
+
+    // Disable refresh
+    refreshPreviewBtn.disabled = true;
+
     renderCanvasPreview();
+  } else {
+    // API Mode
+    labelCanvas.classList.add('hidden');
+    apiPreviewContainer.classList.remove('hidden');
+
+    // Update buttons
+    modeApiBtn.classList.add(...activeClass);
+    modeApiBtn.classList.remove(...inactiveClass);
+    modeCanvasBtn.classList.remove(...activeClass);
+    modeCanvasBtn.classList.add(...inactiveClass);
+
+    // Enable refresh
+    refreshPreviewBtn.disabled = false;
+
+    updatePreview(); // Auto-refresh API preview
   }
 }
 
