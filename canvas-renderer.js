@@ -266,8 +266,11 @@ class CanvasRenderer {
     const x = element.x * this.scale;
     const y = element.y * this.scale;
 
-    // QR code size based on magnification (approximate)
-    const size = element.magnification * 20 * this.scale;
+    // Calculate QR code size based on data length and error correction
+    const dataLength = element.previewData.length;
+    const version = calculateQRVersion(dataLength, element.errorCorrection);
+    const modules = qrVersionToModules(version);
+    const size = modules * element.magnification * this.scale;
 
     // Draw white background first (no border)
     this.ctx.fillStyle = '#FFFFFF';
@@ -275,11 +278,11 @@ class CanvasRenderer {
 
     // Draw simplified QR pattern
     this.ctx.fillStyle = '#000000';
-    const moduleSize = size / 20;
+    const moduleSize = size / modules;
 
     // Draw random QR-like pattern
-    for (let row = 0; row < 20; row++) {
-      for (let col = 0; col < 20; col++) {
+    for (let row = 0; row < modules; row++) {
+      for (let col = 0; col < modules; col++) {
         if (Math.random() > 0.5) {
           this.ctx.fillRect(
             x + col * moduleSize,
@@ -291,10 +294,11 @@ class CanvasRenderer {
       }
     }
 
-    // Draw positioning markers (corners)
-    this.drawQRPositioningMarker(x, y, moduleSize * 3);
-    this.drawQRPositioningMarker(x + size - moduleSize * 3, y, moduleSize * 3);
-    this.drawQRPositioningMarker(x, y + size - moduleSize * 3, moduleSize * 3);
+    // Draw positioning markers (7 modules each)
+    const markerSize = moduleSize * 7;
+    this.drawQRPositioningMarker(x, y, markerSize);
+    this.drawQRPositioningMarker(x + size - markerSize, y, markerSize);
+    this.drawQRPositioningMarker(x, y + size - markerSize, markerSize);
   }
 
   /**
