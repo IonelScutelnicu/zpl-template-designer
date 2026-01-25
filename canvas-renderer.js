@@ -396,7 +396,11 @@ class CanvasRenderer {
     this.ctx.setLineDash([]);
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
 
-    // Draw resize handles
+    // Draw resize handles (skip for TEXT, QRCODE, and BARCODE elements as they don't support resize)
+    if (element.type === 'TEXT' || element.type === 'QRCODE' || element.type === 'BARCODE') {
+      return; // These elements don't support resize, so don't draw handles
+    }
+
     const handleSize = 6;
     this.ctx.fillStyle = '#3B82F6';
 
