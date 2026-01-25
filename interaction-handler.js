@@ -272,9 +272,54 @@ class InteractionHandler {
   }
 
   handleKeyDown(e) {
-    // Only handle arrow keys if an element is selected and focus is not on an input
-    if (!this.callbacks.getSelectedElement()) return;
+    // Don't handle keys when focus is on input/textarea
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+    // Check if canvas is visible (canvas mode)
+    const canvasContainer = this.canvas.parentElement;
+    if (canvasContainer && canvasContainer.classList.contains('hidden')) return;
+
+    // Handle Tab key for element navigation
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      
+      if (this.elements.length === 0) return;
+
+      const currentElement = this.callbacks.getSelectedElement();
+      
+      if (!currentElement) {
+        // No element selected - select first element
+        this.callbacks.onElementSelected(this.elements[0]);
+        return;
+      }
+
+      // Find current element index
+      const currentIndex = this.elements.findIndex(
+        el => String(el.id) === String(currentElement.id)
+      );
+
+      if (currentIndex === -1) {
+        // Current element not found - select first
+        this.callbacks.onElementSelected(this.elements[0]);
+        return;
+      }
+
+      // Calculate next/previous index with wrapping
+      let nextIndex;
+      if (e.shiftKey) {
+        // Shift+Tab: previous element
+        nextIndex = currentIndex === 0 ? this.elements.length - 1 : currentIndex - 1;
+      } else {
+        // Tab: next element
+        nextIndex = currentIndex === this.elements.length - 1 ? 0 : currentIndex + 1;
+      }
+
+      this.callbacks.onElementSelected(this.elements[nextIndex]);
+      return;
+    }
+
+    // Only handle arrow keys if an element is selected
+    if (!this.callbacks.getSelectedElement()) return;
 
     const selectedElement = this.callbacks.getSelectedElement();
     if (!selectedElement) return;
