@@ -23,22 +23,12 @@ class CanvasRenderer {
     const labelWidthDots = width * dpmm;
     const labelHeightDots = height * dpmm;
 
-    // Calculate scale to fit canvas container while maintaining aspect ratio
-    const containerWidth = this.canvas.parentElement.clientWidth - 48; // Account for padding
-    const containerHeight = this.canvas.parentElement.clientHeight - 48;
+    // Render at 1:1 scale to match API output (1 pixel = 1 dot)
+    this.scale = 1;
 
-    this.scale = Math.min(
-      containerWidth / labelWidthDots,
-      containerHeight / labelHeightDots,
-      2 // Max scale to prevent labels from being too large
-    );
-
-    // Set canvas actual size (scaled)
-    const scaledWidth = labelWidthDots * this.scale;
-    const scaledHeight = labelHeightDots * this.scale;
-
-    this.canvas.width = scaledWidth;
-    this.canvas.height = scaledHeight;
+    // Set canvas actual size (no scaling)
+    this.canvas.width = labelWidthDots;
+    this.canvas.height = labelHeightDots;
 
     // Calculate offsets to center canvas
     this.offsetX = 0;
@@ -49,7 +39,7 @@ class CanvasRenderer {
 
     // Draw white label background
     this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+    this.ctx.fillRect(0, 0, labelWidthDots, labelHeightDots);
 
     // Draw grid if enabled
     if (this.showGrid) {
@@ -59,7 +49,7 @@ class CanvasRenderer {
     // Draw label border
     this.ctx.strokeStyle = '#94a3b8';
     this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(0, 0, scaledWidth, scaledHeight);
+    this.ctx.strokeRect(0, 0, labelWidthDots, labelHeightDots);
 
     // Render each element
     elements.forEach(element => {
@@ -434,12 +424,19 @@ class CanvasRenderer {
    */
   mouseToLabelCoords(mouseX, mouseY) {
     const rect = this.canvas.getBoundingClientRect();
+
+    // Get mouse position relative to displayed canvas
     const canvasX = mouseX - rect.left;
     const canvasY = mouseY - rect.top;
 
+    // Calculate CSS scale factor (displayed size vs internal size)
+    const scaleX = rect.width / this.canvas.width;
+    const scaleY = rect.height / this.canvas.height;
+
+    // Convert from displayed coordinates to internal canvas coordinates
     return {
-      x: canvasX / this.scale,
-      y: canvasY / this.scale
+      x: canvasX / scaleX,
+      y: canvasY / scaleY
     };
   }
 
