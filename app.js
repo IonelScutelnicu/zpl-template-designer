@@ -715,12 +715,12 @@ async function updatePreview() {
       if (element.type === "TEXTBLOCK") {
         // TEXTBLOCK uses the defined blockWidth
         boxWidth = element.blockWidth || 200;
-        boxHeight = (element.fontSize || 30) * (element.maxLines || 1) + 10;
+        boxHeight = (element.fontSize || 30) * (element.maxLines || 1);
       } else {
         // TEXT: estimate width based on text length and font
         const text = element.previewText || '';
         boxWidth = Math.max(text.length * (element.fontWidth || 30) * 0.6, 50);
-        boxHeight = (element.fontSize || 30) + 10;
+        boxHeight = (element.fontSize || 30);
       }
 
       // Add a highlight box around the element
