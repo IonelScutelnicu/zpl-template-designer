@@ -197,16 +197,19 @@ document.addEventListener("DOMContentLoaded", () => {
   homeX.addEventListener("input", (e) => {
     labelSettings.homeX = parseInt(e.target.value) || 0;
     updateZPLOutput();
+    renderCanvasPreview();
   });
 
   homeY.addEventListener("input", (e) => {
     labelSettings.homeY = parseInt(e.target.value) || 0;
     updateZPLOutput();
+    renderCanvasPreview();
   });
 
   labelTop.addEventListener("input", (e) => {
     labelSettings.labelTop = parseInt(e.target.value) || 0;
     updateZPLOutput();
+    renderCanvasPreview();
   });
 
   // Set up event delegation for elements list (only once)

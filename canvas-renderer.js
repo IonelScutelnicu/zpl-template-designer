@@ -17,7 +17,12 @@ class CanvasRenderer {
    * @param {Object} labelSettings - Label configuration
    */
   renderCanvas(elements, labelSettings, selectedElement = null) {
-    const { width, height, dpmm } = labelSettings;
+    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0 } = labelSettings;
+
+    // Store offsets for use in element drawing
+    this.homeX = homeX;
+    this.homeY = homeY;
+    this.labelTop = labelTop;
 
     // Calculate label dimensions in dots
     const labelWidthDots = width * dpmm;
@@ -45,6 +50,9 @@ class CanvasRenderer {
     if (this.showGrid) {
       this.drawGrid(labelWidthDots, labelHeightDots, dpmm);
     }
+
+    // Draw offset zones with horizontal stripe pattern
+    this.drawOffsetZones(labelWidthDots, labelHeightDots);
 
     // Draw label border
     this.ctx.strokeStyle = '#94a3b8';
@@ -114,6 +122,91 @@ class CanvasRenderer {
   }
 
   /**
+   * Draw offset zones with diagonal stripe pattern
+   * Shows the area affected by homeX, homeY, and labelTop offsets
+   */
+  drawOffsetZones(labelWidthDots, labelHeightDots) {
+    const totalYOffset = this.homeY + this.labelTop;
+
+    // Only draw if there are offsets
+    if (this.homeX <= 0 && totalYOffset <= 0) return;
+
+    this.ctx.save();
+
+    // Stripe pattern settings
+    const stripeSpacing = 8; // pixels between stripes
+    const stripeColor = '#fca5a5'; // Light red color
+
+    this.ctx.strokeStyle = stripeColor;
+    this.ctx.lineWidth = 1;
+
+    // Draw left offset zone (homeX)
+    if (this.homeX > 0) {
+      const zoneWidth = this.homeX * this.scale;
+      const zoneHeight = labelHeightDots * this.scale;
+
+      // Clip to the left zone
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(0, 0, zoneWidth, zoneHeight);
+      this.ctx.clip();
+
+      // Draw diagonal stripes (45 degrees)
+      const maxDimension = zoneWidth + zoneHeight;
+      for (let offset = -maxDimension; offset < maxDimension; offset += stripeSpacing) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(offset, 0);
+        this.ctx.lineTo(offset + zoneHeight, zoneHeight);
+        this.ctx.stroke();
+      }
+      this.ctx.restore();
+
+      // Draw right edge border of the offset zone
+      this.ctx.strokeStyle = '#f87171';
+      this.ctx.setLineDash([4, 2]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(zoneWidth, 0);
+      this.ctx.lineTo(zoneWidth, zoneHeight);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+      this.ctx.strokeStyle = stripeColor;
+    }
+
+    // Draw top offset zone (homeY + labelTop)
+    if (totalYOffset > 0) {
+      const zoneWidth = labelWidthDots * this.scale;
+      const zoneHeight = totalYOffset * this.scale;
+
+      // Clip to the top zone
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(0, 0, zoneWidth, zoneHeight);
+      this.ctx.clip();
+
+      // Draw diagonal stripes (45 degrees)
+      const maxDimension = zoneWidth + zoneHeight;
+      for (let offset = -maxDimension; offset < maxDimension; offset += stripeSpacing) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(offset, 0);
+        this.ctx.lineTo(offset + zoneHeight, zoneHeight);
+        this.ctx.stroke();
+      }
+      this.ctx.restore();
+
+      // Draw bottom edge border of the offset zone
+      this.ctx.strokeStyle = '#f87171';
+      this.ctx.setLineDash([4, 2]);
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, zoneHeight);
+      this.ctx.lineTo(zoneWidth, zoneHeight);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+    }
+
+    this.ctx.restore();
+  }
+
+  /**
    * Draw a single element on canvas
    */
   drawElement(element, selectedElement) {
@@ -152,8 +245,8 @@ class CanvasRenderer {
    * Draw TEXT element
    */
   drawText(element) {
-    const x = element.x * this.scale;
-    const y = element.y * this.scale;
+    const x = (element.x + this.homeX) * this.scale;
+    const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const fontSize = element.fontSize * this.scale;
 
     this.ctx.fillStyle = '#000000';
@@ -168,8 +261,8 @@ class CanvasRenderer {
    * Draw TEXTBLOCK element
    */
   drawTextBlock(element) {
-    const x = element.x * this.scale;
-    const y = element.y * this.scale;
+    const x = (element.x + this.homeX) * this.scale;
+    const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const fontSize = element.fontSize * this.scale;
     const blockWidth = element.blockWidth * this.scale;
 
@@ -224,8 +317,8 @@ class CanvasRenderer {
    * Draw BARCODE element (placeholder)
    */
   drawBarcode(element) {
-    const x = element.x * this.scale;
-    const y = element.y * this.scale;
+    const x = (element.x + this.homeX) * this.scale;
+    const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const height = element.height * this.scale;
 
     // Estimate barcode width based on data length
@@ -253,8 +346,8 @@ class CanvasRenderer {
    * Draw QRCODE element (placeholder)
    */
   drawQRCode(element) {
-    const x = element.x * this.scale;
-    const y = element.y * this.scale;
+    const x = (element.x + this.homeX) * this.scale;
+    const y = (element.y + this.homeY + this.labelTop) * this.scale;
 
     // Calculate QR code size based on data length and error correction
     const dataLength = element.previewData.length;
@@ -309,8 +402,8 @@ class CanvasRenderer {
    * Draw BOX element
    */
   drawBox(element) {
-    const x = element.x * this.scale;
-    const y = element.y * this.scale;
+    const x = (element.x + this.homeX) * this.scale;
+    const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const width = element.width * this.scale;
     const height = element.height * this.scale;
     const thickness = element.thickness * this.scale;
@@ -375,8 +468,8 @@ class CanvasRenderer {
    */
   drawSelectionIndicator(element) {
     const bounds = element.getBounds();
-    const x = bounds.x * this.scale;
-    const y = bounds.y * this.scale;
+    const x = (bounds.x + this.homeX) * this.scale;
+    const y = (bounds.y + this.homeY + this.labelTop) * this.scale;
     const width = bounds.width * this.scale;
     const height = bounds.height * this.scale;
 
@@ -421,6 +514,7 @@ class CanvasRenderer {
 
   /**
    * Convert mouse coordinates to label coordinates (in dots)
+   * Returns coordinates relative to element positions (without offsets applied)
    */
   mouseToLabelCoords(mouseX, mouseY) {
     const rect = this.canvas.getBoundingClientRect();
@@ -434,9 +528,10 @@ class CanvasRenderer {
     const scaleY = rect.height / this.canvas.height;
 
     // Convert from displayed coordinates to internal canvas coordinates
+    // Then subtract offsets to get element-relative coordinates
     return {
-      x: canvasX / scaleX,
-      y: canvasY / scaleY
+      x: canvasX / scaleX - this.homeX,
+      y: canvasY / scaleY - this.homeY - this.labelTop
     };
   }
 
