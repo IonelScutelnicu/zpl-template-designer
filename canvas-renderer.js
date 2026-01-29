@@ -17,16 +17,21 @@ class CanvasRenderer {
    * @param {Object} labelSettings - Label configuration
    */
   renderCanvas(elements, labelSettings, selectedElement = null) {
-    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0 } = labelSettings;
+    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N' } = labelSettings;
 
-    // Store offsets for use in element drawing
+    // Store offsets and orientation for use in element drawing and coordinate conversion
     this.homeX = homeX;
     this.homeY = homeY;
     this.labelTop = labelTop;
+    this.printOrientation = printOrientation;
 
     // Calculate label dimensions in dots
     const labelWidthDots = width * dpmm;
     const labelHeightDots = height * dpmm;
+
+    // Store label dimensions for coordinate conversion
+    this.labelWidthDots = labelWidthDots;
+    this.labelHeightDots = labelHeightDots;
 
     // Render at 1:1 scale to match API output (1 pixel = 1 dot)
     this.scale = 1;
@@ -59,10 +64,24 @@ class CanvasRenderer {
     this.ctx.lineWidth = 1;
     this.ctx.strokeRect(0, 0, labelWidthDots, labelHeightDots);
 
+    // Apply orientation transformation for elements
+    // For inverted (I) orientation, flip the entire canvas 180°
+    if (printOrientation === 'I') {
+      this.ctx.save();
+      // Rotate 180° around the center by translating and scaling
+      this.ctx.translate(labelWidthDots, labelHeightDots);
+      this.ctx.scale(-1, -1);
+    }
+
     // Render each element
     elements.forEach(element => {
       this.drawElement(element, selectedElement);
     });
+
+    // Restore context if transformed
+    if (printOrientation === 'I') {
+      this.ctx.restore();
+    }
   }
 
   /**
@@ -528,10 +547,20 @@ class CanvasRenderer {
     const scaleY = rect.height / this.canvas.height;
 
     // Convert from displayed coordinates to internal canvas coordinates
-    // Then subtract offsets to get element-relative coordinates
+    let internalX = canvasX / scaleX;
+    let internalY = canvasY / scaleY;
+
+    // If orientation is inverted, transform the coordinates
+    // The canvas is flipped 180°, so we need to invert the click position
+    if (this.printOrientation === 'I') {
+      internalX = this.labelWidthDots - internalX;
+      internalY = this.labelHeightDots - internalY;
+    }
+
+    // Subtract offsets to get element-relative coordinates
     return {
-      x: canvasX / scaleX - this.homeX,
-      y: canvasY / scaleY - this.homeY - this.labelTop
+      x: internalX - this.homeX,
+      y: internalY - this.homeY - this.labelTop
     };
   }
 
