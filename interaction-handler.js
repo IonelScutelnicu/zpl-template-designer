@@ -282,11 +282,11 @@ class InteractionHandler {
     // Handle Tab key for element navigation
     if (e.key === 'Tab') {
       e.preventDefault();
-      
+
       if (this.elements.length === 0) return;
 
       const currentElement = this.callbacks.getSelectedElement();
-      
+
       if (!currentElement) {
         // No element selected - select first element
         this.callbacks.onElementSelected(this.elements[0]);
@@ -327,7 +327,22 @@ class InteractionHandler {
     let moved = false;
     const moveAmount = e.shiftKey ? 10 : 1;
 
-    switch (e.key) {
+    // Check if orientation is inverted - if so, reverse arrow key directions
+    // so visual movement matches user expectations
+    const isInverted = this.labelSettings.printOrientation === 'I';
+
+    // Determine effective direction based on orientation
+    let effectiveKey = e.key;
+    if (isInverted) {
+      switch (e.key) {
+        case 'ArrowLeft': effectiveKey = 'ArrowRight'; break;
+        case 'ArrowRight': effectiveKey = 'ArrowLeft'; break;
+        case 'ArrowUp': effectiveKey = 'ArrowDown'; break;
+        case 'ArrowDown': effectiveKey = 'ArrowUp'; break;
+      }
+    }
+
+    switch (effectiveKey) {
       case 'ArrowLeft':
         selectedElement.x = Math.max(0, selectedElement.x - moveAmount);
         moved = true;
@@ -346,11 +361,13 @@ class InteractionHandler {
         selectedElement.y = Math.min(maxY, selectedElement.y + moveAmount);
         moved = true;
         break;
-      case 'Delete':
-        if (this.callbacks.onElementDeleted) {
-          this.callbacks.onElementDeleted(selectedElement);
-        }
-        break;
+    }
+
+    // Handle Delete key separately (not affected by orientation)
+    if (e.key === 'Delete') {
+      if (this.callbacks.onElementDeleted) {
+        this.callbacks.onElementDeleted(selectedElement);
+      }
     }
 
     if (moved) {

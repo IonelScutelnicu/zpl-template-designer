@@ -155,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
   printOrientation.addEventListener("change", (e) => {
     labelSettings.printOrientation = e.target.value || "N";
     updateZPLOutput();
+    renderCanvasPreview();
   });
 
   mediaDarkness.addEventListener("input", (e) => {
