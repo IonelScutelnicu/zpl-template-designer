@@ -66,19 +66,19 @@ class BarcodeElement extends ZPLElement {
     }
 
     render() {
-        // ZPL format: ^FOx,y^BYwidth,height,ratio^BCN,height^FDdata^FS
+        // ZPL format: ^FOx,y^BYwidth,ratio^BCN,height^FDdata^FS
         // ^FO - Field Origin (position)
-        // ^BY - Barcode field defaults (width multiplier, height ratio, ratio)
+        // ^BY - Barcode field defaults (width multiplier, ratio)
         // ^BCN - Code 128 barcode (N = normal orientation)
         // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewData;
-        return `^FO${this.x},${this.y}^BY${this.width},${this.height},${this.ratio}^BCN,${this.height}^FD${content}^FS`;
+        return `^FO${this.x},${this.y}^BY${this.width},${this.ratio}^BCN,${this.height}^FD${content}^FS`;
     }
 
     renderPreview() {
         // Uses preview data for Labelary API visualization
-        return `^FO${this.x},${this.y}^BY${this.width},${this.height},${this.ratio}^BCN,${this.height}^FD${this.previewData}^FS`;
+        return `^FO${this.x},${this.y}^BY${this.width},${this.ratio}^BCN,${this.height}^FD${this.previewData}^FS`;
     }
 
     getDisplayName() {
@@ -87,8 +87,10 @@ class BarcodeElement extends ZPLElement {
     }
 
     getBounds() {
-        // Estimate barcode dimensions
-        const width = Math.max(this.previewData.length * 10, 100);
+        // Calculate actual Code128 width (bars only): (35 + 11n) × moduleWidth
+        // Quiet zones (10 modules each side) are implicit, not part of bounds
+        const totalModules = 35 + (11 * this.previewData.length);
+        const width = totalModules * this.width;
         const height = this.height;
         return { x: this.x, y: this.y, width, height };
     }

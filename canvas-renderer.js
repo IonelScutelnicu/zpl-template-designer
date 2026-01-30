@@ -1,6 +1,101 @@
 // Canvas Renderer for ZPL Template Creator
 // Renders all element types on HTML5 Canvas
 
+// Code128 Subset B patterns: [bar, space, bar, space, bar, space] widths
+// Each character is encoded as 6 elements (alternating bars/spaces) totaling 11 modules
+const CODE128B_PATTERNS = [
+  [2, 1, 2, 2, 2, 2], [2, 2, 2, 1, 2, 2], [2, 2, 2, 2, 2, 1], [1, 2, 1, 2, 2, 3], [1, 2, 1, 3, 2, 2],
+  [1, 3, 1, 2, 2, 2], [1, 2, 2, 2, 1, 3], [1, 2, 2, 3, 1, 2], [1, 3, 2, 2, 1, 2], [2, 2, 1, 2, 1, 3],
+  [2, 2, 1, 3, 1, 2], [2, 3, 1, 2, 1, 2], [1, 1, 2, 2, 3, 2], [1, 2, 2, 1, 3, 2], [1, 2, 2, 2, 3, 1],
+  [1, 1, 3, 2, 2, 2], [1, 2, 3, 1, 2, 2], [1, 2, 3, 2, 2, 1], [2, 2, 3, 2, 1, 1], [2, 2, 1, 1, 3, 2],
+  [2, 2, 1, 2, 3, 1], [2, 1, 3, 2, 1, 2], [2, 2, 3, 1, 1, 2], [3, 1, 2, 1, 3, 1], [3, 1, 1, 2, 2, 2],
+  [3, 2, 1, 1, 2, 2], [3, 2, 1, 2, 2, 1], [3, 1, 2, 2, 1, 2], [3, 2, 2, 1, 1, 2], [3, 2, 2, 2, 1, 1],
+  [2, 1, 2, 1, 2, 3], [2, 1, 2, 3, 2, 1], [2, 3, 2, 1, 2, 1], [1, 1, 1, 3, 2, 3], [1, 3, 1, 1, 2, 3],
+  [1, 3, 1, 3, 2, 1], [1, 1, 2, 3, 1, 3], [1, 3, 2, 1, 1, 3], [1, 3, 2, 3, 1, 1], [2, 1, 1, 3, 1, 3],
+  [2, 3, 1, 1, 1, 3], [2, 3, 1, 3, 1, 1], [1, 1, 2, 1, 3, 3], [1, 1, 2, 3, 3, 1], [1, 3, 2, 1, 3, 1],
+  [1, 1, 3, 1, 2, 3], [1, 1, 3, 3, 2, 1], [1, 3, 3, 1, 2, 1], [3, 1, 3, 1, 2, 1], [2, 1, 1, 3, 3, 1],
+  [2, 3, 1, 1, 3, 1], [2, 1, 3, 1, 1, 3], [2, 1, 3, 3, 1, 1], [2, 1, 3, 1, 3, 1], [3, 1, 1, 1, 2, 3],
+  [3, 1, 1, 3, 2, 1], [3, 3, 1, 1, 2, 1], [3, 1, 2, 1, 1, 3], [3, 1, 2, 3, 1, 1], [3, 3, 2, 1, 1, 1],
+  [3, 1, 4, 1, 1, 1], [2, 2, 1, 4, 1, 1], [4, 3, 1, 1, 1, 1], [1, 1, 1, 2, 2, 4], [1, 1, 1, 4, 2, 2],
+  [1, 2, 1, 1, 2, 4], [1, 2, 1, 4, 2, 1], [1, 4, 1, 1, 2, 2], [1, 4, 1, 2, 2, 1], [1, 1, 2, 2, 1, 4],
+  [1, 1, 2, 4, 1, 2], [1, 2, 2, 1, 1, 4], [1, 2, 2, 4, 1, 1], [1, 4, 2, 1, 1, 2], [1, 4, 2, 2, 1, 1],
+  [2, 4, 1, 2, 1, 1], [2, 2, 1, 1, 1, 4], [4, 1, 3, 1, 1, 1], [2, 4, 1, 1, 1, 2], [1, 3, 4, 1, 1, 1],
+  [1, 1, 1, 2, 4, 2], [1, 2, 1, 1, 4, 2], [1, 2, 1, 2, 4, 1], [1, 1, 4, 2, 1, 2], [1, 2, 4, 1, 1, 2],
+  [1, 2, 4, 2, 1, 1], [4, 1, 1, 2, 1, 2], [4, 2, 1, 1, 1, 2], [4, 2, 1, 2, 1, 1], [2, 1, 2, 1, 4, 1],
+  [2, 1, 4, 1, 2, 1], [4, 1, 2, 1, 2, 1], [1, 1, 1, 1, 4, 3], [1, 1, 1, 3, 4, 1], [1, 3, 1, 1, 4, 1],
+  [1, 1, 4, 1, 1, 3], [1, 1, 4, 3, 1, 1], [4, 1, 1, 1, 1, 3], [4, 1, 1, 3, 1, 1], [1, 1, 3, 1, 4, 1],
+  [1, 1, 4, 1, 3, 1], [3, 1, 1, 1, 4, 1], [4, 1, 1, 1, 3, 1], [2, 1, 1, 4, 1, 2], [2, 1, 1, 2, 1, 4],
+  [2, 1, 1, 2, 3, 2], [2, 3, 3, 1, 1, 1] // Value 106 (STOP - 6 elements, needs final 2-module bar)
+];
+
+// START_B code value (used for checksum calculation)
+const START_B = 104;
+
+/**
+ * Calculate Code128 checksum (modulo 103)
+ * @param {string} data - Data to encode
+ * @returns {number} Checksum value
+ */
+function calculateCode128Checksum(data) {
+  let checksum = START_B; // Start with START_B value
+  for (let i = 0; i < data.length; i++) {
+    const charCode = data.charCodeAt(i);
+    // Map ASCII to Code128 value (space = 32 maps to value 0)
+    const value = charCode - 32;
+    checksum += value * (i + 1);
+  }
+  return checksum % 103;
+}
+
+/**
+ * Encode data into Code128 Subset B bar patterns
+ * @param {string} data - Data to encode
+ * @returns {Array} Array of bar patterns
+ */
+function encodeCode128B(data) {
+  const patterns = [];
+
+  // Add START_B code (value 104)
+  patterns.push(CODE128B_PATTERNS[104]);
+
+  // Add data characters
+  for (let i = 0; i < data.length; i++) {
+    const charCode = data.charCodeAt(i);
+    // Map ASCII to Code128 value (space = 32 maps to value 0)
+    const value = charCode - 32;
+
+    // Handle unsupported characters (use space as fallback)
+    if (value < 0 || value >= 95) {
+      patterns.push(CODE128B_PATTERNS[0]); // Space
+    } else {
+      patterns.push(CODE128B_PATTERNS[value]);
+    }
+  }
+
+  // Add check digit
+  const checksum = calculateCode128Checksum(data);
+  patterns.push(CODE128B_PATTERNS[checksum]);
+
+  // Add STOP code (value 106)
+  patterns.push(CODE128B_PATTERNS[106]);
+
+  return patterns;
+}
+
+/**
+ * Calculate accurate Code128 barcode width (bars only, excluding quiet zones)
+ * Formula: (35 + 11n) × moduleWidth
+ * Breakdown: 11 (start) + 11n (data) + 11 (check) + 11 (stop pattern) + 2 (termination bar) = 35 + 11n
+ * Note: Quiet zones (10 modules each side) are implicit white space, not part of barcode width
+ * @param {string} data - Data to encode
+ * @param {number} moduleWidth - Width of narrowest bar
+ * @returns {number} Total barcode width in dots
+ */
+function calculateCode128Width(data, moduleWidth) {
+  const totalModules = 35 + (11 * data.length);
+  return totalModules * moduleWidth;
+}
+
 class CanvasRenderer {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
@@ -333,32 +428,59 @@ class CanvasRenderer {
   }
 
   /**
-   * Draw BARCODE element (placeholder)
+   * Draw BARCODE element (Code128 Subset B)
    */
   drawBarcode(element) {
     const x = (element.x + this.homeX) * this.scale;
     const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const height = element.height * this.scale;
 
-    // Estimate barcode width based on data length
-    const estimatedWidth = Math.max(element.previewData.length * 10, 100) * this.scale;
+    // Calculate module width (narrowest bar width)
+    const moduleWidth = element.width * this.scale;
 
-    // Draw simplified barcode bars (no background)
+    // Encode data into Code128 bar patterns
+    const data = element.previewData || '';
+    const patterns = encodeCode128B(data);
+
+    // Calculate total barcode width (bars only, no quiet zones)
+    const totalWidth = calculateCode128Width(data, element.width) * this.scale;
+
+    // Start drawing bars at x (quiet zones are implicit white space)
+    let currentX = x;
+
+    // Draw encoded patterns
     this.ctx.fillStyle = '#000000';
-    const barWidth = 2 * this.scale;
-    const barSpacing = 2 * this.scale;
+    let isBar = true; // Start with a bar
 
-    for (let i = 0; i < estimatedWidth; i += barWidth + barSpacing) {
-      // Draw bars at full height for cleaner look
-      this.ctx.fillRect(x + i, y, barWidth, height);
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
+
+      // Draw each element in the pattern
+      for (let j = 0; j < pattern.length; j++) {
+        const elementWidth = pattern[j] * moduleWidth;
+
+        if (isBar) {
+          // Draw bar (black)
+          this.ctx.fillRect(currentX, y, elementWidth, height);
+        }
+        // Space (white) - don't draw, just advance position
+
+        currentX += elementWidth;
+        isBar = !isBar;
+      }
+
+      // Don't reset isBar - patterns flow together continuously
     }
 
-    // Draw barcode number below the barcode
+    // Add final termination bar (2 modules) for stop code
+    this.ctx.fillRect(currentX, y, 2 * moduleWidth, height);
+
+    // Draw barcode text below centered at actual width
     this.ctx.fillStyle = '#000000';
-    this.ctx.font = `${12 * this.scale}px Arial, sans-serif`;
+    this.ctx.font = `${18 * this.scale}px Arial, sans-serif`;
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'top';
-    this.ctx.fillText(element.previewData || '', x + estimatedWidth / 2, y + height + (2 * this.scale));
+    this.ctx.fillText(data, x + totalWidth / 2, y + height + 4 + (2 * this.scale));
   }
 
   /**
