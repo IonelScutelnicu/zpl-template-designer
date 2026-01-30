@@ -711,27 +711,27 @@ async function updatePreview() {
     let cmd = element.renderPreview(fid);
 
     // Add debug highlight box for selected TEXT or TEXTBLOCK elements
-    if (selectedElement && String(element.id) === String(selectedElement.id) &&
-      (element.type === "TEXT" || element.type === "TEXTBLOCK")) {
-      // Calculate element dimensions
-      let boxWidth, boxHeight;
+    // if (selectedElement && String(element.id) === String(selectedElement.id) &&
+    //   (element.type === "TEXT" || element.type === "TEXTBLOCK")) {
+    //   // Calculate element dimensions
+    //   let boxWidth, boxHeight;
 
-      if (element.type === "TEXTBLOCK") {
-        // TEXTBLOCK uses the defined blockWidth
-        boxWidth = element.blockWidth || 200;
-        boxHeight = (element.fontSize || 30) * (element.maxLines || 1);
-      } else {
-        // TEXT: estimate width based on text length and font
-        const text = element.previewText || '';
-        boxWidth = Math.max(text.length * (element.fontWidth || 30) * 0.6, 50);
-        boxHeight = (element.fontSize || 30);
-      }
+    //   if (element.type === "TEXTBLOCK") {
+    //     // TEXTBLOCK uses the defined blockWidth
+    //     boxWidth = element.blockWidth || 200;
+    //     boxHeight = (element.fontSize || 30) * (element.maxLines || 1);
+    //   } else {
+    //     // TEXT: estimate width based on text length and font
+    //     const text = element.previewText || '';
+    //     boxWidth = Math.max(text.length * (element.fontWidth || 30) * 0.6, 50);
+    //     boxHeight = (element.fontSize || 30);
+    //   }
 
-      // Add a highlight box around the element
-      const padding = 5;
-      const highlightBox = `^FO${Math.max(0, element.x - padding)},${Math.max(0, element.y - padding)}^GB${boxWidth + padding * 2},${boxHeight + padding * 2},2,B^FS`;
-      cmd = highlightBox + "\n" + cmd;
-    }
+    //   // Add a highlight box around the element
+    //   const padding = 5;
+    //   const highlightBox = `^FO${Math.max(0, element.x - padding)},${Math.max(0, element.y - padding)}^GB${boxWidth + padding * 2},${boxHeight + padding * 2},1,B^FS`;
+    //   cmd = highlightBox + "\n" + cmd;
+    // }
 
     return cmd;
   }).join("\n");
