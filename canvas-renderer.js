@@ -642,42 +642,66 @@ class CanvasRenderer {
     const width = bounds.width * this.scale;
     const height = bounds.height * this.scale;
 
-    // Blue outline
+    // Blue dashed outline
+    this.ctx.save();
     this.ctx.strokeStyle = '#3B82F6';
     this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([]);
+    this.ctx.setLineDash([6, 6]);
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
+    this.ctx.restore();
 
     // Draw resize handles (skip for TEXT, QRCODE, and BARCODE elements as they don't support resize)
     if (element.type === 'TEXT' || element.type === 'QRCODE' || element.type === 'BARCODE') {
       return; // These elements don't support resize, so don't draw handles
     }
 
-    const handleSize = 6;
-    this.ctx.fillStyle = '#3B82F6';
+    const handleRadius = 6; // 12px diameter (matches w-3)
+
+    // Helper to draw round handle
+    const drawHandle = (cx, cy) => {
+      this.ctx.save();
+
+      // Shadow
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+      this.ctx.shadowBlur = 3;
+      this.ctx.shadowOffsetY = 1;
+
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, handleRadius, 0, 2 * Math.PI);
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.fill();
+
+      // Border (reset shadow for stroke to avoid double shadow)
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.strokeStyle = '#3B82F6';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.stroke();
+
+      this.ctx.restore();
+    };
 
     // For BOX and LINE elements, show all 8 handles (4 corners + 4 edges)
     if (element.type === 'BOX' || element.type === 'LINE') {
       // Corner handles
-      this.ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-left
-      this.ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-right
-      this.ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-left
-      this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-right
+      drawHandle(x, y); // Top-left
+      drawHandle(x + width, y); // Top-right
+      drawHandle(x, y + height); // Bottom-left
+      drawHandle(x + width, y + height); // Bottom-right
 
       // Edge handles
-      this.ctx.fillRect(x + width / 2 - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top
-      this.ctx.fillRect(x + width - handleSize / 2, y + height / 2 - handleSize / 2, handleSize, handleSize); // Right
-      this.ctx.fillRect(x + width / 2 - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom
-      this.ctx.fillRect(x - handleSize / 2, y + height / 2 - handleSize / 2, handleSize, handleSize); // Left
+      drawHandle(x + width / 2, y); // Top
+      drawHandle(x + width, y + height / 2); // Right
+      drawHandle(x + width / 2, y + height); // Bottom
+      drawHandle(x, y + height / 2); // Left
     } else if (element.type === 'TEXTBLOCK') {
       // For TEXTBLOCK, only show bottom-right handle
-      this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+      drawHandle(x + width, y + height);
     } else {
       // For other elements, show 4 corner handles
-      this.ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-left
-      this.ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-right
-      this.ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-left
-      this.ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize); // Bottom-right
+      drawHandle(x, y); // Top-left
+      drawHandle(x + width, y); // Top-right
+      drawHandle(x, y + height); // Bottom-left
+      drawHandle(x + width, y + height); // Bottom-right
     }
   }
 
