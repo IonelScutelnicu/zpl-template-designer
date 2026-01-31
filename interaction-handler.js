@@ -47,7 +47,7 @@ class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX')) {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         this.isResizing = true;
@@ -57,8 +57,15 @@ class InteractionHandler {
         // Store original position and size for resize calculations
         this.resizeStartX = selectedElement.x;
         this.resizeStartY = selectedElement.y;
-        this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
-        this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || 30) * (selectedElement.maxLines || 1);
+
+        if (selectedElement.type === 'LINE') {
+          const bounds = selectedElement.getBounds();
+          this.resizeStartWidth = bounds.width;
+          this.resizeStartHeight = bounds.height;
+        } else {
+          this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
+          this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || 30) * (selectedElement.maxLines || 1);
+        }
         this.resizeMouseStartX = coords.x;
         this.resizeMouseStartY = coords.y;
 
@@ -104,7 +111,7 @@ class InteractionHandler {
         this.dragElement.maxLines = Math.max(1, Math.round((newHeight - 10) / lineHeight));
 
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX') {
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -153,27 +160,56 @@ class InteractionHandler {
         }
 
         // Enforce minimum size
-        const minSize = 10;
-        if (newWidth < minSize) {
-          newWidth = minSize;
-          // Adjust position if resizing from left
-          if (this.resizeHandle.includes('l') || this.resizeHandle === 'l') {
-            newX = this.resizeStartX + this.resizeStartWidth - minSize;
+        const minSize = 10; // Minimum size for interaction
+        const minThickness = 1; // True minimum thickness for lines
+
+        // For line thickness, allow going smaller than 10 (down to 1)
+        const isLine = this.dragElement.type === 'LINE';
+        const isHorizontal = isLine && this.dragElement.orientation === 'H';
+
+        // Determine min limits for width/height based on type and orientation
+        let minW = minSize;
+        let minH = minSize;
+
+        if (isLine) {
+          if (isHorizontal) {
+            minH = minThickness;
+          } else {
+            minW = minThickness;
           }
         }
-        if (newHeight < minSize) {
-          newHeight = minSize;
+
+        if (newWidth < minW) {
+          newWidth = minW;
+          // Adjust position if resizing from left
+          if (this.resizeHandle.includes('l') || this.resizeHandle === 'l') {
+            newX = this.resizeStartX + this.resizeStartWidth - minW;
+          }
+        }
+        if (newHeight < minH) {
+          newHeight = minH;
           // Adjust position if resizing from top
           if (this.resizeHandle.includes('t') || this.resizeHandle === 't') {
-            newY = this.resizeStartY + this.resizeStartHeight - minSize;
+            newY = this.resizeStartY + this.resizeStartHeight - minH;
           }
         }
 
         // Update element
         this.dragElement.x = Math.round(newX);
         this.dragElement.y = Math.round(newY);
-        this.dragElement.width = Math.round(newWidth);
-        this.dragElement.height = Math.round(newHeight);
+
+        if (this.dragElement.type === 'BOX') {
+          this.dragElement.width = Math.round(newWidth);
+          this.dragElement.height = Math.round(newHeight);
+        } else { // LINE
+          if (this.dragElement.orientation === 'H') {
+            this.dragElement.width = Math.round(newWidth);
+            this.dragElement.thickness = Math.round(newHeight);
+          } else {
+            this.dragElement.width = Math.round(newHeight);
+            this.dragElement.thickness = Math.round(newWidth);
+          }
+        }
 
         this.callbacks.onElementDragging(this.dragElement);
       }
@@ -215,7 +251,7 @@ class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX')) {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -407,8 +443,8 @@ class InteractionHandler {
     // We need the scale to calculate handle size in dots
     // The handle is drawn as 6px square in screen coordinates
     // So in dot coordinates it is 6 / scale
-    const scale = this.renderer.scale;
-    const handleSizeDots = 10 / scale; // Use slightly larger hit area (10px)
+    const scale = this.renderer.scale || 1;
+    const handleSizeDots = 15 / scale; // Use larger hit area (15px) for better usability
     const hsHalf = handleSizeDots / 2;
 
     const bounds = element.getBounds();
@@ -417,8 +453,8 @@ class InteractionHandler {
     const bw = bounds.width;
     const bh = bounds.height;
 
-    // For BOX elements, check all 8 handles
-    if (element.type === 'BOX') {
+    // For BOX and LINE elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {
