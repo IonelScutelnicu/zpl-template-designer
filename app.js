@@ -486,6 +486,13 @@ function renderBarcodePropertiesHTML(element) {
         ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
         ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
         ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Print Interpretation Line</label>
+            <select id="prop-show-text" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="Y" ${element.showText === true ? "selected" : ""}>Yes (Show)</option>
+                <option value="N" ${element.showText === false ? "selected" : ""}>No (Hide)</option>
+            </select>
+        </div>
     `;
 }
 
@@ -604,6 +611,9 @@ function attachPropertyListeners(element) {
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-width", "width", (v) => parseFloat(v) || 2);
     attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
+    
+    // Handle show text select
+    attach("prop-show-text", "showText", (v) => v === "Y");
   } else if (element.type === "BOX") {
     attach("prop-width", "width", (v) => parseInt(v) || 100);
     attach("prop-height", "height", (v) => parseInt(v) || 50);
@@ -821,6 +831,7 @@ function exportTemplate() {
         elementData.height = element.height;
         elementData.width = element.width;
         elementData.ratio = element.ratio;
+        elementData.showText = element.showText;
       } else if (element.type === "BOX") {
         elementData.width = element.width;
         elementData.height = element.height;
@@ -981,7 +992,8 @@ function importTemplate(template) {
         elementData.height || 50,
         elementData.width || 2,
         elementData.ratio || 2.0,
-        elementData.placeholder || ""
+        elementData.placeholder || "",
+        elementData.showText !== undefined ? elementData.showText : true
       );
     } else if (elementData.type === "BOX") {
       element = new BoxElement(
