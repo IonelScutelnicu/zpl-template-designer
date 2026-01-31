@@ -159,6 +159,34 @@ class InteractionHandler {
             break;
         }
 
+        // Boundary Constraints
+        const labelW = this.labelSettings.width * this.labelSettings.dpmm;
+        const labelH = this.labelSettings.height * this.labelSettings.dpmm;
+
+        // Constrain X and Width
+        if (this.resizeHandle.includes('l')) { // Modifying Left edge
+          if (newX < 0) {
+            newX = 0;
+            newWidth = (this.resizeStartX + this.resizeStartWidth) - newX;
+          }
+        } else { // Right edge moving or static
+          if (newX + newWidth > labelW) {
+            newWidth = labelW - newX;
+          }
+        }
+
+        // Constrain Y and Height
+        if (this.resizeHandle.includes('t')) { // Modifying Top edge
+          if (newY < 0) {
+            newY = 0;
+            newHeight = (this.resizeStartY + this.resizeStartHeight) - newY;
+          }
+        } else { // Bottom edge moving or static
+          if (newY + newHeight > labelH) {
+            newHeight = labelH - newY;
+          }
+        }
+
         // Enforce minimum size
         const minSize = 10; // Minimum size for interaction
         const minThickness = 1; // True minimum thickness for lines
