@@ -7,6 +7,7 @@
   <title>ZPL Template Creator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <script>
     tailwind.config = {
@@ -85,24 +86,34 @@
             </div>
             <div class="p-3 grid grid-cols-2 gap-2">
               <button id="add-textblock-btn"
-                class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 hover:border-blue-500 hover:text-blue-600 font-medium py-2 px-3 rounded-md transition-all text-xs shadow-sm hover:shadow">
-                <span class="text-lg leading-none">+</span> Text Block
+                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                <span
+                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">text_fields</span>
+                <span class="font-medium">Text Block</span>
               </button>
               <button id="add-text-btn"
-                class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 hover:border-blue-500 hover:text-blue-600 font-medium py-2 px-3 rounded-md transition-all text-xs shadow-sm hover:shadow">
-                <span class="text-lg leading-none">+</span> Text
+                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                <span
+                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">format_size</span>
+                <span class="font-medium">Text</span>
               </button>
               <button id="add-barcode-btn"
-                class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 hover:border-blue-500 hover:text-blue-600 font-medium py-2 px-3 rounded-md transition-all text-xs shadow-sm hover:shadow">
-                <span class="text-lg leading-none">+</span> Barcode
+                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                <span
+                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">view_week</span>
+                <span class="font-medium">Barcode</span>
               </button>
               <button id="add-qrcode-btn"
-                class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 hover:border-blue-500 hover:text-blue-600 font-medium py-2 px-3 rounded-md transition-all text-xs shadow-sm hover:shadow">
-                <span class="text-lg leading-none">+</span> QR Code
+                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                <span
+                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">qr_code_2</span>
+                <span class="font-medium">QR Code</span>
               </button>
               <button id="add-box-btn"
-                class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 hover:border-blue-500 hover:text-blue-600 font-medium py-2 px-3 rounded-md transition-all text-xs shadow-sm hover:shadow">
-                <span class="text-lg leading-none">+</span> Box
+                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                <span
+                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">check_box_outline_blank</span>
+                <span class="font-medium">Box</span>
               </button>
             </div>
 
