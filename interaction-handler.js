@@ -472,7 +472,7 @@ class InteractionHandler {
     // The handle is drawn as 6px square in screen coordinates
     // So in dot coordinates it is 6 / scale
     const scale = this.renderer.scale || 1;
-    const handleSizeDots = 15 / scale; // Use larger hit area (15px) for better usability
+    const handleSizeDots = 20 / scale; // Use larger hit area (20px) for better usability
     const hsHalf = handleSizeDots / 2;
 
     const bounds = element.getBounds();
