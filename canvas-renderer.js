@@ -475,12 +475,14 @@ class CanvasRenderer {
     // Add final termination bar (2 modules) for stop code
     this.ctx.fillRect(currentX, y, 2 * moduleWidth, height);
 
-    // Draw barcode text below centered at actual width
-    this.ctx.fillStyle = '#000000';
-    this.ctx.font = `${18 * this.scale}px Arial, sans-serif`;
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'top';
-    this.ctx.fillText(data, x + totalWidth / 2, y + height + 4 + (2 * this.scale));
+    // Draw barcode text below centered at actual width (if enabled)
+    if (element.showText) {
+      this.ctx.fillStyle = '#000000';
+      this.ctx.font = `${18 * this.scale}px Arial, sans-serif`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'top';
+      this.ctx.fillText(data, x + totalWidth / 2, y + height + 4 + (2 * this.scale));
+    }
   }
 
   /**
