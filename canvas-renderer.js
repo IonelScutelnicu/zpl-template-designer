@@ -345,6 +345,9 @@ class CanvasRenderer {
       case 'BOX':
         this.drawBox(element);
         break;
+      case 'LINE':
+        this.drawLine(element);
+        break;
     }
 
     // Draw selection indicator
@@ -583,6 +586,29 @@ class CanvasRenderer {
   }
 
   /**
+   * Draw LINE element
+   */
+  drawLine(element) {
+    const x = (element.x + this.homeX) * this.scale;
+    const y = (element.y + this.homeY + this.labelTop) * this.scale;
+
+    let w, h;
+    if (element.orientation === 'V') {
+      w = element.thickness;
+      h = element.width;
+    } else {
+      w = element.width;
+      h = element.thickness;
+    }
+
+    const width = w * this.scale;
+    const height = h * this.scale;
+
+    this.ctx.fillStyle = '#000000';
+    this.ctx.fillRect(x, y, width, height);
+  }
+
+  /**
    * Draw rounded rectangle
    */
   roundRect(x, y, width, height, radius, fill, stroke) {
@@ -630,8 +656,8 @@ class CanvasRenderer {
     const handleSize = 6;
     this.ctx.fillStyle = '#3B82F6';
 
-    // For BOX elements, show all 8 handles (4 corners + 4 edges)
-    if (element.type === 'BOX') {
+    // For BOX and LINE elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX' || element.type === 'LINE') {
       // Corner handles
       this.ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-left
       this.ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize); // Top-right

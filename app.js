@@ -24,6 +24,7 @@ const addBarcodeBtn = document.getElementById("add-barcode-btn");
 const addQRCodeBtn = document.getElementById("add-qrcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
 const addTextBlockBtn = document.getElementById("add-textblock-btn");
+const addLineBtn = document.getElementById("add-line-btn");
 const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutput = document.getElementById("zpl-output");
@@ -125,6 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
   addQRCodeBtn.addEventListener("click", addQRCodeElement);
   addBoxBtn.addEventListener("click", addBoxElement);
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
+  addLineBtn.addEventListener("click", addLineElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
   // Mode switching
@@ -358,6 +360,18 @@ function addTextBlockElement() {
   renderCanvasPreview();
 }
 
+// Add Line Element
+function addLineElement() {
+  const lineElement = new LineElement(50, 250, 200, 3, "H");
+  elements.push(lineElement);
+  selectedElement = lineElement;
+  interactionHandler.updateElements(elements);
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+  renderCanvasPreview();
+}
+
 // Update Elements List
 function updateElementsList() {
   if (elements.length === 0) {
@@ -455,6 +469,8 @@ function renderPropertiesPanel() {
     content = renderTextBlockPropertiesHTML(selectedElement);
   } else if (selectedElement.type === "QRCODE") {
     content = renderQRCodePropertiesHTML(selectedElement);
+  } else if (selectedElement.type === "LINE") {
+    content = renderLinePropertiesHTML(selectedElement);
   }
 
   propertiesPanel.innerHTML = `<div class="animate-fade-in">${content}</div>`;
@@ -491,6 +507,22 @@ function renderBarcodePropertiesHTML(element) {
             <select id="prop-show-text" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
                 <option value="Y" ${element.showText === true ? "selected" : ""}>Yes (Show)</option>
                 <option value="N" ${element.showText === false ? "selected" : ""}>No (Hide)</option>
+            </select>
+        </div>
+    `;
+}
+
+function renderLinePropertiesHTML(element) {
+  return `
+        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+        ${createInputGroup("Length (Width)", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+        ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+            <select id="prop-orientation" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="H" ${element.orientation === "H" ? "selected" : ""}>Horizontal</option>
+                <option value="V" ${element.orientation === "V" ? "selected" : ""}>Vertical</option>
             </select>
         </div>
     `;
@@ -611,7 +643,7 @@ function attachPropertyListeners(element) {
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-width", "width", (v) => parseFloat(v) || 2);
     attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
-    
+
     // Handle show text select
     attach("prop-show-text", "showText", (v) => v === "Y");
   } else if (element.type === "BOX") {
@@ -637,6 +669,10 @@ function attachPropertyListeners(element) {
     attach("prop-model", "model", (v) => parseInt(v) || 2);
     attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
     attach("prop-error-correction", "errorCorrection");
+  } else if (element.type === "LINE") {
+    attach("prop-width", "width", (v) => parseInt(v) || 100);
+    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    attach("prop-orientation", "orientation");
   }
 }
 
@@ -855,6 +891,10 @@ function exportTemplate() {
         elementData.model = element.model;
         elementData.magnification = element.magnification;
         elementData.errorCorrection = element.errorCorrection;
+      } else if (element.type === "LINE") {
+        elementData.width = element.width;
+        elementData.thickness = element.thickness;
+        elementData.orientation = element.orientation;
       }
 
       return elementData;
@@ -1029,6 +1069,14 @@ function importTemplate(template) {
         elementData.magnification || 5,
         elementData.errorCorrection || "Q",
         elementData.placeholder || ""
+      );
+    } else if (elementData.type === "LINE") {
+      element = new LineElement(
+        elementData.x || 0,
+        elementData.y || 0,
+        elementData.width || 100,
+        elementData.thickness || 3,
+        elementData.orientation || "H"
       );
     } else {
       console.warn("Unknown element type:", elementData.type);

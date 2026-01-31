@@ -197,63 +197,63 @@ class TextBlockElement extends ZPLElement {
 
 // QR Code capacity lookup table (byte mode)
 const QR_BYTE_CAPACITY = {
-  1: { L: 17, M: 14, Q: 11, H: 7 },
-  2: { L: 32, M: 26, Q: 20, H: 14 },
-  3: { L: 53, M: 42, Q: 32, H: 24 },
-  4: { L: 78, M: 62, Q: 46, H: 34 },
-  5: { L: 106, M: 84, Q: 60, H: 44 },
-  6: { L: 134, M: 106, Q: 74, H: 58 },
-  7: { L: 154, M: 122, Q: 86, H: 64 },
-  8: { L: 192, M: 152, Q: 108, H: 84 },
-  9: { L: 230, M: 180, Q: 130, H: 98 },
-  10: { L: 271, M: 213, Q: 151, H: 119 },
-  11: { L: 321, M: 251, Q: 177, H: 137 },
-  12: { L: 367, M: 287, Q: 203, H: 155 },
-  13: { L: 425, M: 331, Q: 241, H: 177 },
-  14: { L: 458, M: 362, Q: 258, H: 194 },
-  15: { L: 520, M: 412, Q: 292, H: 220 },
-  16: { L: 586, M: 450, Q: 322, H: 250 },
-  17: { L: 644, M: 504, Q: 364, H: 280 },
-  18: { L: 718, M: 560, Q: 394, H: 310 },
-  19: { L: 792, M: 624, Q: 442, H: 338 },
-  20: { L: 858, M: 666, Q: 482, H: 382 },
-  21: { L: 929, M: 711, Q: 509, H: 403 },
-  22: { L: 1003, M: 779, Q: 565, H: 439 },
-  23: { L: 1091, M: 857, Q: 611, H: 461 },
-  24: { L: 1171, M: 911, Q: 661, H: 511 },
-  25: { L: 1273, M: 997, Q: 715, H: 535 },
-  26: { L: 1367, M: 1059, Q: 751, H: 593 },
-  27: { L: 1465, M: 1125, Q: 805, H: 625 },
-  28: { L: 1528, M: 1190, Q: 868, H: 658 },
-  29: { L: 1628, M: 1264, Q: 908, H: 698 },
-  30: { L: 1732, M: 1370, Q: 982, H: 742 },
-  31: { L: 1840, M: 1452, Q: 1030, H: 790 },
-  32: { L: 1952, M: 1538, Q: 1112, H: 842 },
-  33: { L: 2068, M: 1628, Q: 1168, H: 898 },
-  34: { L: 2188, M: 1722, Q: 1228, H: 958 },
-  35: { L: 2303, M: 1809, Q: 1283, H: 983 },
-  36: { L: 2431, M: 1911, Q: 1351, H: 1051 },
-  37: { L: 2563, M: 1989, Q: 1423, H: 1093 },
-  38: { L: 2699, M: 2099, Q: 1499, H: 1139 },
-  39: { L: 2809, M: 2213, Q: 1579, H: 1219 },
-  40: { L: 2953, M: 2331, Q: 1663, H: 1273 }
+    1: { L: 17, M: 14, Q: 11, H: 7 },
+    2: { L: 32, M: 26, Q: 20, H: 14 },
+    3: { L: 53, M: 42, Q: 32, H: 24 },
+    4: { L: 78, M: 62, Q: 46, H: 34 },
+    5: { L: 106, M: 84, Q: 60, H: 44 },
+    6: { L: 134, M: 106, Q: 74, H: 58 },
+    7: { L: 154, M: 122, Q: 86, H: 64 },
+    8: { L: 192, M: 152, Q: 108, H: 84 },
+    9: { L: 230, M: 180, Q: 130, H: 98 },
+    10: { L: 271, M: 213, Q: 151, H: 119 },
+    11: { L: 321, M: 251, Q: 177, H: 137 },
+    12: { L: 367, M: 287, Q: 203, H: 155 },
+    13: { L: 425, M: 331, Q: 241, H: 177 },
+    14: { L: 458, M: 362, Q: 258, H: 194 },
+    15: { L: 520, M: 412, Q: 292, H: 220 },
+    16: { L: 586, M: 450, Q: 322, H: 250 },
+    17: { L: 644, M: 504, Q: 364, H: 280 },
+    18: { L: 718, M: 560, Q: 394, H: 310 },
+    19: { L: 792, M: 624, Q: 442, H: 338 },
+    20: { L: 858, M: 666, Q: 482, H: 382 },
+    21: { L: 929, M: 711, Q: 509, H: 403 },
+    22: { L: 1003, M: 779, Q: 565, H: 439 },
+    23: { L: 1091, M: 857, Q: 611, H: 461 },
+    24: { L: 1171, M: 911, Q: 661, H: 511 },
+    25: { L: 1273, M: 997, Q: 715, H: 535 },
+    26: { L: 1367, M: 1059, Q: 751, H: 593 },
+    27: { L: 1465, M: 1125, Q: 805, H: 625 },
+    28: { L: 1528, M: 1190, Q: 868, H: 658 },
+    29: { L: 1628, M: 1264, Q: 908, H: 698 },
+    30: { L: 1732, M: 1370, Q: 982, H: 742 },
+    31: { L: 1840, M: 1452, Q: 1030, H: 790 },
+    32: { L: 1952, M: 1538, Q: 1112, H: 842 },
+    33: { L: 2068, M: 1628, Q: 1168, H: 898 },
+    34: { L: 2188, M: 1722, Q: 1228, H: 958 },
+    35: { L: 2303, M: 1809, Q: 1283, H: 983 },
+    36: { L: 2431, M: 1911, Q: 1351, H: 1051 },
+    37: { L: 2563, M: 1989, Q: 1423, H: 1093 },
+    38: { L: 2699, M: 2099, Q: 1499, H: 1139 },
+    39: { L: 2809, M: 2213, Q: 1579, H: 1219 },
+    40: { L: 2953, M: 2331, Q: 1663, H: 1273 }
 };
 
 function calculateQRVersion(dataLength, errorCorrection) {
-  if (dataLength === 0) return 1;
+    if (dataLength === 0) return 1;
 
-  for (let version = 1; version <= 40; version++) {
-    const capacity = QR_BYTE_CAPACITY[version]?.[errorCorrection];
-    if (capacity && dataLength <= capacity) {
-      return version;
+    for (let version = 1; version <= 40; version++) {
+        const capacity = QR_BYTE_CAPACITY[version]?.[errorCorrection];
+        if (capacity && dataLength <= capacity) {
+            return version;
+        }
     }
-  }
 
-  return 40; // Cap at maximum version
+    return 40; // Cap at maximum version
 }
 
 function qrVersionToModules(version) {
-  return 21 + 4 * (version - 1);
+    return 21 + 4 * (version - 1);
 }
 
 // QR Code Element Class
@@ -301,6 +301,53 @@ class QRCodeElement extends ZPLElement {
         const modules = qrVersionToModules(version);
         const size = modules * this.magnification;
         return { x: this.x, y: this.y, width: size, height: size };
+    }
+}
+
+
+// Line Element Class
+class LineElement extends ZPLElement {
+    constructor(x = 0, y = 0, width = 100, thickness = 3, orientation = 'H') {
+        super(x, y);
+        this.type = 'LINE';
+        this.width = width; // Acts as length
+        this.thickness = thickness;
+        this.orientation = orientation; // 'H' or 'V'
+    }
+
+    render() {
+        // ZPL format: ^FOx,y^GBwidth,height,thickness,color,rounding^FS
+        // For horizontal line: width=length, height=thickness
+        // For vertical line: width=thickness, height=length
+        let w, h;
+        if (this.orientation === 'V') {
+            w = this.thickness;
+            h = this.width;
+        } else {
+            w = this.width;
+            h = this.thickness;
+        }
+        return `^FO${this.x},${this.y}^GB${w},${h},${Math.min(w, h)},B,0^FS`;
+    }
+
+    renderPreview() {
+        return this.render();
+    }
+
+    getDisplayName() {
+        return `Line: ${this.width}px (${this.orientation === 'H' ? 'Horiz' : 'Vert'})`;
+    }
+
+    getBounds() {
+        let w, h;
+        if (this.orientation === 'V') {
+            w = this.thickness;
+            h = this.width;
+        } else {
+            w = this.width;
+            h = this.thickness;
+        }
+        return { x: this.x, y: this.y, width: w, height: h };
     }
 }
 
