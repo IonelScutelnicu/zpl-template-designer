@@ -563,7 +563,7 @@ function createInputGroup(label, id, value, type = "text", options = {}) {
             id="${id}" 
             value="${value}" 
             ${attributes}
-            class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
     </div>
   `;
@@ -598,14 +598,33 @@ function renderPropertiesPanel() {
   attachPropertyListeners(selectedElement);
 }
 
+function renderSection(title, body, options = {}) {
+  const { open = true } = options;
+  return `
+        <details class="group mb-3 border-b border-slate-200 pb-3" ${open ? "open" : ""}>
+            <summary class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none">
+                <span>${title}</span>
+                <span class="transition group-open:rotate-180">
+                    <svg fill="none" height="14" shape-rendering="geometricPrecision" stroke="currentColor"
+                        stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="14">
+                        <path d="M6 9l6 6 6-6"></path>
+                    </svg>
+                </span>
+            </summary>
+            <div class="mt-3">
+                ${body}
+            </div>
+        </details>
+    `;
+}
+
 function renderAlignmentControlsHTML(element) {
   const disableMatchSize = element?.type === "TEXT";
   const disabledAttr = disableMatchSize ? "disabled" : "";
   const disabledClass = disableMatchSize ? "opacity-50 cursor-not-allowed hover:border-slate-200 hover:bg-white" : "";
-  return `
-        <div class="mb-4">
-            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Alignment &amp; Size</h3>
-            <div class="border-b border-slate-200 mb-3"></div>
+  return renderSection(
+    "Alignment &amp; Size",
+    `
             <div class="grid grid-cols-4 gap-2">
                 <button id="prop-center-x"
                     class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
@@ -630,174 +649,231 @@ function renderAlignmentControlsHTML(element) {
                     <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors rotate-90">fit_screen</span>
                 </button>
             </div>
-        </div>
-    `;
+    `,
+    { open: true }
+  );
 }
 
 function renderTextPropertiesHTML(element) {
   return `
         ${renderAlignmentControlsHTML(element)}
-        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        ${createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
-            <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
-                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-        </div>
-        ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
-        ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
-            <select id="prop-reverse" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
-                <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
-            <select id="prop-orientation" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="N" ${element.orientation === "N" ? "selected" : ""}>Normal (N)</option>
-                <option value="R" ${element.orientation === "R" ? "selected" : ""}>Rotated 90° (R)</option>
-                <option value="I" ${element.orientation === "I" ? "selected" : ""}>Inverted 180° (I)</option>
-                <option value="B" ${element.orientation === "B" ? "selected" : ""}>Bottom-Up 270° (B)</option>
-            </select>
-        </div>
+        ${renderSection("Position &amp; Size", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+                ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+                <select id="prop-orientation" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="N" ${element.orientation === "N" ? "selected" : ""}>Normal (N)</option>
+                    <option value="R" ${element.orientation === "R" ? "selected" : ""}>Rotated 90° (R)</option>
+                    <option value="I" ${element.orientation === "I" ? "selected" : ""}>Inverted 180° (I)</option>
+                    <option value="B" ${element.orientation === "B" ? "selected" : ""}>Bottom-Up 270° (B)</option>
+                </select>
+            </div>
+        `)}
+        ${renderSection("Text Content", `
+            ${createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
+            ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        `, { open: true })}
+        ${renderSection("Font Settings", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
+                <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
+                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
+            </div>
+        `)}
+        ${renderSection("Appearance", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
+                <select id="prop-reverse" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
+                    <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
+                </select>
+            </div>
+        `, { open: false })}
     `;
 }
 
 function renderBarcodePropertiesHTML(element) {
   return `
         ${renderAlignmentControlsHTML(element)}
-        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        ${createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
-        ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
-        ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
-        ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Print Interpretation Line</label>
-            <select id="prop-show-text" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="Y" ${element.showText === true ? "selected" : ""}>Yes (Show)</option>
-                <option value="N" ${element.showText === false ? "selected" : ""}>No (Hide)</option>
-            </select>
-        </div>
+        ${renderSection("Position &amp; Size", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+                ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+                ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
+                ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
+            </div>
+        `)}
+        ${renderSection("Content", `
+            ${createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
+            ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        `)}
+        ${renderSection("Barcode Settings", `
+            ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Print Interpretation Line</label>
+                <select id="prop-show-text" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="Y" ${element.showText === true ? "selected" : ""}>Yes (Show)</option>
+                    <option value="N" ${element.showText === false ? "selected" : ""}>No (Hide)</option>
+                </select>
+            </div>
+        `, { open: false })}
     `;
 }
 
 function renderLinePropertiesHTML(element) {
   return `
         ${renderAlignmentControlsHTML(element)}
-        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Length (Width)", "prop-width", element.width, "number", { min: 1, max: 32000 })}
-        ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
-            <select id="prop-orientation" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="H" ${element.orientation === "H" ? "selected" : ""}>Horizontal</option>
-                <option value="V" ${element.orientation === "V" ? "selected" : ""}>Vertical</option>
-            </select>
-        </div>
+        ${renderSection("Position &amp; Size", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+                ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+                ${createInputGroup("Length (Width)", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+                <select id="prop-orientation" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="H" ${element.orientation === "H" ? "selected" : ""}>Horizontal</option>
+                    <option value="V" ${element.orientation === "V" ? "selected" : ""}>Vertical</option>
+                </select>
+            </div>
+        `)}
     `;
 }
 
 function renderBoxPropertiesHTML(element) {
   return `
         ${renderAlignmentControlsHTML(element)}
-        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
-        ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
-        ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
-            <select id="prop-color" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
-                <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
-            </select>
-        </div>
-        ${createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
+        ${renderSection("Position &amp; Size", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+                ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+                ${createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
+            </div>
+        `)}
+        ${renderSection("Appearance", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
+                <select id="prop-color" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
+                    <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
+                </select>
+            </div>
+            ${createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
+        `, { open: false })}
     `;
 }
 
 function renderTextBlockPropertiesHTML(element) {
   return `
         ${renderAlignmentControlsHTML(element)}
-        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
-            <textarea
-                id="prop-preview-text"
-                rows="3"
-                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-            >${element.previewText}</textarea>
-        </div>
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
-            <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
-                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-        </div>
-        ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
-        ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
-        ${createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
-        ${createInputGroup("Max Lines", "prop-max-lines", element.maxLines, "number", { min: 1, max: 9999 })}
-        ${createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: -9999, max: 9999 })}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Text Justification</label>
-            <select id="prop-justification" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="L" ${element.justification === "L" ? "selected" : ""}>Left</option>
-                <option value="C" ${element.justification === "C" ? "selected" : ""}>Center</option>
-                <option value="R" ${element.justification === "R" ? "selected" : ""}>Right</option>
-                <option value="J" ${element.justification === "J" ? "selected" : ""}>Justified</option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
-            <select id="prop-reverse" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
-                <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
-            </select>
-        </div>
-        ${createInputGroup("Hanging Indent (dots)", "prop-hanging-indent", element.hangingIndent, "number", { min: 0, max: 9999 })}
+        ${renderSection("Position &amp; Size", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+                ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+            </div>
+        `)}
+        ${renderSection("Text Content", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
+                <textarea
+                    id="prop-preview-text"
+                    rows="3"
+                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >${element.previewText}</textarea>
+            </div>
+            ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        `)}
+        ${renderSection("Font Settings", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
+                <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
+                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
+            </div>
+        `)}
+        ${renderSection("Block Configuration", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
+                ${createInputGroup("Max Lines", "prop-max-lines", element.maxLines, "number", { min: 1, max: 9999 })}
+                ${createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: -9999, max: 9999 })}
+                ${createInputGroup("Hanging Indent (dots)", "prop-hanging-indent", element.hangingIndent, "number", { min: 0, max: 9999 })}
+            </div>
+        `, { open: false })}
+        ${renderSection("Alignment", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Text Justification</label>
+                <select id="prop-justification" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="L" ${element.justification === "L" ? "selected" : ""}>Left</option>
+                    <option value="C" ${element.justification === "C" ? "selected" : ""}>Center</option>
+                    <option value="R" ${element.justification === "R" ? "selected" : ""}>Right</option>
+                    <option value="J" ${element.justification === "J" ? "selected" : ""}>Justified</option>
+                </select>
+            </div>
+        `, { open: false })}
+        ${renderSection("Appearance", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
+                <select id="prop-reverse" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
+                    <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
+                </select>
+            </div>
+        `, { open: false })}
     `;
 }
 
 function renderQRCodePropertiesHTML(element) {
   return `
         ${renderAlignmentControlsHTML(element)}
-        ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
-        ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Preview Data</label>
-            <textarea
-                id="prop-preview-data"
-                rows="2"
-                class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-            >${element.previewData}</textarea>
-        </div>
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Model</label>
-            <select id="prop-model" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="1" ${element.model === 1 ? "selected" : ""}>Model 1 (Original)</option>
-                <option value="2" ${element.model === 2 ? "selected" : ""}>Model 2 (Enhanced)</option>
-            </select>
-        </div>
-        ${createInputGroup("Magnification", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-slate-700 mb-1">Error Correction</label>
-            <select id="prop-error-correction" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <option value="H" ${element.errorCorrection === "H" ? "selected" : ""}>H - Ultra-High (30%)</option>
-                <option value="Q" ${element.errorCorrection === "Q" ? "selected" : ""}>Q - Quality (25%)</option>
-                <option value="M" ${element.errorCorrection === "M" ? "selected" : ""}>M - Medium (15%)</option>
-                <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>L - Low (7%)</option>
-            </select>
-        </div>
+        ${renderSection("Position &amp; Size", `
+            <div class="grid grid-cols-2 gap-3">
+                ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+                ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+                ${createInputGroup("Magnification", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
+            </div>
+        `)}
+        ${renderSection("Content", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Preview Data</label>
+                <textarea
+                    id="prop-preview-data"
+                    rows="2"
+                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >${element.previewData}</textarea>
+            </div>
+            ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        `)}
+        ${renderSection("QR Settings", `
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Model</label>
+                <select id="prop-model" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="1" ${element.model === 1 ? "selected" : ""}>Model 1 (Original)</option>
+                    <option value="2" ${element.model === 2 ? "selected" : ""}>Model 2 (Enhanced)</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Error Correction</label>
+                <select id="prop-error-correction" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="H" ${element.errorCorrection === "H" ? "selected" : ""}>H - Ultra-High (30%)</option>
+                    <option value="Q" ${element.errorCorrection === "Q" ? "selected" : ""}>Q - Quality (25%)</option>
+                    <option value="M" ${element.errorCorrection === "M" ? "selected" : ""}>M - Medium (15%)</option>
+                    <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>L - Low (7%)</option>
+                </select>
+            </div>
+        `, { open: false })}
     `;
 }
 
