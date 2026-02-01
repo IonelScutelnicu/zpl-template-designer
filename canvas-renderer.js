@@ -366,12 +366,35 @@ class CanvasRenderer {
     const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const fontSize = element.fontSize * this.scale;
 
+    this.ctx.save();
+
     this.ctx.fillStyle = '#000000';
     this.ctx.font = `bold ${fontSize}px Arial, sans-serif`;
     this.ctx.textBaseline = 'top';
 
     const text = element.previewText || '';
-    this.ctx.fillText(text, x, y);
+    const textWidth = this.ctx.measureText(text).width;
+    const textHeight = element.getEstimatedHeight ? element.getEstimatedHeight() * this.scale : fontSize + 10;
+
+    // Apply rotation based on orientation (ZPL: N=0°, R=90° CW, I=180°, B=270° CW)
+    if (element.orientation === 'R') {
+      this.ctx.translate(x + textHeight, y);
+      this.ctx.rotate(Math.PI / 2);
+      this.ctx.fillText(text, 0, 0);
+    } else if (element.orientation === 'I') {
+      this.ctx.translate(x + textWidth, y + textHeight);
+      this.ctx.rotate(Math.PI);
+      this.ctx.fillText(text, 0, 0);
+    } else if (element.orientation === 'B') {
+      this.ctx.translate(x, y + textWidth);
+      this.ctx.rotate(-Math.PI / 2);
+      this.ctx.fillText(text, 0, 0);
+    } else {
+      this.ctx.translate(x, y);
+      this.ctx.fillText(text, 0, 0);
+    }
+
+    this.ctx.restore();
   }
 
   /**

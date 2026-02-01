@@ -13,7 +13,7 @@ class ZPLElement {
 
 // TEXT Element Class
 class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '', fontId = '') {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '', fontId = '', orientation = 'N') {
         super(x, y);
         this.type = 'TEXT';
         this.previewText = previewText;
@@ -21,23 +21,26 @@ class TextElement extends ZPLElement {
         this.fontId = fontId; // Element-level font override (empty = use label default)
         this.fontSize = fontSize;
         this.fontWidth = fontWidth;
+        this.orientation = orientation; // N, R, I, B
+    }
+
+    getEstimatedWidth() {
+        return Math.max(this.previewText.length * (this.fontWidth || 30) * 0.6, 50);
+    }
+
+    getEstimatedHeight() {
+        return (this.fontSize || 30) + 10;
     }
 
     render(defaultFontId = '0') {
-        // ZPL format: ^FOx,y^A{fontId}N,height,width^FDtext^FS
-        // ^FO - Field Origin (position)
-        // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
-        // ^FD - Field Data (uses placeholder for template)
-        // ^FS - Field Separator
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
-        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FD${content}^FS`;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${content}^FS`;
     }
 
     renderPreview(defaultFontId = '0') {
-        // Uses preview text for Labelary API visualization
         const fontId = this.fontId || defaultFontId;
-        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
@@ -46,9 +49,21 @@ class TextElement extends ZPLElement {
     }
 
     getBounds() {
-        // Estimate text dimensions
-        const width = Math.max(this.previewText.length * (this.fontWidth || 30) * 0.6, 50);
-        const height = (this.fontSize || 30) + 10;
+        // Estimate text dimensions (unrotated)
+        const textW = Math.max(this.previewText.length * (this.fontWidth || 30) * 0.6, 50);
+        const textH = (this.fontSize || 30) + 10;
+
+        let width = textW;
+        let height = textH;
+
+        if (this.orientation === 'R') { // 90° clockwise - top-left at (x,y), extends down
+            width = textH;
+            height = textW;
+        } else if (this.orientation === 'B') { // 270° clockwise - top-left at (x,y), extends up
+            width = textH;
+            height = textW;
+        }
+
         return { x: this.x, y: this.y, width, height };
     }
 }

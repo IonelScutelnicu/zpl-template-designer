@@ -302,7 +302,7 @@ function setPreviewMode(mode) {
 
 // Add Text Element
 function addTextElement() {
-  const textElement = new TextElement(50, 50, "Sample Text", 30, 30);
+  const textElement = new TextElement(50, 50, "Sample Text", 30, 30, "", "", "N");
   elements.push(textElement);
   selectedElement = textElement;
   interactionHandler.updateElements(elements);
@@ -490,6 +490,15 @@ function renderTextPropertiesHTML(element) {
         </div>
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+            <select id="prop-orientation" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="N" ${element.orientation === "N" ? "selected" : ""}>Normal (N)</option>
+                <option value="R" ${element.orientation === "R" ? "selected" : ""}>Rotated 90° (R)</option>
+                <option value="I" ${element.orientation === "I" ? "selected" : ""}>Inverted 180° (I)</option>
+                <option value="B" ${element.orientation === "B" ? "selected" : ""}>Bottom-Up 270° (B)</option>
+            </select>
+        </div>
     `;
 }
 
@@ -637,6 +646,7 @@ function attachPropertyListeners(element) {
     attach("prop-font-id", "fontId");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+    attach("prop-orientation", "orientation");
   } else if (element.type === "BARCODE") {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
@@ -861,6 +871,7 @@ function exportTemplate() {
         elementData.fontId = element.fontId;
         elementData.fontSize = element.fontSize;
         elementData.fontWidth = element.fontWidth;
+        elementData.orientation = element.orientation;
       } else if (element.type === "BARCODE") {
         elementData.placeholder = element.placeholder;
         elementData.previewData = element.previewData;
@@ -1022,7 +1033,8 @@ function importTemplate(template) {
         elementData.fontSize || 30,
         elementData.fontWidth || 30,
         elementData.placeholder || "",
-        elementData.fontId || ""
+        elementData.fontId || "",
+        elementData.orientation || "N"
       );
     } else if (elementData.type === "BARCODE") {
       element = new BarcodeElement(
