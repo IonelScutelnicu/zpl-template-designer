@@ -240,7 +240,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selectedElement) {
           updateElementsList();
           renderPropertiesPanel();
-          updatePreview(); // Auto-refresh preview to show debug highlight
+          renderCanvasPreview();
+          if (previewMode === 'api') {
+            updatePreview(); // Auto-refresh preview to show debug highlight
+          }
         }
       }
     }
