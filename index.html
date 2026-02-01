@@ -409,14 +409,14 @@
                     </button>
                   </div>
                 </div>
-                <div class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative"
-                  id="preview-container">
+              <div class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative"
+                id="preview-container">
                   <!-- Canvas Preview (default) -->
                   <canvas id="label-canvas"
                     class="shadow-lg border border-slate-200 rounded-sm bg-white cursor-default max-w-full max-h-[450px] object-contain"></canvas>
 
                   <!-- API Preview (hidden by default) -->
-                  <div id="api-preview-container" class="hidden absolute inset-6 flex items-center justify-center">
+                <div id="api-preview-container" class="hidden absolute inset-6 flex items-center justify-center">
                     <div class="absolute inset-0 opacity-[0.03]"
                       style="background-image: radial-gradient(#000 1px, transparent 1px); background-size: 20px 20px;">
                     </div>
@@ -430,8 +430,59 @@
                     <img id="preview-image"
                       class="hidden max-w-full max-h-[450px] shadow-xl border border-white ring-1 ring-slate-200 rounded-sm bg-white object-contain z-10"
                       alt="Label preview" />
-                    <div id="preview-placeholder" class="text-slate-400 text-sm italic z-10">
-                      Click refresh to render
+                  <div id="preview-placeholder" class="text-slate-400 text-sm italic z-10">
+                    Click refresh to render
+                  </div>
+                </div>
+              </div>
+            </div>
+
+              <div class="fixed bottom-6 right-6 z-40 group">
+                <button
+                  class="flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg hover:bg-white transition-all text-slate-500 hover:text-blue-600">
+                  <span class="material-icons-round text-lg">keyboard</span>
+                  <span class="text-xs font-medium pr-1">Shortcuts</span>
+                </button>
+                <div
+                  class="absolute bottom-full right-0 mb-3 w-72 bg-white/95 backdrop-blur-md rounded-lg border border-slate-200 shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-bottom-right scale-95 group-hover:scale-100">
+                  <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      Keyboard &amp; Mouse</h4>
+                    <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Hints</span>
+                  </div>
+                  <div class="space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Cycle elements</span>
+                      <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Nudge 1px</span>
+                      <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Nudge 10px</span>
+                      <div class="flex gap-1">
+                        <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
+                        <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
+                      </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Delete</span>
+                      <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Del</code>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Copy/Paste</span>
+                      <div class="flex gap-1">
+                        <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                        <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">C/V</code>
+                      </div>
+                    </div>
+                    <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
+                      <span class="text-slate-500">Cycle Layers</span>
+                      <div class="flex gap-1 items-center">
+                        <code class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Alt</code>
+                        <span class="text-[10px] text-slate-500">+ Click</span>
+                      </div>
                     </div>
                   </div>
                 </div>
