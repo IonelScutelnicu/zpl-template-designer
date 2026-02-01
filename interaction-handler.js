@@ -75,8 +75,19 @@ class InteractionHandler {
       }
     }
 
-    // Find element at position
-    const element = this.getElementAtPosition(coords.x, coords.y);
+    // Find element at position (Alt = ignore topmost)
+    let element = null;
+    if (e.altKey) {
+      const hits = this.getElementsAtPosition(coords.x, coords.y);
+      if (hits.length > 0) {
+        const current = this.callbacks.getSelectedElement();
+        const currentIndex = hits.findIndex((item) => current && item.id === current.id);
+        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % hits.length;
+        element = hits[nextIndex];
+      }
+    } else {
+      element = this.getElementAtPosition(coords.x, coords.y);
+    }
 
     if (element) {
       this.dragElement = element;
@@ -504,6 +515,26 @@ class InteractionHandler {
     }
 
     return null;
+  }
+
+  /**
+   * Get all elements at position (topmost first)
+   */
+  getElementsAtPosition(x, y) {
+    const hits = [];
+    for (let i = this.elements.length - 1; i >= 0; i--) {
+      const element = this.elements[i];
+      const bounds = element.getBounds();
+      if (
+        x >= bounds.x &&
+        x <= bounds.x + bounds.width &&
+        y >= bounds.y &&
+        y <= bounds.y + bounds.height
+      ) {
+        hits.push(element);
+      }
+    }
+    return hits;
   }
 
   /**
