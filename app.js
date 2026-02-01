@@ -96,6 +96,11 @@ document.addEventListener("DOMContentLoaded", () => {
           const propHeight = document.getElementById('prop-height');
           if (propWidth) propWidth.value = element.width;
           if (propHeight) propHeight.value = element.height;
+        } else if (element.type === 'BARCODE') {
+          const propWidth = document.getElementById('prop-width');
+          const propHeight = document.getElementById('prop-height');
+          if (propWidth) propWidth.value = element.width;
+          if (propHeight) propHeight.value = element.height;
         }
       }
     },

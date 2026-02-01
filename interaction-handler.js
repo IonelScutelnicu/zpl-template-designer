@@ -47,7 +47,7 @@ class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE')) {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         this.isResizing = true;
@@ -58,7 +58,7 @@ class InteractionHandler {
         this.resizeStartX = selectedElement.x;
         this.resizeStartY = selectedElement.y;
 
-        if (selectedElement.type === 'LINE') {
+        if (selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE') {
           const bounds = selectedElement.getBounds();
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
@@ -111,7 +111,7 @@ class InteractionHandler {
         this.dragElement.maxLines = Math.max(1, Math.round((newHeight - 10) / lineHeight));
 
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE') {
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -193,6 +193,7 @@ class InteractionHandler {
 
         // For line thickness, allow going smaller than 10 (down to 1)
         const isLine = this.dragElement.type === 'LINE';
+        const isBarcode = this.dragElement.type === 'BARCODE';
         const isHorizontal = isLine && this.dragElement.orientation === 'H';
 
         // Determine min limits for width/height based on type and orientation
@@ -205,6 +206,9 @@ class InteractionHandler {
           } else {
             minW = minThickness;
           }
+        } else if (isBarcode) {
+          minW = 10;
+          minH = 10;
         }
 
         if (newWidth < minW) {
@@ -229,13 +233,29 @@ class InteractionHandler {
         if (this.dragElement.type === 'BOX') {
           this.dragElement.width = Math.round(newWidth);
           this.dragElement.height = Math.round(newHeight);
-        } else { // LINE
+        } else if (this.dragElement.type === 'LINE') {
           if (this.dragElement.orientation === 'H') {
             this.dragElement.width = Math.round(newWidth);
             this.dragElement.thickness = Math.round(newHeight);
           } else {
             this.dragElement.width = Math.round(newHeight);
             this.dragElement.thickness = Math.round(newWidth);
+          }
+        } else if (this.dragElement.type === 'BARCODE') {
+          const dataLength = (this.dragElement.previewData || '').length;
+          const totalModules = 35 + (11 * dataLength);
+          const availableWidth = labelW - newX;
+          const maxMultiplier = totalModules > 0 ? Math.min(10, availableWidth / totalModules) : this.dragElement.width;
+          const targetMultiplier = totalModules > 0 ? newWidth / totalModules : this.dragElement.width;
+          const roundedMultiplier = Math.round(targetMultiplier * 10) / 10;
+          const clampedMultiplier = Math.max(1, Math.min(maxMultiplier, roundedMultiplier));
+
+          this.dragElement.width = clampedMultiplier;
+          this.dragElement.height = Math.round(newHeight);
+
+          const actualWidth = totalModules * this.dragElement.width;
+          if (this.resizeHandle.includes('l') || this.resizeHandle === 'l') {
+            this.dragElement.x = Math.round(this.resizeStartX + this.resizeStartWidth - actualWidth);
           }
         }
 
@@ -289,7 +309,7 @@ class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE')) {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -491,8 +511,8 @@ class InteractionHandler {
     const bw = bounds.width;
     const bh = bounds.height;
 
-    // For BOX and LINE elements, check all 8 handles
-    if (element.type === 'BOX' || element.type === 'LINE') {
+    // For BOX, LINE, and BARCODE elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {
