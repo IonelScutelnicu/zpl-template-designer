@@ -263,11 +263,21 @@ class InteractionHandler {
 
         // Constrain to label bounds
         const bounds = this.dragElement.getBounds();
-        const maxX = this.labelSettings.width * this.labelSettings.dpmm - bounds.width;
-        const maxY = this.labelSettings.height * this.labelSettings.dpmm - bounds.height;
+        const labelW = this.labelSettings.width * this.labelSettings.dpmm;
+        const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
-        newX = Math.max(0, Math.min(newX, maxX));
-        newY = Math.max(0, Math.min(newY, maxY));
+        // Calculate offset between element pivot and bounds top-left
+        const offsetX = bounds.x - this.dragElement.x;
+        const offsetY = bounds.y - this.dragElement.y;
+
+        // Calculate valid range for element.x/y
+        const minX = -offsetX;
+        const maxX = labelW - bounds.width - offsetX;
+        const minY = -offsetY;
+        const maxY = labelH - bounds.height - offsetY;
+
+        newX = Math.max(minX, Math.min(newX, maxX));
+        newY = Math.max(minY, Math.min(newY, maxY));
 
         // Round to nearest dot
         this.dragElement.x = Math.round(newX);
