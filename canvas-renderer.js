@@ -656,10 +656,13 @@ class CanvasRenderer {
     this.ctx.fillStyle = '#000000';
     const moduleSize = size / modules;
 
-    // Draw random QR-like pattern
+    const seed = this.hashString(`${element.previewData}|${element.errorCorrection}|${element.model}|${element.magnification}`);
+    const rng = this.createRng(seed);
+
+    // Draw deterministic QR-like pattern
     for (let row = 0; row < modules; row++) {
       for (let col = 0; col < modules; col++) {
-        if (Math.random() > 0.5) {
+        if (rng() > 0.5) {
           this.ctx.fillRect(
             x + col * moduleSize,
             y + row * moduleSize,
@@ -689,6 +692,27 @@ class CanvasRenderer {
 
     this.ctx.fillStyle = '#000000';
     this.ctx.fillRect(x + size * 0.35, y + size * 0.35, size * 0.3, size * 0.3);
+  }
+
+  // Simple deterministic hash for stable QR preview patterns
+  hashString(value) {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i++) {
+      hash ^= value.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  // Xorshift32 RNG for predictable pseudo-random values
+  createRng(seed) {
+    let state = seed || 1;
+    return () => {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      return (state >>> 0) / 4294967296;
+    };
   }
 
   /**
