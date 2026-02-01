@@ -924,6 +924,8 @@ function applyAlignmentAction(action, element) {
     } else if (element.type === "LINE") {
       if (element.orientation === "H") {
         element.width = labelSize.width;
+      } else {
+        element.thickness = labelSize.width;
       }
     } else if (element.type === "TEXTBLOCK") {
       element.blockWidth = labelSize.width;
@@ -957,6 +959,8 @@ function applyAlignmentAction(action, element) {
     } else if (element.type === "LINE") {
       if (element.orientation === "V") {
         element.width = labelSize.height;
+      } else {
+        element.thickness = labelSize.height;
       }
     } else if (element.type === "BARCODE") {
       element.height = labelSize.height;
