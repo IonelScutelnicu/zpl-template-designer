@@ -13,7 +13,7 @@ class ZPLElement {
 
 // TEXT Element Class
 class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '', fontId = '', orientation = 'N') {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '', fontId = '', orientation = 'N', reverse = false) {
         super(x, y);
         this.type = 'TEXT';
         this.previewText = previewText;
@@ -22,6 +22,7 @@ class TextElement extends ZPLElement {
         this.fontSize = fontSize;
         this.fontWidth = fontWidth;
         this.orientation = orientation; // N, R, I, B
+        this.reverse = reverse; // ^FR (reverse print)
     }
 
     getEstimatedWidth() {
@@ -35,12 +36,14 @@ class TextElement extends ZPLElement {
     render(defaultFontId = '0') {
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${content}^FS`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${content}^FS`;
     }
 
     renderPreview(defaultFontId = '0') {
         const fontId = this.fontId || defaultFontId;
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
@@ -160,7 +163,7 @@ class BoxElement extends ZPLElement {
 
 // Text Block Element Class
 class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '') {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false) {
         super(x, y);
         this.type = 'TEXTBLOCK';
         this.previewText = previewText;
@@ -173,6 +176,7 @@ class TextBlockElement extends ZPLElement {
         this.lineSpacing = lineSpacing;
         this.justification = justification;
         this.hangingIndent = hangingIndent;
+        this.reverse = reverse; // ^FR (reverse print)
     }
 
     render(defaultFontId = '0') {
@@ -189,13 +193,15 @@ class TextBlockElement extends ZPLElement {
         // ^FS - Field Separator
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
-        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
     }
 
     renderPreview(defaultFontId = '0') {
         // Uses preview text for Labelary API visualization
         const fontId = this.fontId || defaultFontId;
-        return `^FO${this.x},${this.y}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {

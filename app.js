@@ -491,6 +491,13 @@ function renderTextPropertiesHTML(element) {
         ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
         ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
         <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
+            <select id="prop-reverse" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
+                <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
+            </select>
+        </div>
+        <div class="mb-3">
             <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
             <select id="prop-orientation" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
                 <option value="N" ${element.orientation === "N" ? "selected" : ""}>Normal (N)</option>
@@ -587,6 +594,13 @@ function renderTextBlockPropertiesHTML(element) {
                 <option value="J" ${element.justification === "J" ? "selected" : ""}>Justified</option>
             </select>
         </div>
+        <div class="mb-3">
+            <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
+            <select id="prop-reverse" class="w-full rounded border-slate-300 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
+                <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
+            </select>
+        </div>
         ${createInputGroup("Hanging Indent (dots)", "prop-hanging-indent", element.hangingIndent, "number", { min: 0, max: 9999 })}
     `;
 }
@@ -646,6 +660,7 @@ function attachPropertyListeners(element) {
     attach("prop-font-id", "fontId");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+    attach("prop-reverse", "reverse", (v) => v === "Y");
     attach("prop-orientation", "orientation");
   } else if (element.type === "BARCODE") {
     attach("prop-placeholder", "placeholder");
@@ -672,6 +687,7 @@ function attachPropertyListeners(element) {
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
     attach("prop-justification", "justification");
+    attach("prop-reverse", "reverse", (v) => v === "Y");
     attach("prop-hanging-indent", "hangingIndent", (v) => parseInt(v) || 0);
   } else if (element.type === "QRCODE") {
     attach("prop-placeholder", "placeholder");
@@ -872,6 +888,7 @@ function exportTemplate() {
         elementData.fontSize = element.fontSize;
         elementData.fontWidth = element.fontWidth;
         elementData.orientation = element.orientation;
+        elementData.reverse = element.reverse;
       } else if (element.type === "BARCODE") {
         elementData.placeholder = element.placeholder;
         elementData.previewData = element.previewData;
@@ -896,6 +913,7 @@ function exportTemplate() {
         elementData.lineSpacing = element.lineSpacing;
         elementData.justification = element.justification;
         elementData.hangingIndent = element.hangingIndent;
+        elementData.reverse = element.reverse;
       } else if (element.type === "QRCODE") {
         elementData.placeholder = element.placeholder;
         elementData.previewData = element.previewData;
@@ -1034,7 +1052,8 @@ function importTemplate(template) {
         elementData.fontWidth || 30,
         elementData.placeholder || "",
         elementData.fontId || "",
-        elementData.orientation || "N"
+        elementData.orientation || "N",
+        elementData.reverse || false
       );
     } else if (elementData.type === "BARCODE") {
       element = new BarcodeElement(
@@ -1070,7 +1089,8 @@ function importTemplate(template) {
         elementData.justification || "L",
         elementData.hangingIndent || 0,
         elementData.placeholder || "",
-        elementData.fontId || ""
+        elementData.fontId || "",
+        elementData.reverse || false
       );
     } else if (elementData.type === "QRCODE") {
       element = new QRCodeElement(
