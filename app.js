@@ -744,12 +744,22 @@ function renderTextPropertiesHTML(element) {
             </div>
         `)}
         ${renderSection("Appearance", `
-            <div class="mb-3">
-                <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
-                <select id="prop-reverse" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
-                    <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
-                </select>
+            <div class="flex items-center justify-between">
+                <label class="text-xs text-slate-700">
+                    Reverse Print
+                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
+                        target="_blank" class="text-blue-500 hover:underline">^FR</a>
+                </label>
+                <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+                    <button type="button" data-reverse="N"
+                        class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
+                        Normal
+                    </button>
+                    <button type="button" data-reverse="Y"
+                        class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
+                        Reverse
+                    </button>
+                </div>
             </div>
         `, { open: false })}
     `;
@@ -871,21 +881,47 @@ function renderTextBlockPropertiesHTML(element) {
         ${renderSection("Alignment", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Text Justification</label>
-                <select id="prop-justification" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option value="L" ${element.justification === "L" ? "selected" : ""}>Left</option>
-                    <option value="C" ${element.justification === "C" ? "selected" : ""}>Center</option>
-                    <option value="R" ${element.justification === "R" ? "selected" : ""}>Right</option>
-                    <option value="J" ${element.justification === "J" ? "selected" : ""}>Justified</option>
-                </select>
+                <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+                    <button type="button" data-justification="L"
+                        class="flex-1 p-1 rounded-md ${element.justification === "L" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+                        title="Left Align">
+                        <span class="material-icons-round text-sm">format_align_left</span>
+                    </button>
+                    <button type="button" data-justification="C"
+                        class="flex-1 p-1 rounded-md ${element.justification === "C" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+                        title="Center Align">
+                        <span class="material-icons-round text-sm">format_align_center</span>
+                    </button>
+                    <button type="button" data-justification="R"
+                        class="flex-1 p-1 rounded-md ${element.justification === "R" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+                        title="Right Align">
+                        <span class="material-icons-round text-sm">format_align_right</span>
+                    </button>
+                    <button type="button" data-justification="J"
+                        class="flex-1 p-1 rounded-md ${element.justification === "J" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+                        title="Justified">
+                        <span class="material-icons-round text-sm">format_align_justify</span>
+                    </button>
+                </div>
             </div>
         `, { open: false })}
         ${renderSection("Appearance", `
-            <div class="mb-3">
-                <label class="block text-xs font-medium text-slate-700 mb-1">Reverse Print (^FR)</label>
-                <select id="prop-reverse" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option value="N" ${element.reverse ? "" : "selected"}>Normal (N)</option>
-                    <option value="Y" ${element.reverse ? "selected" : ""}>Reverse (Y)</option>
-                </select>
+            <div class="flex items-center justify-between">
+                <label class="text-xs text-slate-700">
+                    Reverse Print
+                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
+                        target="_blank" class="text-blue-500 hover:underline">^FR</a>
+                </label>
+                <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+                    <button type="button" data-reverse="N"
+                        class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
+                        Normal
+                    </button>
+                    <button type="button" data-reverse="Y"
+                        class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
+                        Reverse
+                    </button>
+                </div>
             </div>
         `, { open: false })}
     `;
@@ -1077,8 +1113,29 @@ function attachPropertyListeners(element) {
     attach("prop-font-id", "fontId");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
-    attach("prop-reverse", "reverse", (v) => v === "Y");
     attach("prop-orientation", "orientation");
+    const reverseButtons = document.querySelectorAll('[data-reverse]');
+    const setReverseActive = (value) => {
+      reverseButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-reverse') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setReverseActive(element.reverse ? "Y" : "N");
+    reverseButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-reverse');
+        if (!value) return;
+        element.reverse = value === "Y";
+        updateZPLOutput();
+        renderCanvasPreview();
+        setReverseActive(value);
+      });
+    });
   } else if (element.type === "BARCODE") {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
@@ -1103,9 +1160,51 @@ function attachPropertyListeners(element) {
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
-    attach("prop-justification", "justification");
-    attach("prop-reverse", "reverse", (v) => v === "Y");
     attach("prop-hanging-indent", "hangingIndent", (v) => parseInt(v) || 0);
+    const reverseButtons = document.querySelectorAll('[data-reverse]');
+    const setReverseActive = (value) => {
+      reverseButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-reverse') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setReverseActive(element.reverse ? "Y" : "N");
+    reverseButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-reverse');
+        if (!value) return;
+        element.reverse = value === "Y";
+        updateZPLOutput();
+        renderCanvasPreview();
+        setReverseActive(value);
+      });
+    });
+    const justificationButtons = document.querySelectorAll('[data-justification]');
+    const setJustificationActive = (value) => {
+      justificationButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-justification') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setJustificationActive(element.justification);
+    justificationButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-justification');
+        if (!value) return;
+        element.justification = value;
+        updateZPLOutput();
+        renderCanvasPreview();
+        setJustificationActive(value);
+      });
+    });
   } else if (element.type === "QRCODE") {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
