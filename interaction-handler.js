@@ -47,7 +47,7 @@ class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE')) {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         this.isResizing = true;
@@ -58,7 +58,7 @@ class InteractionHandler {
         this.resizeStartX = selectedElement.x;
         this.resizeStartY = selectedElement.y;
 
-        if (selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE') {
+        if (selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE') {
           const bounds = selectedElement.getBounds();
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
@@ -110,6 +110,20 @@ class InteractionHandler {
         const lineHeight = (this.dragElement.fontSize || 30);
         this.dragElement.maxLines = Math.max(1, Math.round((newHeight - 10) / lineHeight));
 
+        this.callbacks.onElementDragging(this.dragElement);
+      } else if (this.dragElement.type === 'QRCODE') {
+        // QRCODE only supports bottom-right resize (magnification)
+        const newWidth = Math.max(10, coords.x - this.dragElement.x);
+        const newHeight = Math.max(10, coords.y - this.dragElement.y);
+        const targetSize = Math.min(newWidth, newHeight);
+
+        const dataLength = (this.dragElement.previewData || '').length;
+        const version = calculateQRVersion(dataLength, this.dragElement.errorCorrection);
+        const modules = qrVersionToModules(version);
+        const targetMag = modules > 0 ? Math.round(targetSize / modules) : this.dragElement.magnification;
+        const clamped = Math.max(1, Math.min(10, targetMag));
+
+        this.dragElement.magnification = clamped;
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE') {
         // Calculate mouse delta from resize start
@@ -309,7 +323,7 @@ class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE')) {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -548,8 +562,8 @@ class InteractionHandler {
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
         return 'l';
       }
-    } else if (element.type === 'TEXTBLOCK') {
-      // For TEXTBLOCK, only check bottom-right handle
+    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE') {
+      // For TEXTBLOCK and QRCODE, only check bottom-right handle
       if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
         return 'br';
       }
