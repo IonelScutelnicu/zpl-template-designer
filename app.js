@@ -593,8 +593,45 @@ function renderPropertiesPanel() {
   attachPropertyListeners(selectedElement);
 }
 
+function renderAlignmentControlsHTML(element) {
+  const disableMatchSize = element?.type === "TEXT";
+  const disabledAttr = disableMatchSize ? "disabled" : "";
+  const disabledClass = disableMatchSize ? "opacity-50 cursor-not-allowed hover:border-slate-200 hover:bg-white" : "";
+  return `
+        <div class="mb-4">
+            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Alignment &amp; Size</h3>
+            <div class="border-b border-slate-200 mb-3"></div>
+            <div class="grid grid-cols-4 gap-2">
+                <button id="prop-center-x"
+                    class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
+                    title="Center Horizontally">
+                    <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">align_horizontal_center</span>
+                </button>
+                <button id="prop-center-y"
+                    class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
+                    title="Center Vertically">
+                    <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">align_vertical_center</span>
+                </button>
+                <button id="prop-match-width"
+                    class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all ${disabledClass}"
+                    ${disabledAttr}
+                    title="Match Label Width">
+                    <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">fit_screen</span>
+                </button>
+                <button id="prop-match-height"
+                    class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all ${disabledClass}"
+                    ${disabledAttr}
+                    title="Match Label Height">
+                    <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors rotate-90">fit_screen</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 function renderTextPropertiesHTML(element) {
   return `
+        ${renderAlignmentControlsHTML(element)}
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
@@ -627,6 +664,7 @@ function renderTextPropertiesHTML(element) {
 
 function renderBarcodePropertiesHTML(element) {
   return `
+        ${renderAlignmentControlsHTML(element)}
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
@@ -646,6 +684,7 @@ function renderBarcodePropertiesHTML(element) {
 
 function renderLinePropertiesHTML(element) {
   return `
+        ${renderAlignmentControlsHTML(element)}
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Length (Width)", "prop-width", element.width, "number", { min: 1, max: 32000 })}
@@ -662,6 +701,7 @@ function renderLinePropertiesHTML(element) {
 
 function renderBoxPropertiesHTML(element) {
   return `
+        ${renderAlignmentControlsHTML(element)}
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
@@ -680,6 +720,7 @@ function renderBoxPropertiesHTML(element) {
 
 function renderTextBlockPropertiesHTML(element) {
   return `
+        ${renderAlignmentControlsHTML(element)}
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
@@ -723,6 +764,7 @@ function renderTextBlockPropertiesHTML(element) {
 
 function renderQRCodePropertiesHTML(element) {
   return `
+        ${renderAlignmentControlsHTML(element)}
         ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
@@ -754,6 +796,107 @@ function renderQRCodePropertiesHTML(element) {
     `;
 }
 
+function clampNumber(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getLabelSizeDots() {
+  return {
+    width: Math.round(labelSettings.width * labelSettings.dpmm),
+    height: Math.round(labelSettings.height * labelSettings.dpmm)
+  };
+}
+
+function getElementBoundsSafe(element) {
+  if (element && typeof element.getBounds === "function") {
+    return element.getBounds();
+  }
+  return {
+    x: element?.x || 0,
+    y: element?.y || 0,
+    width: element?.width || 0,
+    height: element?.height || 0
+  };
+}
+
+function applyAlignmentAction(action, element) {
+  if (!element) return;
+  const labelSize = getLabelSizeDots();
+  const bounds = getElementBoundsSafe(element);
+
+  if (action === "center-x") {
+    const centeredX = Math.round((labelSize.width - bounds.width) / 2);
+    element.x = Math.max(0, centeredX);
+    return;
+  }
+
+  if (action === "center-y") {
+    const centeredY = Math.round((labelSize.height - bounds.height) / 2);
+    element.y = Math.max(0, centeredY);
+    return;
+  }
+
+  if (action === "match-width") {
+    element.x = 0;
+    if (element.type === "BOX") {
+      element.width = labelSize.width;
+    } else if (element.type === "LINE") {
+      if (element.orientation === "H") {
+        element.width = labelSize.width;
+      }
+    } else if (element.type === "TEXTBLOCK") {
+      element.blockWidth = labelSize.width;
+    } else if (element.type === "BARCODE") {
+      const dataLength = (element.previewData || "").length;
+      const totalModules = 35 + (11 * dataLength);
+      const targetMultiplier = totalModules > 0 ? labelSize.width / totalModules : element.width;
+      const rounded = Math.round(targetMultiplier * 10) / 10;
+      element.width = clampNumber(rounded, 1, 10);
+    } else if (element.type === "QRCODE") {
+      const dataLength = (element.previewData || "").length;
+      const version = calculateQRVersion(dataLength, element.errorCorrection);
+      const modules = qrVersionToModules(version);
+      const targetMag = modules > 0 ? Math.round(labelSize.width / modules) : element.magnification;
+      element.magnification = clampNumber(targetMag, 1, 10);
+    } else if (element.type === "TEXT") {
+      const textLength = (element.previewText || "").length;
+      if (textLength > 0) {
+        const currentWidth = Math.max(textLength * (element.fontWidth || 30) * 0.6, 50);
+        const scale = labelSize.width / currentWidth;
+        element.fontWidth = clampNumber(Math.round((element.fontWidth || 30) * scale), 1, 32000);
+      }
+    }
+    return;
+  }
+
+  if (action === "match-height") {
+    element.y = 0;
+    if (element.type === "BOX") {
+      element.height = labelSize.height;
+    } else if (element.type === "LINE") {
+      if (element.orientation === "V") {
+        element.width = labelSize.height;
+      }
+    } else if (element.type === "BARCODE") {
+      element.height = labelSize.height;
+    } else if (element.type === "QRCODE") {
+      const dataLength = (element.previewData || "").length;
+      const version = calculateQRVersion(dataLength, element.errorCorrection);
+      const modules = qrVersionToModules(version);
+      const targetMag = modules > 0 ? Math.round(labelSize.height / modules) : element.magnification;
+      element.magnification = clampNumber(targetMag, 1, 10);
+    } else if (element.type === "TEXTBLOCK") {
+      const fontSize = element.fontSize || 30;
+      const estimatedLines = Math.max(1, Math.round((labelSize.height - 10) / fontSize));
+      element.maxLines = clampNumber(estimatedLines, 1, 9999);
+    } else if (element.type === "TEXT") {
+      const currentHeight = (element.fontSize || 30) + 10;
+      const scale = labelSize.height / currentHeight;
+      element.fontSize = clampNumber(Math.round((element.fontSize || 30) * scale), 1, 32000);
+    }
+  }
+}
+
 function attachPropertyListeners(element) {
   // Common interactions
   const attach = (id, field, parser = (v) => v) => {
@@ -766,6 +909,23 @@ function attachPropertyListeners(element) {
       renderCanvasPreview(); // Update canvas to reflect changes
     });
   };
+
+  const attachAction = (id, action) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    button.addEventListener("click", () => {
+      applyAlignmentAction(action, element);
+      updateZPLOutput();
+      updateElementsList();
+      renderCanvasPreview();
+      renderPropertiesPanel();
+    });
+  };
+
+  attachAction("prop-center-x", "center-x");
+  attachAction("prop-center-y", "center-y");
+  attachAction("prop-match-width", "match-width");
+  attachAction("prop-match-height", "match-height");
 
   attach("prop-x", "x", (v) => parseInt(v) || 0);
   attach("prop-y", "y", (v) => parseInt(v) || 0);

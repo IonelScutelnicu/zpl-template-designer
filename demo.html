@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Advanced ZPL Label Designer Workspace</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3b82f6", // Blue-500 equivalent for primary actions
+                        "background-light": "#f3f4f6", // Gray-100
+                        "background-dark": "#0f172a", // Slate-900
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e293b", // Slate-800
+                        "border-light": "#e2e8f0", // Slate-200
+                        "border-dark": "#334155", // Slate-700
+                        "text-main-light": "#1e293b",
+                        "text-main-dark": "#f1f5f9",
+                        "text-muted-light": "#64748b",
+                        "text-muted-dark": "#94a3b8",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.375rem",
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .checkerboard {
+            background-color: #f9fafb;
+            background-image:
+                linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+                linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+                linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .dark .checkerboard {
+            background-color: #0f172a;
+            background-image:
+                linear-gradient(45deg, #1e293b 25%, transparent 25%),
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #1e293b 75%),
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark font-display h-screen flex flex-col overflow-hidden transition-colors duration-200">
+    <header
+        class="h-14 bg-surface-dark text-white flex items-center justify-between px-4 border-b border-border-dark flex-shrink-0 z-50">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <span class="material-icons-round text-primary text-3xl">print</span>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">ZPL Creator</h1>
+                    <p class="text-xs text-gray-400">Advanced Label Designer</p>
+                </div>
+            </div>
+            <div class="h-6 w-px bg-gray-600 mx-2"></div>
+            <div class="flex items-center space-x-1 text-sm text-gray-300">
+                <span class="hover:text-white cursor-pointer px-2 py-1 rounded hover:bg-white/10 transition">File</span>
+                <span class="hover:text-white cursor-pointer px-2 py-1 rounded hover:bg-white/10 transition">Edit</span>
+                <span class="hover:text-white cursor-pointer px-2 py-1 rounded hover:bg-white/10 transition">View</span>
+                <span class="hover:text-white cursor-pointer px-2 py-1 rounded hover:bg-white/10 transition">Help</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button
+                class="flex items-center px-3 py-1.5 text-sm text-gray-300 hover:text-white bg-transparent hover:bg-white/10 rounded transition">
+                <span class="material-icons-round text-base mr-1">history</span>
+                History
+            </button>
+            <button
+                class="flex items-center px-3 py-1.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded text-white transition border border-gray-600">
+                <span class="material-icons-round text-base mr-1.5">save</span>
+                Save Template
+            </button>
+            <button
+                class="flex items-center px-3 py-1.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded text-white transition border border-gray-600">
+                <span class="material-icons-round text-base mr-1.5">file_download</span>
+                Export
+            </button>
+            <button
+                class="flex items-center px-4 py-1.5 text-sm font-medium bg-primary hover:bg-blue-600 rounded text-white shadow-lg shadow-blue-500/30 transition">
+                <span class="material-icons-round text-base mr-1.5">print</span>
+                Print Test
+            </button>
+            <div class="ml-2 pl-2 border-l border-gray-600">
+                <button class="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition"
+                    onclick="document.documentElement.classList.toggle('dark')">
+                    <span class="material-icons-round">light_mode</span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <main class="flex-1 flex overflow-hidden">
+        <aside
+            class="w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark flex flex-col flex-shrink-0 z-30">
+            <div class="flex border-b border-border-light dark:border-border-dark">
+                <button
+                    class="flex-1 py-3 text-sm font-medium text-primary border-b-2 border-primary bg-blue-50 dark:bg-blue-900/20">Elements</button>
+                <button
+                    class="flex-1 py-3 text-sm font-medium text-text-muted-light dark:text-text-muted-dark hover:text-text-main-light dark:hover:text-text-main-dark hover:bg-gray-50 dark:hover:bg-gray-800 transition">Layers</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                <div>
+                    <h3
+                        class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark mb-3">
+                        Components</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div
+                            class="group flex flex-col items-center justify-center p-3 border border-border-light dark:border-border-dark rounded bg-white dark:bg-gray-800 hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition">
+                            <span
+                                class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">text_fields</span>
+                            <span class="text-xs text-text-main-light dark:text-text-main-dark">Text Block</span>
+                        </div>
+                        <div
+                            class="group flex flex-col items-center justify-center p-3 border border-border-light dark:border-border-dark rounded bg-white dark:bg-gray-800 hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition">
+                            <span
+                                class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">qr_code_2</span>
+                            <span class="text-xs text-text-main-light dark:text-text-main-dark">QR Code</span>
+                        </div>
+                        <div
+                            class="group flex flex-col items-center justify-center p-3 border border-border-light dark:border-border-dark rounded bg-white dark:bg-gray-800 hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition">
+                            <span
+                                class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">view_week</span>
+                            <span class="text-xs text-text-main-light dark:text-text-main-dark">Barcode</span>
+                        </div>
+                        <div
+                            class="group flex flex-col items-center justify-center p-3 border border-border-light dark:border-border-dark rounded bg-white dark:bg-gray-800 hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition">
+                            <span
+                                class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">check_box_outline_blank</span>
+                            <span class="text-xs text-text-main-light dark:text-text-main-dark">Box / Rect</span>
+                        </div>
+                        <div
+                            class="group flex flex-col items-center justify-center p-3 border border-border-light dark:border-border-dark rounded bg-white dark:bg-gray-800 hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition">
+                            <span
+                                class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">image</span>
+                            <span class="text-xs text-text-main-light dark:text-text-main-dark">Image</span>
+                        </div>
+                        <div
+                            class="group flex flex-col items-center justify-center p-3 border border-border-light dark:border-border-dark rounded bg-white dark:bg-gray-800 hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition">
+                            <span
+                                class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">horizontal_rule</span>
+                            <span class="text-xs text-text-main-light dark:text-text-main-dark">Line</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3
+                        class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark mb-3">
+                        Label Setup</h3>
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded border border-border-light dark:border-border-dark p-3 space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Width
+                                    (mm)</label>
+                                <input
+                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-border-light dark:border-border-dark rounded px-2 py-1 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                                    type="number" value="100" />
+                            </div>
+                            <div>
+                                <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Height
+                                    (mm)</label>
+                                <input
+                                    class="w-full bg-gray-50 dark:bg-gray-900 border border-border-light dark:border-border-dark rounded px-2 py-1 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                                    type="number" value="50" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Print
+                                Density</label>
+                            <select
+                                class="w-full bg-gray-50 dark:bg-gray-900 border border-border-light dark:border-border-dark rounded px-2 py-1 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary">
+                                <option>8 dpmm (203 dpi)</option>
+                                <option>12 dpmm (300 dpi)</option>
+                                <option>24 dpmm (600 dpi)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-2 border-t border-border-light dark:border-border-dark">
+                    <h3
+                        class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark mb-3">
+                        Active Layers</h3>
+                    <div class="space-y-1 relative">
+                        <div class="absolute w-full h-0.5 bg-primary -top-1 left-0 z-10 hidden">
+                            <div class="absolute -left-1 -top-1 w-2.5 h-2.5 rounded-full bg-primary"></div>
+                        </div>
+                        <div
+                            class="group flex items-center p-2 rounded bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 cursor-grab hover:shadow-sm transition-all relative">
+                            <span
+                                class="material-icons-round text-gray-400 hover:text-gray-600 text-lg mr-1.5 cursor-grab">drag_indicator</span>
+                            <span class="material-icons-round text-primary text-sm mr-2">view_week</span>
+                            <span
+                                class="text-xs text-text-main-light dark:text-text-main-dark font-medium flex-1 truncate select-none">Barcode
+                                128</span>
+                            <button class="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition">
+                                <span class="material-icons-round text-gray-400 text-sm">visibility</span>
+                            </button>
+                        </div>
+                        <div class="relative z-20">
+                            <div
+                                class="flex items-center p-2 rounded bg-white dark:bg-gray-800 border-2 border-primary shadow-lg cursor-grabbing transform translate-x-2 -translate-y-1 opacity-95">
+                                <span
+                                    class="material-icons-round text-primary text-lg mr-1.5 cursor-grabbing">drag_indicator</span>
+                                <span class="material-icons-round text-gray-500 text-sm mr-2">text_fields</span>
+                                <span
+                                    class="text-xs text-text-main-light dark:text-text-main-dark flex-1 truncate select-none">Serial
+                                    Number</span>
+                                <button class="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition">
+                                    <span class="material-icons-round text-gray-400 text-sm">visibility</span>
+                                </button>
+                            </div>
+                            <div
+                                class="absolute inset-0 bg-gray-100 dark:bg-gray-800/50 border border-dashed border-gray-300 dark:border-gray-600 rounded -z-10">
+                            </div>
+                        </div>
+                        <div class="h-0.5 w-full bg-primary my-1 relative">
+                            <div
+                                class="absolute -left-1.5 -top-1 w-2.5 h-2.5 rounded-full bg-primary border border-white dark:border-gray-900">
+                            </div>
+                        </div>
+                        <div
+                            class="group flex items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-grab transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700">
+                            <span
+                                class="material-icons-round text-gray-300 group-hover:text-gray-500 text-lg mr-1.5 cursor-grab transition-colors">drag_indicator</span>
+                            <span class="material-icons-round text-gray-500 text-sm mr-2">check_box_outline_blank</span>
+                            <span
+                                class="text-xs text-text-main-light dark:text-text-main-dark flex-1 truncate select-none">Frame
+                                Border</span>
+                            <button class="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition">
+                                <span class="material-icons-round text-gray-400 text-sm">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        <section class="flex-1 bg-background-light dark:bg-gray-900 relative flex flex-col min-w-0">
+            <div
+                class="h-10 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark flex items-center justify-between px-4">
+                <div class="flex items-center space-x-2">
+                    <button
+                        class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition"
+                        title="Select">
+                        <span class="material-icons-round text-sm">near_me</span>
+                    </button>
+                    <button
+                        class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition"
+                        title="Hand Tool">
+                        <span class="material-icons-round text-sm">pan_tool</span>
+                    </button>
+                    <div class="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-2"></div>
+                    <button
+                        class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition"
+                        title="Zoom Out">
+                        <span class="material-icons-round text-sm">remove</span>
+                    </button>
+                    <span class="text-xs text-gray-600 dark:text-gray-300 font-mono w-12 text-center">100%</span>
+                    <button
+                        class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition"
+                        title="Zoom In">
+                        <span class="material-icons-round text-sm">add</span>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-gray-500 dark:text-gray-400 mr-2">Grid: <span
+                            class="font-semibold text-text-main-light dark:text-text-main-dark">10px</span></span>
+                    <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-primary transition"
+                        title="Snap to Grid">
+                        <span class="material-icons-round text-sm">grid_on</span>
+                    </button>
+                </div>
+            </div>
+            <div
+                class="flex-1 overflow-auto relative bg-gray-200 dark:bg-[#0b1120] p-10 flex items-center justify-center checkerboard">
+                <div
+                    class="absolute top-0 left-0 right-0 h-6 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark z-10 opacity-90 flex items-end px-10">
+                    <div class="w-full h-2 flex justify-between text-[10px] text-gray-400 font-mono select-none">
+                        <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span>
+                    </div>
+                </div>
+                <div
+                    class="absolute top-0 left-0 bottom-0 w-6 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark z-10 opacity-90 flex flex-col items-end py-10">
+                    <div
+                        class="h-full w-2 flex flex-col justify-between text-[10px] text-gray-400 font-mono select-none">
+                        <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>
+                    </div>
+                </div>
+                <div class="relative bg-white shadow-xl transition-all" style="width: 500px; height: 250px;">
+                    <div class="absolute inset-0 border border-gray-100 pointer-events-none"></div>
+                    <div
+                        class="absolute left-1/2 top-10 transform -translate-x-1/2 border-2 border-primary border-dashed bg-blue-50/10 hover:bg-blue-50/30 cursor-pointer group p-1 z-20">
+                        <div
+                            class="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border border-primary rounded-full shadow-sm">
+                        </div>
+                        <div
+                            class="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border border-primary rounded-full shadow-sm">
+                        </div>
+                        <div
+                            class="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border border-primary rounded-full shadow-sm">
+                        </div>
+                        <div
+                            class="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border border-primary rounded-full shadow-sm">
+                        </div>
+                        <div class="flex flex-col items-center select-none">
+                            <svg class="w-48 h-12" preserveAspectRatio="none" viewBox="0 0 100 30">
+                                <rect fill="black" height="30" width="2" x="0" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="3" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="6" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="10" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="13" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="18" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="22" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="25" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="30" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="35" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="38" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="44" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="48" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="52" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="58" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="62" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="65" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="72" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="76" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="79" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="85" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="89" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="92" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="98" y="0"></rect>
+                            </svg>
+                            <span class="text-xs font-mono mt-1 text-black">1234567890</span>
+                        </div>
+                        <div
+                            class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                            Barcode (Code 128)
+                        </div>
+                    </div>
+                    <div
+                        class="absolute left-4 right-4 top-1/2 -mt-1 h-3 border-t-4 border-black cursor-pointer hover:opacity-70">
+                    </div>
+                    <div
+                        class="absolute left-1/2 bottom-8 transform -translate-x-1/2 cursor-pointer hover:border hover:border-blue-300 p-1">
+                        <div class="flex flex-col items-center select-none opacity-80">
+                            <svg class="w-40 h-10" preserveAspectRatio="none" viewBox="0 0 100 30">
+                                <rect fill="black" height="30" width="2" x="0" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="3" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="6" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="10" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="13" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="18" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="22" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="25" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="30" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="35" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="38" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="44" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="48" y="0"></rect>
+                                <rect fill="black" height="30" width="3" x="52" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="58" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="62" y="0"></rect>
+                                <rect fill="black" height="30" width="4" x="65" y="0"></rect>
+                                <rect fill="black" height="30" width="2" x="72" y="0"></rect>
+                                <rect fill="black" height="30" width="1" x="76" y="0"></rect>
+                            </svg>
+                            <span class="text-xs font-mono mt-1 text-black">1234567890</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div
+                class="h-48 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark flex flex-col z-20 shadow-[-10px_-10px_30px_rgba(0,0,0,0.1)]">
+                <div
+                    class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-border-light dark:border-border-dark">
+                    <div class="flex items-center space-x-2">
+                        <span
+                            class="text-xs font-bold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Generated
+                            ZPL Output</span>
+                        <span
+                            class="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-mono">~3.2kb</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="text-xs text-primary hover:underline flex items-center">
+                            <span class="material-icons-round text-sm mr-1">content_copy</span> Copy
+                        </button>
+                        <button
+                            class="text-xs text-text-muted-light dark:text-text-muted-dark hover:text-text-main-light dark:hover:text-text-main-dark flex items-center">
+                            <span class="material-icons-round text-sm mr-1">keyboard_arrow_down</span> Minimize
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-auto bg-[#1e1e1e] p-4 font-mono text-sm text-gray-300">
+                    <pre><code><span class="text-yellow-500">^XA</span>
+<span class="text-blue-400">^PW</span>800
+<span class="text-blue-400">^PR</span>4,4,4
+<span class="text-blue-400">^PON</span>
+<span class="text-purple-400">~SD</span>25
+<span class="text-blue-400">^LH</span>0,0
+<span class="text-blue-400">^LT</span>0
+<span class="text-blue-400">^CI</span>28
+<span class="text-blue-400">^MTT</span>
+<span class="text-blue-400">^CF</span>0,20
+<span class="text-green-400">^FO</span>160,96<span class="text-blue-400">^BY</span>2,2<span class="text-blue-400">^BC</span>N,50,Y,N,N<span class="text-blue-400">^FD</span>1234567890<span class="text-red-400">^FS</span>
+<span class="text-green-400">^FO</span>162,220<span class="text-blue-400">^BY</span>2,2<span class="text-blue-400">^BC</span>N,50,Y,N,N<span class="text-blue-400">^FD</span>1234567890<span class="text-red-400">^FS</span>
+<span class="text-green-400">^FO</span>33,174<span class="text-blue-400">^GB</span>765,16,3,B<span class="text-red-400">^FS</span>
+<span class="text-yellow-500">^XZ</span></code></pre>
+                </div>
+            </div>
+        </section>
+        <aside
+            class="w-80 bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark flex flex-col flex-shrink-0 z-30 overflow-y-auto">
+            <div class="p-4 border-b border-border-light dark:border-border-dark">
+                <h2 class="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Properties</h2>
+                <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">Barcode Element (Code 128)</p>
+            </div>
+            <div class="p-4 border-b border-border-light dark:border-border-dark space-y-4">
+                <h3
+                    class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark">
+                    Alignment &amp; Size</h3>
+                <div class="grid grid-cols-4 gap-2">
+                    <button
+                        class="group flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded hover:border-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all relative"
+                        title="Center Horizontally">
+                        <span
+                            class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">align_horizontal_center</span>
+                        <span class="sr-only">Center Horizontally</span>
+                        <div
+                            class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-10">
+                            Center X</div>
+                    </button>
+                    <button
+                        class="group flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded hover:border-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all relative"
+                        title="Center Vertically">
+                        <span
+                            class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">align_vertical_center</span>
+                        <span class="sr-only">Center Vertically</span>
+                        <div
+                            class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-10">
+                            Center Y</div>
+                    </button>
+                    <button
+                        class="group flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded hover:border-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all relative"
+                        title="Match Label Width">
+                        <span
+                            class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1">fit_screen</span>
+                        <span class="sr-only">Match Label Width</span>
+                        <div
+                            class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-10">
+                            Fill Width</div>
+                    </button>
+                    <button
+                        class="group flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded hover:border-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all relative"
+                        title="Match Label Height">
+                        <span
+                            class="material-icons-round text-gray-500 dark:text-gray-400 group-hover:text-primary mb-1 rotate-90">fit_screen</span>
+                        <span class="sr-only">Match Label Height</span>
+                        <div
+                            class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none z-10">
+                            Fill Height</div>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 border-b border-border-light dark:border-border-dark space-y-4">
+                <h3
+                    class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark">
+                    Layout</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">X
+                            Position</label>
+                        <div class="relative">
+                            <input
+                                class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                                type="number" value="162" />
+                            <span class="absolute right-2 top-1.5 text-xs text-gray-400">px</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Y
+                            Position</label>
+                        <div class="relative">
+                            <input
+                                class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                                type="number" value="220" />
+                            <span class="absolute right-2 top-1.5 text-xs text-gray-400">px</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Height</label>
+                        <div class="relative">
+                            <input
+                                class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                                type="number" value="50" />
+                            <span class="absolute right-2 top-1.5 text-xs text-gray-400">mm</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label
+                            class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Rotation</label>
+                        <div class="relative">
+                            <select
+                                class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary">
+                                <option>0°</option>
+                                <option>90°</option>
+                                <option>180°</option>
+                                <option>270°</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-b border-border-light dark:border-border-dark space-y-4">
+                <h3
+                    class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark">
+                    Content</h3>
+                <div>
+                    <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Data
+                        Source</label>
+                    <div class="flex space-x-2 mb-2">
+                        <button class="flex-1 py-1 text-xs bg-primary text-white rounded shadow-sm">Static</button>
+                        <button
+                            class="flex-1 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition">Variable</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Value</label>
+                    <textarea
+                        class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-2 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary font-mono"
+                        rows="2">1234567890</textarea>
+                    <p class="text-[10px] text-gray-400 mt-1">Supports ZPL variables (e.g. %serial%)</p>
+                </div>
+            </div>
+            <div class="p-4 border-b border-border-light dark:border-border-dark space-y-4">
+                <h3
+                    class="text-xs font-semibold uppercase tracking-wider text-text-muted-light dark:text-text-muted-dark">
+                    Barcode Settings</h3>
+                <div>
+                    <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Symbology</label>
+                    <select
+                        class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary">
+                        <option>Code 128 (Auto)</option>
+                        <option>Code 39</option>
+                        <option>EAN-13</option>
+                        <option>UPC-A</option>
+                        <option>QR Code</option>
+                        <option>Data Matrix</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Module
+                            Width</label>
+                        <input
+                            class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                            type="number" value="2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-text-muted-light dark:text-text-muted-dark mb-1">Ratio</label>
+                        <input
+                            class="w-full bg-white dark:bg-gray-800 border border-border-light dark:border-border-dark rounded px-2 py-1.5 text-sm text-text-main-light dark:text-text-main-dark focus:ring-primary focus:border-primary"
+                            type="number" value="3.0" />
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-text-main-light dark:text-text-main-dark">Show Interpretation
+                        Line</label>
+                    <button aria-checked="true"
+                        class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-primary"
+                        role="switch">
+                        <span aria-hidden="true"
+                            class="translate-x-4 pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-text-main-light dark:text-text-main-dark">Check Digit</label>
+                    <button aria-checked="false"
+                        class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 bg-gray-200 dark:bg-gray-700"
+                        role="switch">
+                        <span aria-hidden="true"
+                            class="translate-x-0 pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="p-4 mt-auto">
+                <button
+                    class="w-full flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition">
+                    <span class="material-icons-round text-sm mr-2">delete</span>
+                    Delete Element
+                </button>
+            </div>
+        </aside>
+    </main>
+</body>
+
+</html>
