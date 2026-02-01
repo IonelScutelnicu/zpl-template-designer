@@ -797,8 +797,8 @@ class CanvasRenderer {
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
     this.ctx.restore();
 
-    // Draw resize handles (skip for TEXT, QRCODE, and BARCODE elements as they don't support resize)
-    if (element.type === 'TEXT' || element.type === 'QRCODE' || element.type === 'BARCODE') {
+    // Draw resize handles (skip for TEXT and QRCODE elements as they don't support resize)
+    if (element.type === 'TEXT' || element.type === 'QRCODE') {
       return; // These elements don't support resize, so don't draw handles
     }
 
@@ -827,8 +827,8 @@ class CanvasRenderer {
       this.ctx.restore();
     };
 
-    // For BOX and LINE elements, show all 8 handles (4 corners + 4 edges)
-    if (element.type === 'BOX' || element.type === 'LINE') {
+    // For BOX, LINE, and BARCODE elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE') {
       // Corner handles
       drawHandle(x, y); // Top-left
       drawHandle(x + width, y); // Top-right
