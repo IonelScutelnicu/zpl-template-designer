@@ -348,7 +348,7 @@ function addTextElement() {
 
 // Add Barcode Element
 function addBarcodeElement() {
-  const barcodeElement = new BarcodeElement(50, 100, "1234567890", 50, 2, 2.0);
+  const barcodeElement = new BarcodeElement(50, 50, "1234567890", 50, 2, 2.0);
   elements.push(barcodeElement);
   selectedElement = barcodeElement;
   interactionHandler.updateElements(elements);
@@ -360,7 +360,7 @@ function addBarcodeElement() {
 
 // Add QR Code Element
 function addQRCodeElement() {
-  const qrcodeElement = new QRCodeElement(50, 150, "https://example.com", 2, 5, "Q");
+  const qrcodeElement = new QRCodeElement(50, 50, "https://example.com", 2, 5, "Q");
   elements.push(qrcodeElement);
   selectedElement = qrcodeElement;
   interactionHandler.updateElements(elements);
@@ -372,7 +372,7 @@ function addQRCodeElement() {
 
 // Add Box Element
 function addBoxElement() {
-  const boxElement = new BoxElement(50, 150, 100, 50, 3, "B", 0);
+  const boxElement = new BoxElement(50, 50, 100, 50, 3, "B", 0);
   elements.push(boxElement);
   selectedElement = boxElement;
   interactionHandler.updateElements(elements);
@@ -384,7 +384,7 @@ function addBoxElement() {
 
 // Add Text Block Element
 function addTextBlockElement() {
-  const textBlockElement = new TextBlockElement(50, 200, "Sample text that can wrap across multiple lines", 30, 30, 200, 3, 0, "L", 0);
+  const textBlockElement = new TextBlockElement(50, 50, "Sample text that can wrap across multiple lines", 30, 30, 200, 3, 0, "L", 0);
   elements.push(textBlockElement);
   selectedElement = textBlockElement;
   interactionHandler.updateElements(elements);
@@ -396,7 +396,7 @@ function addTextBlockElement() {
 
 // Add Line Element
 function addLineElement() {
-  const lineElement = new LineElement(50, 250, 200, 3, "H");
+  const lineElement = new LineElement(50, 50, 200, 3, "H");
   elements.push(lineElement);
   selectedElement = lineElement;
   interactionHandler.updateElements(elements);
