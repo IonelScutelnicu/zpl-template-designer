@@ -368,30 +368,89 @@ class CanvasRenderer {
 
     this.ctx.save();
 
-    this.ctx.fillStyle = '#000000';
-    this.ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-    this.ctx.textBaseline = 'top';
-
     const text = element.previewText || '';
+    const font = `bold ${fontSize}px Arial, sans-serif`;
+    this.ctx.font = font;
+    this.ctx.textBaseline = 'top';
     const textWidth = this.ctx.measureText(text).width;
     const textHeight = element.getEstimatedHeight ? element.getEstimatedHeight() * this.scale : fontSize + 10;
 
+    const drawTransformedText = (ctx, color, offsetX = 0, offsetY = 0) => {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = font;
+      ctx.textBaseline = 'top';
+
+      if (element.orientation === 'R') {
+        ctx.translate(x + textHeight + offsetX, y + offsetY);
+        ctx.rotate(Math.PI / 2);
+      } else if (element.orientation === 'I') {
+        ctx.translate(x + textWidth + offsetX, y + textHeight + offsetY);
+        ctx.rotate(Math.PI);
+      } else if (element.orientation === 'B') {
+        ctx.translate(x + offsetX, y + textWidth + offsetY);
+        ctx.rotate(-Math.PI / 2);
+      } else {
+        ctx.translate(x + offsetX, y + offsetY);
+      }
+
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    };
+
+    const createReverseOverlay = (bboxX, bboxY, bboxW, bboxH) => {
+      const left = Math.max(0, Math.floor(bboxX));
+      const top = Math.max(0, Math.floor(bboxY));
+      const right = Math.min(this.canvas.width, Math.ceil(bboxX + bboxW));
+      const bottom = Math.min(this.canvas.height, Math.ceil(bboxY + bboxH));
+      const width = Math.max(0, right - left);
+      const height = Math.max(0, bottom - top);
+
+      if (width === 0 || height === 0) return null;
+
+      const imageData = this.ctx.getImageData(left, top, width, height);
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = width;
+      maskCanvas.height = height;
+      const maskCtx = maskCanvas.getContext('2d');
+      const maskData = maskCtx.createImageData(width, height);
+      const src = imageData.data;
+      const dst = maskData.data;
+      const threshold = 40 * 3;
+
+      for (let i = 0; i < src.length; i += 4) {
+        const brightness = src[i] + src[i + 1] + src[i + 2];
+        if (brightness < threshold) {
+          dst[i + 3] = 255;
+        }
+      }
+
+      maskCtx.putImageData(maskData, 0, 0);
+
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = width;
+      textCanvas.height = height;
+      const textCtx = textCanvas.getContext('2d');
+      drawTransformedText(textCtx, '#FFFFFF', -left, -top);
+      textCtx.globalCompositeOperation = 'destination-in';
+      textCtx.drawImage(maskCanvas, 0, 0);
+
+      return { canvas: textCanvas, x: left, y: top };
+    };
+
+    let overlay = null;
+    if (element.reverse) {
+      if (element.orientation === 'R' || element.orientation === 'B') {
+        overlay = createReverseOverlay(x, y, textHeight, textWidth);
+      } else {
+        overlay = createReverseOverlay(x, y, textWidth, textHeight);
+      }
+    }
+
     // Apply rotation based on orientation (ZPL: N=0°, R=90° CW, I=180°, B=270° CW)
-    if (element.orientation === 'R') {
-      this.ctx.translate(x + textHeight, y);
-      this.ctx.rotate(Math.PI / 2);
-      this.ctx.fillText(text, 0, 0);
-    } else if (element.orientation === 'I') {
-      this.ctx.translate(x + textWidth, y + textHeight);
-      this.ctx.rotate(Math.PI);
-      this.ctx.fillText(text, 0, 0);
-    } else if (element.orientation === 'B') {
-      this.ctx.translate(x, y + textWidth);
-      this.ctx.rotate(-Math.PI / 2);
-      this.ctx.fillText(text, 0, 0);
-    } else {
-      this.ctx.translate(x, y);
-      this.ctx.fillText(text, 0, 0);
+    drawTransformedText(this.ctx, '#000000');
+    if (overlay) {
+      this.ctx.drawImage(overlay.canvas, overlay.x, overlay.y);
     }
 
     this.ctx.restore();
@@ -406,8 +465,8 @@ class CanvasRenderer {
     const fontSize = element.fontSize * this.scale;
     const blockWidth = element.blockWidth * this.scale;
 
-    this.ctx.fillStyle = '#000000';
-    this.ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    const font = `bold ${fontSize}px Arial, sans-serif`;
+    this.ctx.font = font;
     this.ctx.textBaseline = 'top';
 
     const text = element.previewText || '';
@@ -436,6 +495,67 @@ class CanvasRenderer {
     // Draw lines (respect maxLines)
     const maxLines = element.maxLines || lines.length;
     const lineHeight = fontSize * 1.2;
+    const blockHeight = lineHeight * maxLines;
+
+    const createReverseOverlay = () => {
+      const left = Math.max(0, Math.floor(x));
+      const top = Math.max(0, Math.floor(y));
+      const right = Math.min(this.canvas.width, Math.ceil(x + blockWidth));
+      const bottom = Math.min(this.canvas.height, Math.ceil(y + blockHeight));
+      const width = Math.max(0, right - left);
+      const height = Math.max(0, bottom - top);
+      if (width === 0 || height === 0) return null;
+
+      const imageData = this.ctx.getImageData(left, top, width, height);
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = width;
+      maskCanvas.height = height;
+      const maskCtx = maskCanvas.getContext('2d');
+      const maskData = maskCtx.createImageData(width, height);
+      const src = imageData.data;
+      const dst = maskData.data;
+      const threshold = 40 * 3;
+
+      for (let i = 0; i < src.length; i += 4) {
+        const brightness = src[i] + src[i + 1] + src[i + 2];
+        if (brightness < threshold) {
+          dst[i + 3] = 255;
+        }
+      }
+
+      maskCtx.putImageData(maskData, 0, 0);
+
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = width;
+      textCanvas.height = height;
+      const textCtx = textCanvas.getContext('2d');
+      textCtx.font = font;
+      textCtx.textBaseline = 'top';
+      textCtx.fillStyle = '#FFFFFF';
+
+      lines.slice(0, maxLines).forEach((line, i) => {
+        let lineX = x - left;
+        const lineY = y - top + (i * lineHeight);
+
+        if (element.justification === 'C') {
+          const metrics = textCtx.measureText(line);
+          lineX = x - left + (blockWidth - metrics.width) / 2;
+        } else if (element.justification === 'R') {
+          const metrics = textCtx.measureText(line);
+          lineX = x - left + blockWidth - metrics.width;
+        }
+
+        textCtx.fillText(line, lineX, lineY);
+      });
+
+      textCtx.globalCompositeOperation = 'destination-in';
+      textCtx.drawImage(maskCanvas, 0, 0);
+
+      return { canvas: textCanvas, x: left, y: top };
+    };
+
+    const overlay = element.reverse ? createReverseOverlay() : null;
+    this.ctx.fillStyle = '#000000';
 
     lines.slice(0, maxLines).forEach((line, i) => {
       let lineX = x;
@@ -451,6 +571,10 @@ class CanvasRenderer {
 
       this.ctx.fillText(line, lineX, y + (i * lineHeight));
     });
+
+    if (overlay) {
+      this.ctx.drawImage(overlay.canvas, overlay.x, overlay.y);
+    }
   }
 
   /**
