@@ -25,6 +25,7 @@ class InteractionHandler {
     // Resize state
     this.isResizing = false;
     this.resizeHandle = null; // 'br' only for now
+    this.clipboardData = null;
 
     this.setupEventListeners();
   }
@@ -397,6 +398,26 @@ class InteractionHandler {
     // Check if canvas is visible (canvas mode)
     const canvasContainer = this.canvas.parentElement;
     if (canvasContainer && canvasContainer.classList.contains('hidden')) return;
+
+    const isModifier = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+
+    if (isModifier && key === 'c') {
+      const selectedElement = this.callbacks.getSelectedElement();
+      if (selectedElement && this.callbacks.serializeElement) {
+        this.clipboardData = this.callbacks.serializeElement(selectedElement);
+      }
+      e.preventDefault();
+      return;
+    }
+
+    if (isModifier && key === 'v') {
+      if (this.clipboardData && this.callbacks.pasteElement) {
+        this.callbacks.pasteElement(this.clipboardData);
+      }
+      e.preventDefault();
+      return;
+    }
 
     // Handle Tab key for element navigation
     if (e.key === 'Tab') {

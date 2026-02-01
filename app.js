@@ -122,7 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
         deleteElement(idStr);
       }
     },
-    getSelectedElement: () => selectedElement
+    getSelectedElement: () => selectedElement,
+    serializeElement: (element) => serializeElement(element),
+    pasteElement: (data) => pasteElementFromData(data)
   });
 
   // Add button event listeners
@@ -397,6 +399,60 @@ function addLineElement() {
   const lineElement = new LineElement(50, 250, 200, 3, "H");
   elements.push(lineElement);
   selectedElement = lineElement;
+  interactionHandler.updateElements(elements);
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+  renderCanvasPreview();
+}
+
+function serializeElement(element) {
+  if (!element) return null;
+  const data = JSON.parse(JSON.stringify(element));
+  delete data.id;
+  return data;
+}
+
+function createElementFromData(data) {
+  if (!data || !data.type) return null;
+  let element = null;
+  if (data.type === "TEXT") {
+    element = new TextElement(data.x, data.y, data.previewText, data.fontSize, data.fontWidth, data.placeholder, data.fontId, data.orientation, data.reverse);
+  } else if (data.type === "BARCODE") {
+    element = new BarcodeElement(data.x, data.y, data.previewData, data.height, data.width, data.ratio, data.placeholder, data.showText);
+  } else if (data.type === "QRCODE") {
+    element = new QRCodeElement(data.x, data.y, data.previewData, data.model, data.magnification, data.errorCorrection, data.placeholder);
+  } else if (data.type === "BOX") {
+    element = new BoxElement(data.x, data.y, data.width, data.height, data.thickness, data.color, data.rounding);
+  } else if (data.type === "TEXTBLOCK") {
+    element = new TextBlockElement(data.x, data.y, data.previewText, data.fontSize, data.fontWidth, data.blockWidth, data.maxLines, data.lineSpacing, data.justification, data.hangingIndent, data.placeholder, data.fontId, data.reverse);
+  } else if (data.type === "LINE") {
+    element = new LineElement(data.x, data.y, data.width, data.thickness, data.orientation);
+  }
+
+  if (!element) return null;
+  Object.assign(element, data);
+  element.id = Date.now() + Math.random();
+  return element;
+}
+
+function pasteElementFromData(data) {
+  const element = createElementFromData(data);
+  if (!element) return;
+
+  const labelW = labelSettings.width * labelSettings.dpmm;
+  const labelH = labelSettings.height * labelSettings.dpmm;
+  const offset = 10;
+
+  element.x = Math.max(0, element.x + offset);
+  element.y = Math.max(0, element.y + offset);
+
+  const bounds = element.getBounds();
+  element.x = Math.min(element.x, Math.max(0, labelW - bounds.width));
+  element.y = Math.min(element.y, Math.max(0, labelH - bounds.height));
+
+  elements.push(element);
+  selectedElement = element;
   interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
