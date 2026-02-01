@@ -472,14 +472,16 @@ function deleteElement(id) {
 function moveElementUp(index) {
   if (index <= 0 || index >= elements.length) return;
 
+  const previousPositions = captureElementListPositions();
+
   // Swap with the element above
   const temp = elements[index];
   elements[index] = elements[index - 1];
   elements[index - 1] = temp;
 
-  // Add animation class to visually indicate movement
   interactionHandler.updateElements(elements);
   updateElementsList();
+  animateElementListReorder(previousPositions);
   updateZPLOutput();
   renderCanvasPreview();
 }
@@ -488,6 +490,8 @@ function moveElementUp(index) {
 function moveElementDown(index) {
   if (index < 0 || index >= elements.length - 1) return;
 
+  const previousPositions = captureElementListPositions();
+
   // Swap with the element below
   const temp = elements[index];
   elements[index] = elements[index + 1];
@@ -495,8 +499,46 @@ function moveElementDown(index) {
 
   interactionHandler.updateElements(elements);
   updateElementsList();
+  animateElementListReorder(previousPositions);
   updateZPLOutput();
   renderCanvasPreview();
+}
+
+function captureElementListPositions() {
+  const positions = new Map();
+  elementsList.querySelectorAll('.element-item').forEach((item) => {
+    positions.set(item.dataset.id, item.getBoundingClientRect());
+  });
+  return positions;
+}
+
+function animateElementListReorder(previousPositions) {
+  const items = elementsList.querySelectorAll('.element-item');
+  items.forEach((item) => {
+    const previous = previousPositions.get(item.dataset.id);
+    if (!previous) return;
+    const next = item.getBoundingClientRect();
+    const deltaY = previous.top - next.top;
+    if (!deltaY) return;
+    item.style.transition = 'none';
+    item.style.transform = `translateY(${deltaY}px)`;
+  });
+
+  requestAnimationFrame(() => {
+    items.forEach((item) => {
+      if (!item.style.transform) return;
+      item.style.transition = 'transform 0.2s ease';
+      item.style.transform = 'translateY(0)';
+      item.addEventListener(
+        'transitionend',
+        () => {
+          item.style.transition = '';
+          item.style.transform = '';
+        },
+        { once: true }
+      );
+    });
+  });
 }
 
 // Helper to generate input HTML
