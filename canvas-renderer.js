@@ -797,8 +797,8 @@ class CanvasRenderer {
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
     this.ctx.restore();
 
-    // Draw resize handles (skip for TEXT and QRCODE elements as they don't support resize)
-    if (element.type === 'TEXT' || element.type === 'QRCODE') {
+    // Draw resize handles (skip for TEXT elements as they don't support resize)
+    if (element.type === 'TEXT') {
       return; // These elements don't support resize, so don't draw handles
     }
 
@@ -840,8 +840,8 @@ class CanvasRenderer {
       drawHandle(x + width, y + height / 2); // Right
       drawHandle(x + width / 2, y + height); // Bottom
       drawHandle(x, y + height / 2); // Left
-    } else if (element.type === 'TEXTBLOCK') {
-      // For TEXTBLOCK, only show bottom-right handle
+    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE') {
+      // For TEXTBLOCK and QRCODE, only show bottom-right handle
       drawHandle(x + width, y + height);
     } else {
       // For other elements, show 4 corner handles

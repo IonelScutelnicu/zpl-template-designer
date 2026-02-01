@@ -619,7 +619,7 @@ function renderSection(title, body, options = {}) {
 }
 
 function renderAlignmentControlsHTML(element) {
-  const disableMatchSize = element?.type === "TEXT";
+  const disableMatchSize = element?.type === "TEXT" || element?.type === "QRCODE";
   const disabledAttr = disableMatchSize ? "disabled" : "";
   const disabledClass = disableMatchSize ? "opacity-50 cursor-not-allowed hover:border-slate-200 hover:bg-white" : "";
   return renderSection(
