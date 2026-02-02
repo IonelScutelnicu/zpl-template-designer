@@ -18,6 +18,14 @@ let labelSettings = {
   labelTop: 0, // ^LT label top shift
 };
 
+const HISTORY_LIMIT = 100;
+let historyEntries = [];
+let historyIndex = -1;
+let isApplyingHistory = false;
+const historyCommitTimers = new Map();
+let activeTransformSession = null;
+let keyboardMoveSession = null;
+
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
@@ -25,6 +33,14 @@ const addQRCodeBtn = document.getElementById("add-qrcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
 const addTextBlockBtn = document.getElementById("add-textblock-btn");
 const addLineBtn = document.getElementById("add-line-btn");
+const undoBtn = document.getElementById("undo-btn");
+const redoBtn = document.getElementById("redo-btn");
+const historyToggleBtn = document.getElementById("history-toggle-btn");
+const historyPanel = document.getElementById("history-panel");
+const historyCloseBtn = document.getElementById("history-close-btn");
+const historyList = document.getElementById("history-list");
+const historyClearBtn = document.getElementById("history-clear-btn");
+const historyBackdrop = document.getElementById("history-backdrop");
 const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutput = document.getElementById("zpl-output");
@@ -109,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateZPLOutput();
       renderCanvasPreview();
       renderPropertiesPanel();
+      finalizeTransformSession(element);
     },
     onElementMoved: (element) => {
       // Keyboard nudge - update everything
@@ -122,6 +139,17 @@ document.addEventListener("DOMContentLoaded", () => {
         deleteElement(idStr);
       }
     },
+    onElementTransformStart: (element, mode) => {
+      startTransformSession(element, mode);
+    },
+    onKeyboardMoveStart: (element) => {
+      startKeyboardMoveSession(element);
+    },
+    onKeyboardMoveEnd: (element) => {
+      endKeyboardMoveSession(element);
+    },
+    onUndo: () => undo(),
+    onRedo: () => redo(),
     getSelectedElement: () => selectedElement,
     serializeElement: (element) => serializeElement(element),
     pasteElement: (data) => pasteElementFromData(data)
@@ -142,65 +170,88 @@ document.addEventListener("DOMContentLoaded", () => {
   exportBtn.addEventListener("click", exportTemplate);
   importBtn.addEventListener("click", () => importFile.click());
   importFile.addEventListener("change", handleFileImport);
+  undoBtn.addEventListener("click", undo);
+  redoBtn.addEventListener("click", redo);
+  historyToggleBtn.addEventListener("click", openHistoryPanel);
+  historyCloseBtn.addEventListener("click", closeHistoryPanel);
+  historyBackdrop.addEventListener("click", closeHistoryPanel);
+  historyClearBtn.addEventListener("click", () => resetHistory("History cleared", { kind: "clear" }));
+  historyList.addEventListener("click", handleHistoryClick);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeHistoryPanel();
+    }
+  });
 
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
     labelSettings.width = parseFloat(e.target.value) || 100;
     updateZPLOutput();
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelHeight.addEventListener("input", (e) => {
     labelSettings.height = parseFloat(e.target.value) || 50;
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelDpmm.addEventListener("change", (e) => {
     labelSettings.dpmm = parseInt(e.target.value) || 8;
     updateZPLOutput();
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   printOrientation.addEventListener("change", (e) => {
     labelSettings.printOrientation = e.target.value || "N";
     updateZPLOutput();
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   mediaDarkness.addEventListener("input", (e) => {
     labelSettings.mediaDarkness = parseInt(e.target.value) || 25;
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   printSpeed.addEventListener("input", (e) => {
     labelSettings.printSpeed = parseInt(e.target.value) || 4;
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   slewSpeed.addEventListener("input", (e) => {
     labelSettings.slewSpeed = parseInt(e.target.value) || 4;
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   backfeedSpeed.addEventListener("input", (e) => {
     labelSettings.backfeedSpeed = parseInt(e.target.value) || 4;
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   // Font settings event listeners
   fontId.addEventListener("input", (e) => {
     labelSettings.fontId = e.target.value || "0";
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   fontFile.addEventListener("input", (e) => {
     labelSettings.fontFile = e.target.value;
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   defaultFontHeight.addEventListener("input", (e) => {
     labelSettings.defaultFontHeight = parseInt(e.target.value) || 20;
     updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   // Position offset event listeners
@@ -208,18 +259,21 @@ document.addEventListener("DOMContentLoaded", () => {
     labelSettings.homeX = parseInt(e.target.value) || 0;
     updateZPLOutput();
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   homeY.addEventListener("input", (e) => {
     labelSettings.homeY = parseInt(e.target.value) || 0;
     updateZPLOutput();
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelTop.addEventListener("input", (e) => {
     labelSettings.labelTop = parseInt(e.target.value) || 0;
     updateZPLOutput();
     renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   // Set up event delegation for elements list (only once)
@@ -285,6 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateZPLOutput();
   renderCanvasPreview();
+  resetHistory("Initial state", { kind: "init" });
 });
 
 // Render Canvas Preview
@@ -334,6 +389,275 @@ function setPreviewMode(mode) {
   }
 }
 
+function serializeElementWithId(element) {
+  if (!element) return null;
+  const data = JSON.parse(JSON.stringify(element));
+  data.id = element.id;
+  return data;
+}
+
+function serializeAppState() {
+  return {
+    labelSettings: JSON.parse(JSON.stringify(labelSettings)),
+    elements: elements.map((element) => serializeElementWithId(element)),
+    selectedElementId: selectedElement ? String(selectedElement.id) : null
+  };
+}
+
+function syncLabelSettingsInputs() {
+  labelWidth.value = labelSettings.width;
+  labelHeight.value = labelSettings.height;
+  labelDpmm.value = labelSettings.dpmm;
+  homeX.value = labelSettings.homeX;
+  homeY.value = labelSettings.homeY;
+  labelTop.value = labelSettings.labelTop;
+  printOrientation.value = labelSettings.printOrientation;
+  mediaDarkness.value = labelSettings.mediaDarkness;
+  printSpeed.value = labelSettings.printSpeed;
+  slewSpeed.value = labelSettings.slewSpeed;
+  backfeedSpeed.value = labelSettings.backfeedSpeed;
+  fontId.value = labelSettings.fontId;
+  fontFile.value = labelSettings.fontFile;
+  defaultFontHeight.value = labelSettings.defaultFontHeight;
+}
+
+function applyAppState(state) {
+  if (!state) return;
+  isApplyingHistory = true;
+  activeTransformSession = null;
+  keyboardMoveSession = null;
+
+  elements = state.elements.map((data) => createElementFromData(data, { keepId: true }));
+  interactionHandler.updateElements(elements);
+
+  Object.assign(labelSettings, state.labelSettings || {});
+  syncLabelSettingsInputs();
+
+  selectedElement = null;
+  if (state.selectedElementId) {
+    selectedElement = elements.find((el) => String(el.id) === String(state.selectedElementId)) || null;
+  }
+
+  updateElementsList();
+  renderPropertiesPanel();
+  updateZPLOutput();
+  renderCanvasPreview();
+
+  isApplyingHistory = false;
+  updateUndoRedoUI();
+  renderHistoryList();
+}
+
+function pushHistory(label, options = {}) {
+  if (isApplyingHistory && !options.force) return;
+  const entry = {
+    id: Date.now() + Math.random(),
+    label,
+    timestamp: new Date(),
+    state: serializeAppState(),
+    kind: options.kind || "edit",
+    detail: options.detail || ""
+  };
+
+  if (historyIndex < historyEntries.length - 1) {
+    historyEntries = historyEntries.slice(0, historyIndex + 1);
+  }
+
+  historyEntries.push(entry);
+  historyIndex = historyEntries.length - 1;
+
+  if (historyEntries.length > HISTORY_LIMIT) {
+    const overflow = historyEntries.length - HISTORY_LIMIT;
+    historyEntries.splice(0, overflow);
+    historyIndex = Math.max(0, historyIndex - overflow);
+  }
+
+  updateUndoRedoUI();
+  renderHistoryList();
+}
+
+function resetHistory(label, options = {}) {
+  historyEntries = [];
+  historyIndex = -1;
+  historyCommitTimers.forEach((timer) => clearTimeout(timer));
+  historyCommitTimers.clear();
+  pushHistory(label, { force: true, kind: options.kind, detail: options.detail });
+}
+
+function scheduleHistoryCommit(key, label, options = {}) {
+  if (isApplyingHistory) return;
+  const delay = options.delay ?? 300;
+  if (historyCommitTimers.has(key)) {
+    clearTimeout(historyCommitTimers.get(key));
+  }
+  const timer = setTimeout(() => {
+    historyCommitTimers.delete(key);
+    pushHistory(label, { kind: options.kind, detail: options.detail });
+  }, delay);
+  historyCommitTimers.set(key, timer);
+}
+
+function updateUndoRedoUI() {
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex >= 0 && historyIndex < historyEntries.length - 1;
+
+  undoBtn.disabled = !canUndo;
+  redoBtn.disabled = !canRedo;
+
+  undoBtn.classList.toggle("text-slate-500", !canUndo);
+  undoBtn.classList.toggle("text-slate-300", canUndo);
+  undoBtn.classList.toggle("hover:text-white", canUndo);
+  undoBtn.classList.toggle("hover:bg-white/10", canUndo);
+  undoBtn.classList.toggle("cursor-not-allowed", !canUndo);
+
+  redoBtn.classList.toggle("text-slate-500", !canRedo);
+  redoBtn.classList.toggle("text-slate-300", canRedo);
+  redoBtn.classList.toggle("hover:text-white", canRedo);
+  redoBtn.classList.toggle("hover:bg-white/10", canRedo);
+  redoBtn.classList.toggle("cursor-not-allowed", !canRedo);
+}
+
+function renderHistoryList() {
+  if (!historyList) return;
+  if (historyEntries.length === 0) {
+    historyList.innerHTML = '<p class="text-center text-slate-400 py-10 italic text-xs">No history yet</p>';
+    return;
+  }
+
+  const iconMap = {
+    add: { icon: "add_box", color: "text-green-600 bg-green-100" },
+    delete: { icon: "delete", color: "text-red-600 bg-red-100" },
+    move: { icon: "open_with", color: "text-blue-600 bg-blue-100" },
+    resize: { icon: "crop_free", color: "text-blue-600 bg-blue-100" },
+    align: { icon: "align_horizontal_left", color: "text-indigo-600 bg-indigo-100" },
+    reorder: { icon: "swap_vert", color: "text-slate-600 bg-slate-100" },
+    settings: { icon: "tune", color: "text-amber-600 bg-amber-100" },
+    edit: { icon: "edit", color: "text-slate-700 bg-slate-100" },
+    paste: { icon: "content_paste", color: "text-emerald-600 bg-emerald-100" },
+    import: { icon: "file_upload", color: "text-sky-600 bg-sky-100" },
+    clear: { icon: "delete_sweep", color: "text-red-600 bg-red-100" },
+    init: { icon: "description", color: "text-slate-500 bg-slate-100" }
+  };
+
+  historyList.innerHTML = historyEntries
+    .map((entry, index) => {
+      const isActive = index === historyIndex;
+      const activeClasses = isActive
+        ? "bg-blue-50 border-l-4 border-blue-500"
+        : "hover:bg-slate-50";
+      const labelClasses = isActive ? "text-blue-600 font-semibold" : "text-slate-700";
+      const time = entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const meta = iconMap[entry.kind] || iconMap.edit;
+      const detail = entry.detail ? `<p class="text-[11px] text-slate-500 mt-1">${entry.detail}</p>` : "";
+
+      return `
+        <button class="w-full text-left px-4 py-3 border-b border-slate-100 ${activeClasses}" data-history-index="${index}">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 w-8 h-8 rounded-full flex items-center justify-center ${meta.color}">
+              <span class="material-icons-round text-sm">${meta.icon}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs ${labelClasses}">${entry.label}</span>
+                <span class="text-[10px] text-slate-400 font-mono">${time}</span>
+              </div>
+              ${detail}
+            </div>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex -= 1;
+  applyAppState(historyEntries[historyIndex].state);
+}
+
+function redo() {
+  if (historyIndex >= historyEntries.length - 1) return;
+  historyIndex += 1;
+  applyAppState(historyEntries[historyIndex].state);
+}
+
+function getElementTransformState(element) {
+  if (!element) return null;
+  const state = { x: element.x, y: element.y, type: element.type };
+
+  if (element.type === "BOX") {
+    state.width = element.width;
+    state.height = element.height;
+    state.thickness = element.thickness;
+  } else if (element.type === "LINE") {
+    state.width = element.width;
+    state.thickness = element.thickness;
+    state.orientation = element.orientation;
+  } else if (element.type === "BARCODE") {
+    state.width = element.width;
+    state.height = element.height;
+  } else if (element.type === "TEXTBLOCK") {
+    state.blockWidth = element.blockWidth;
+    state.maxLines = element.maxLines;
+  } else if (element.type === "QRCODE") {
+    state.magnification = element.magnification;
+  } else if (element.type === "TEXT") {
+    state.fontSize = element.fontSize;
+    state.fontWidth = element.fontWidth;
+  }
+
+  return state;
+}
+
+function startTransformSession(element, mode) {
+  if (!element) return;
+  activeTransformSession = {
+    id: String(element.id),
+    mode,
+    before: getElementTransformState(element)
+  };
+}
+
+function finalizeTransformSession(element) {
+  if (!activeTransformSession || !element) return;
+  if (String(element.id) !== activeTransformSession.id) {
+    activeTransformSession = null;
+    return;
+  }
+
+  const after = getElementTransformState(element);
+  if (JSON.stringify(after) !== JSON.stringify(activeTransformSession.before)) {
+    const isResize = activeTransformSession.mode === "resize";
+    const label = isResize ? `Resized ${element.type}` : `Moved ${element.type}`;
+    pushHistory(label, { kind: isResize ? "resize" : "move", detail: element.getDisplayName() });
+  }
+
+  activeTransformSession = null;
+}
+
+function startKeyboardMoveSession(element) {
+  if (!element) return;
+  if (keyboardMoveSession) return;
+  keyboardMoveSession = {
+    id: String(element.id),
+    before: { x: element.x, y: element.y }
+  };
+}
+
+function endKeyboardMoveSession(element) {
+  if (!keyboardMoveSession) return;
+  const target = element && String(element.id) === keyboardMoveSession.id
+    ? element
+    : elements.find((el) => String(el.id) === keyboardMoveSession.id);
+
+  if (target && (target.x !== keyboardMoveSession.before.x || target.y !== keyboardMoveSession.before.y)) {
+    pushHistory(`Moved ${target.type} (keyboard)`, { kind: "move", detail: target.getDisplayName() });
+  }
+
+  keyboardMoveSession = null;
+}
+
 // Add Text Element
 function addTextElement() {
   const textElement = new TextElement(50, 50, "Sample Text", 30, 30, "", "", "N");
@@ -344,6 +668,7 @@ function addTextElement() {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Added Text", { kind: "add", detail: textElement.getDisplayName() });
 }
 
 // Add Barcode Element
@@ -356,6 +681,7 @@ function addBarcodeElement() {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Added Barcode", { kind: "add", detail: barcodeElement.getDisplayName() });
 }
 
 // Add QR Code Element
@@ -368,6 +694,7 @@ function addQRCodeElement() {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Added QR Code", { kind: "add", detail: qrcodeElement.getDisplayName() });
 }
 
 // Add Box Element
@@ -380,6 +707,7 @@ function addBoxElement() {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Added Box", { kind: "add", detail: boxElement.getDisplayName() });
 }
 
 // Add Text Block Element
@@ -392,6 +720,7 @@ function addTextBlockElement() {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Added Text Block", { kind: "add", detail: textBlockElement.getDisplayName() });
 }
 
 // Add Line Element
@@ -404,6 +733,7 @@ function addLineElement() {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Added Line", { kind: "add", detail: lineElement.getDisplayName() });
 }
 
 function serializeElement(element) {
@@ -413,8 +743,9 @@ function serializeElement(element) {
   return data;
 }
 
-function createElementFromData(data) {
+function createElementFromData(data, options = {}) {
   if (!data || !data.type) return null;
+  const { keepId = false } = options;
   let element = null;
   if (data.type === "TEXT") {
     element = new TextElement(data.x, data.y, data.previewText, data.fontSize, data.fontWidth, data.placeholder, data.fontId, data.orientation, data.reverse);
@@ -432,7 +763,9 @@ function createElementFromData(data) {
 
   if (!element) return null;
   Object.assign(element, data);
-  element.id = Date.now() + Math.random();
+  if (!keepId) {
+    element.id = Date.now() + Math.random();
+  }
   return element;
 }
 
@@ -458,6 +791,7 @@ function pasteElementFromData(data) {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory(`Pasted ${element.type}`, { kind: "paste", detail: element.getDisplayName() });
 }
 
 // Update Elements List
@@ -517,16 +851,26 @@ function updateElementsList() {
 function deleteElement(id) {
   // Convert id to string for reliable comparison
   const idStr = String(id);
+  const elementToDelete = elements.find((el) => String(el.id) === idStr);
   // Filter out the element with matching ID (compare as strings)
   elements = elements.filter((el) => String(el.id) !== idStr);
   if (selectedElement && String(selectedElement.id) === idStr) {
     selectedElement = null;
+  }
+  if (activeTransformSession && activeTransformSession.id === idStr) {
+    activeTransformSession = null;
+  }
+  if (keyboardMoveSession && keyboardMoveSession.id === idStr) {
+    keyboardMoveSession = null;
   }
   interactionHandler.updateElements(elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  if (elementToDelete) {
+    pushHistory(`Deleted ${elementToDelete.type}`, { kind: "delete", detail: elementToDelete.getDisplayName() });
+  }
 }
 
 // Move Element Up
@@ -545,6 +889,7 @@ function moveElementUp(index) {
   animateElementListReorder(previousPositions);
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Reordered elements", { kind: "reorder" });
 }
 
 // Move Element Down
@@ -563,6 +908,7 @@ function moveElementDown(index) {
   animateElementListReorder(previousPositions);
   updateZPLOutput();
   renderCanvasPreview();
+  pushHistory("Reordered elements", { kind: "reorder" });
 }
 
 function captureElementListPositions() {
@@ -1084,6 +1430,10 @@ function attachPropertyListeners(element) {
       updateZPLOutput();
       updateElementsList(); // Update list to refect changes (like display name)
       renderCanvasPreview(); // Update canvas to reflect changes
+      scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+        kind: "edit",
+        detail: element.getDisplayName()
+      });
     });
   };
 
@@ -1096,6 +1446,10 @@ function attachPropertyListeners(element) {
       updateElementsList();
       renderCanvasPreview();
       renderPropertiesPanel();
+      scheduleHistoryCommit(`element-${element.id}`, `Aligned ${element.type}`, {
+        kind: "align",
+        detail: element.getDisplayName()
+      });
     });
   };
 
@@ -1134,6 +1488,10 @@ function attachPropertyListeners(element) {
         updateZPLOutput();
         renderCanvasPreview();
         setReverseActive(value);
+        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+          kind: "edit",
+          detail: element.getDisplayName()
+        });
       });
     });
   } else if (element.type === "BARCODE") {
@@ -1181,6 +1539,10 @@ function attachPropertyListeners(element) {
         updateZPLOutput();
         renderCanvasPreview();
         setReverseActive(value);
+        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+          kind: "edit",
+          detail: element.getDisplayName()
+        });
       });
     });
     const justificationButtons = document.querySelectorAll('[data-justification]');
@@ -1203,6 +1565,10 @@ function attachPropertyListeners(element) {
         updateZPLOutput();
         renderCanvasPreview();
         setJustificationActive(value);
+        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+          kind: "edit",
+          detail: element.getDisplayName()
+        });
       });
     });
   } else if (element.type === "QRCODE") {
@@ -1641,4 +2007,24 @@ function importTemplate(template) {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
+  resetHistory("Imported template", { kind: "import" });
+}
+
+function handleHistoryClick(e) {
+  const button = e.target.closest("[data-history-index]");
+  if (!button) return;
+  const index = parseInt(button.dataset.historyIndex, 10);
+  if (Number.isNaN(index) || index === historyIndex) return;
+  historyIndex = index;
+  applyAppState(historyEntries[historyIndex].state);
+}
+
+function openHistoryPanel() {
+  historyPanel.classList.add("open");
+  historyBackdrop.classList.add("open");
+}
+
+function closeHistoryPanel() {
+  historyPanel.classList.remove("open");
+  historyBackdrop.classList.remove("open");
 }

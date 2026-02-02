@@ -26,6 +26,10 @@ class InteractionHandler {
     this.isResizing = false;
     this.resizeHandle = null; // 'br' only for now
     this.clipboardData = null;
+    this.hasNotifiedDragStart = false;
+    this.keyboardMoveActive = false;
+    this.keyboardMoveTimer = null;
+    this.keyboardMoveElement = null;
 
     this.setupEventListeners();
   }
@@ -38,6 +42,7 @@ class InteractionHandler {
 
     // Keyboard events (needs to be on document for arrow keys)
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
+    document.addEventListener('keyup', this.handleKeyUp.bind(this));
   }
 
   handleMouseDown(e) {
@@ -54,6 +59,10 @@ class InteractionHandler {
         this.isResizing = true;
         this.resizeHandle = handle;
         this.dragElement = selectedElement; // Use same drag element ref
+        this.hasNotifiedDragStart = false;
+        if (this.callbacks.onElementTransformStart) {
+          this.callbacks.onElementTransformStart(selectedElement, 'resize');
+        }
 
         // Store original position and size for resize calculations
         this.resizeStartX = selectedElement.x;
@@ -300,6 +309,10 @@ class InteractionHandler {
       if (!this.isDragging && distance > 5) {
         this.isDragging = true;
         this.canvas.style.cursor = 'grabbing';
+        if (!this.hasNotifiedDragStart && this.callbacks.onElementTransformStart) {
+          this.callbacks.onElementTransformStart(this.dragElement, 'drag');
+          this.hasNotifiedDragStart = true;
+        }
       }
 
       if (this.isDragging) {
@@ -377,6 +390,7 @@ class InteractionHandler {
     // Reset drag state
     this.dragElement = null;
     this.canvas.style.cursor = 'default';
+    this.hasNotifiedDragStart = false;
   }
 
   handleMouseLeave(e) {
@@ -389,6 +403,7 @@ class InteractionHandler {
 
     this.dragElement = null;
     this.canvas.style.cursor = 'default';
+    this.hasNotifiedDragStart = false;
   }
 
   handleKeyDown(e) {
@@ -401,6 +416,26 @@ class InteractionHandler {
 
     const isModifier = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
+
+    if (isModifier && key === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        if (this.callbacks.onRedo) {
+          this.callbacks.onRedo();
+        }
+      } else if (this.callbacks.onUndo) {
+        this.callbacks.onUndo();
+      }
+      return;
+    }
+
+    if (isModifier && key === 'y') {
+      e.preventDefault();
+      if (this.callbacks.onRedo) {
+        this.callbacks.onRedo();
+      }
+      return;
+    }
 
     if (isModifier && key === 'c') {
       const selectedElement = this.callbacks.getSelectedElement();
@@ -512,7 +547,47 @@ class InteractionHandler {
 
     if (moved) {
       e.preventDefault();
+      this.startKeyboardMove(selectedElement);
       this.callbacks.onElementMoved(selectedElement);
+    }
+  }
+
+  handleKeyUp(e) {
+    if (!this.keyboardMoveActive) return;
+    if (e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      this.endKeyboardMove();
+    }
+  }
+
+  startKeyboardMove(element) {
+    if (!this.keyboardMoveActive) {
+      this.keyboardMoveActive = true;
+      this.keyboardMoveElement = element;
+      if (this.callbacks.onKeyboardMoveStart) {
+        this.callbacks.onKeyboardMoveStart(element);
+      }
+    }
+
+    if (this.keyboardMoveTimer) {
+      clearTimeout(this.keyboardMoveTimer);
+    }
+    this.keyboardMoveTimer = setTimeout(() => {
+      this.endKeyboardMove();
+    }, 250);
+  }
+
+  endKeyboardMove() {
+    if (!this.keyboardMoveActive) return;
+    if (this.keyboardMoveTimer) {
+      clearTimeout(this.keyboardMoveTimer);
+      this.keyboardMoveTimer = null;
+    }
+    const element = this.keyboardMoveElement;
+    this.keyboardMoveActive = false;
+    this.keyboardMoveElement = null;
+    if (this.callbacks.onKeyboardMoveEnd) {
+      this.callbacks.onKeyboardMoveEnd(element);
     }
   }
 
@@ -657,5 +732,10 @@ class InteractionHandler {
     this.canvas.removeEventListener('mouseup', this.handleMouseUp);
     this.canvas.removeEventListener('mouseleave', this.handleMouseLeave);
     document.removeEventListener('keydown', this.handleKeyDown);
+    document.removeEventListener('keyup', this.handleKeyUp);
+    if (this.keyboardMoveTimer) {
+      clearTimeout(this.keyboardMoveTimer);
+      this.keyboardMoveTimer = null;
+    }
   }
 }
