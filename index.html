@@ -139,25 +139,6 @@
           <p class="text-xs text-slate-400 mt-0.5">Advanced label template designer</p>
         </div>
         <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1 bg-slate-800/70 border border-slate-700 rounded-lg p-1">
-            <button id="undo-btn"
-              class="flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
-              title="Undo (Ctrl+Z)">
-              <span class="material-icons-round text-sm">undo</span>
-              Undo
-            </button>
-            <button id="redo-btn"
-              class="flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-500 cursor-not-allowed transition"
-              title="Redo (Ctrl+Shift+Z)" disabled>
-              <span class="material-icons-round text-sm">redo</span>
-              Redo
-            </button>
-          </div>
-          <button id="history-toggle-btn"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-slate-700 transition">
-            <span class="material-icons-round text-sm">history</span>
-            History
-          </button>
           <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands.html" target="_blank"
             class="text-xs font-medium text-slate-400 hover:text-white transition-colors">ZPL Documentation</a>
         </div>
@@ -420,9 +401,9 @@
               <!-- Preview Panel -->
               <div
                 class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
-                <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center">
+                <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <h2 class="font-semibold text-slate-700 text-sm">Live Preview</h2>
-                  <div class="flex items-center gap-6">
+                  <div class="flex items-center justify-center gap-4">
                     <!-- Mode Switcher -->
                     <div class="flex gap-1 p-1 bg-slate-200/60 rounded-lg">
                       <button id="mode-canvas-btn"
@@ -435,8 +416,6 @@
                       </button>
                     </div>
 
-                    <div class="w-px h-5 bg-slate-200"></div>
-
                     <button id="refresh-preview-btn"
                       class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -445,6 +424,28 @@
                         </path>
                       </svg>
                       Refresh
+                    </button>
+                  </div>
+                  <div class="flex items-center justify-end gap-3">
+                    <div class="flex items-center rounded border border-blue-100 bg-blue-50 overflow-hidden">
+                      <button id="undo-btn"
+                        class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                        title="Undo (Ctrl+Z)">
+                        <span class="material-icons-round text-sm">undo</span>
+                        Undo
+                      </button>
+                      <div class="w-px h-5 bg-blue-100"></div>
+                      <button id="redo-btn"
+                        class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                        title="Redo (Ctrl+Shift+Z)" disabled>
+                        <span class="material-icons-round text-sm">redo</span>
+                        Redo
+                      </button>
+                    </div>
+                    <button id="history-toggle-btn"
+                      class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
+                      <span class="material-icons-round text-sm">history</span>
+                      History
                     </button>
                   </div>
                 </div>
