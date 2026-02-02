@@ -504,16 +504,14 @@ function updateUndoRedoUI() {
   undoBtn.disabled = !canUndo;
   redoBtn.disabled = !canRedo;
 
-  undoBtn.classList.toggle("text-slate-500", !canUndo);
-  undoBtn.classList.toggle("text-slate-300", canUndo);
-  undoBtn.classList.toggle("hover:text-white", canUndo);
-  undoBtn.classList.toggle("hover:bg-white/10", canUndo);
+  undoBtn.classList.toggle("text-blue-600", canUndo);
+  undoBtn.classList.toggle("text-slate-400", !canUndo);
+  undoBtn.classList.toggle("hover:bg-blue-100", canUndo);
   undoBtn.classList.toggle("cursor-not-allowed", !canUndo);
 
-  redoBtn.classList.toggle("text-slate-500", !canRedo);
-  redoBtn.classList.toggle("text-slate-300", canRedo);
-  redoBtn.classList.toggle("hover:text-white", canRedo);
-  redoBtn.classList.toggle("hover:bg-white/10", canRedo);
+  redoBtn.classList.toggle("text-blue-600", canRedo);
+  redoBtn.classList.toggle("hover:bg-blue-100", canRedo);
+  redoBtn.classList.toggle("text-slate-400", !canRedo);
   redoBtn.classList.toggle("cursor-not-allowed", !canRedo);
 }
 
