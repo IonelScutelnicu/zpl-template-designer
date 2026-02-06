@@ -1,6 +1,90 @@
 // Canvas Renderer for ZPL Template Creator
 // Renders all element types on HTML5 Canvas
 
+// ZPL font mapping - approximations using system fonts with accurate aspect ratios
+// Based on Zebra ZPL standard built-in fonts (A-H and 0)
+const ZPL_FONTS = {
+  '0': {
+    family: '"Arial Narrow", "Helvetica Condensed", Arial, sans-serif',
+    weight: 'bold',
+    monospace: false,
+    baseHeight: 18,
+    baseWidth: 10,
+    aspectRatio: 0.9  // Condensed - matches CG Triumvirate Bold Condensed
+  },
+  'A': {
+    family: '"Lucida Console", "Courier New", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 9,
+    baseWidth: 5,
+    aspectRatio: 0.556  // 5/9
+  },
+  'B': {
+    family: '"Lucida Console", "Courier New", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 11,
+    baseWidth: 7,
+    aspectRatio: 0.636  // 7/11
+  },
+  'C': {
+    family: '"Lucida Console", "Courier New", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 18,
+    baseWidth: 10,
+    aspectRatio: 0.556  // 10/18
+  },
+  'D': {
+    family: '"Lucida Console", "Courier New", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 18,
+    baseWidth: 10,
+    aspectRatio: 0.556  // 10/18 (same as C, backward compat)
+  },
+  'E': {
+    family: '"OCR A Std", "OCR-A", "Lucida Console", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 28,
+    baseWidth: 15,
+    aspectRatio: 0.536  // 15/28 (OCR-A style)
+  },
+  'F': {
+    family: '"OCR B Std", "OCR-B", "Lucida Console", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 26,
+    baseWidth: 15,
+    aspectRatio: 0.577  // 15/26 (OCR-B style)
+  },
+  'G': {
+    family: '"Lucida Console", "Courier New", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 60,
+    baseWidth: 40,
+    aspectRatio: 0.667  // 40/60
+  },
+  'H': {
+    family: '"OCR A Std", "OCR-A", "Lucida Console", monospace',
+    weight: 'normal',
+    monospace: true,
+    baseHeight: 21,
+    baseWidth: 13,
+    aspectRatio: 0.619  // 13/21
+  },
+  // Default fallback
+  'default': {
+    family: 'Arial, sans-serif',
+    weight: 'normal',
+    monospace: false,
+    aspectRatio: 1.0
+  }
+};
+
 // Code128 Subset B patterns: [bar, space, bar, space, bar, space] widths
 // Each character is encoded as 6 elements (alternating bars/spaces) totaling 11 modules
 const CODE128B_PATTERNS = [
@@ -100,6 +184,10 @@ class CanvasRenderer {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
+
+    // Disable smoothing for more bitmap-like rendering
+    this.ctx.imageSmoothingEnabled = false;
+
     this.scale = 1;
     this.offsetX = 0;
     this.offsetY = 0;
@@ -154,11 +242,6 @@ class CanvasRenderer {
     // Draw offset zones with horizontal stripe pattern
     this.drawOffsetZones(labelWidthDots, labelHeightDots);
 
-    // Draw label border
-    this.ctx.strokeStyle = '#94a3b8';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(0, 0, labelWidthDots, labelHeightDots);
-
     // Apply orientation transformation for elements
     // For inverted (I) orientation, flip the entire canvas 180°
     if (printOrientation === 'I') {
@@ -170,7 +253,7 @@ class CanvasRenderer {
 
     // Render each element
     elements.forEach(element => {
-      this.drawElement(element, selectedElement);
+      this.drawElement(element, labelSettings, selectedElement);
     });
 
     // Restore context if transformed
@@ -323,7 +406,7 @@ class CanvasRenderer {
   /**
    * Draw a single element on canvas
    */
-  drawElement(element, selectedElement) {
+  drawElement(element, labelSettings, selectedElement) {
     const isSelected = selectedElement && element.id === selectedElement.id;
 
     this.ctx.save();
@@ -331,10 +414,10 @@ class CanvasRenderer {
     // Draw element based on type
     switch (element.type) {
       case 'TEXT':
-        this.drawText(element);
+        this.drawText(element, labelSettings);
         break;
       case 'TEXTBLOCK':
-        this.drawTextBlock(element);
+        this.drawTextBlock(element, labelSettings);
         break;
       case 'BARCODE':
         this.drawBarcode(element);
@@ -361,7 +444,7 @@ class CanvasRenderer {
   /**
    * Draw TEXT element
    */
-  drawText(element) {
+  drawText(element, labelSettings) {
     const x = (element.x + this.homeX) * this.scale;
     const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const fontSize = element.fontSize * this.scale;
@@ -369,10 +452,24 @@ class CanvasRenderer {
     this.ctx.save();
 
     const text = element.previewText || '';
-    const font = `bold ${fontSize}px Arial, sans-serif`;
+
+    // Get font ID from element or use label's default
+    const fontId = element.fontId || labelSettings.fontId || '0';
+    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
+
+    // Calculate horizontal scale for font aspect ratio
+    // If fontWidth is specified, use it; otherwise calculate from font's default aspect ratio
+    const fontWidth = element.fontWidth
+      ? element.fontWidth * this.scale
+      : fontSize * (fontConfig.aspectRatio || 1.0);
+    const scaleX = fontWidth / fontSize;
+
     this.ctx.font = font;
     this.ctx.textBaseline = 'top';
-    const textWidth = this.ctx.measureText(text).width;
+    // Measure text width at unscaled size, then apply horizontal scale
+    const measuredWidth = this.ctx.measureText(text).width;
+    const textWidth = measuredWidth * scaleX;
     const textHeight = element.getEstimatedHeight ? element.getEstimatedHeight() * this.scale : fontSize + 10;
 
     const drawTransformedText = (ctx, color, offsetX = 0, offsetY = 0) => {
@@ -384,14 +481,18 @@ class CanvasRenderer {
       if (element.orientation === 'R') {
         ctx.translate(x + textHeight + offsetX, y + offsetY);
         ctx.rotate(Math.PI / 2);
+        ctx.scale(scaleX, 1);
       } else if (element.orientation === 'I') {
         ctx.translate(x + textWidth + offsetX, y + textHeight + offsetY);
         ctx.rotate(Math.PI);
+        ctx.scale(scaleX, 1);
       } else if (element.orientation === 'B') {
         ctx.translate(x + offsetX, y + textWidth + offsetY);
         ctx.rotate(-Math.PI / 2);
+        ctx.scale(scaleX, 1);
       } else {
         ctx.translate(x + offsetX, y + offsetY);
+        ctx.scale(scaleX, 1);
       }
 
       ctx.fillText(text, 0, 0);
@@ -459,19 +560,29 @@ class CanvasRenderer {
   /**
    * Draw TEXTBLOCK element
    */
-  drawTextBlock(element) {
+  drawTextBlock(element, labelSettings) {
     const x = (element.x + this.homeX) * this.scale;
     const y = (element.y + this.homeY + this.labelTop) * this.scale;
     const fontSize = element.fontSize * this.scale;
     const blockWidth = element.blockWidth * this.scale;
 
-    const font = `bold ${fontSize}px Arial, sans-serif`;
+    // Get font ID from element or use label's default
+    const fontId = element.fontId || labelSettings.fontId || '0';
+    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
+
+    // Calculate horizontal scale for font aspect ratio
+    const fontWidth = element.fontWidth
+      ? element.fontWidth * this.scale
+      : fontSize * (fontConfig.aspectRatio || 1.0);
+    const scaleX = fontWidth / fontSize;
+
     this.ctx.font = font;
     this.ctx.textBaseline = 'top';
 
     const text = element.previewText || '';
 
-    // Simple text wrapping
+    // Simple text wrapping - account for horizontal scaling when measuring
     const words = text.split(' ');
     const lines = [];
     let currentLine = '';
@@ -479,8 +590,10 @@ class CanvasRenderer {
     words.forEach(word => {
       const testLine = currentLine + (currentLine ? ' ' : '') + word;
       const metrics = this.ctx.measureText(testLine);
+      // Apply scaleX to measured width for accurate wrapping
+      const scaledWidth = metrics.width * scaleX;
 
-      if (metrics.width > blockWidth && currentLine) {
+      if (scaledWidth > blockWidth && currentLine) {
         lines.push(currentLine);
         currentLine = word;
       } else {
@@ -534,18 +647,22 @@ class CanvasRenderer {
       textCtx.fillStyle = '#FFFFFF';
 
       lines.slice(0, maxLines).forEach((line, i) => {
-        let lineX = x - left;
         const lineY = y - top + (i * lineHeight);
+        const measuredWidth = textCtx.measureText(line).width * scaleX;
 
+        let lineX = x - left;
         if (element.justification === 'C') {
-          const metrics = textCtx.measureText(line);
-          lineX = x - left + (blockWidth - metrics.width) / 2;
+          lineX = x - left + (blockWidth - measuredWidth) / 2;
         } else if (element.justification === 'R') {
-          const metrics = textCtx.measureText(line);
-          lineX = x - left + blockWidth - metrics.width;
+          lineX = x - left + blockWidth - measuredWidth;
         }
 
-        textCtx.fillText(line, lineX, lineY);
+        // Apply horizontal scaling for text rendering
+        textCtx.save();
+        textCtx.translate(lineX, lineY);
+        textCtx.scale(scaleX, 1);
+        textCtx.fillText(line, 0, 0);
+        textCtx.restore();
       });
 
       textCtx.globalCompositeOperation = 'destination-in';
@@ -558,18 +675,22 @@ class CanvasRenderer {
     this.ctx.fillStyle = '#000000';
 
     lines.slice(0, maxLines).forEach((line, i) => {
-      let lineX = x;
+      const measuredWidth = this.ctx.measureText(line).width * scaleX;
 
-      // Apply justification
+      let lineX = x;
+      // Apply justification using scaled width
       if (element.justification === 'C') {
-        const metrics = this.ctx.measureText(line);
-        lineX = x + (blockWidth - metrics.width) / 2;
+        lineX = x + (blockWidth - measuredWidth) / 2;
       } else if (element.justification === 'R') {
-        const metrics = this.ctx.measureText(line);
-        lineX = x + blockWidth - metrics.width;
+        lineX = x + blockWidth - measuredWidth;
       }
 
-      this.ctx.fillText(line, lineX, y + (i * lineHeight));
+      // Apply horizontal scaling for text rendering
+      this.ctx.save();
+      this.ctx.translate(lineX, y + (i * lineHeight));
+      this.ctx.scale(scaleX, 1);
+      this.ctx.fillText(line, 0, 0);
+      this.ctx.restore();
     });
 
     if (overlay) {
