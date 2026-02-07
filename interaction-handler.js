@@ -74,7 +74,7 @@ class InteractionHandler {
           this.resizeStartHeight = bounds.height;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
-          this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || 30) * (selectedElement.maxLines || 1);
+          this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
         }
         this.resizeMouseStartX = coords.x;
         this.resizeMouseStartY = coords.y;
@@ -124,12 +124,12 @@ class InteractionHandler {
     if (this.isResizing && this.dragElement) {
       if (this.dragElement.type === 'TEXTBLOCK') {
         // TEXTBLOCK only supports bottom-right resize
+        const lineHeight = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
         const newWidth = Math.max(50, coords.x - this.dragElement.x);
-        const newHeight = Math.max(30, coords.y - this.dragElement.y);
+        const newHeight = Math.max(lineHeight, coords.y - this.dragElement.y);
 
         this.dragElement.blockWidth = Math.round(newWidth);
-        const lineHeight = (this.dragElement.fontSize || 30);
-        this.dragElement.maxLines = Math.max(1, Math.round((newHeight - 10) / lineHeight));
+        this.dragElement.maxLines = Math.max(1, Math.round(newHeight / lineHeight));
 
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'QRCODE') {
@@ -321,7 +321,7 @@ class InteractionHandler {
         let newY = coords.y - this.dragOffsetY;
 
         // Constrain to label bounds
-        const bounds = this.dragElement.getBounds();
+        const bounds = this.getSelectionBounds(this.dragElement);
         const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
@@ -523,7 +523,7 @@ class InteractionHandler {
         moved = true;
         break;
       case 'ArrowRight':
-        const maxX = this.labelSettings.width * this.labelSettings.dpmm - selectedElement.getBounds().width;
+        const maxX = this.labelSettings.width * this.labelSettings.dpmm - this.getSelectionBounds(selectedElement).width;
         selectedElement.x = Math.min(maxX, selectedElement.x + moveAmount);
         moved = true;
         break;
@@ -532,7 +532,7 @@ class InteractionHandler {
         moved = true;
         break;
       case 'ArrowDown':
-        const maxY = this.labelSettings.height * this.labelSettings.dpmm - selectedElement.getBounds().height;
+        const maxY = this.labelSettings.height * this.labelSettings.dpmm - this.getSelectionBounds(selectedElement).height;
         selectedElement.y = Math.min(maxY, selectedElement.y + moveAmount);
         moved = true;
         break;
@@ -598,7 +598,7 @@ class InteractionHandler {
     // Iterate in reverse order (top to bottom in z-order)
     for (let i = this.elements.length - 1; i >= 0; i--) {
       const element = this.elements[i];
-      const bounds = element.getBounds();
+      const bounds = this.getSelectionBounds(element);
 
       if (
         x >= bounds.x &&
@@ -620,7 +620,7 @@ class InteractionHandler {
     const hits = [];
     for (let i = this.elements.length - 1; i >= 0; i--) {
       const element = this.elements[i];
-      const bounds = element.getBounds();
+      const bounds = this.getSelectionBounds(element);
       if (
         x >= bounds.x &&
         x <= bounds.x + bounds.width &&
@@ -636,6 +636,14 @@ class InteractionHandler {
   /**
    * Get resize handle at position
    */
+  getSelectionBounds(element) {
+    if (element.type === 'TEXTBLOCK' && this.labelSettings) {
+      const resolvedHeight = element.fontSize || this.labelSettings.defaultFontHeight || 30;
+      return { x: element.x, y: element.y, width: element.blockWidth || 200, height: resolvedHeight * (element.maxLines || 1) };
+    }
+    return element.getBounds();
+  }
+
   getHandleAtPosition(x, y, element) {
     if (!element) return null;
 
@@ -646,7 +654,7 @@ class InteractionHandler {
     const handleSizeDots = 20 / scale; // Use larger hit area (20px) for better usability
     const hsHalf = handleSizeDots / 2;
 
-    const bounds = element.getBounds();
+    const bounds = this.getSelectionBounds(element);
     const bx = bounds.x;
     const by = bounds.y;
     const bw = bounds.width;

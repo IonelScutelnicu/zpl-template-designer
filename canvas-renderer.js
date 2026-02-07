@@ -435,7 +435,7 @@ class CanvasRenderer {
 
     // Draw selection indicator
     if (isSelected) {
-      this.drawSelectionIndicator(element);
+      this.drawSelectionIndicator(element, labelSettings);
     }
 
     this.ctx.restore();
@@ -930,12 +930,42 @@ class CanvasRenderer {
   /**
    * Draw selection indicator around element
    */
-  drawSelectionIndicator(element) {
-    const bounds = element.getBounds();
-    const x = (bounds.x + this.homeX) * this.scale;
-    const y = (bounds.y + this.homeY + this.labelTop) * this.scale;
-    const width = bounds.width * this.scale;
-    const height = bounds.height * this.scale;
+  drawSelectionIndicator(element, labelSettings) {
+    let x, y, width, height;
+    if (element.type === 'TEXT' && labelSettings) {
+      // Use actual canvas measurement for accurate TEXT bounds
+      const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
+      const fontSize = rawFontSize * this.scale;
+      const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
+      const fontWidth = rawFontWidth * this.scale;
+      const scaleX = fontWidth / fontSize;
+      const fontId = element.fontId || labelSettings.fontId || '0';
+      const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+      this.ctx.save();
+      this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
+      const measuredWidth = this.ctx.measureText(element.previewText || '').width * scaleX;
+      this.ctx.restore();
+      const textW = Math.max(measuredWidth, 20);
+      const textH = fontSize;
+      let w = textW, h = textH;
+      if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
+      x = (element.x + this.homeX) * this.scale;
+      y = (element.y + this.homeY + this.labelTop) * this.scale;
+      width = w;
+      height = h;
+    } else if (element.type === 'TEXTBLOCK' && labelSettings) {
+      const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+      x = (element.x + this.homeX) * this.scale;
+      y = (element.y + this.homeY + this.labelTop) * this.scale;
+      width = (element.blockWidth || 200) * this.scale;
+      height = resolvedHeight * (element.maxLines || 1) * this.scale;
+    } else {
+      const bounds = element.getBounds();
+      x = (bounds.x + this.homeX) * this.scale;
+      y = (bounds.y + this.homeY + this.labelTop) * this.scale;
+      width = bounds.width * this.scale;
+      height = bounds.height * this.scale;
+    }
 
     // Blue dashed outline
     this.ctx.save();
