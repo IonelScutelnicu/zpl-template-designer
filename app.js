@@ -27,6 +27,49 @@ const historyCommitTimers = new Map();
 let activeTransformSession = null;
 let keyboardMoveSession = null;
 
+// Section State Management with localStorage
+const SECTION_STATE_KEY = 'zebra-sections-state';
+
+function getSectionState(elementType, sectionTitle) {
+  try {
+    const stored = localStorage.getItem(SECTION_STATE_KEY);
+    if (!stored) return true; // Default to expanded
+
+    const state = JSON.parse(stored);
+    if (state[elementType] && typeof state[elementType][sectionTitle] === 'boolean') {
+      return state[elementType][sectionTitle];
+    }
+    return true; // Default to expanded if not found
+  } catch (error) {
+    console.warn('Failed to read section state from localStorage:', error);
+    return true; // Default to expanded on error
+  }
+}
+
+function setSectionState(elementType, sectionTitle, isOpen) {
+  try {
+    const stored = localStorage.getItem(SECTION_STATE_KEY);
+    const state = stored ? JSON.parse(stored) : {};
+
+    if (!state[elementType]) {
+      state[elementType] = {};
+    }
+
+    state[elementType][sectionTitle] = isOpen;
+    localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.warn('Failed to save section state to localStorage:', error);
+  }
+}
+
+function clearSectionStates() {
+  try {
+    localStorage.removeItem(SECTION_STATE_KEY);
+  } catch (error) {
+    console.warn('Failed to clear section states from localStorage:', error);
+  }
+}
+
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
@@ -1194,9 +1237,19 @@ function renderPropertiesPanel() {
 }
 
 function renderSection(title, body, options = {}) {
-  const { open = true } = options;
+  const { open = true, elementType = null } = options;
+
+  // Check localStorage for saved state if elementType is provided
+  let isOpen = open;
+  if (elementType) {
+    isOpen = getSectionState(elementType, title);
+  }
+
+  // Create unique identifier for this section
+  const dataAttr = elementType ? `data-element-type="${elementType}" data-section-title="${title}"` : '';
+
   return `
-        <details class="group mb-3 border-b border-slate-200 pb-3" ${open ? "open" : ""}>
+        <details class="group mb-3 border-b border-slate-200 pb-3 section-collapsible" ${isOpen ? "open" : ""} ${dataAttr}>
             <summary class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none">
                 <span>${title}</span>
                 <span class="transition group-open:rotate-180">
@@ -1245,7 +1298,7 @@ function renderAlignmentControlsHTML(element) {
                 </button>
             </div>
     `,
-    { open: true }
+    { open: true, elementType: element.type }
   );
 }
 
@@ -1266,11 +1319,11 @@ function renderTextPropertiesHTML(element) {
                     <option value="B" ${element.orientation === "B" ? "selected" : ""}>Bottom-Up 270° (B)</option>
                 </select>
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Text Content", `
             ${createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
             ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        `, { open: true })}
+        `, { open: true, elementType: element.type })}
         ${renderSection("Font Settings", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
@@ -1284,7 +1337,7 @@ function renderTextPropertiesHTML(element) {
                 ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
                 ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Appearance", `
             <div class="flex items-center justify-between">
                 <label class="text-xs text-slate-700">
@@ -1303,7 +1356,7 @@ function renderTextPropertiesHTML(element) {
                     </button>
                 </div>
             </div>
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
     `;
 }
 
@@ -1317,11 +1370,11 @@ function renderBarcodePropertiesHTML(element) {
                 ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
                 ${createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Content", `
             ${createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
             ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Barcode Settings", `
             ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
             <div class="mb-3">
@@ -1331,7 +1384,7 @@ function renderBarcodePropertiesHTML(element) {
                     <option value="N" ${element.showText === false ? "selected" : ""}>No (Hide)</option>
                 </select>
             </div>
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
     `;
 }
 
@@ -1352,7 +1405,7 @@ function renderLinePropertiesHTML(element) {
                     <option value="V" ${element.orientation === "V" ? "selected" : ""}>Vertical</option>
                 </select>
             </div>
-        `)}
+        `, { elementType: element.type })}
     `;
 }
 
@@ -1367,7 +1420,7 @@ function renderBoxPropertiesHTML(element) {
                 ${createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
                 ${createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Appearance", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
@@ -1377,7 +1430,7 @@ function renderBoxPropertiesHTML(element) {
                 </select>
             </div>
             ${createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
     `;
 }
 
@@ -1389,7 +1442,7 @@ function renderTextBlockPropertiesHTML(element) {
                 ${createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
                 ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Text Content", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
@@ -1400,7 +1453,7 @@ function renderTextBlockPropertiesHTML(element) {
                 >${element.previewText}</textarea>
             </div>
             ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Font Settings", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
@@ -1414,7 +1467,7 @@ function renderTextBlockPropertiesHTML(element) {
                 ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
                 ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Block Configuration", `
             <div class="grid grid-cols-2 gap-3">
                 ${createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
@@ -1422,7 +1475,7 @@ function renderTextBlockPropertiesHTML(element) {
                 ${createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: -9999, max: 9999 })}
                 ${createInputGroup("Hanging Indent (dots)", "prop-hanging-indent", element.hangingIndent, "number", { min: 0, max: 9999 })}
             </div>
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
         ${renderSection("Alignment", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Text Justification</label>
@@ -1449,7 +1502,7 @@ function renderTextBlockPropertiesHTML(element) {
                     </button>
                 </div>
             </div>
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
         ${renderSection("Appearance", `
             <div class="flex items-center justify-between">
                 <label class="text-xs text-slate-700">
@@ -1468,7 +1521,7 @@ function renderTextBlockPropertiesHTML(element) {
                     </button>
                 </div>
             </div>
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
     `;
 }
 
@@ -1481,7 +1534,7 @@ function renderQRCodePropertiesHTML(element) {
                 ${createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
                 ${createInputGroup("Magnification", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
             </div>
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("Content", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Preview Data</label>
@@ -1492,7 +1545,7 @@ function renderQRCodePropertiesHTML(element) {
                 >${element.previewData}</textarea>
             </div>
             ${createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-        `)}
+        `, { elementType: element.type })}
         ${renderSection("QR Settings", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Model</label>
@@ -1510,7 +1563,7 @@ function renderQRCodePropertiesHTML(element) {
                     <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>L - Low (7%)</option>
                 </select>
             </div>
-        `, { open: false })}
+        `, { open: true, elementType: element.type })}
     `;
 }
 
@@ -1798,8 +1851,32 @@ function attachPropertyListeners(element) {
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-orientation", "orientation");
   }
+
+  // Attach section toggle listeners for state persistence
+  attachSectionToggleListeners();
 }
 
+function attachSectionToggleListeners() {
+  const detailsElements = propertiesPanel.querySelectorAll('details.section-collapsible');
+
+  detailsElements.forEach(details => {
+    const elementType = details.getAttribute('data-element-type');
+    const sectionTitle = details.getAttribute('data-section-title');
+
+    if (!elementType || !sectionTitle) return;
+
+    // Save state when user toggles section
+    const toggleHandler = () => {
+      // Use setTimeout to ensure 'open' attribute is updated
+      setTimeout(() => {
+        const isOpen = details.hasAttribute('open');
+        setSectionState(elementType, sectionTitle, isOpen);
+      }, 0);
+    };
+
+    details.addEventListener('toggle', toggleHandler);
+  });
+}
 
 // Update ZPL Output
 function updateZPLOutput() {
