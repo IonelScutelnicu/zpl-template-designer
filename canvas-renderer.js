@@ -447,7 +447,9 @@ class CanvasRenderer {
   drawText(element, labelSettings) {
     const x = (element.x + this.homeX) * this.scale;
     const y = (element.y + this.homeY + this.labelTop) * this.scale;
-    const fontSize = element.fontSize * this.scale;
+    // Use label default if element fontSize is 0 or not set
+    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
+    const fontSize = rawFontSize * this.scale;
 
     this.ctx.save();
 
@@ -459,10 +461,9 @@ class CanvasRenderer {
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 
     // Calculate horizontal scale for font aspect ratio
-    // If fontWidth is specified, use it; otherwise calculate from font's default aspect ratio
-    const fontWidth = element.fontWidth
-      ? element.fontWidth * this.scale
-      : fontSize * (fontConfig.aspectRatio || 1.0);
+    // Use label default if element fontWidth is 0 or not set
+    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
+    const fontWidth = rawFontWidth * this.scale;
     const scaleX = fontWidth / fontSize;
 
     this.ctx.font = font;
@@ -563,7 +564,9 @@ class CanvasRenderer {
   drawTextBlock(element, labelSettings) {
     const x = (element.x + this.homeX) * this.scale;
     const y = (element.y + this.homeY + this.labelTop) * this.scale;
-    const fontSize = element.fontSize * this.scale;
+    // Use label default if element fontSize is 0 or not set
+    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
+    const fontSize = rawFontSize * this.scale;
     const blockWidth = element.blockWidth * this.scale;
 
     // Get font ID from element or use label's default
@@ -572,9 +575,9 @@ class CanvasRenderer {
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 
     // Calculate horizontal scale for font aspect ratio
-    const fontWidth = element.fontWidth
-      ? element.fontWidth * this.scale
-      : fontSize * (fontConfig.aspectRatio || 1.0);
+    // Use label default if element fontWidth is 0 or not set
+    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
+    const fontWidth = rawFontWidth * this.scale;
     const scaleX = fontWidth / fontSize;
 
     this.ctx.font = font;

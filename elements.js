@@ -13,14 +13,14 @@ class ZPLElement {
 
 // TEXT Element Class
 class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, placeholder = '', fontId = '', orientation = 'N', reverse = false) {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, placeholder = '', fontId = '', orientation = 'N', reverse = false) {
         super(x, y);
         this.type = 'TEXT';
         this.previewText = previewText;
         this.placeholder = placeholder;
         this.fontId = fontId; // Element-level font override (empty = use label default)
-        this.fontSize = fontSize;
-        this.fontWidth = fontWidth;
+        this.fontSize = fontSize; // 0 = use label default
+        this.fontWidth = fontWidth; // 0 = use label default
         this.orientation = orientation; // N, R, I, B
         this.reverse = reverse; // ^FR (reverse print)
     }
@@ -37,13 +37,17 @@ class TextElement extends ZPLElement {
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${content}^FS`;
+        // Omit font size if using label defaults (0 or empty)
+        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation}${sizeCmd}^FD${content}^FS`;
     }
 
     renderPreview(defaultFontId = '0') {
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${this.fontSize},${this.fontWidth}^FD${this.previewText}^FS`;
+        // Omit font size if using label defaults (0 or empty)
+        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation}${sizeCmd}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
@@ -163,14 +167,14 @@ class BoxElement extends ZPLElement {
 
 // Text Block Element Class
 class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 30, fontWidth = 30, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false) {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false) {
         super(x, y);
         this.type = 'TEXTBLOCK';
         this.previewText = previewText;
         this.placeholder = placeholder;
         this.fontId = fontId; // Element-level font override (empty = use label default)
-        this.fontSize = fontSize;
-        this.fontWidth = fontWidth;
+        this.fontSize = fontSize; // 0 = use label default
+        this.fontWidth = fontWidth; // 0 = use label default
         this.blockWidth = blockWidth;
         this.maxLines = maxLines;
         this.lineSpacing = lineSpacing;
@@ -194,14 +198,18 @@ class TextBlockElement extends ZPLElement {
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+        // Omit font size if using label defaults (0 or empty)
+        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N${sizeCmd}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
     }
 
     renderPreview(defaultFontId = '0') {
         // Uses preview text for Labelary API visualization
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${this.fontSize},${this.fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
+        // Omit font size if using label defaults (0 or empty)
+        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N${sizeCmd}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
