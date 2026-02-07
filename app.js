@@ -1847,6 +1847,10 @@ function updateZPLOutput() {
   zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
 }
 
+// Cache for API preview
+let lastPreviewZpl = null;
+let lastPreviewImageUrl = null;
+
 // Update Preview using Labelary API
 async function updatePreview() {
   // Reset states
@@ -1909,6 +1913,13 @@ async function updatePreview() {
   }).join("\n");
   const previewZpl = `${zplHeader}${zplCommands}\n^XZ`;
 
+  // Check cache - if ZPL hasn't changed, reuse the existing image
+  if (previewZpl === lastPreviewZpl && lastPreviewImageUrl) {
+    previewImage.src = lastPreviewImageUrl;
+    previewImage.classList.remove('hidden');
+    return;
+  }
+
   // Show loading indicator
   previewLoading.classList.remove('hidden');
 
@@ -1933,12 +1944,17 @@ async function updatePreview() {
     const blob = await response.blob();
     const imageUrl = URL.createObjectURL(blob);
 
+    // Clean up old cached image URL
+    if (lastPreviewImageUrl) {
+      URL.revokeObjectURL(lastPreviewImageUrl);
+    }
+
+    // Cache the new ZPL and image URL
+    lastPreviewZpl = previewZpl;
+    lastPreviewImageUrl = imageUrl;
+
     previewImage.src = imageUrl;
     previewImage.classList.remove('hidden');
-    previewImage.onload = () => {
-      // Clean up old object URL
-      URL.revokeObjectURL(imageUrl);
-    };
 
   } catch (error) {
     console.error("Preview error:", error);
