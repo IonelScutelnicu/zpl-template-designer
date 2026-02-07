@@ -10,8 +10,8 @@ let labelSettings = {
   printSpeed: 4, // ^PR value (2-14)
   slewSpeed: 4, // ^PR value (2-14)
   backfeedSpeed: 4, // ^PR value (2-14)
-  fontId: "0", // ^CW font identifier
-  fontFile: "", // ^CW font file name (empty = no ^CW command)
+  fontId: "0", // ^CF default font identifier
+  customFonts: [], // Array of {id, fontFile} for ^CW commands
   defaultFontHeight: 20, // ^CF default font height
   homeX: 0, // ^LH x position
   homeY: 0, // ^LH y position
@@ -60,8 +60,12 @@ const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
 const backfeedSpeed = document.getElementById("backfeed-speed");
 const fontId = document.getElementById("font-id");
-const fontFile = document.getElementById("font-file");
 const defaultFontHeight = document.getElementById("default-font-height");
+const newFontId = document.getElementById("new-font-id");
+const newFontFile = document.getElementById("new-font-file");
+const addCustomFontBtn = document.getElementById("add-custom-font-btn");
+const customFontsList = document.getElementById("custom-fonts-list");
+const customFontError = document.getElementById("custom-font-error");
 const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
@@ -236,17 +240,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Font settings event listeners
-  fontId.addEventListener("input", (e) => {
+  fontId.addEventListener("change", (e) => {
     labelSettings.fontId = e.target.value || "0";
     updateZPLOutput();
+    renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
-  fontFile.addEventListener("input", (e) => {
-    labelSettings.fontFile = e.target.value;
-    updateZPLOutput();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
-  });
+  // Custom fonts management
+  addCustomFontBtn.addEventListener("click", addCustomFont);
 
   defaultFontHeight.addEventListener("input", (e) => {
     labelSettings.defaultFontHeight = parseInt(e.target.value) || 20;
@@ -417,8 +419,188 @@ function syncLabelSettingsInputs() {
   slewSpeed.value = labelSettings.slewSpeed;
   backfeedSpeed.value = labelSettings.backfeedSpeed;
   fontId.value = labelSettings.fontId;
-  fontFile.value = labelSettings.fontFile;
+  renderCustomFonts();
   defaultFontHeight.value = labelSettings.defaultFontHeight;
+}
+
+// Built-in ZPL fonts that cannot be overridden
+const BUILTIN_FONTS = ['0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+// Font ID to descriptive label mapping (matches label-level dropdown)
+const FONT_LABELS = {
+  '0': '0 - Default',
+  'A': 'A - 9×5',
+  'B': 'B - 11×7',
+  'C': 'C - 18×10',
+  'D': 'D - 18×10',
+  'E': 'E - 28×15',
+  'F': 'F - 26×15',
+  'G': 'G - 60×40',
+  'H': 'H - 21×13'
+};
+
+function addCustomFont() {
+  const id = newFontId.value.trim().toUpperCase();
+  const file = newFontFile.value.trim();
+
+  // Validation
+  if (!id || !file) {
+    showCustomFontError("Both ID and Font File are required");
+    return;
+  }
+
+  if (!/^[A-Z0-9]$/.test(id)) {
+    showCustomFontError("ID must be a single letter (A-Z) or digit (0-9)");
+    return;
+  }
+
+  if (BUILTIN_FONTS.includes(id)) {
+    showCustomFontError(`Font ID '${id}' is a built-in font and cannot be overridden`);
+    return;
+  }
+
+  if (labelSettings.customFonts.some(f => f.id === id)) {
+    showCustomFontError(`Font ID '${id}' is already defined`);
+    return;
+  }
+
+  // Add font
+  labelSettings.customFonts.push({ id, fontFile: file });
+
+  // Clear inputs and error
+  newFontId.value = "";
+  newFontFile.value = "";
+  hideCustomFontError();
+
+  // Update UI
+  renderCustomFonts();
+  updateFontDropdownOptions();
+  updateZPLOutput();
+  scheduleHistoryCommit("custom-fonts", "Added custom font", { kind: "settings" });
+}
+
+function removeCustomFont(id) {
+  labelSettings.customFonts = labelSettings.customFonts.filter(f => f.id !== id);
+  renderCustomFonts();
+  updateFontDropdownOptions();
+  updateZPLOutput();
+  scheduleHistoryCommit("custom-fonts", "Removed custom font", { kind: "settings" });
+}
+
+function renderCustomFonts() {
+  if (!customFontsList) return;
+
+  if (labelSettings.customFonts.length === 0) {
+    customFontsList.innerHTML = '<p class="text-slate-400 text-[10px] italic">No custom fonts defined</p>';
+    return;
+  }
+
+  customFontsList.innerHTML = labelSettings.customFonts.map(font => `
+    <div class="flex items-center gap-2 bg-slate-50 rounded px-2 py-1.5 border border-slate-100">
+      <span class="font-mono font-bold text-blue-600 w-6">${font.id}</span>
+      <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
+        data-font-id="${font.id}" title="${font.fontFile} (click to edit)">${font.fontFile}</span>
+      <button onclick="removeCustomFont('${font.id}')"
+        class="text-slate-400 hover:text-red-500 transition-colors p-0.5" title="Remove">
+        <span class="material-icons-round text-sm">close</span>
+      </button>
+    </div>
+  `).join('');
+
+  // Attach click handlers for inline editing
+  customFontsList.querySelectorAll('.custom-font-file').forEach(span => {
+    span.addEventListener('click', startEditCustomFont);
+  });
+}
+
+function startEditCustomFont(e) {
+  const span = e.target;
+  const fontId = span.dataset.fontId;
+  const currentValue = span.textContent;
+
+  // Create input field
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentValue;
+  input.className = 'flex-1 text-[11px] px-1 py-0.5 border border-blue-400 rounded outline-none focus:ring-1 focus:ring-blue-500';
+  input.dataset.fontId = fontId;
+
+  // Replace span with input
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+
+  // Handle save on blur or Enter
+  const saveEdit = () => {
+    const newValue = input.value.trim();
+    if (newValue && newValue !== currentValue) {
+      updateCustomFontFile(fontId, newValue);
+    } else {
+      renderCustomFonts(); // Restore original if empty or unchanged
+    }
+  };
+
+  input.addEventListener('blur', saveEdit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      input.value = currentValue; // Reset to original
+      input.blur();
+    }
+  });
+}
+
+function updateCustomFontFile(fontId, newFontFile) {
+  const font = labelSettings.customFonts.find(f => f.id === fontId);
+  if (font) {
+    font.fontFile = newFontFile;
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated custom font", { kind: "settings" });
+  }
+  renderCustomFonts();
+}
+
+function updateFontDropdownOptions() {
+  if (!fontId) return;
+
+  // Store current value
+  const currentValue = fontId.value;
+
+  // Remove existing custom font options (keep only built-in)
+  const options = Array.from(fontId.options);
+  options.forEach(opt => {
+    if (!BUILTIN_FONTS.includes(opt.value)) {
+      opt.remove();
+    }
+  });
+
+  // Add custom fonts
+  labelSettings.customFonts.forEach(font => {
+    const option = document.createElement('option');
+    option.value = font.id;
+    option.textContent = `${font.id} - Custom`;
+    fontId.appendChild(option);
+  });
+
+  // Restore value if still valid
+  if (Array.from(fontId.options).some(opt => opt.value === currentValue)) {
+    fontId.value = currentValue;
+  }
+}
+
+function showCustomFontError(message) {
+  if (customFontError) {
+    customFontError.textContent = message;
+    customFontError.classList.remove('hidden');
+  }
+}
+
+function hideCustomFontError() {
+  if (customFontError) {
+    customFontError.classList.add('hidden');
+  }
 }
 
 function applyAppState(state) {
@@ -1079,8 +1261,11 @@ function renderTextPropertiesHTML(element) {
         ${renderSection("Font Settings", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
-                <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
-                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <select id="prop-font-id" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="">${'Use label default'}</option>
+                    ${BUILTIN_FONTS.map(id => `<option value="${id}" ${element.fontId === id ? 'selected' : ''}>${FONT_LABELS[id] || id}</option>`).join('')}
+                    ${labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
+                </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
@@ -1206,8 +1391,11 @@ function renderTextBlockPropertiesHTML(element) {
         ${renderSection("Font Settings", `
             <div class="mb-3">
                 <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
-                <input type="text" id="prop-font-id" value="${element.fontId}" maxlength="1" placeholder="Use label default"
-                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <select id="prop-font-id" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="">${'Use label default'}</option>
+                    ${BUILTIN_FONTS.map(id => `<option value="${id}" ${element.fontId === id ? 'selected' : ''}>${FONT_LABELS[id] || id}</option>`).join('')}
+                    ${labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
+                </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
@@ -1591,7 +1779,7 @@ function updateZPLOutput() {
   }
 
   // Build ZPL with settings commands
-  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh } = labelSettings;
+  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, customFonts, defaultFontHeight: dfh } = labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -1617,9 +1805,11 @@ function updateZPLOutput() {
   zplHeader += `^CI28\n`;
   zplHeader += `^MTT\n`;
 
-  // Add font configuration commands (only include ^CW if font file is set)
-  if (ffile && ffile.trim() !== '') {
-    zplHeader += `^CW${fid},${ffile}\n`;
+  // Add custom font configuration commands (^CW for each custom font)
+  if (customFonts && customFonts.length > 0) {
+    customFonts.forEach(font => {
+      zplHeader += `^CW${font.id},${font.fontFile}\n`;
+    });
   }
   zplHeader += `^CF${fid},${dfh}\n`;
 
@@ -1917,6 +2107,11 @@ function importTemplate(template) {
   if (template.labelSettings.defaultFontHeight !== undefined) {
     labelSettings.defaultFontHeight = template.labelSettings.defaultFontHeight;
     defaultFontHeight.value = labelSettings.defaultFontHeight;
+  }
+  if (template.labelSettings.customFonts !== undefined && Array.isArray(template.labelSettings.customFonts)) {
+    labelSettings.customFonts = template.labelSettings.customFonts;
+    renderCustomFonts();
+    updateFontDropdownOptions();
   }
 
   // Recreate elements from template
