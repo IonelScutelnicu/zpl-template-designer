@@ -969,7 +969,7 @@ function pasteElementFromData(data) {
   element.x = Math.max(0, element.x + offset);
   element.y = Math.max(0, element.y + offset);
 
-  const bounds = element.getBounds();
+  const bounds = getElementBoundsResolved(element);
   element.x = Math.min(element.x, Math.max(0, labelW - bounds.width));
   element.y = Math.min(element.y, Math.max(0, labelH - bounds.height));
 
@@ -1525,6 +1525,22 @@ function getLabelSizeDots() {
   };
 }
 
+function getElementBoundsResolved(element) {
+  if (element.type === 'TEXTBLOCK') {
+    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+    return { x: element.x, y: element.y, width: element.blockWidth || 200, height: resolvedHeight * (element.maxLines || 1) };
+  }
+  if (element.type === 'TEXT') {
+    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+    const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
+    const textW = Math.max((element.previewText || '').length * resolvedWidth * 0.6, 50);
+    let w = textW, h = resolvedHeight;
+    if (element.orientation === 'R' || element.orientation === 'B') { w = resolvedHeight; h = textW; }
+    return { x: element.x, y: element.y, width: w, height: h };
+  }
+  return element.getBounds();
+}
+
 function getElementBoundsSafe(element) {
   if (element && typeof element.getBounds === "function") {
     return element.getBounds();
@@ -1581,9 +1597,10 @@ function applyAlignmentAction(action, element) {
     } else if (element.type === "TEXT") {
       const textLength = (element.previewText || "").length;
       if (textLength > 0) {
-        const currentWidth = Math.max(textLength * (element.fontWidth || 30) * 0.6, 50);
+        const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
+        const currentWidth = Math.max(textLength * resolvedWidth * 0.6, 50);
         const scale = labelSize.width / currentWidth;
-        element.fontWidth = clampNumber(Math.round((element.fontWidth || 30) * scale), 1, 32000);
+        element.fontWidth = clampNumber(Math.round(resolvedWidth * scale), 1, 32000);
       }
     }
     return;
@@ -1608,13 +1625,13 @@ function applyAlignmentAction(action, element) {
       const targetMag = modules > 0 ? Math.round(labelSize.height / modules) : element.magnification;
       element.magnification = clampNumber(targetMag, 1, 10);
     } else if (element.type === "TEXTBLOCK") {
-      const fontSize = element.fontSize || 30;
-      const estimatedLines = Math.max(1, Math.round((labelSize.height - 10) / fontSize));
+      const fontSize = element.fontSize || labelSettings.defaultFontHeight || 30;
+      const estimatedLines = Math.max(1, Math.round(labelSize.height / fontSize));
       element.maxLines = clampNumber(estimatedLines, 1, 9999);
     } else if (element.type === "TEXT") {
-      const currentHeight = (element.fontSize || 30) + 10;
+      const currentHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
       const scale = labelSize.height / currentHeight;
-      element.fontSize = clampNumber(Math.round((element.fontSize || 30) * scale), 1, 32000);
+      element.fontSize = clampNumber(Math.round(currentHeight * scale), 1, 32000);
     }
   }
 }
