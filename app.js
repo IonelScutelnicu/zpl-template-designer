@@ -13,6 +13,7 @@ let labelSettings = {
   fontId: "0", // ^CF default font identifier
   customFonts: [], // Array of {id, fontFile} for ^CW commands
   defaultFontHeight: 20, // ^CF default font height
+  defaultFontWidth: 20, // ^CF default font width
   homeX: 0, // ^LH x position
   homeY: 0, // ^LH y position
   labelTop: 0, // ^LT label top shift
@@ -61,6 +62,7 @@ const slewSpeed = document.getElementById("slew-speed");
 const backfeedSpeed = document.getElementById("backfeed-speed");
 const fontId = document.getElementById("font-id");
 const defaultFontHeight = document.getElementById("default-font-height");
+const defaultFontWidth = document.getElementById("default-font-width");
 const newFontId = document.getElementById("new-font-id");
 const newFontFile = document.getElementById("new-font-file");
 const addCustomFontBtn = document.getElementById("add-custom-font-btn");
@@ -256,6 +258,12 @@ document.addEventListener("DOMContentLoaded", () => {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
+  defaultFontWidth.addEventListener("input", (e) => {
+    labelSettings.defaultFontWidth = parseInt(e.target.value) || 20;
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
   // Position offset event listeners
   homeX.addEventListener("input", (e) => {
     labelSettings.homeX = parseInt(e.target.value) || 0;
@@ -421,6 +429,7 @@ function syncLabelSettingsInputs() {
   fontId.value = labelSettings.fontId;
   renderCustomFonts();
   defaultFontHeight.value = labelSettings.defaultFontHeight;
+  defaultFontWidth.value = labelSettings.defaultFontWidth;
 }
 
 // Built-in ZPL fonts that cannot be overridden
@@ -840,7 +849,7 @@ function endKeyboardMoveSession(element) {
 
 // Add Text Element
 function addTextElement() {
-  const textElement = new TextElement(50, 50, "Sample Text", 30, 30, "", "", "N");
+  const textElement = new TextElement(50, 50, "Sample Text", 0, 0, "", "", "N");
   elements.push(textElement);
   selectedElement = textElement;
   interactionHandler.updateElements(elements);
@@ -892,7 +901,7 @@ function addBoxElement() {
 
 // Add Text Block Element
 function addTextBlockElement() {
-  const textBlockElement = new TextBlockElement(50, 50, "Sample text that can wrap across multiple lines", 30, 30, 200, 3, 0, "L", 0);
+  const textBlockElement = new TextBlockElement(50, 50, "Sample text that can wrap across multiple lines", 0, 0, 200, 3, 0, "L", 0);
   elements.push(textBlockElement);
   selectedElement = textBlockElement;
   interactionHandler.updateElements(elements);
@@ -1130,20 +1139,24 @@ function animateElementListReorder(previousPositions) {
 
 // Helper to generate input HTML
 function createInputGroup(label, id, value, type = "text", options = {}) {
-  const { min, max, step } = options;
+  const { min, max, step, placeholder } = options;
   const attributes = [
     min !== undefined ? `min="${min}"` : "",
     max !== undefined ? `max="${max}"` : "",
     step !== undefined ? `step="${step}"` : "",
+    placeholder !== undefined ? `placeholder="${placeholder}"` : "",
   ].join(" ");
+
+  // For number inputs with 0 meaning "use default", show empty instead of 0
+  const displayValue = (type === "number" && value === 0 && placeholder) ? "" : value;
 
   return `
     <div class="mb-3">
         <label class="block text-xs font-medium text-slate-700 mb-1">${label}</label>
-        <input 
-            type="${type}" 
-            id="${id}" 
-            value="${value}" 
+        <input
+            type="${type}"
+            id="${id}"
+            value="${displayValue}"
             ${attributes}
             class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
@@ -1268,8 +1281,8 @@ function renderTextPropertiesHTML(element) {
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
-                ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
-                ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+                ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
             </div>
         `)}
         ${renderSection("Appearance", `
@@ -1398,8 +1411,8 @@ function renderTextBlockPropertiesHTML(element) {
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
-                ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 1, max: 32000 })}
-                ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 1, max: 32000 })}
+                ${createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+                ${createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
             </div>
         `)}
         ${renderSection("Block Configuration", `
@@ -1651,8 +1664,8 @@ function attachPropertyListeners(element) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
+    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
     attach("prop-orientation", "orientation");
     const reverseButtons = document.querySelectorAll('[data-reverse]');
     const setReverseActive = (value) => {
@@ -1699,8 +1712,8 @@ function attachPropertyListeners(element) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 30);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 30);
+    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
+    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
@@ -1779,7 +1792,7 @@ function updateZPLOutput() {
   }
 
   // Build ZPL with settings commands
-  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, customFonts, defaultFontHeight: dfh } = labelSettings;
+  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, customFonts, defaultFontHeight: dfh, defaultFontWidth: dfw } = labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -1811,7 +1824,7 @@ function updateZPLOutput() {
       zplHeader += `^CW${font.id},${font.fontFile}\n`;
     });
   }
-  zplHeader += `^CF${fid},${dfh}\n`;
+  zplHeader += `^CF${fid},${dfh},${dfw}\n`;
 
   const zplCommands = elements.map((element) => element.render(fid)).join("\n");
   zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
@@ -1830,7 +1843,7 @@ async function updatePreview() {
   }
 
   // Generate preview ZPL using renderPreview() method
-  const { width, height, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh } = labelSettings;
+  const { width, height, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh, defaultFontWidth: dfw } = labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -1847,7 +1860,7 @@ async function updatePreview() {
   if (ffile && ffile.trim() !== '') {
     zplHeader += `^CW${fid},${ffile}\n`;
   }
-  zplHeader += `^CF${fid},${dfh}\n`;
+  zplHeader += `^CF${fid},${dfh},${dfw}\n`;
 
   const zplCommands = elements.map((element) => {
     let cmd = element.renderPreview(fid);
@@ -2108,6 +2121,10 @@ function importTemplate(template) {
     labelSettings.defaultFontHeight = template.labelSettings.defaultFontHeight;
     defaultFontHeight.value = labelSettings.defaultFontHeight;
   }
+  if (template.labelSettings.defaultFontWidth !== undefined) {
+    labelSettings.defaultFontWidth = template.labelSettings.defaultFontWidth;
+    defaultFontWidth.value = labelSettings.defaultFontWidth;
+  }
   if (template.labelSettings.customFonts !== undefined && Array.isArray(template.labelSettings.customFonts)) {
     labelSettings.customFonts = template.labelSettings.customFonts;
     renderCustomFonts();
@@ -2123,8 +2140,8 @@ function importTemplate(template) {
         elementData.x || 0,
         elementData.y || 0,
         elementData.previewText || elementData.text || "",
-        elementData.fontSize || 30,
-        elementData.fontWidth || 30,
+        elementData.fontSize !== undefined ? elementData.fontSize : 0,
+        elementData.fontWidth !== undefined ? elementData.fontWidth : 0,
         elementData.placeholder || "",
         elementData.fontId || "",
         elementData.orientation || "N",
@@ -2156,8 +2173,8 @@ function importTemplate(template) {
         elementData.x || 0,
         elementData.y || 0,
         elementData.previewText || elementData.text || "",
-        elementData.fontSize || 30,
-        elementData.fontWidth || 30,
+        elementData.fontSize !== undefined ? elementData.fontSize : 0,
+        elementData.fontWidth !== undefined ? elementData.fontWidth : 0,
         elementData.blockWidth || 200,
         elementData.maxLines || 1,
         elementData.lineSpacing || 0,
