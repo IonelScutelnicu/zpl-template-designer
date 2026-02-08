@@ -32,11 +32,16 @@ export function getLabelSizeDots(labelSettings) {
 export function getElementBoundsResolved(element, labelSettings) {
   if (element.type === 'TEXTBLOCK') {
     const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+    const maxLines = element.maxLines || 1;
+    const lineSpacing = element.lineSpacing || 0;
+    // Line spacing is only between lines, not after the last line
+    const baseLineHeight = resolvedHeight * 1.2;
+    const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     return {
       x: element.x,
       y: element.y,
       width: element.blockWidth || 200,
-      height: resolvedHeight * (element.maxLines || 1)
+      height: totalHeight
     };
   }
   if (element.type === 'TEXT') {

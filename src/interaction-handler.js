@@ -79,7 +79,16 @@ export class InteractionHandler {
           this.resizeStartHeight = bounds.height;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
-          this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
+          if (selectedElement.type === 'TEXTBLOCK') {
+            const fontSize = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
+            const maxLines = selectedElement.maxLines || 1;
+            const lineSpacing = selectedElement.lineSpacing || 0;
+            // Line spacing is only between lines, not after the last line
+            const baseLineHeight = fontSize * 1.2;
+            this.resizeStartHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+          } else {
+            this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
+          }
         }
         this.resizeMouseStartX = coords.x;
         this.resizeMouseStartY = coords.y;
@@ -129,12 +138,17 @@ export class InteractionHandler {
     if (this.isResizing && this.dragElement) {
       if (this.dragElement.type === 'TEXTBLOCK') {
         // TEXTBLOCK only supports bottom-right resize
-        const lineHeight = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
+        const fontSize = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
+        const lineSpacing = this.dragElement.lineSpacing || 0;
+        const baseLineHeight = fontSize * 1.2;
+        const minHeight = baseLineHeight; // Minimum height is one line
         const newWidth = Math.max(50, coords.x - this.dragElement.x);
-        const newHeight = Math.max(lineHeight, coords.y - this.dragElement.y);
+        const newHeight = Math.max(minHeight, coords.y - this.dragElement.y);
 
         this.dragElement.blockWidth = Math.round(newWidth);
-        this.dragElement.maxLines = Math.max(1, Math.round(newHeight / lineHeight));
+        // Calculate maxLines considering line spacing between lines
+        const effectiveLineHeight = baseLineHeight + lineSpacing;
+        this.dragElement.maxLines = Math.max(1, Math.round((newHeight + lineSpacing) / effectiveLineHeight));
 
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'QRCODE') {
@@ -644,7 +658,12 @@ export class InteractionHandler {
   getSelectionBounds(element) {
     if (element.type === 'TEXTBLOCK' && this.labelSettings) {
       const resolvedHeight = element.fontSize || this.labelSettings.defaultFontHeight || 30;
-      return { x: element.x, y: element.y, width: element.blockWidth || 200, height: resolvedHeight * (element.maxLines || 1) };
+      const maxLines = element.maxLines || 1;
+      const lineSpacing = element.lineSpacing || 0;
+      // Line spacing is only between lines, not after the last line
+      const baseLineHeight = resolvedHeight * 1.2;
+      const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+      return { x: element.x, y: element.y, width: element.blockWidth || 200, height: totalHeight };
     }
     return element.getBounds();
   }

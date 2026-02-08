@@ -18,7 +18,7 @@ export class TextBlockElement extends ZPLElement {
         this.reverse = reverse; // ^FR (reverse print)
     }
 
-    render(defaultFontId = '0') {
+    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
         // ZPL format: ^FOx,y^A{fontId}N,height,width^FBa,b,c,d,e^FDtext^FS
         // ^FO - Field Origin (position)
         // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
@@ -33,18 +33,20 @@ export class TextBlockElement extends ZPLElement {
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const reverseCmd = this.reverse ? '^FR' : '';
-        // Omit font size if using label defaults (0 or empty)
-        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N${sizeCmd}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+        // Use label defaults if element values are 0
+        const fontSize = this.fontSize || defaultFontHeight;
+        const fontWidth = this.fontWidth || defaultFontWidth;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
     }
 
-    renderPreview(defaultFontId = '0') {
+    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
         // Uses preview text for Labelary API visualization
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
-        // Omit font size if using label defaults (0 or empty)
-        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N${sizeCmd}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
+        // Use label defaults if element values are 0
+        const fontSize = this.fontSize || defaultFontHeight;
+        const fontWidth = this.fontWidth || defaultFontWidth;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
@@ -54,7 +56,12 @@ export class TextBlockElement extends ZPLElement {
 
     getBounds() {
         const width = this.blockWidth || 200;
-        const height = (this.fontSize || 30) * (this.maxLines || 1) + 10;
+        const fontSize = this.fontSize || 30;
+        const maxLines = this.maxLines || 1;
+        const lineSpacing = this.lineSpacing || 0;
+        // Base line height times number of lines, plus line spacing between lines (maxLines - 1)
+        const baseLineHeight = fontSize * 1.2;
+        const height = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1) + 10;
         return { x: this.x, y: this.y, width, height };
     }
 }

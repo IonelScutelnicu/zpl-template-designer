@@ -18,7 +18,11 @@ export class ZPLGenerator {
 
     const header = this.buildHeader(labelSettings);
     const elementCommands = elements
-      .map(element => element.render(labelSettings.fontId))
+      .map(element => element.render(
+        labelSettings.fontId,
+        labelSettings.defaultFontHeight || 20,
+        labelSettings.defaultFontWidth || 20
+      ))
       .join('\n');
 
     return `${header}${elementCommands}\n^XZ`;
@@ -39,7 +43,11 @@ export class ZPLGenerator {
     const header = this.buildHeader(labelSettings);
     const elementCommands = elements
       .map(element => {
-        let cmd = element.renderPreview(labelSettings.fontId);
+        let cmd = element.renderPreview(
+          labelSettings.fontId,
+          labelSettings.defaultFontHeight || 20,
+          labelSettings.defaultFontWidth || 20
+        );
 
         // Optional: Add debug highlighting for selected text elements
         // (Currently commented out in original code)
@@ -132,7 +140,12 @@ export class ZPLGenerator {
 
     if (element.type === 'TEXTBLOCK') {
       boxWidth = element.blockWidth || 200;
-      boxHeight = (element.fontSize || labelSettings.defaultFontHeight || 30) * (element.maxLines || 1);
+      const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+      const maxLines = element.maxLines || 1;
+      const lineSpacing = element.lineSpacing || 0;
+      // Line spacing is only between lines, not after the last line
+      const baseLineHeight = resolvedHeight * 1.2;
+      boxHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     } else if (element.type === 'TEXT') {
       const text = element.previewText || '';
       const fontWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
@@ -159,10 +172,14 @@ export class ZPLGenerator {
    * @param {Object} element - Element to render
    * @param {string} fontId - Default font ID
    * @param {boolean} preview - Use preview rendering
+   * @param {number} defaultFontHeight - Default font height
+   * @param {number} defaultFontWidth - Default font width
    * @returns {string} ZPL commands for element
    */
-  generateElementZPL(element, fontId, preview = false) {
-    return preview ? element.renderPreview(fontId) : element.render(fontId);
+  generateElementZPL(element, fontId, preview = false, defaultFontHeight = 20, defaultFontWidth = 20) {
+    return preview ?
+      element.renderPreview(fontId, defaultFontHeight, defaultFontWidth) :
+      element.render(fontId, defaultFontHeight, defaultFontWidth);
   }
 
   /**
