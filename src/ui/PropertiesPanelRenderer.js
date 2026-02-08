@@ -7,9 +7,13 @@ import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
  * Renderer for the properties panel UI
  */
 export class PropertiesPanelRenderer {
-  constructor(labelSettings, getSectionStateFn) {
-    this.labelSettings = labelSettings;
+  constructor(getLabelSettingsFn, getSectionStateFn) {
+    this.getLabelSettings = getLabelSettingsFn;
     this.getSectionState = getSectionStateFn;
+  }
+
+  get labelSettings() {
+    return this.getLabelSettings();
   }
 
   /**
