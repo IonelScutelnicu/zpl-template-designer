@@ -1,6 +1,7 @@
 // Canvas Renderer for ZPL Template Creator
 // Orchestrates rendering of all element types on HTML5 Canvas
 
+import { ZPL_FONTS } from './config/constants.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
