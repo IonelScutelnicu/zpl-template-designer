@@ -1,3 +1,8 @@
 /node_modules
 AGENTS.md
 settings.local.json
+
+# Test artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
