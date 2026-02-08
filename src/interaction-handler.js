@@ -1,7 +1,12 @@
 // Interaction Handler for Canvas
 // Handles mouse clicks, drag-to-move, and keyboard events
 
-class InteractionHandler {
+import {
+  calculateQRVersion,
+  qrVersionToModules
+} from './elements/QRCodeElement.js';
+
+export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
     this.renderer = canvasRenderer;
     this.canvas = canvasRenderer.canvas;
