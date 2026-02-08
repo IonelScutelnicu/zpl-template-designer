@@ -9,6 +9,7 @@ import { SerializationService } from './services/SerializationService.js';
 import { ZPLGenerator } from './services/ZPLGenerator.js';
 import { PropertiesPanelRenderer } from './ui/PropertiesPanelRenderer.js';
 import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
+import { HistoryPanel } from './ui/HistoryPanel.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -72,6 +73,9 @@ function clearSectionStates() {
 // Initialize properties panel renderer (after helper functions are defined)
 propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings, getSectionState);
 
+// Initialize UI renderers (will be fully initialized after DOM elements are loaded)
+let historyPanelUI;
+
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
@@ -133,6 +137,17 @@ let previewMode = 'canvas'; // 'canvas' or 'api'
 export function initApp() {
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
+
+  // Initialize history panel UI
+  historyPanelUI = new HistoryPanel(
+    { panel: historyPanel, backdrop: historyBackdrop, list: historyList },
+    (index) => {
+      if (index === state.getHistoryIndex()) return;
+      state.setHistoryIndex(index);
+      const historyEntries = state.getHistoryEntries();
+      applyAppState(historyEntries[state.getHistoryIndex()].state);
+    }
+  );
 
   // Initialize element service with callbacks
   elementService = new ElementService(state, {
@@ -723,58 +738,8 @@ function updateUndoRedoUI() {
 
 function renderHistoryList() {
   if (!historyList) return;
-  const historyEntries = state.getHistoryEntries();
-  const historyIndex = state.getHistoryIndex();
-
-  if (historyEntries.length === 0) {
-    historyList.innerHTML = '<p class="text-center text-slate-400 py-10 italic text-xs">No history yet</p>';
-    return;
-  }
-
-  const iconMap = {
-    add: { icon: "add_box", color: "text-green-600 bg-green-100" },
-    delete: { icon: "delete", color: "text-red-600 bg-red-100" },
-    move: { icon: "open_with", color: "text-blue-600 bg-blue-100" },
-    resize: { icon: "crop_free", color: "text-blue-600 bg-blue-100" },
-    align: { icon: "align_horizontal_left", color: "text-indigo-600 bg-indigo-100" },
-    reorder: { icon: "swap_vert", color: "text-slate-600 bg-slate-100" },
-    settings: { icon: "tune", color: "text-amber-600 bg-amber-100" },
-    edit: { icon: "edit", color: "text-slate-700 bg-slate-100" },
-    paste: { icon: "content_paste", color: "text-emerald-600 bg-emerald-100" },
-    import: { icon: "file_upload", color: "text-sky-600 bg-sky-100" },
-    clear: { icon: "delete_sweep", color: "text-red-600 bg-red-100" },
-    init: { icon: "description", color: "text-slate-500 bg-slate-100" }
-  };
-
-  historyList.innerHTML = historyEntries
-    .map((entry, index) => {
-      const isActive = index === historyIndex;
-      const activeClasses = isActive
-        ? "bg-blue-50 border-l-4 border-blue-500"
-        : "hover:bg-slate-50";
-      const labelClasses = isActive ? "text-blue-600 font-semibold" : "text-slate-700";
-      const time = entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      const meta = iconMap[entry.kind] || iconMap.edit;
-      const detail = entry.detail ? `<p class="text-[11px] text-slate-500 mt-1">${entry.detail}</p>` : "";
-
-      return `
-        <button class="w-full text-left px-4 py-3 border-b border-slate-100 ${activeClasses}" data-history-index="${index}">
-          <div class="flex items-start gap-3">
-            <div class="mt-0.5 w-8 h-8 rounded-full flex items-center justify-center ${meta.color}">
-              <span class="material-icons-round text-sm">${meta.icon}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-xs ${labelClasses}">${entry.label}</span>
-                <span class="text-[10px] text-slate-400 font-mono">${time}</span>
-              </div>
-              ${detail}
-            </div>
-          </div>
-        </button>
-      `;
-    })
-    .join("");
+  const html = historyPanelUI.renderList(state.getHistoryEntries(), state.getHistoryIndex());
+  historyList.innerHTML = html;
 }
 
 function undo() {
@@ -1430,21 +1395,13 @@ function importTemplate(template) {
 }
 
 function handleHistoryClick(e) {
-  const button = e.target.closest("[data-history-index]");
-  if (!button) return;
-  const index = parseInt(button.dataset.historyIndex, 10);
-  if (Number.isNaN(index) || index === state.getHistoryIndex()) return;
-  state.setHistoryIndex(index);
-  const historyEntries = state.getHistoryEntries();
-  applyAppState(historyEntries[state.getHistoryIndex()].state);
+  historyPanelUI.handleClick(e);
 }
 
 function openHistoryPanel() {
-  historyPanel.classList.add("open");
-  historyBackdrop.classList.add("open");
+  historyPanelUI.open();
 }
 
 function closeHistoryPanel() {
-  historyPanel.classList.remove("open");
-  historyBackdrop.classList.remove("open");
+  historyPanelUI.close();
 }
