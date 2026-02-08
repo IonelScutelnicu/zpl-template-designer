@@ -446,13 +446,6 @@ function setPreviewMode(mode) {
   }
 }
 
-function serializeElementWithId(element) {
-  if (!element) return null;
-  const data = JSON.parse(JSON.stringify(element));
-  data.id = element.id;
-  return data;
-}
-
 function serializeAppState() {
   return state.serialize();
 }
