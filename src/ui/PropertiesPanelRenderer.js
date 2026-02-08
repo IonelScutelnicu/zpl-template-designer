@@ -223,22 +223,20 @@ export class PropertiesPanelRenderer {
   renderBarcodeProperties(element) {
     return `
       ${this.renderAlignmentControls(element)}
-      ${this.renderSection("Position", `
+      ${this.renderSection("Position &amp; Size", `
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
+          ${this.createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
         </div>
       `, { elementType: element.type })}
-      ${this.renderSection("Barcode Data", `
+      ${this.renderSection("Content", `
         ${this.createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-      `, { open: true, elementType: element.type })}
-      ${this.renderSection("Dimensions", `
-        ${this.createInputGroup("Height (dots)", "prop-height", element.height, "number", { min: 1 })}
-        ${this.createInputGroup("Module Width", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
-        ${this.createInputGroup("Wide/Narrow Ratio", "prop-ratio", element.ratio, "number", { min: 2.0, max: 3.0, step: 0.1 })}
       `, { elementType: element.type })}
-      ${this.renderSection("Appearance", `
+      ${this.renderSection("Barcode Settings", `
+        ${this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
         <div class="mb-3">
           <label class="flex items-center justify-between cursor-pointer">
             <span class="text-xs font-medium text-slate-700">Show Text Below Barcode</span>
@@ -258,17 +256,25 @@ export class PropertiesPanelRenderer {
   renderQRCodeProperties(element) {
     return `
       ${this.renderAlignmentControls(element)}
-      ${this.renderSection("Position", `
+      ${this.renderSection("Position &amp; Size", `
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
         </div>
       `, { elementType: element.type })}
-      ${this.renderSection("QR Code Data", `
-        ${this.createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
+      ${this.renderSection("Content", `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Preview Data</label>
+          <textarea
+            id="prop-preview-data"
+            rows="2"
+            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          >${element.previewData}</textarea>
+        </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-      `, { open: true, elementType: element.type })}
-      ${this.renderSection("Settings", `
+      `, { elementType: element.type })}
+      ${this.renderSection("QR Settings", `
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Model</label>
           <select id="prop-model" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
@@ -276,17 +282,16 @@ export class PropertiesPanelRenderer {
             <option value="2" ${element.model === 2 ? "selected" : ""}>Model 2 (Enhanced)</option>
           </select>
         </div>
-        ${this.createInputGroup("Magnification Factor", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Error Correction</label>
           <select id="prop-error-correction" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="H" ${element.errorCorrection === "H" ? "selected" : ""}>High (30%)</option>
-            <option value="Q" ${element.errorCorrection === "Q" ? "selected" : ""}>Quality (25%)</option>
-            <option value="M" ${element.errorCorrection === "M" ? "selected" : ""}>Medium (15%)</option>
-            <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>Low (7%)</option>
+            <option value="H" ${element.errorCorrection === "H" ? "selected" : ""}>H - Ultra-High (30%)</option>
+            <option value="Q" ${element.errorCorrection === "Q" ? "selected" : ""}>Q - Quality (25%)</option>
+            <option value="M" ${element.errorCorrection === "M" ? "selected" : ""}>M - Medium (15%)</option>
+            <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>L - Low (7%)</option>
           </select>
         </div>
-      `, { elementType: element.type })}
+      `, { open: true, elementType: element.type })}
     `;
   }
 
@@ -300,22 +305,20 @@ export class PropertiesPanelRenderer {
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1 })}
-          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1 })}
+          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", `
-        ${this.createInputGroup("Border Thickness", "prop-thickness", element.thickness, "number", { min: 1 })}
-        ${this.createInputGroup("Corner Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 8 })}
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
           <select id="prop-color" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="B" ${element.color === "B" ? "selected" : ""}>Black (B)</option>
-            <option value="W" ${element.color === "W" ? "selected" : ""}>White (W)</option>
+            <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
+            <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
           </select>
         </div>
+        ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
       `, { open: true, elementType: element.type })}
     `;
   }
@@ -330,19 +333,17 @@ export class PropertiesPanelRenderer {
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+          ${this.createInputGroup("Length (Width)", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         </div>
-        ${this.createInputGroup("Length", "prop-width", element.width, "number", { min: 1 })}
-        ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1 })}
-      `, { elementType: element.type })}
-      ${this.renderSection("Appearance", `
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
           <select id="prop-orientation" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="H" ${element.orientation === "H" ? "selected" : ""}>Horizontal (H)</option>
-            <option value="V" ${element.orientation === "V" ? "selected" : ""}>Vertical (V)</option>
+            <option value="H" ${element.orientation === "H" ? "selected" : ""}>Horizontal</option>
+            <option value="V" ${element.orientation === "V" ? "selected" : ""}>Vertical</option>
           </select>
         </div>
-      `, { open: true, elementType: element.type })}
+      `, { elementType: element.type })}
     `;
   }
 
