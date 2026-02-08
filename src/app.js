@@ -19,36 +19,8 @@ import { AppState } from './state/AppState.js';
 // Initialize centralized state management
 const state = new AppState();
 
-// Export state for use during migration
+// Export state for use in other modules
 export { state };
-
-// Legacy global state (will be removed after migration)
-let elements = [];
-let selectedElement = null;
-let labelSettings = {
-  width: 100, // in mm
-  height: 50, // in mm
-  dpmm: 8,
-  printOrientation: "N", // N = normal, I = inverted
-  mediaDarkness: 25, // ~SD value (0-30)
-  printSpeed: 4, // ^PR value (2-14)
-  slewSpeed: 4, // ^PR value (2-14)
-  backfeedSpeed: 4, // ^PR value (2-14)
-  fontId: "0", // ^CF default font identifier
-  customFonts: [], // Array of {id, fontFile} for ^CW commands
-  defaultFontHeight: 20, // ^CF default font height
-  defaultFontWidth: 20, // ^CF default font width
-  homeX: 0, // ^LH x position
-  homeY: 0, // ^LH y position
-  labelTop: 0, // ^LT label top shift
-};
-
-let historyEntries = [];
-let historyIndex = -1;
-let isApplyingHistory = false;
-const historyCommitTimers = new Map();
-let activeTransformSession = null;
-let keyboardMoveSession = null;
 
 // Section State Management with localStorage
 const SECTION_STATE_KEY = 'zebra-sections-state';
@@ -158,7 +130,6 @@ export function initApp() {
   // Initialize interaction handler
   interactionHandler = new InteractionHandler(canvasRenderer, state.elements, state.labelSettings, {
     onElementSelected: (element) => {
-      selectedElement = element;  // Keep legacy sync for now
       state.setSelectedElement(element);
       updateElementsList();
       renderPropertiesPanel();
@@ -168,7 +139,7 @@ export function initApp() {
       // Update canvas in real-time during drag
       renderCanvasPreview();
       // Update properties panel X/Y inputs if properties panel is showing this element
-      if (selectedElement && selectedElement.id === element.id) {
+      if (state.selectedElement && state.selectedElement.id === element.id) {
         const propX = document.getElementById('prop-x');
         const propY = document.getElementById('prop-y');
         if (propX) propX.value = element.x;
@@ -258,59 +229,59 @@ export function initApp() {
 
   // Label settings event listeners
   labelWidth.addEventListener("input", (e) => {
-    labelSettings.width = parseFloat(e.target.value) || 100;
+    state.updateLabelSettings({ width: parseFloat(e.target.value) || 100 });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelHeight.addEventListener("input", (e) => {
-    labelSettings.height = parseFloat(e.target.value) || 50;
+    state.updateLabelSettings({ height: parseFloat(e.target.value) || 50 });
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelDpmm.addEventListener("change", (e) => {
-    labelSettings.dpmm = parseInt(e.target.value) || 8;
+    state.updateLabelSettings({ dpmm: parseInt(e.target.value) || 8 });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   printOrientation.addEventListener("change", (e) => {
-    labelSettings.printOrientation = e.target.value || "N";
+    state.updateLabelSettings({ printOrientation: e.target.value || "N" });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   mediaDarkness.addEventListener("input", (e) => {
-    labelSettings.mediaDarkness = parseInt(e.target.value) || 25;
+    state.updateLabelSettings({ mediaDarkness: parseInt(e.target.value) || 25 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   printSpeed.addEventListener("input", (e) => {
-    labelSettings.printSpeed = parseInt(e.target.value) || 4;
+    state.updateLabelSettings({ printSpeed: parseInt(e.target.value) || 4 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   slewSpeed.addEventListener("input", (e) => {
-    labelSettings.slewSpeed = parseInt(e.target.value) || 4;
+    state.updateLabelSettings({ slewSpeed: parseInt(e.target.value) || 4 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   backfeedSpeed.addEventListener("input", (e) => {
-    labelSettings.backfeedSpeed = parseInt(e.target.value) || 4;
+    state.updateLabelSettings({ backfeedSpeed: parseInt(e.target.value) || 4 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   // Font settings event listeners
   fontId.addEventListener("change", (e) => {
-    labelSettings.fontId = e.target.value || "0";
+    state.updateLabelSettings({ fontId: e.target.value || "0" });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
@@ -320,34 +291,34 @@ export function initApp() {
   addCustomFontBtn.addEventListener("click", addCustomFont);
 
   defaultFontHeight.addEventListener("input", (e) => {
-    labelSettings.defaultFontHeight = parseInt(e.target.value) || 20;
+    state.updateLabelSettings({ defaultFontHeight: parseInt(e.target.value) || 20 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   defaultFontWidth.addEventListener("input", (e) => {
-    labelSettings.defaultFontWidth = parseInt(e.target.value) || 20;
+    state.updateLabelSettings({ defaultFontWidth: parseInt(e.target.value) || 20 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   // Position offset event listeners
   homeX.addEventListener("input", (e) => {
-    labelSettings.homeX = parseInt(e.target.value) || 0;
+    state.updateLabelSettings({ homeX: parseInt(e.target.value) || 0 });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   homeY.addEventListener("input", (e) => {
-    labelSettings.homeY = parseInt(e.target.value) || 0;
+    state.updateLabelSettings({ homeY: parseInt(e.target.value) || 0 });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelTop.addEventListener("input", (e) => {
-    labelSettings.labelTop = parseInt(e.target.value) || 0;
+    state.updateLabelSettings({ labelTop: parseInt(e.target.value) || 0 });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
@@ -386,7 +357,7 @@ export function initApp() {
       e.stopPropagation();
       e.preventDefault();
       const index = parseInt(moveDownBtn.getAttribute("data-index"));
-      if (!isNaN(index) && index < elements.length - 1) {
+      if (!isNaN(index) && index < state.elements.length - 1) {
         moveElementDown(index);
       }
       return;
@@ -398,8 +369,9 @@ export function initApp() {
       const idStr = elementItem.getAttribute("data-id");
       if (idStr) {
         // Find element by comparing string representations of IDs
-        selectedElement = elements.find((el) => String(el.id) === idStr);
-        if (selectedElement) {
+        const element = state.elements.find((el) => String(el.id) === idStr);
+        if (element) {
+          state.setSelectedElement(element);
           updateElementsList();
           renderPropertiesPanel();
           renderCanvasPreview();
@@ -474,29 +446,25 @@ function serializeElementWithId(element) {
 }
 
 function serializeAppState() {
-  return {
-    labelSettings: JSON.parse(JSON.stringify(labelSettings)),
-    elements: elements.map((element) => serializeElementWithId(element)),
-    selectedElementId: selectedElement ? String(selectedElement.id) : null
-  };
+  return state.serialize();
 }
 
 function syncLabelSettingsInputs() {
-  labelWidth.value = labelSettings.width;
-  labelHeight.value = labelSettings.height;
-  labelDpmm.value = labelSettings.dpmm;
-  homeX.value = labelSettings.homeX;
-  homeY.value = labelSettings.homeY;
-  labelTop.value = labelSettings.labelTop;
-  printOrientation.value = labelSettings.printOrientation;
-  mediaDarkness.value = labelSettings.mediaDarkness;
-  printSpeed.value = labelSettings.printSpeed;
-  slewSpeed.value = labelSettings.slewSpeed;
-  backfeedSpeed.value = labelSettings.backfeedSpeed;
-  fontId.value = labelSettings.fontId;
+  labelWidth.value = state.labelSettings.width;
+  labelHeight.value = state.labelSettings.height;
+  labelDpmm.value = state.labelSettings.dpmm;
+  homeX.value = state.labelSettings.homeX;
+  homeY.value = state.labelSettings.homeY;
+  labelTop.value = state.labelSettings.labelTop;
+  printOrientation.value = state.labelSettings.printOrientation;
+  mediaDarkness.value = state.labelSettings.mediaDarkness;
+  printSpeed.value = state.labelSettings.printSpeed;
+  slewSpeed.value = state.labelSettings.slewSpeed;
+  backfeedSpeed.value = state.labelSettings.backfeedSpeed;
+  fontId.value = state.labelSettings.fontId;
   renderCustomFonts();
-  defaultFontHeight.value = labelSettings.defaultFontHeight;
-  defaultFontWidth.value = labelSettings.defaultFontWidth;
+  defaultFontHeight.value = state.labelSettings.defaultFontHeight;
+  defaultFontWidth.value = state.labelSettings.defaultFontWidth;
 }
 
 function addCustomFont() {
@@ -519,13 +487,14 @@ function addCustomFont() {
     return;
   }
 
-  if (labelSettings.customFonts.some(f => f.id === id)) {
+  if (state.labelSettings.customFonts.some(f => f.id === id)) {
     showCustomFontError(`Font ID '${id}' is already defined`);
     return;
   }
 
   // Add font
-  labelSettings.customFonts.push({ id, fontFile: file });
+  const customFonts = [...state.labelSettings.customFonts, { id, fontFile: file }];
+  state.updateLabelSettings({ customFonts });
 
   // Clear inputs and error
   newFontId.value = "";
@@ -540,7 +509,8 @@ function addCustomFont() {
 }
 
 function removeCustomFont(id) {
-  labelSettings.customFonts = labelSettings.customFonts.filter(f => f.id !== id);
+  const customFonts = state.labelSettings.customFonts.filter(f => f.id !== id);
+  state.updateLabelSettings({ customFonts });
   renderCustomFonts();
   updateFontDropdownOptions();
   updateZPLOutput();
@@ -550,12 +520,12 @@ function removeCustomFont(id) {
 function renderCustomFonts() {
   if (!customFontsList) return;
 
-  if (labelSettings.customFonts.length === 0) {
+  if (state.labelSettings.customFonts.length === 0) {
     customFontsList.innerHTML = '<p class="text-slate-400 text-[10px] italic">No custom fonts defined</p>';
     return;
   }
 
-  customFontsList.innerHTML = labelSettings.customFonts.map(font => `
+  customFontsList.innerHTML = state.labelSettings.customFonts.map(font => `
     <div class="flex items-center gap-2 bg-slate-50 rounded px-2 py-1.5 border border-slate-100">
       <span class="font-mono font-bold text-blue-600 w-6">${font.id}</span>
       <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
@@ -613,12 +583,12 @@ function startEditCustomFont(e) {
 }
 
 function updateCustomFontFile(fontId, newFontFile) {
-  const font = labelSettings.customFonts.find(f => f.id === fontId);
-  if (font) {
-    font.fontFile = newFontFile;
-    updateZPLOutput();
-    scheduleHistoryCommit("label-settings", "Updated custom font", { kind: "settings" });
-  }
+  const customFonts = state.labelSettings.customFonts.map(f =>
+    f.id === fontId ? { ...f, fontFile: newFontFile } : f
+  );
+  state.updateLabelSettings({ customFonts });
+  updateZPLOutput();
+  scheduleHistoryCommit("label-settings", "Updated custom font", { kind: "settings" });
   renderCustomFonts();
 }
 
@@ -637,7 +607,7 @@ function updateFontDropdownOptions() {
   });
 
   // Add custom fonts
-  labelSettings.customFonts.forEach(font => {
+  state.labelSettings.customFonts.forEach(font => {
     const option = document.createElement('option');
     option.value = font.id;
     option.textContent = `${font.id} - Custom`;
@@ -663,35 +633,29 @@ function hideCustomFontError() {
   }
 }
 
-function applyAppState(state) {
-  if (!state) return;
-  isApplyingHistory = true;
-  activeTransformSession = null;
-  keyboardMoveSession = null;
+function applyAppState(stateData) {
+  if (!stateData) return;
+  state.setApplyingHistory(true);
+  state.setActiveTransformSession(null);
+  state.setKeyboardMoveSession(null);
 
-  elements = state.elements.map((data) => createElementFromData(data, { keepId: true }));
-  interactionHandler.updateElements(elements);
+  state.restore(stateData, createElementFromData);
+  interactionHandler.updateElements(state.elements);
 
-  Object.assign(labelSettings, state.labelSettings || {});
   syncLabelSettingsInputs();
-
-  selectedElement = null;
-  if (state.selectedElementId) {
-    selectedElement = elements.find((el) => String(el.id) === String(state.selectedElementId)) || null;
-  }
 
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
 
-  isApplyingHistory = false;
+  state.setApplyingHistory(false);
   updateUndoRedoUI();
   renderHistoryList();
 }
 
 function pushHistory(label, options = {}) {
-  if (isApplyingHistory && !options.force) return;
+  if (state.isApplyingHistory() && !options.force) return;
   const entry = {
     id: Date.now() + Math.random(),
     label,
@@ -701,45 +665,33 @@ function pushHistory(label, options = {}) {
     detail: options.detail || ""
   };
 
-  if (historyIndex < historyEntries.length - 1) {
-    historyEntries = historyEntries.slice(0, historyIndex + 1);
-  }
-
-  historyEntries.push(entry);
-  historyIndex = historyEntries.length - 1;
-
-  if (historyEntries.length > HISTORY_LIMIT) {
-    const overflow = historyEntries.length - HISTORY_LIMIT;
-    historyEntries.splice(0, overflow);
-    historyIndex = Math.max(0, historyIndex - overflow);
-  }
-
+  state.addHistoryEntry(entry);
   updateUndoRedoUI();
   renderHistoryList();
 }
 
 function resetHistory(label, options = {}) {
-  historyEntries = [];
-  historyIndex = -1;
-  historyCommitTimers.forEach((timer) => clearTimeout(timer));
-  historyCommitTimers.clear();
+  state.resetHistory();
   pushHistory(label, { force: true, kind: options.kind, detail: options.detail });
 }
 
 function scheduleHistoryCommit(key, label, options = {}) {
-  if (isApplyingHistory) return;
+  if (state.isApplyingHistory()) return;
   const delay = options.delay ?? 300;
-  if (historyCommitTimers.has(key)) {
-    clearTimeout(historyCommitTimers.get(key));
-  }
+
+  state.clearHistoryCommitTimer(key);
+
   const timer = setTimeout(() => {
-    historyCommitTimers.delete(key);
+    state.deleteHistoryCommitTimer(key);
     pushHistory(label, { kind: options.kind, detail: options.detail });
   }, delay);
-  historyCommitTimers.set(key, timer);
+
+  state.setHistoryCommitTimer(key, timer);
 }
 
 function updateUndoRedoUI() {
+  const historyIndex = state.getHistoryIndex();
+  const historyEntries = state.getHistoryEntries();
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex >= 0 && historyIndex < historyEntries.length - 1;
 
@@ -759,6 +711,9 @@ function updateUndoRedoUI() {
 
 function renderHistoryList() {
   if (!historyList) return;
+  const historyEntries = state.getHistoryEntries();
+  const historyIndex = state.getHistoryIndex();
+
   if (historyEntries.length === 0) {
     historyList.innerHTML = '<p class="text-center text-slate-400 py-10 italic text-xs">No history yet</p>';
     return;
@@ -811,15 +766,19 @@ function renderHistoryList() {
 }
 
 function undo() {
+  const historyIndex = state.getHistoryIndex();
   if (historyIndex <= 0) return;
-  historyIndex -= 1;
-  applyAppState(historyEntries[historyIndex].state);
+  state.setHistoryIndex(historyIndex - 1);
+  const historyEntries = state.getHistoryEntries();
+  applyAppState(historyEntries[state.getHistoryIndex()].state);
 }
 
 function redo() {
+  const historyIndex = state.getHistoryIndex();
+  const historyEntries = state.getHistoryEntries();
   if (historyIndex >= historyEntries.length - 1) return;
-  historyIndex += 1;
-  applyAppState(historyEntries[historyIndex].state);
+  state.setHistoryIndex(historyIndex + 1);
+  applyAppState(historyEntries[state.getHistoryIndex()].state);
 }
 
 function getElementTransformState(element) {
@@ -852,17 +811,18 @@ function getElementTransformState(element) {
 
 function startTransformSession(element, mode) {
   if (!element) return;
-  activeTransformSession = {
+  state.setActiveTransformSession({
     id: String(element.id),
     mode,
     before: getElementTransformState(element)
-  };
+  });
 }
 
 function finalizeTransformSession(element) {
+  const activeTransformSession = state.getActiveTransformSession();
   if (!activeTransformSession || !element) return;
   if (String(element.id) !== activeTransformSession.id) {
-    activeTransformSession = null;
+    state.setActiveTransformSession(null);
     return;
   }
 
@@ -873,29 +833,30 @@ function finalizeTransformSession(element) {
     pushHistory(label, { kind: isResize ? "resize" : "move", detail: element.getDisplayName() });
   }
 
-  activeTransformSession = null;
+  state.setActiveTransformSession(null);
 }
 
 function startKeyboardMoveSession(element) {
   if (!element) return;
-  if (keyboardMoveSession) return;
-  keyboardMoveSession = {
+  if (state.getKeyboardMoveSession()) return;
+  state.setKeyboardMoveSession({
     id: String(element.id),
     before: { x: element.x, y: element.y }
-  };
+  });
 }
 
 function endKeyboardMoveSession(element) {
+  const keyboardMoveSession = state.getKeyboardMoveSession();
   if (!keyboardMoveSession) return;
   const target = element && String(element.id) === keyboardMoveSession.id
     ? element
-    : elements.find((el) => String(el.id) === keyboardMoveSession.id);
+    : state.elements.find((el) => String(el.id) === keyboardMoveSession.id);
 
   if (target && (target.x !== keyboardMoveSession.before.x || target.y !== keyboardMoveSession.before.y)) {
     pushHistory(`Moved ${target.type} (keyboard)`, { kind: "move", detail: target.getDisplayName() });
   }
 
-  keyboardMoveSession = null;
+  state.setKeyboardMoveSession(null);
 }
 
 // Add Text Element
@@ -1044,7 +1005,7 @@ function updateElementsList() {
   elementsList.innerHTML = state.elements
     .map((element, index) => {
       const isActive =
-        selectedElement && String(selectedElement.id) === String(element.id);
+        state.selectedElement && String(state.selectedElement.id) === String(element.id);
 
       const activeClasses = isActive
         ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
@@ -1097,12 +1058,12 @@ function deleteElement(id) {
   if (state.selectedElement && String(state.selectedElement.id) === idStr) {
     state.setSelectedElement(null);
   }
+  const activeTransformSession = state.getActiveTransformSession();
   if (activeTransformSession && activeTransformSession.id === idStr) {
-    activeTransformSession = null;
     state.setActiveTransformSession(null);
   }
+  const keyboardMoveSession = state.getKeyboardMoveSession();
   if (keyboardMoveSession && keyboardMoveSession.id === idStr) {
-    keyboardMoveSession = null;
     state.setKeyboardMoveSession(null);
   }
   interactionHandler.updateElements(state.elements);
@@ -1231,23 +1192,24 @@ function renderPropertiesPanel() {
 
   // Common wrapper with fade-in effect
   let content = '';
+  const element = state.selectedElement;
 
-  if (selectedElement.type === "TEXT") {
-    content = renderTextPropertiesHTML(selectedElement);
-  } else if (selectedElement.type === "BARCODE") {
-    content = renderBarcodePropertiesHTML(selectedElement);
-  } else if (selectedElement.type === "BOX") {
-    content = renderBoxPropertiesHTML(selectedElement);
-  } else if (selectedElement.type === "TEXTBLOCK") {
-    content = renderTextBlockPropertiesHTML(selectedElement);
-  } else if (selectedElement.type === "QRCODE") {
-    content = renderQRCodePropertiesHTML(selectedElement);
-  } else if (selectedElement.type === "LINE") {
-    content = renderLinePropertiesHTML(selectedElement);
+  if (element.type === "TEXT") {
+    content = renderTextPropertiesHTML(element);
+  } else if (element.type === "BARCODE") {
+    content = renderBarcodePropertiesHTML(element);
+  } else if (element.type === "BOX") {
+    content = renderBoxPropertiesHTML(element);
+  } else if (element.type === "TEXTBLOCK") {
+    content = renderTextBlockPropertiesHTML(element);
+  } else if (element.type === "QRCODE") {
+    content = renderQRCodePropertiesHTML(element);
+  } else if (element.type === "LINE") {
+    content = renderLinePropertiesHTML(element);
   }
 
   propertiesPanel.innerHTML = `<div class="animate-fade-in">${content}</div>`;
-  attachPropertyListeners(selectedElement);
+  attachPropertyListeners(element);
 }
 
 function renderSection(title, body, options = {}) {
@@ -1344,7 +1306,7 @@ function renderTextPropertiesHTML(element) {
                 <select id="prop-font-id" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
                     <option value="">${'Use label default'}</option>
                     ${BUILTIN_FONTS.map(id => `<option value="${id}" ${element.fontId === id ? 'selected' : ''}>${FONT_LABELS[id] || id}</option>`).join('')}
-                    ${labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
+                    ${state.labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -1476,7 +1438,7 @@ function renderTextBlockPropertiesHTML(element) {
                 <select id="prop-font-id" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
                     <option value="">${'Use label default'}</option>
                     ${BUILTIN_FONTS.map(id => `<option value="${id}" ${element.fontId === id ? 'selected' : ''}>${FONT_LABELS[id] || id}</option>`).join('')}
-                    ${labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
+                    ${state.labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -1586,7 +1548,7 @@ function renderQRCodePropertiesHTML(element) {
 
 function applyAlignmentAction(action, element) {
   if (!element) return;
-  const labelSize = getLabelSizeDots(labelSettings);
+  const labelSize = getLabelSizeDots(state.labelSettings);
   const bounds = getElementBoundsSafe(element);
 
   if (action === "center-x") {
@@ -1628,7 +1590,7 @@ function applyAlignmentAction(action, element) {
     } else if (element.type === "TEXT") {
       const textLength = (element.previewText || "").length;
       if (textLength > 0) {
-        const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
+        const resolvedWidth = element.fontWidth || state.labelSettings.defaultFontWidth || 30;
         const currentWidth = Math.max(textLength * resolvedWidth * 0.6, 50);
         const scale = labelSize.width / currentWidth;
         element.fontWidth = clampNumber(Math.round(resolvedWidth * scale), 1, 32000);
@@ -1656,11 +1618,11 @@ function applyAlignmentAction(action, element) {
       const targetMag = modules > 0 ? Math.round(labelSize.height / modules) : element.magnification;
       element.magnification = clampNumber(targetMag, 1, 10);
     } else if (element.type === "TEXTBLOCK") {
-      const fontSize = element.fontSize || labelSettings.defaultFontHeight || 30;
+      const fontSize = element.fontSize || state.labelSettings.defaultFontHeight || 30;
       const estimatedLines = Math.max(1, Math.round(labelSize.height / fontSize));
       element.maxLines = clampNumber(estimatedLines, 1, 9999);
     } else if (element.type === "TEXT") {
-      const currentHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+      const currentHeight = element.fontSize || state.labelSettings.defaultFontHeight || 30;
       const scale = labelSize.height / currentHeight;
       element.fontSize = clampNumber(Math.round(currentHeight * scale), 1, 32000);
     }
@@ -1876,7 +1838,7 @@ function updateZPLOutput() {
   }
 
   // Build ZPL with settings commands
-  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, customFonts, defaultFontHeight: dfh, defaultFontWidth: dfw } = labelSettings;
+  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, customFonts, defaultFontHeight: dfh, defaultFontWidth: dfw } = state.labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -1910,7 +1872,7 @@ function updateZPLOutput() {
   }
   zplHeader += `^CF${fid},${dfh},${dfw}\n`;
 
-  const zplCommands = elements.map((element) => element.render(fid)).join("\n");
+  const zplCommands = state.elements.map((element) => element.render(fid)).join("\n");
   zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
 }
 
@@ -1931,7 +1893,7 @@ async function updatePreview() {
   }
 
   // Generate preview ZPL using renderPreview() method
-  const { width, height, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh, defaultFontWidth: dfw } = labelSettings;
+  const { width, height, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh, defaultFontWidth: dfw } = state.labelSettings;
 
   // Calculate print width in dots (width in mm × dpmm)
   const printWidthDots = Math.round(width * dpmm);
@@ -1950,7 +1912,7 @@ async function updatePreview() {
   }
   zplHeader += `^CF${fid},${dfh},${dfw}\n`;
 
-  const zplCommands = elements.map((element) => {
+  const zplCommands = state.elements.map((element) => {
     let cmd = element.renderPreview(fid);
 
     // Add debug highlight box for selected TEXT or TEXTBLOCK elements
@@ -2056,8 +2018,8 @@ function copyZPL() {
 function exportTemplate() {
   const template = {
     version: "1.0",
-    labelSettings: labelSettings,
-    elements: elements.map((element) => {
+    labelSettings: state.labelSettings,
+    elements: state.elements.map((element) => {
       const elementData = {
         type: element.type,
         x: element.x,
@@ -2161,77 +2123,20 @@ function importTemplate(template) {
   }
 
   // Clear current elements
-  elements = [];
-  selectedElement = null;
+  state.setElements([]);
+  state.setSelectedElement(null);
 
   // Import label settings
-  if (template.labelSettings.width !== undefined) {
-    labelSettings.width = template.labelSettings.width;
-    labelWidth.value = labelSettings.width;
-  }
-  if (template.labelSettings.height !== undefined) {
-    labelSettings.height = template.labelSettings.height;
-    labelHeight.value = labelSettings.height;
-  }
-  if (template.labelSettings.dpmm !== undefined) {
-    labelSettings.dpmm = template.labelSettings.dpmm;
-    labelDpmm.value = labelSettings.dpmm;
-  }
-  if (template.labelSettings.homeX !== undefined) {
-    labelSettings.homeX = template.labelSettings.homeX;
-    homeX.value = labelSettings.homeX;
-  }
-  if (template.labelSettings.homeY !== undefined) {
-    labelSettings.homeY = template.labelSettings.homeY;
-    homeY.value = labelSettings.homeY;
-  }
-  if (template.labelSettings.labelTop !== undefined) {
-    labelSettings.labelTop = template.labelSettings.labelTop;
-    labelTop.value = labelSettings.labelTop;
-  }
-  if (template.labelSettings.printOrientation !== undefined) {
-    labelSettings.printOrientation = template.labelSettings.printOrientation;
-    printOrientation.value = labelSettings.printOrientation;
-  }
-  if (template.labelSettings.mediaDarkness !== undefined) {
-    labelSettings.mediaDarkness = template.labelSettings.mediaDarkness;
-    mediaDarkness.value = labelSettings.mediaDarkness;
-  }
-  if (template.labelSettings.printSpeed !== undefined) {
-    labelSettings.printSpeed = template.labelSettings.printSpeed;
-    printSpeed.value = labelSettings.printSpeed;
-  }
-  if (template.labelSettings.slewSpeed !== undefined) {
-    labelSettings.slewSpeed = template.labelSettings.slewSpeed;
-    slewSpeed.value = labelSettings.slewSpeed;
-  }
-  if (template.labelSettings.backfeedSpeed !== undefined) {
-    labelSettings.backfeedSpeed = template.labelSettings.backfeedSpeed;
-    backfeedSpeed.value = labelSettings.backfeedSpeed;
-  }
-  if (template.labelSettings.fontId !== undefined) {
-    labelSettings.fontId = template.labelSettings.fontId;
-    fontId.value = labelSettings.fontId;
-  }
-  if (template.labelSettings.fontFile !== undefined) {
-    labelSettings.fontFile = template.labelSettings.fontFile;
-    fontFile.value = labelSettings.fontFile;
-  }
-  if (template.labelSettings.defaultFontHeight !== undefined) {
-    labelSettings.defaultFontHeight = template.labelSettings.defaultFontHeight;
-    defaultFontHeight.value = labelSettings.defaultFontHeight;
-  }
-  if (template.labelSettings.defaultFontWidth !== undefined) {
-    labelSettings.defaultFontWidth = template.labelSettings.defaultFontWidth;
-    defaultFontWidth.value = labelSettings.defaultFontWidth;
-  }
+  state.updateLabelSettings(template.labelSettings);
+  syncLabelSettingsInputs();
+
   if (template.labelSettings.customFonts !== undefined && Array.isArray(template.labelSettings.customFonts)) {
-    labelSettings.customFonts = template.labelSettings.customFonts;
     renderCustomFonts();
     updateFontDropdownOptions();
   }
 
   // Recreate elements from template
+  const importedElements = [];
   template.elements.forEach((elementData) => {
     let element;
 
@@ -2308,11 +2213,14 @@ function importTemplate(template) {
     }
 
     // Generate new ID for imported element (don't preserve old IDs)
-    elements.push(element);
+    importedElements.push(element);
   });
 
+  // Set all imported elements at once
+  state.setElements(importedElements);
+
   // Update UI
-  interactionHandler.updateElements(elements);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -2324,9 +2232,10 @@ function handleHistoryClick(e) {
   const button = e.target.closest("[data-history-index]");
   if (!button) return;
   const index = parseInt(button.dataset.historyIndex, 10);
-  if (Number.isNaN(index) || index === historyIndex) return;
-  historyIndex = index;
-  applyAppState(historyEntries[historyIndex].state);
+  if (Number.isNaN(index) || index === state.getHistoryIndex()) return;
+  state.setHistoryIndex(index);
+  const historyEntries = state.getHistoryEntries();
+  applyAppState(historyEntries[state.getHistoryIndex()].state);
 }
 
 function openHistoryPanel() {
