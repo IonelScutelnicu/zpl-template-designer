@@ -1378,11 +1378,13 @@ function renderBarcodePropertiesHTML(element) {
         ${renderSection("Barcode Settings", `
             ${createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
             <div class="mb-3">
-                <label class="block text-xs font-medium text-slate-700 mb-1">Print Interpretation Line</label>
-                <select id="prop-show-text" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option value="Y" ${element.showText === true ? "selected" : ""}>Yes (Show)</option>
-                    <option value="N" ${element.showText === false ? "selected" : ""}>No (Hide)</option>
-                </select>
+                <label class="flex items-center justify-between cursor-pointer">
+                    <span class="text-xs font-medium text-slate-700">Show Text Below Barcode</span>
+                    <div class="relative">
+                        <input type="checkbox" id="prop-show-text" class="sr-only peer" ${element.showText === true ? "checked" : ""}>
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                    </div>
+                </label>
             </div>
         `, { open: true, elementType: element.type })}
     `;
@@ -1770,8 +1772,20 @@ function attachPropertyListeners(element) {
     attach("prop-width", "width", (v) => parseFloat(v) || 2);
     attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
 
-    // Handle show text select
-    attach("prop-show-text", "showText", (v) => v === "Y");
+    // Handle show text toggle
+    const showTextToggle = document.getElementById("prop-show-text");
+    if (showTextToggle) {
+      showTextToggle.addEventListener("change", (e) => {
+        element.showText = e.target.checked;
+        updateZPLOutput();
+        updateElementsList();
+        renderCanvasPreview();
+        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+          kind: "edit",
+          detail: element.getDisplayName()
+        });
+      });
+    }
   } else if (element.type === "BOX") {
     attach("prop-width", "width", (v) => parseInt(v) || 100);
     attach("prop-height", "height", (v) => parseInt(v) || 50);
