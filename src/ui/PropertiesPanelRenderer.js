@@ -358,9 +358,6 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
-        ${this.createInputGroup("Block Width", "prop-block-width", element.blockWidth, "number", { min: 1 })}
-        ${this.createInputGroup("Max Lines", "prop-max-lines", element.maxLines, "number", { min: 1, max: 9999 })}
-        ${this.createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: 0 })}
       `, { elementType: element.type })}
       ${this.renderSection("Text Content", `
         <div class="mb-3">
@@ -369,7 +366,7 @@ export class PropertiesPanelRenderer {
             class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${element.previewText}</textarea>
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
-      `, { open: true, elementType: element.type })}
+      `, { elementType: element.type })}
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
         <div class="grid grid-cols-2 gap-3">
@@ -377,21 +374,48 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
         </div>
       `, { elementType: element.type })}
-      ${this.renderSection("Formatting", `
-        <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-700 mb-1">Justification</label>
-          <select id="prop-justification" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="L" ${element.justification === "L" ? "selected" : ""}>Left (L)</option>
-            <option value="C" ${element.justification === "C" ? "selected" : ""}>Center (C)</option>
-            <option value="R" ${element.justification === "R" ? "selected" : ""}>Right (R)</option>
-            <option value="J" ${element.justification === "J" ? "selected" : ""}>Justified (J)</option>
-          </select>
+      ${this.renderSection("Block Configuration", `
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
+          ${this.createInputGroup("Max Lines", "prop-max-lines", element.maxLines, "number", { min: 1, max: 9999 })}
+          ${this.createInputGroup("Line Spacing", "prop-line-spacing", element.lineSpacing, "number", { min: -9999, max: 9999 })}
+          ${this.createInputGroup("Hanging Indent (dots)", "prop-hanging-indent", element.hangingIndent, "number", { min: 0, max: 9999 })}
         </div>
-        ${this.createInputGroup("Hanging Indent", "prop-hanging-indent", element.hangingIndent, "number", { min: 0 })}
-      `, { elementType: element.type })}
+      `, { open: true, elementType: element.type })}
+      ${this.renderSection("Alignment", `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Text Justification</label>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            <button type="button" data-justification="L"
+              class="flex-1 p-1 rounded-md ${element.justification === "L" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+              title="Left Align">
+              <span class="material-icons-round text-sm">format_align_left</span>
+            </button>
+            <button type="button" data-justification="C"
+              class="flex-1 p-1 rounded-md ${element.justification === "C" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+              title="Center Align">
+              <span class="material-icons-round text-sm">format_align_center</span>
+            </button>
+            <button type="button" data-justification="R"
+              class="flex-1 p-1 rounded-md ${element.justification === "R" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+              title="Right Align">
+              <span class="material-icons-round text-sm">format_align_right</span>
+            </button>
+            <button type="button" data-justification="J"
+              class="flex-1 p-1 rounded-md ${element.justification === "J" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
+              title="Justified">
+              <span class="material-icons-round text-sm">format_align_justify</span>
+            </button>
+          </div>
+        </div>
+      `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", `
         <div class="flex items-center justify-between">
-          <label class="text-xs text-slate-700">Reverse Print</label>
+          <label class="text-xs text-slate-700">
+            Reverse Print
+            <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
+              target="_blank" class="text-blue-500 hover:underline">^FR</a>
+          </label>
           <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
             <button type="button" data-reverse="N"
               class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
