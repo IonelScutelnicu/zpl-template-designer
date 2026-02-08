@@ -321,9 +321,14 @@ export class AppState {
    */
   serialize() {
     return {
-      elements: this.elements.map(el => ({ ...el })),
-      selectedElementId: this.selectedElement?.id || null,
-      labelSettings: { ...this.labelSettings }
+      labelSettings: JSON.parse(JSON.stringify(this.labelSettings)),
+      elements: this.elements.map(element => {
+        if (!element) return null;
+        const data = JSON.parse(JSON.stringify(element));
+        data.id = element.id;
+        return data;
+      }),
+      selectedElementId: this.selectedElement ? String(this.selectedElement.id) : null
     };
   }
 
