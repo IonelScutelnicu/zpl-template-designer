@@ -240,17 +240,9 @@ export class PropertiesPanelRenderer {
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", `
         <div class="flex items-center justify-between">
-          <label class="text-xs text-slate-700">Show Human-Readable Text</label>
-          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-            <button type="button" data-show-text="Y"
-              class="px-3 py-1 text-xs rounded ${element.showText ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
-              Show
-            </button>
-            <button type="button" data-show-text="N"
-              class="px-3 py-1 text-xs rounded ${!element.showText ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
-              Hide
-            </button>
-          </div>
+          <label for="prop-show-text" class="text-xs text-slate-700">Show Human-Readable Text</label>
+          <input type="checkbox" id="prop-show-text" ${element.showText ? "checked" : ""}
+            class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500" />
         </div>
       `, { open: true, elementType: element.type })}
     `;
