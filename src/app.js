@@ -70,7 +70,7 @@ function clearSectionStates() {
 }
 
 // Initialize properties panel renderer (after helper functions are defined)
-propertiesPanelRenderer = new PropertiesPanelRenderer(state.labelSettings, getSectionState);
+propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings, getSectionState);
 
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
