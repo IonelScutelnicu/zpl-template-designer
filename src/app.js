@@ -7,6 +7,13 @@ import { QRCodeElement } from './elements/QRCodeElement.js';
 import { LineElement } from './elements/LineElement.js';
 import { CanvasRenderer } from './canvas-renderer.js';
 import { InteractionHandler } from './interaction-handler.js';
+import { HISTORY_LIMIT, BUILTIN_FONTS, FONT_LABELS } from './config/constants.js';
+import {
+  clampNumber,
+  getLabelSizeDots,
+  getElementBoundsResolved,
+  getElementBoundsSafe
+} from './utils/geometry.js';
 
 // Application State
 let elements = [];
@@ -29,7 +36,6 @@ let labelSettings = {
   labelTop: 0, // ^LT label top shift
 };
 
-const HISTORY_LIMIT = 100;
 let historyEntries = [];
 let historyIndex = -1;
 let isApplyingHistory = false;
@@ -484,22 +490,6 @@ function syncLabelSettingsInputs() {
   defaultFontHeight.value = labelSettings.defaultFontHeight;
   defaultFontWidth.value = labelSettings.defaultFontWidth;
 }
-
-// Built-in ZPL fonts that cannot be overridden
-const BUILTIN_FONTS = ['0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-// Font ID to descriptive label mapping (matches label-level dropdown)
-const FONT_LABELS = {
-  '0': '0 - Default',
-  'A': 'A - 9×5',
-  'B': 'B - 11×7',
-  'C': 'C - 18×10',
-  'D': 'D - 18×10',
-  'E': 'E - 28×15',
-  'F': 'F - 26×15',
-  'G': 'G - 60×40',
-  'H': 'H - 21×13'
-};
 
 function addCustomFont() {
   const id = newFontId.value.trim().toUpperCase();
@@ -1022,7 +1012,7 @@ function pasteElementFromData(data) {
   element.x = Math.max(0, element.x + offset);
   element.y = Math.max(0, element.y + offset);
 
-  const bounds = getElementBoundsResolved(element);
+  const bounds = getElementBoundsResolved(element, labelSettings);
   element.x = Math.min(element.x, Math.max(0, labelW - bounds.width));
   element.y = Math.min(element.y, Math.max(0, labelH - bounds.height));
 
@@ -1579,48 +1569,10 @@ function renderQRCodePropertiesHTML(element) {
     `;
 }
 
-function clampNumber(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function getLabelSizeDots() {
-  return {
-    width: Math.round(labelSettings.width * labelSettings.dpmm),
-    height: Math.round(labelSettings.height * labelSettings.dpmm)
-  };
-}
-
-function getElementBoundsResolved(element) {
-  if (element.type === 'TEXTBLOCK') {
-    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
-    return { x: element.x, y: element.y, width: element.blockWidth || 200, height: resolvedHeight * (element.maxLines || 1) };
-  }
-  if (element.type === 'TEXT') {
-    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
-    const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
-    const textW = Math.max((element.previewText || '').length * resolvedWidth * 0.6, 50);
-    let w = textW, h = resolvedHeight;
-    if (element.orientation === 'R' || element.orientation === 'B') { w = resolvedHeight; h = textW; }
-    return { x: element.x, y: element.y, width: w, height: h };
-  }
-  return element.getBounds();
-}
-
-function getElementBoundsSafe(element) {
-  if (element && typeof element.getBounds === "function") {
-    return element.getBounds();
-  }
-  return {
-    x: element?.x || 0,
-    y: element?.y || 0,
-    width: element?.width || 0,
-    height: element?.height || 0
-  };
-}
 
 function applyAlignmentAction(action, element) {
   if (!element) return;
-  const labelSize = getLabelSizeDots();
+  const labelSize = getLabelSizeDots(labelSettings);
   const bounds = getElementBoundsSafe(element);
 
   if (action === "center-x") {
