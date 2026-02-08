@@ -422,7 +422,7 @@ export function initApp() {
 // Render Canvas Preview
 function renderCanvasPreview() {
   if (!canvasRenderer) return;
-  canvasRenderer.renderCanvas(elements, labelSettings, selectedElement);
+  canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.selectedElement);
 }
 
 // Set Preview Mode
@@ -901,9 +901,9 @@ function endKeyboardMoveSession(element) {
 // Add Text Element
 function addTextElement() {
   const textElement = new TextElement(50, 50, "Sample Text", 0, 0, "", "", "N");
-  elements.push(textElement);
-  selectedElement = textElement;
-  interactionHandler.updateElements(elements);
+  state.addElement(textElement);
+  state.setSelectedElement(textElement);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -914,9 +914,9 @@ function addTextElement() {
 // Add Barcode Element
 function addBarcodeElement() {
   const barcodeElement = new BarcodeElement(50, 50, "1234567890", 50, 2, 2.0);
-  elements.push(barcodeElement);
-  selectedElement = barcodeElement;
-  interactionHandler.updateElements(elements);
+  state.addElement(barcodeElement);
+  state.setSelectedElement(barcodeElement);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -927,9 +927,9 @@ function addBarcodeElement() {
 // Add QR Code Element
 function addQRCodeElement() {
   const qrcodeElement = new QRCodeElement(50, 50, "https://example.com", 2, 5, "Q");
-  elements.push(qrcodeElement);
-  selectedElement = qrcodeElement;
-  interactionHandler.updateElements(elements);
+  state.addElement(qrcodeElement);
+  state.setSelectedElement(qrcodeElement);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -940,9 +940,9 @@ function addQRCodeElement() {
 // Add Box Element
 function addBoxElement() {
   const boxElement = new BoxElement(50, 50, 100, 50, 3, "B", 0);
-  elements.push(boxElement);
-  selectedElement = boxElement;
-  interactionHandler.updateElements(elements);
+  state.addElement(boxElement);
+  state.setSelectedElement(boxElement);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -953,9 +953,9 @@ function addBoxElement() {
 // Add Text Block Element
 function addTextBlockElement() {
   const textBlockElement = new TextBlockElement(50, 50, "Sample text that can wrap across multiple lines", 0, 0, 200, 3, 0, "L", 0);
-  elements.push(textBlockElement);
-  selectedElement = textBlockElement;
-  interactionHandler.updateElements(elements);
+  state.addElement(textBlockElement);
+  state.setSelectedElement(textBlockElement);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -966,9 +966,9 @@ function addTextBlockElement() {
 // Add Line Element
 function addLineElement() {
   const lineElement = new LineElement(50, 50, 200, 3, "H");
-  elements.push(lineElement);
-  selectedElement = lineElement;
-  interactionHandler.updateElements(elements);
+  state.addElement(lineElement);
+  state.setSelectedElement(lineElement);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -1013,20 +1013,20 @@ function pasteElementFromData(data) {
   const element = createElementFromData(data);
   if (!element) return;
 
-  const labelW = labelSettings.width * labelSettings.dpmm;
-  const labelH = labelSettings.height * labelSettings.dpmm;
+  const labelW = state.labelSettings.width * state.labelSettings.dpmm;
+  const labelH = state.labelSettings.height * state.labelSettings.dpmm;
   const offset = 10;
 
   element.x = Math.max(0, element.x + offset);
   element.y = Math.max(0, element.y + offset);
 
-  const bounds = getElementBoundsResolved(element, labelSettings);
+  const bounds = getElementBoundsResolved(element, state.labelSettings);
   element.x = Math.min(element.x, Math.max(0, labelW - bounds.width));
   element.y = Math.min(element.y, Math.max(0, labelH - bounds.height));
 
-  elements.push(element);
-  selectedElement = element;
-  interactionHandler.updateElements(elements);
+  state.addElement(element);
+  state.setSelectedElement(element);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -1036,12 +1036,12 @@ function pasteElementFromData(data) {
 
 // Update Elements List
 function updateElementsList() {
-  if (elements.length === 0) {
+  if (state.elements.length === 0) {
     elementsList.innerHTML = '<p class="text-center text-slate-400 py-8 italic text-xs">No elements added yet</p>';
     return;
   }
 
-  elementsList.innerHTML = elements
+  elementsList.innerHTML = state.elements
     .map((element, index) => {
       const isActive =
         selectedElement && String(selectedElement.id) === String(element.id);
@@ -1051,7 +1051,7 @@ function updateElementsList() {
         : "border-slate-200 hover:border-blue-300 hover:shadow-sm bg-white";
 
       const isFirst = index === 0;
-      const isLast = index === elements.length - 1;
+      const isLast = index === state.elements.length - 1;
 
       return `
             <div class="element-item group relative flex justify-between items-center p-2.5 mb-1.5 rounded-md border transition-all cursor-pointer ${activeClasses}" data-id="${element.id}" data-index="${index}">
@@ -1091,19 +1091,21 @@ function updateElementsList() {
 function deleteElement(id) {
   // Convert id to string for reliable comparison
   const idStr = String(id);
-  const elementToDelete = elements.find((el) => String(el.id) === idStr);
-  // Filter out the element with matching ID (compare as strings)
-  elements = elements.filter((el) => String(el.id) !== idStr);
-  if (selectedElement && String(selectedElement.id) === idStr) {
-    selectedElement = null;
+  const elementToDelete = state.elements.find((el) => String(el.id) === idStr);
+  // Remove element using state
+  state.removeElement(idStr);
+  if (state.selectedElement && String(state.selectedElement.id) === idStr) {
+    state.setSelectedElement(null);
   }
   if (activeTransformSession && activeTransformSession.id === idStr) {
     activeTransformSession = null;
+    state.setActiveTransformSession(null);
   }
   if (keyboardMoveSession && keyboardMoveSession.id === idStr) {
     keyboardMoveSession = null;
+    state.setKeyboardMoveSession(null);
   }
-  interactionHandler.updateElements(elements);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   renderPropertiesPanel();
   updateZPLOutput();
@@ -1115,16 +1117,18 @@ function deleteElement(id) {
 
 // Move Element Up
 function moveElementUp(index) {
-  if (index <= 0 || index >= elements.length) return;
+  if (index <= 0 || index >= state.elements.length) return;
 
   const previousPositions = captureElementListPositions();
 
   // Swap with the element above
-  const temp = elements[index];
-  elements[index] = elements[index - 1];
-  elements[index - 1] = temp;
+  const newElements = [...state.elements];
+  const temp = newElements[index];
+  newElements[index] = newElements[index - 1];
+  newElements[index - 1] = temp;
+  state.setElements(newElements);
 
-  interactionHandler.updateElements(elements);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   animateElementListReorder(previousPositions);
   updateZPLOutput();
@@ -1134,16 +1138,18 @@ function moveElementUp(index) {
 
 // Move Element Down
 function moveElementDown(index) {
-  if (index < 0 || index >= elements.length - 1) return;
+  if (index < 0 || index >= state.elements.length - 1) return;
 
   const previousPositions = captureElementListPositions();
 
   // Swap with the element below
-  const temp = elements[index];
-  elements[index] = elements[index + 1];
-  elements[index + 1] = temp;
+  const newElements = [...state.elements];
+  const temp = newElements[index];
+  newElements[index] = newElements[index + 1];
+  newElements[index + 1] = temp;
+  state.setElements(newElements);
 
-  interactionHandler.updateElements(elements);
+  interactionHandler.updateElements(state.elements);
   updateElementsList();
   animateElementListReorder(previousPositions);
   updateZPLOutput();
@@ -1217,7 +1223,7 @@ function createInputGroup(label, id, value, type = "text", options = {}) {
 
 // Render Properties Panel
 function renderPropertiesPanel() {
-  if (!selectedElement) {
+  if (!state.selectedElement) {
     propertiesPanel.innerHTML =
       '<p class="text-center text-slate-400 py-12 italic text-sm">Select an element to edit properties</p>';
     return;
@@ -1864,7 +1870,7 @@ function attachSectionToggleListeners() {
 
 // Update ZPL Output
 function updateZPLOutput() {
-  if (elements.length === 0) {
+  if (state.elements.length === 0) {
     zplOutput.value = "";
     return;
   }
@@ -1919,7 +1925,7 @@ async function updatePreview() {
   previewError.classList.add('hidden');
   previewPlaceholder.classList.add('hidden');
 
-  if (elements.length === 0) {
+  if (state.elements.length === 0) {
     previewPlaceholder.classList.remove('hidden');
     return;
   }
