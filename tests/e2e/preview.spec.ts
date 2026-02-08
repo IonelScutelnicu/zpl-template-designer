@@ -93,6 +93,9 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
         });
 
         test('should update preview when refresh is clicked after adding element', async () => {
+            // Increase timeout for this test due to Labelary API
+            test.setTimeout(90000);
+
             await previewPanel.switchToAPIMode();
             await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
@@ -192,6 +195,9 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
         });
 
         test('should render similar output between canvas and API for Barcode element', async () => {
+            // Increase timeout for this test due to Labelary API
+            test.setTimeout(90000);
+
             await elementsPanel.addBarcodeElement();
 
             await canvas.waitForReady();

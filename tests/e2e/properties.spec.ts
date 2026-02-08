@@ -47,16 +47,20 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toContain(',40');
         });
 
-        test('should preserve property values after re-selecting element', async () => {
+        test('should preserve property values after re-selecting element', async ({ page }) => {
             await propertiesPanel.setProperty('prop-preview-text', 'Test Value');
+            await page.waitForTimeout(100);
             await propertiesPanel.setProperty('prop-x', 100);
+            await page.waitForTimeout(100);
 
             // Add another element and select it
             await elementsPanel.addBoxElement();
             await elementsPanel.selectElementByIndex(1);
+            await page.waitForTimeout(100);
 
             // Re-select text element
             await elementsPanel.selectElementByIndex(0);
+            await page.waitForTimeout(100);
 
             await propertiesPanel.verifyPropertyValue('prop-preview-text', 'Test Value');
             await propertiesPanel.verifyPropertyValue('prop-x', '100');
@@ -104,8 +108,9 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update justification and reflect in ^FB command', async ({ page }) => {
-            const select = page.locator('#prop-justification');
-            await select.selectOption('C');
+            // Click the center justification button
+            const centerButton = page.locator('button[data-justification="C"]');
+            await centerButton.click();
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain(',C,');
         });

@@ -159,7 +159,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'TEXT', x: 150, y: 200, placeholder: '{data}', previewText: 'Property Test', fontSize: 40, fontWidth: 35, fontId: '' }
+                    { type: 'TEXT', x: 150, y: 200, placeholder: '{data}', previewText: 'Property Test', fontSize: 40, fontWidth: 35, fontId: '', id: Date.now(), orientation: 'N', reverse: false }
                 ]
             };
 
@@ -167,9 +167,10 @@ test.describe('Import/Export - Template Persistence', () => {
             fs.writeFileSync(tempPath, JSON.stringify(template));
 
             await zplOutput.importTemplate(tempPath);
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(1000);
 
             await elementsPanel.selectElementByIndex(0);
+            await page.waitForTimeout(200);
 
             await propertiesPanel.verifyPropertyValue('prop-x', '150');
             await propertiesPanel.verifyPropertyValue('prop-y', '200');
@@ -280,11 +281,12 @@ test.describe('Import/Export - Template Persistence', () => {
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
             await page.locator('#prop-preview-text').fill('Round Trip Test');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-preview-text').dispatchEvent('input');
             await page.locator('#prop-x').fill('175');
-            await page.locator('#prop-x').dispatchEvent('change');
+            await page.locator('#prop-x').dispatchEvent('input');
             await page.locator('#prop-y').fill('225');
-            await page.locator('#prop-y').dispatchEvent('change');
+            await page.locator('#prop-y').dispatchEvent('input');
+            await page.waitForTimeout(200);
 
             // Export
             const downloadPromise = page.waitForEvent('download');
