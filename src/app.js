@@ -1,3 +1,13 @@
+// Application imports
+import { TextElement } from './elements/TextElement.js';
+import { BarcodeElement } from './elements/BarcodeElement.js';
+import { BoxElement } from './elements/BoxElement.js';
+import { TextBlockElement } from './elements/TextBlockElement.js';
+import { QRCodeElement } from './elements/QRCodeElement.js';
+import { LineElement } from './elements/LineElement.js';
+import { CanvasRenderer } from './canvas-renderer.js';
+import { InteractionHandler } from './interaction-handler.js';
+
 // Application State
 let elements = [];
 let selectedElement = null;
@@ -127,8 +137,8 @@ let canvasRenderer = null;
 let interactionHandler = null;
 let previewMode = 'canvas'; // 'canvas' or 'api'
 
-// Initialize
-document.addEventListener("DOMContentLoaded", () => {
+// Initialize function
+export function initApp() {
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
 
@@ -393,7 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateZPLOutput();
   renderCanvasPreview();
   resetHistory("Initial state", { kind: "init" });
-});
+}
 
 // Render Canvas Preview
 function renderCanvasPreview() {

@@ -1,6 +1,11 @@
 // Canvas Renderer for ZPL Template Creator
 // Renders all element types on HTML5 Canvas
 
+import {
+  calculateQRVersion,
+  qrVersionToModules
+} from './elements/QRCodeElement.js';
+
 // ZPL font mapping - approximations using system fonts with accurate aspect ratios
 // Based on Zebra ZPL standard built-in fonts (A-H and 0)
 const ZPL_FONTS = {
@@ -180,7 +185,7 @@ function calculateCode128Width(data, moduleWidth) {
   return totalModules * moduleWidth;
 }
 
-class CanvasRenderer {
+export class CanvasRenderer {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas.getContext('2d');
