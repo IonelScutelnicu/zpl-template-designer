@@ -5,6 +5,8 @@
   "main": "app.js",
   "scripts": {
     "test": "playwright test",
+    "test:core": "playwright test --project=core",
+    "test:api": "playwright test --project=api-integration",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug"

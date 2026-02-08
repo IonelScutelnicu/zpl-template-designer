@@ -1,4 +1,5 @@
 import { Page, Locator } from '@playwright/test';
+import { waitForRateLimit } from '../fixtures/rate-limiter';
 
 /**
  * Page Object Model for the Preview Panel.
@@ -49,6 +50,7 @@ export class PreviewPanel {
      * Refresh the preview (API mode)
      */
     async refreshPreview(): Promise<void> {
+        await waitForRateLimit();
         await this.refreshBtn.click();
     }
 
@@ -56,6 +58,7 @@ export class PreviewPanel {
      * Wait for API preview to load
      */
     async waitForAPIPreviewLoaded(): Promise<void> {
+        await waitForRateLimit();
         // Wait for loading to disappear and image to appear
         // Increased timeout for Labelary API which can be slow
         await this.previewLoading.waitFor({ state: 'hidden', timeout: 60000 });
