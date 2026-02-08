@@ -1,0 +1,71 @@
+// Geometry and Math Utilities for ZPL Template Creator
+
+/**
+ * Clamp a number between min and max values
+ * @param {number} value - Value to clamp
+ * @param {number} min - Minimum value
+ * @param {number} max - Maximum value
+ * @returns {number} Clamped value
+ */
+export function clampNumber(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Get label dimensions in dots
+ * @param {Object} labelSettings - Label configuration
+ * @returns {Object} Label dimensions {width, height} in dots
+ */
+export function getLabelSizeDots(labelSettings) {
+  return {
+    width: Math.round(labelSettings.width * labelSettings.dpmm),
+    height: Math.round(labelSettings.height * labelSettings.dpmm)
+  };
+}
+
+/**
+ * Get element bounds with resolved font dimensions (for TEXT and TEXTBLOCK)
+ * @param {Object} element - Element to get bounds for
+ * @param {Object} labelSettings - Label configuration (for default font sizes)
+ * @returns {Object} Bounds {x, y, width, height}
+ */
+export function getElementBoundsResolved(element, labelSettings) {
+  if (element.type === 'TEXTBLOCK') {
+    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+    return {
+      x: element.x,
+      y: element.y,
+      width: element.blockWidth || 200,
+      height: resolvedHeight * (element.maxLines || 1)
+    };
+  }
+  if (element.type === 'TEXT') {
+    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+    const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
+    const textW = Math.max((element.previewText || '').length * resolvedWidth * 0.6, 50);
+    let w = textW, h = resolvedHeight;
+    if (element.orientation === 'R' || element.orientation === 'B') {
+      w = resolvedHeight;
+      h = textW;
+    }
+    return { x: element.x, y: element.y, width: w, height: h };
+  }
+  return element.getBounds();
+}
+
+/**
+ * Safely get element bounds, handling elements without getBounds method
+ * @param {Object} element - Element to get bounds for
+ * @returns {Object} Bounds {x, y, width, height}
+ */
+export function getElementBoundsSafe(element) {
+  if (element && typeof element.getBounds === "function") {
+    return element.getBounds();
+  }
+  return {
+    x: element?.x || 0,
+    y: element?.y || 0,
+    width: element?.width || 0,
+    height: element?.height || 0
+  };
+}
