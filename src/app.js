@@ -7,6 +7,7 @@ import { ElementService } from './services/ElementService.js';
 import { AlignmentService } from './services/AlignmentService.js';
 import { SerializationService } from './services/SerializationService.js';
 import { ZPLGenerator } from './services/ZPLGenerator.js';
+import { TemplateManager } from './services/TemplateManager.js';
 import { PropertiesPanelRenderer } from './ui/PropertiesPanelRenderer.js';
 import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
@@ -20,6 +21,7 @@ const state = new AppState();
 const serializationService = new SerializationService();
 const alignmentService = new AlignmentService();
 const zplGenerator = new ZPLGenerator();
+const templateManager = new TemplateManager(serializationService);
 let elementService; // Initialized after pushHistory is defined
 
 // Initialize UI renderers (getSectionState will be available later)
@@ -986,112 +988,20 @@ function copyZPL() {
 
 // Export Template to JSON
 function exportTemplate() {
-  const template = {
-    version: "1.0",
-    labelSettings: state.labelSettings,
-    elements: state.elements.map((element) => {
-      const elementData = {
-        type: element.type,
-        x: element.x,
-        y: element.y,
-      };
-
-      if (element.type === "TEXT") {
-        elementData.placeholder = element.placeholder;
-        elementData.previewText = element.previewText;
-        elementData.fontId = element.fontId;
-        elementData.fontSize = element.fontSize;
-        elementData.fontWidth = element.fontWidth;
-        elementData.orientation = element.orientation;
-        elementData.reverse = element.reverse;
-      } else if (element.type === "BARCODE") {
-        elementData.placeholder = element.placeholder;
-        elementData.previewData = element.previewData;
-        elementData.height = element.height;
-        elementData.width = element.width;
-        elementData.ratio = element.ratio;
-        elementData.showText = element.showText;
-      } else if (element.type === "BOX") {
-        elementData.width = element.width;
-        elementData.height = element.height;
-        elementData.thickness = element.thickness;
-        elementData.color = element.color;
-        elementData.rounding = element.rounding;
-      } else if (element.type === "TEXTBLOCK") {
-        elementData.placeholder = element.placeholder;
-        elementData.previewText = element.previewText;
-        elementData.fontId = element.fontId;
-        elementData.fontSize = element.fontSize;
-        elementData.fontWidth = element.fontWidth;
-        elementData.blockWidth = element.blockWidth;
-        elementData.maxLines = element.maxLines;
-        elementData.lineSpacing = element.lineSpacing;
-        elementData.justification = element.justification;
-        elementData.hangingIndent = element.hangingIndent;
-        elementData.reverse = element.reverse;
-      } else if (element.type === "QRCODE") {
-        elementData.placeholder = element.placeholder;
-        elementData.previewData = element.previewData;
-        elementData.model = element.model;
-        elementData.magnification = element.magnification;
-        elementData.errorCorrection = element.errorCorrection;
-      } else if (element.type === "LINE") {
-        elementData.width = element.width;
-        elementData.thickness = element.thickness;
-        elementData.orientation = element.orientation;
-      }
-
-      return elementData;
-    }),
-  };
-
-  const json = JSON.stringify(template, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "zpl-template.json";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  templateManager.exportToFile(state.elements, state.labelSettings);
 }
 
 // Handle File Import
 function handleFileImport(event) {
-  const file = event.target.files[0];
-  if (!file) {
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const template = JSON.parse(e.target.result);
-      importTemplate(template);
-    } catch (error) {
-      alert("Error importing template: " + error.message);
-    }
-  };
-  reader.readAsText(file);
-
-  // Reset file input so the same file can be imported again
-  event.target.value = "";
+  templateManager.handleFileImport(
+    event,
+    (template) => importTemplate(template),
+    (error) => alert("Error importing template: " + error)
+  );
 }
 
 // Import Template from JSON
 function importTemplate(template) {
-  // Validate template structure
-  if (!template.elements || !Array.isArray(template.elements)) {
-    alert("Invalid template format: missing elements array");
-    return;
-  }
-
-  if (!template.labelSettings) {
-    alert("Invalid template format: missing label settings");
-    return;
-  }
-
   // Clear current elements
   state.setElements([]);
   state.setSelectedElement(null);
