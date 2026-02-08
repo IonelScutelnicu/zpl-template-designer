@@ -1,23 +1,19 @@
 // Application imports
-import { TextElement } from './elements/TextElement.js';
-import { BarcodeElement } from './elements/BarcodeElement.js';
-import { BoxElement } from './elements/BoxElement.js';
-import { TextBlockElement } from './elements/TextBlockElement.js';
-import { QRCodeElement } from './elements/QRCodeElement.js';
-import { LineElement } from './elements/LineElement.js';
 import { CanvasRenderer } from './canvas-renderer.js';
 import { InteractionHandler } from './interaction-handler.js';
 import { HISTORY_LIMIT, BUILTIN_FONTS, FONT_LABELS } from './config/constants.js';
-import {
-  clampNumber,
-  getLabelSizeDots,
-  getElementBoundsResolved,
-  getElementBoundsSafe
-} from './utils/geometry.js';
 import { AppState } from './state/AppState.js';
+import { ElementService } from './services/ElementService.js';
+import { AlignmentService } from './services/AlignmentService.js';
+import { SerializationService } from './services/SerializationService.js';
 
 // Initialize centralized state management
 const state = new AppState();
+
+// Initialize services
+const serializationService = new SerializationService();
+const alignmentService = new AlignmentService();
+let elementService; // Initialized after pushHistory is defined
 
 // Export state for use in other modules
 export { state };
@@ -126,6 +122,18 @@ let previewMode = 'canvas'; // 'canvas' or 'api'
 export function initApp() {
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
+
+  // Initialize element service with callbacks
+  elementService = new ElementService(state, {
+    onElementsChanged: () => {
+      interactionHandler.updateElements(state.elements);
+      updateElementsList();
+      renderPropertiesPanel();
+      updateZPLOutput();
+      renderCanvasPreview();
+    },
+    onPushHistory: (label, options) => pushHistory(label, options)
+  });
 
   // Initialize interaction handler
   interactionHandler = new InteractionHandler(canvasRenderer, state.elements, state.labelSettings, {
@@ -859,140 +867,46 @@ function endKeyboardMoveSession(element) {
   state.setKeyboardMoveSession(null);
 }
 
-// Add Text Element
+// Add Element Functions (delegated to ElementService)
 function addTextElement() {
-  const textElement = new TextElement(50, 50, "Sample Text", 0, 0, "", "", "N");
-  state.addElement(textElement);
-  state.setSelectedElement(textElement);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Added Text", { kind: "add", detail: textElement.getDisplayName() });
+  elementService.createElement('TEXT', { text: 'Sample Text', orientation: 'N' });
 }
 
-// Add Barcode Element
 function addBarcodeElement() {
-  const barcodeElement = new BarcodeElement(50, 50, "1234567890", 50, 2, 2.0);
-  state.addElement(barcodeElement);
-  state.setSelectedElement(barcodeElement);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Added Barcode", { kind: "add", detail: barcodeElement.getDisplayName() });
+  elementService.createElement('BARCODE', { data: '1234567890', height: 50, width: 2, ratio: 2.0 });
 }
 
-// Add QR Code Element
 function addQRCodeElement() {
-  const qrcodeElement = new QRCodeElement(50, 50, "https://example.com", 2, 5, "Q");
-  state.addElement(qrcodeElement);
-  state.setSelectedElement(qrcodeElement);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Added QR Code", { kind: "add", detail: qrcodeElement.getDisplayName() });
+  elementService.createElement('QRCODE', { data: 'https://example.com', model: 2, magnification: 5, errorCorrection: 'Q' });
 }
 
-// Add Box Element
 function addBoxElement() {
-  const boxElement = new BoxElement(50, 50, 100, 50, 3, "B", 0);
-  state.addElement(boxElement);
-  state.setSelectedElement(boxElement);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Added Box", { kind: "add", detail: boxElement.getDisplayName() });
+  elementService.createElement('BOX', { width: 100, height: 50, thickness: 3, color: 'B', rounding: 0 });
 }
 
-// Add Text Block Element
 function addTextBlockElement() {
-  const textBlockElement = new TextBlockElement(50, 50, "Sample text that can wrap across multiple lines", 0, 0, 200, 3, 0, "L", 0);
-  state.addElement(textBlockElement);
-  state.setSelectedElement(textBlockElement);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Added Text Block", { kind: "add", detail: textBlockElement.getDisplayName() });
+  elementService.createElement('TEXTBLOCK', { text: 'Sample text that can wrap across multiple lines', blockWidth: 200, maxLines: 3, justification: 'L' });
 }
 
-// Add Line Element
 function addLineElement() {
-  const lineElement = new LineElement(50, 50, 200, 3, "H");
-  state.addElement(lineElement);
-  state.setSelectedElement(lineElement);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Added Line", { kind: "add", detail: lineElement.getDisplayName() });
+  elementService.createElement('LINE', { width: 200, thickness: 3, orientation: 'H' });
 }
 
+// Serialization functions (delegated to SerializationService)
 function serializeElement(element) {
-  if (!element) return null;
-  const data = JSON.parse(JSON.stringify(element));
-  delete data.id;
-  return data;
+  return serializationService.serializeElement(element);
+}
+
+function serializeElementWithId(element) {
+  return serializationService.serializeElementWithId(element);
 }
 
 function createElementFromData(data, options = {}) {
-  if (!data || !data.type) return null;
-  const { keepId = false } = options;
-  let element = null;
-  if (data.type === "TEXT") {
-    element = new TextElement(data.x, data.y, data.previewText, data.fontSize, data.fontWidth, data.placeholder, data.fontId, data.orientation, data.reverse);
-  } else if (data.type === "BARCODE") {
-    element = new BarcodeElement(data.x, data.y, data.previewData, data.height, data.width, data.ratio, data.placeholder, data.showText);
-  } else if (data.type === "QRCODE") {
-    element = new QRCodeElement(data.x, data.y, data.previewData, data.model, data.magnification, data.errorCorrection, data.placeholder);
-  } else if (data.type === "BOX") {
-    element = new BoxElement(data.x, data.y, data.width, data.height, data.thickness, data.color, data.rounding);
-  } else if (data.type === "TEXTBLOCK") {
-    element = new TextBlockElement(data.x, data.y, data.previewText, data.fontSize, data.fontWidth, data.blockWidth, data.maxLines, data.lineSpacing, data.justification, data.hangingIndent, data.placeholder, data.fontId, data.reverse);
-  } else if (data.type === "LINE") {
-    element = new LineElement(data.x, data.y, data.width, data.thickness, data.orientation);
-  }
-
-  if (!element) return null;
-  Object.assign(element, data);
-  if (!keepId) {
-    element.id = Date.now() + Math.random();
-  }
-  return element;
+  return serializationService.createElementFromData(data, options);
 }
 
 function pasteElementFromData(data) {
-  const element = createElementFromData(data);
-  if (!element) return;
-
-  const labelW = state.labelSettings.width * state.labelSettings.dpmm;
-  const labelH = state.labelSettings.height * state.labelSettings.dpmm;
-  const offset = 10;
-
-  element.x = Math.max(0, element.x + offset);
-  element.y = Math.max(0, element.y + offset);
-
-  const bounds = getElementBoundsResolved(element, state.labelSettings);
-  element.x = Math.min(element.x, Math.max(0, labelW - bounds.width));
-  element.y = Math.min(element.y, Math.max(0, labelH - bounds.height));
-
-  state.addElement(element);
-  state.setSelectedElement(element);
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory(`Pasted ${element.type}`, { kind: "paste", detail: element.getDisplayName() });
+  elementService.pasteElement(data, createElementFromData);
 }
 
 // Update Elements List
@@ -1048,74 +962,23 @@ function updateElementsList() {
     .join("");
 }
 
-// Delete Element
+// Element operations (delegated to ElementService)
 function deleteElement(id) {
-  // Convert id to string for reliable comparison
-  const idStr = String(id);
-  const elementToDelete = state.elements.find((el) => String(el.id) === idStr);
-  // Remove element using state
-  state.removeElement(idStr);
-  if (state.selectedElement && String(state.selectedElement.id) === idStr) {
-    state.setSelectedElement(null);
-  }
-  const activeTransformSession = state.getActiveTransformSession();
-  if (activeTransformSession && activeTransformSession.id === idStr) {
-    state.setActiveTransformSession(null);
-  }
-  const keyboardMoveSession = state.getKeyboardMoveSession();
-  if (keyboardMoveSession && keyboardMoveSession.id === idStr) {
-    state.setKeyboardMoveSession(null);
-  }
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  renderPropertiesPanel();
-  updateZPLOutput();
-  renderCanvasPreview();
-  if (elementToDelete) {
-    pushHistory(`Deleted ${elementToDelete.type}`, { kind: "delete", detail: elementToDelete.getDisplayName() });
-  }
+  elementService.deleteElement(id);
 }
 
-// Move Element Up
 function moveElementUp(index) {
-  if (index <= 0 || index >= state.elements.length) return;
-
   const previousPositions = captureElementListPositions();
-
-  // Swap with the element above
-  const newElements = [...state.elements];
-  const temp = newElements[index];
-  newElements[index] = newElements[index - 1];
-  newElements[index - 1] = temp;
-  state.setElements(newElements);
-
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  animateElementListReorder(previousPositions);
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Reordered elements", { kind: "reorder" });
+  if (elementService.moveElement(index, 'up')) {
+    animateElementListReorder(previousPositions);
+  }
 }
 
-// Move Element Down
 function moveElementDown(index) {
-  if (index < 0 || index >= state.elements.length - 1) return;
-
   const previousPositions = captureElementListPositions();
-
-  // Swap with the element below
-  const newElements = [...state.elements];
-  const temp = newElements[index];
-  newElements[index] = newElements[index + 1];
-  newElements[index + 1] = temp;
-  state.setElements(newElements);
-
-  interactionHandler.updateElements(state.elements);
-  updateElementsList();
-  animateElementListReorder(previousPositions);
-  updateZPLOutput();
-  renderCanvasPreview();
-  pushHistory("Reordered elements", { kind: "reorder" });
+  if (elementService.moveElement(index, 'down')) {
+    animateElementListReorder(previousPositions);
+  }
 }
 
 function captureElementListPositions() {
@@ -1546,87 +1409,9 @@ function renderQRCodePropertiesHTML(element) {
 }
 
 
+// Alignment operations (delegated to AlignmentService)
 function applyAlignmentAction(action, element) {
-  if (!element) return;
-  const labelSize = getLabelSizeDots(state.labelSettings);
-  const bounds = getElementBoundsSafe(element);
-
-  if (action === "center-x") {
-    const centeredX = Math.round((labelSize.width - bounds.width) / 2);
-    element.x = Math.max(0, centeredX);
-    return;
-  }
-
-  if (action === "center-y") {
-    const centeredY = Math.round((labelSize.height - bounds.height) / 2);
-    element.y = Math.max(0, centeredY);
-    return;
-  }
-
-  if (action === "match-width") {
-    element.x = 0;
-    if (element.type === "BOX") {
-      element.width = labelSize.width;
-    } else if (element.type === "LINE") {
-      if (element.orientation === "H") {
-        element.width = labelSize.width;
-      } else {
-        element.thickness = labelSize.width;
-      }
-    } else if (element.type === "TEXTBLOCK") {
-      element.blockWidth = labelSize.width;
-    } else if (element.type === "BARCODE") {
-      const dataLength = (element.previewData || "").length;
-      const totalModules = 35 + (11 * dataLength);
-      const targetMultiplier = totalModules > 0 ? labelSize.width / totalModules : element.width;
-      const rounded = Math.round(targetMultiplier * 10) / 10;
-      element.width = clampNumber(rounded, 1, 10);
-    } else if (element.type === "QRCODE") {
-      const dataLength = (element.previewData || "").length;
-      const version = calculateQRVersion(dataLength, element.errorCorrection);
-      const modules = qrVersionToModules(version);
-      const targetMag = modules > 0 ? Math.round(labelSize.width / modules) : element.magnification;
-      element.magnification = clampNumber(targetMag, 1, 10);
-    } else if (element.type === "TEXT") {
-      const textLength = (element.previewText || "").length;
-      if (textLength > 0) {
-        const resolvedWidth = element.fontWidth || state.labelSettings.defaultFontWidth || 30;
-        const currentWidth = Math.max(textLength * resolvedWidth * 0.6, 50);
-        const scale = labelSize.width / currentWidth;
-        element.fontWidth = clampNumber(Math.round(resolvedWidth * scale), 1, 32000);
-      }
-    }
-    return;
-  }
-
-  if (action === "match-height") {
-    element.y = 0;
-    if (element.type === "BOX") {
-      element.height = labelSize.height;
-    } else if (element.type === "LINE") {
-      if (element.orientation === "V") {
-        element.width = labelSize.height;
-      } else {
-        element.thickness = labelSize.height;
-      }
-    } else if (element.type === "BARCODE") {
-      element.height = labelSize.height;
-    } else if (element.type === "QRCODE") {
-      const dataLength = (element.previewData || "").length;
-      const version = calculateQRVersion(dataLength, element.errorCorrection);
-      const modules = qrVersionToModules(version);
-      const targetMag = modules > 0 ? Math.round(labelSize.height / modules) : element.magnification;
-      element.magnification = clampNumber(targetMag, 1, 10);
-    } else if (element.type === "TEXTBLOCK") {
-      const fontSize = element.fontSize || state.labelSettings.defaultFontHeight || 30;
-      const estimatedLines = Math.max(1, Math.round(labelSize.height / fontSize));
-      element.maxLines = clampNumber(estimatedLines, 1, 9999);
-    } else if (element.type === "TEXT") {
-      const currentHeight = element.fontSize || state.labelSettings.defaultFontHeight || 30;
-      const scale = labelSize.height / currentHeight;
-      element.fontSize = clampNumber(Math.round(currentHeight * scale), 1, 32000);
-    }
-  }
+  alignmentService.applyAlignment(action, element, state.labelSettings);
 }
 
 function attachPropertyListeners(element) {
@@ -2136,85 +1921,9 @@ function importTemplate(template) {
   }
 
   // Recreate elements from template
-  const importedElements = [];
-  template.elements.forEach((elementData) => {
-    let element;
-
-    if (elementData.type === "TEXT") {
-      element = new TextElement(
-        elementData.x || 0,
-        elementData.y || 0,
-        elementData.previewText || elementData.text || "",
-        elementData.fontSize !== undefined ? elementData.fontSize : 0,
-        elementData.fontWidth !== undefined ? elementData.fontWidth : 0,
-        elementData.placeholder || "",
-        elementData.fontId || "",
-        elementData.orientation || "N",
-        elementData.reverse || false
-      );
-    } else if (elementData.type === "BARCODE") {
-      element = new BarcodeElement(
-        elementData.x || 0,
-        elementData.y || 0,
-        elementData.previewData || elementData.data || "",
-        elementData.height || 50,
-        elementData.width || 2,
-        elementData.ratio || 2.0,
-        elementData.placeholder || "",
-        elementData.showText !== undefined ? elementData.showText : true
-      );
-    } else if (elementData.type === "BOX") {
-      element = new BoxElement(
-        elementData.x || 0,
-        elementData.y || 0,
-        elementData.width || 100,
-        elementData.height || 50,
-        elementData.thickness || 3,
-        elementData.color || "B",
-        elementData.rounding || 0
-      );
-    } else if (elementData.type === "TEXTBLOCK") {
-      element = new TextBlockElement(
-        elementData.x || 0,
-        elementData.y || 0,
-        elementData.previewText || elementData.text || "",
-        elementData.fontSize !== undefined ? elementData.fontSize : 0,
-        elementData.fontWidth !== undefined ? elementData.fontWidth : 0,
-        elementData.blockWidth || 200,
-        elementData.maxLines || 1,
-        elementData.lineSpacing || 0,
-        elementData.justification || "L",
-        elementData.hangingIndent || 0,
-        elementData.placeholder || "",
-        elementData.fontId || "",
-        elementData.reverse || false
-      );
-    } else if (elementData.type === "QRCODE") {
-      element = new QRCodeElement(
-        elementData.x || 0,
-        elementData.y || 0,
-        elementData.previewData || elementData.data || "",
-        elementData.model || 2,
-        elementData.magnification || 5,
-        elementData.errorCorrection || "Q",
-        elementData.placeholder || ""
-      );
-    } else if (elementData.type === "LINE") {
-      element = new LineElement(
-        elementData.x || 0,
-        elementData.y || 0,
-        elementData.width || 100,
-        elementData.thickness || 3,
-        elementData.orientation || "H"
-      );
-    } else {
-      console.warn("Unknown element type:", elementData.type);
-      return;
-    }
-
-    // Generate new ID for imported element (don't preserve old IDs)
-    importedElements.push(element);
-  });
+  const importedElements = template.elements
+    .map(elementData => createElementFromData(elementData, { keepId: false }))
+    .filter(element => element !== null);
 
   // Set all imported elements at once
   state.setElements(importedElements);
