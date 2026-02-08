@@ -19,8 +19,8 @@ const alignmentService = new AlignmentService();
 const zplGenerator = new ZPLGenerator();
 let elementService; // Initialized after pushHistory is defined
 
-// Initialize UI renderers
-const propertiesPanelRenderer = new PropertiesPanelRenderer(state.labelSettings, getSectionState);
+// Initialize UI renderers (getSectionState will be available later)
+let propertiesPanelRenderer;
 const elementsListRenderer = new ElementsListRenderer();
 
 // Export state for use in other modules
@@ -68,6 +68,9 @@ function clearSectionStates() {
     console.warn('Failed to clear section states from localStorage:', error);
   }
 }
+
+// Initialize properties panel renderer (after helper functions are defined)
+propertiesPanelRenderer = new PropertiesPanelRenderer(state.labelSettings, getSectionState);
 
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
