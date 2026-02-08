@@ -239,10 +239,14 @@ export class PropertiesPanelRenderer {
         ${this.createInputGroup("Wide/Narrow Ratio", "prop-ratio", element.ratio, "number", { min: 2.0, max: 3.0, step: 0.1 })}
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", `
-        <div class="flex items-center justify-between">
-          <label for="prop-show-text" class="text-xs text-slate-700">Show Human-Readable Text</label>
-          <input type="checkbox" id="prop-show-text" ${element.showText ? "checked" : ""}
-            class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500" />
+        <div class="mb-3">
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-xs font-medium text-slate-700">Show Text Below Barcode</span>
+            <div class="relative">
+              <input type="checkbox" id="prop-show-text" class="sr-only peer" ${element.showText === true ? "checked" : ""}>
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+            </div>
+          </label>
         </div>
       `, { open: true, elementType: element.type })}
     `;
