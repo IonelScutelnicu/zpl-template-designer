@@ -7,3 +7,6 @@ settings.local.json
 /playwright-report/
 /playwright/.cache/
 /tests/fixtures/visual-diffs/
+/tests/fixtures/import-props.json
+/tests/fixtures/roundtrip.json
+/tests/fixtures/import-test.json
