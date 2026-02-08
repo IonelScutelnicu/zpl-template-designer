@@ -11,6 +11,7 @@ import { PropertiesPanelRenderer } from './ui/PropertiesPanelRenderer.js';
 import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
+import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -77,6 +78,7 @@ propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings,
 // Initialize UI renderers (will be fully initialized after DOM elements are loaded)
 let historyPanelUI;
 let customFontsManager;
+let propertyListenersManager;
 
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
@@ -167,6 +169,33 @@ export function initApp() {
       onRender: () => renderCustomFonts()
     }
   );
+
+  // Initialize property listeners manager
+  propertyListenersManager = new PropertyListenersManager({
+    onPropertyChange: (element) => {
+      updateZPLOutput();
+      updateElementsList();
+      renderCanvasPreview();
+      scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+        kind: "edit",
+        detail: element.getDisplayName()
+      });
+    },
+    onAlignmentAction: (action, element) => {
+      applyAlignmentAction(action, element);
+      updateZPLOutput();
+      updateElementsList();
+      renderCanvasPreview();
+      renderPropertiesPanel();
+      scheduleHistoryCommit(`element-${element.id}`, `Aligned ${element.type}`, {
+        kind: "align",
+        detail: element.getDisplayName()
+      });
+    },
+    onSectionToggle: (elementType, sectionTitle, isOpen) => {
+      setSectionState(elementType, sectionTitle, isOpen);
+    }
+  });
 
   // Initialize element service with callbacks
   elementService = new ElementService(state, {
@@ -854,204 +883,7 @@ function applyAlignmentAction(action, element) {
 }
 
 function attachPropertyListeners(element) {
-  // Common interactions
-  const attach = (id, field, parser = (v) => v) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-      element[field] = parser(e.target.value);
-      updateZPLOutput();
-      updateElementsList(); // Update list to refect changes (like display name)
-      renderCanvasPreview(); // Update canvas to reflect changes
-      scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
-        kind: "edit",
-        detail: element.getDisplayName()
-      });
-    });
-  };
-
-  const attachAction = (id, action) => {
-    const button = document.getElementById(id);
-    if (!button) return;
-    button.addEventListener("click", () => {
-      applyAlignmentAction(action, element);
-      updateZPLOutput();
-      updateElementsList();
-      renderCanvasPreview();
-      renderPropertiesPanel();
-      scheduleHistoryCommit(`element-${element.id}`, `Aligned ${element.type}`, {
-        kind: "align",
-        detail: element.getDisplayName()
-      });
-    });
-  };
-
-  attachAction("prop-center-x", "center-x");
-  attachAction("prop-center-y", "center-y");
-  attachAction("prop-match-width", "match-width");
-  attachAction("prop-match-height", "match-height");
-
-  attach("prop-x", "x", (v) => parseInt(v) || 0);
-  attach("prop-y", "y", (v) => parseInt(v) || 0);
-
-  if (element.type === "TEXT") {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-text", "previewText");
-    attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
-    attach("prop-orientation", "orientation");
-    const reverseButtons = document.querySelectorAll('[data-reverse]');
-    const setReverseActive = (value) => {
-      reverseButtons.forEach((button) => {
-        const isActive = button.getAttribute('data-reverse') === value;
-        button.classList.toggle('bg-white', isActive);
-        button.classList.toggle('text-blue-600', isActive);
-        button.classList.toggle('shadow', isActive);
-        button.classList.toggle('text-slate-500', !isActive);
-        button.classList.toggle('hover:bg-slate-200', !isActive);
-      });
-    };
-    setReverseActive(element.reverse ? "Y" : "N");
-    reverseButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const value = button.getAttribute('data-reverse');
-        if (!value) return;
-        element.reverse = value === "Y";
-        updateZPLOutput();
-        renderCanvasPreview();
-        setReverseActive(value);
-        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
-          kind: "edit",
-          detail: element.getDisplayName()
-        });
-      });
-    });
-  } else if (element.type === "BARCODE") {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-data", "previewData");
-    attach("prop-height", "height", (v) => parseInt(v) || 50);
-    attach("prop-width", "width", (v) => parseFloat(v) || 2);
-    attach("prop-ratio", "ratio", (v) => parseFloat(v) || 2.0);
-
-    // Handle show text toggle
-    const showTextToggle = document.getElementById("prop-show-text");
-    if (showTextToggle) {
-      showTextToggle.addEventListener("change", (e) => {
-        element.showText = e.target.checked;
-        updateZPLOutput();
-        updateElementsList();
-        renderCanvasPreview();
-        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
-          kind: "edit",
-          detail: element.getDisplayName()
-        });
-      });
-    }
-  } else if (element.type === "BOX") {
-    attach("prop-width", "width", (v) => parseInt(v) || 100);
-    attach("prop-height", "height", (v) => parseInt(v) || 50);
-    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
-    attach("prop-color", "color");
-    attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
-  } else if (element.type === "TEXTBLOCK") {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-text", "previewText");
-    attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
-    attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
-    attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
-    attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
-    attach("prop-hanging-indent", "hangingIndent", (v) => parseInt(v) || 0);
-    const reverseButtons = document.querySelectorAll('[data-reverse]');
-    const setReverseActive = (value) => {
-      reverseButtons.forEach((button) => {
-        const isActive = button.getAttribute('data-reverse') === value;
-        button.classList.toggle('bg-white', isActive);
-        button.classList.toggle('text-blue-600', isActive);
-        button.classList.toggle('shadow', isActive);
-        button.classList.toggle('text-slate-500', !isActive);
-        button.classList.toggle('hover:bg-slate-200', !isActive);
-      });
-    };
-    setReverseActive(element.reverse ? "Y" : "N");
-    reverseButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const value = button.getAttribute('data-reverse');
-        if (!value) return;
-        element.reverse = value === "Y";
-        updateZPLOutput();
-        renderCanvasPreview();
-        setReverseActive(value);
-        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
-          kind: "edit",
-          detail: element.getDisplayName()
-        });
-      });
-    });
-    const justificationButtons = document.querySelectorAll('[data-justification]');
-    const setJustificationActive = (value) => {
-      justificationButtons.forEach((button) => {
-        const isActive = button.getAttribute('data-justification') === value;
-        button.classList.toggle('bg-white', isActive);
-        button.classList.toggle('text-blue-600', isActive);
-        button.classList.toggle('shadow', isActive);
-        button.classList.toggle('text-slate-500', !isActive);
-        button.classList.toggle('hover:bg-slate-200', !isActive);
-      });
-    };
-    setJustificationActive(element.justification);
-    justificationButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const value = button.getAttribute('data-justification');
-        if (!value) return;
-        element.justification = value;
-        updateZPLOutput();
-        renderCanvasPreview();
-        setJustificationActive(value);
-        scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
-          kind: "edit",
-          detail: element.getDisplayName()
-        });
-      });
-    });
-  } else if (element.type === "QRCODE") {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-data", "previewData");
-    attach("prop-model", "model", (v) => parseInt(v) || 2);
-    attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
-    attach("prop-error-correction", "errorCorrection");
-  } else if (element.type === "LINE") {
-    attach("prop-width", "width", (v) => parseInt(v) || 100);
-    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
-    attach("prop-orientation", "orientation");
-  }
-
-  // Attach section toggle listeners for state persistence
-  attachSectionToggleListeners();
-}
-
-function attachSectionToggleListeners() {
-  const detailsElements = propertiesPanel.querySelectorAll('details.section-collapsible');
-
-  detailsElements.forEach(details => {
-    const elementType = details.getAttribute('data-element-type');
-    const sectionTitle = details.getAttribute('data-section-title');
-
-    if (!elementType || !sectionTitle) return;
-
-    // Save state when user toggles section
-    const toggleHandler = () => {
-      // Use setTimeout to ensure 'open' attribute is updated
-      setTimeout(() => {
-        const isOpen = details.hasAttribute('open');
-        setSectionState(elementType, sectionTitle, isOpen);
-      }, 0);
-    };
-
-    details.addEventListener('toggle', toggleHandler);
-  });
+  propertyListenersManager.attachListeners(element, propertiesPanel);
 }
 
 // Update ZPL Output
