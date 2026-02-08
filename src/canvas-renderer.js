@@ -305,10 +305,15 @@ export class CanvasRenderer {
       height = h;
     } else if (element.type === 'TEXTBLOCK' && labelSettings) {
       const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+      const maxLines = element.maxLines || 1;
+      const lineSpacing = element.lineSpacing || 0;
+      // Line spacing is only between lines, not after the last line
+      const baseLineHeight = resolvedHeight * 1.2;
+      const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;
       width = (element.blockWidth || 200) * this.scale;
-      height = resolvedHeight * (element.maxLines || 1) * this.scale;
+      height = totalHeight * this.scale;
     } else {
       const bounds = element.getBounds();
       x = (bounds.x + this.homeX) * this.scale;

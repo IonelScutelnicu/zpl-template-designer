@@ -67,8 +67,11 @@ export class TextBlockRenderer {
 
     // Draw lines (respect maxLines)
     const maxLines = element.maxLines || lines.length;
-    const lineHeight = fontSize * 1.2;
-    const blockHeight = lineHeight * maxLines;
+    // Line spacing is only between lines, not after the last line
+    const lineSpacing = (element.lineSpacing || 0) * scale;
+    const baseLineHeight = fontSize * 1.2;
+    const lineHeight = baseLineHeight + lineSpacing;
+    const blockHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
 
     const createReverseOverlay = () => {
       const left = Math.max(0, Math.floor(x));

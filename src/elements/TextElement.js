@@ -22,21 +22,23 @@ export class TextElement extends ZPLElement {
         return (this.fontSize || 30) + 10;
     }
 
-    render(defaultFontId = '0') {
+    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const reverseCmd = this.reverse ? '^FR' : '';
-        // Omit font size if using label defaults (0 or empty)
-        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation}${sizeCmd}^FD${content}^FS`;
+        // Use label defaults if element values are 0
+        const fontSize = this.fontSize || defaultFontHeight;
+        const fontWidth = this.fontWidth || defaultFontWidth;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^FD${content}^FS`;
     }
 
-    renderPreview(defaultFontId = '0') {
+    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
-        // Omit font size if using label defaults (0 or empty)
-        const sizeCmd = (this.fontSize || this.fontWidth) ? `,${this.fontSize || ''},${this.fontWidth || ''}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation}${sizeCmd}^FD${this.previewText}^FS`;
+        // Use label defaults if element values are 0
+        const fontSize = this.fontSize || defaultFontHeight;
+        const fontWidth = this.fontWidth || defaultFontWidth;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {
