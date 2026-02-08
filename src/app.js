@@ -913,6 +913,16 @@ function pasteElementFromData(data) {
   elementService.pasteElement(data, createElementFromData);
 }
 
+// Render Properties Panel
+function renderPropertiesPanel() {
+  const html = propertiesPanelRenderer.render(state.selectedElement);
+  propertiesPanel.innerHTML = html;
+
+  if (state.selectedElement) {
+    attachPropertyListeners(state.selectedElement);
+  }
+}
+
 // Update Elements List
 function updateElementsList() {
   const html = elementsListRenderer.render(state.elements, state.selectedElement);
