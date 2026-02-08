@@ -6,6 +6,7 @@ import { AppState } from './state/AppState.js';
 import { ElementService } from './services/ElementService.js';
 import { AlignmentService } from './services/AlignmentService.js';
 import { SerializationService } from './services/SerializationService.js';
+import { ZPLGenerator } from './services/ZPLGenerator.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -13,6 +14,7 @@ const state = new AppState();
 // Initialize services
 const serializationService = new SerializationService();
 const alignmentService = new AlignmentService();
+const zplGenerator = new ZPLGenerator();
 let elementService; // Initialized after pushHistory is defined
 
 // Export state for use in other modules
@@ -1610,48 +1612,8 @@ function attachSectionToggleListeners() {
 
 // Update ZPL Output
 function updateZPLOutput() {
-  if (state.elements.length === 0) {
-    zplOutput.value = "";
-    return;
-  }
-
-  // Build ZPL with settings commands
-  const { width, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, customFonts, defaultFontHeight: dfh, defaultFontWidth: dfw } = state.labelSettings;
-
-  // Calculate print width in dots (width in mm × dpmm)
-  const printWidthDots = Math.round(width * dpmm);
-
-  let zplHeader = "^XA\n";
-
-  // Add print width command
-  zplHeader += `^PW${printWidthDots}\n`;
-
-  // Add print speed command
-  zplHeader += `^PR${ps},${ss},${bs}\n`;
-
-  // Add print orientation command
-  zplHeader += `^PO${po}\n`;
-
-  // Add media darkness command
-  zplHeader += `~SD${md}\n`;
-
-  // Add position offset commands
-  zplHeader += `^LH${hx},${hy}\n`;
-  zplHeader += `^LT${lt}\n`;
-
-  zplHeader += `^CI28\n`;
-  zplHeader += `^MTT\n`;
-
-  // Add custom font configuration commands (^CW for each custom font)
-  if (customFonts && customFonts.length > 0) {
-    customFonts.forEach(font => {
-      zplHeader += `^CW${font.id},${font.fontFile}\n`;
-    });
-  }
-  zplHeader += `^CF${fid},${dfh},${dfw}\n`;
-
-  const zplCommands = state.elements.map((element) => element.render(fid)).join("\n");
-  zplOutput.value = `${zplHeader}${zplCommands}\n^XZ`;
+  const zpl = zplGenerator.generateZPL(state.elements, state.labelSettings);
+  zplOutput.value = zpl;
 }
 
 // Cache for API preview
@@ -1670,55 +1632,9 @@ async function updatePreview() {
     return;
   }
 
-  // Generate preview ZPL using renderPreview() method
-  const { width, height, dpmm, homeX: hx, homeY: hy, labelTop: lt, printOrientation: po, mediaDarkness: md, printSpeed: ps, slewSpeed: ss, backfeedSpeed: bs, fontId: fid, fontFile: ffile, defaultFontHeight: dfh, defaultFontWidth: dfw } = state.labelSettings;
-
-  // Calculate print width in dots (width in mm × dpmm)
-  const printWidthDots = Math.round(width * dpmm);
-
-  let zplHeader = "^XA\n";
-  zplHeader += `^PW${printWidthDots}\n`;
-  zplHeader += `^PR${ps},${ss},${bs}\n`;
-  zplHeader += `^PO${po}\n`;
-  zplHeader += `~SD${md}\n`;
-  zplHeader += `^LH${hx},${hy}\n`;
-  zplHeader += `^LT${lt}\n`;
-  zplHeader += `^CI28\n`;
-  zplHeader += `^MTT\n`;
-  if (ffile && ffile.trim() !== '') {
-    zplHeader += `^CW${fid},${ffile}\n`;
-  }
-  zplHeader += `^CF${fid},${dfh},${dfw}\n`;
-
-  const zplCommands = state.elements.map((element) => {
-    let cmd = element.renderPreview(fid);
-
-    // Add debug highlight box for selected TEXT or TEXTBLOCK elements
-    // if (selectedElement && String(element.id) === String(selectedElement.id) &&
-    //   (element.type === "TEXT" || element.type === "TEXTBLOCK")) {
-    //   // Calculate element dimensions
-    //   let boxWidth, boxHeight;
-
-    //   if (element.type === "TEXTBLOCK") {
-    //     // TEXTBLOCK uses the defined blockWidth
-    //     boxWidth = element.blockWidth || 200;
-    //     boxHeight = (element.fontSize || 30) * (element.maxLines || 1);
-    //   } else {
-    //     // TEXT: estimate width based on text length and font
-    //     const text = element.previewText || '';
-    //     boxWidth = Math.max(text.length * (element.fontWidth || 30) * 0.6, 50);
-    //     boxHeight = (element.fontSize || 30);
-    //   }
-
-    //   // Add a highlight box around the element
-    //   const padding = 5;
-    //   const highlightBox = `^FO${Math.max(0, element.x - padding)},${Math.max(0, element.y - padding)}^GB${boxWidth + padding * 2},${boxHeight + padding * 2},1,B^FS`;
-    //   cmd = highlightBox + "\n" + cmd;
-    // }
-
-    return cmd;
-  }).join("\n");
-  const previewZpl = `${zplHeader}${zplCommands}\n^XZ`;
+  // Generate preview ZPL
+  const previewZpl = zplGenerator.generatePreviewZPL(state.elements, state.labelSettings, state.selectedElement);
+  const { width, height, dpmm } = state.labelSettings;
 
   // Check cache - if ZPL hasn't changed, reuse the existing image
   if (previewZpl === lastPreviewZpl && lastPreviewImageUrl) {
