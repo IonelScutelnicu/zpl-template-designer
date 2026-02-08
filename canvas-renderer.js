@@ -471,7 +471,7 @@ class CanvasRenderer {
     // Measure text width at unscaled size, then apply horizontal scale
     const measuredWidth = this.ctx.measureText(text).width;
     const textWidth = measuredWidth * scaleX;
-    const textHeight = element.getEstimatedHeight ? element.getEstimatedHeight() * this.scale : fontSize + 10;
+    const textHeight = fontSize;
 
     const drawTransformedText = (ctx, color, offsetX = 0, offsetY = 0) => {
       ctx.save();
@@ -679,6 +679,37 @@ class CanvasRenderer {
 
     lines.slice(0, maxLines).forEach((line, i) => {
       const measuredWidth = this.ctx.measureText(line).width * scaleX;
+      const lineY = y + (i * lineHeight);
+      const isLastLine = (i === lines.slice(0, maxLines).length - 1);
+
+      // Handle justified text
+      if (element.justification === 'J') {
+        const words = line.split(/\s+/).filter(w => w.length > 0);
+
+        // Only justify if: not last line AND has multiple words AND line is shorter than block width
+        if (!isLastLine && words.length > 1 && measuredWidth < blockWidth) {
+          // Measure individual words (without scaling first)
+          const wordWidths = words.map(word => this.ctx.measureText(word).width * scaleX);
+          const totalWordWidth = wordWidths.reduce((sum, w) => sum + w, 0);
+
+          // Calculate space to distribute between words
+          const availableSpace = blockWidth - totalWordWidth;
+          const spaceBetweenWords = availableSpace / (words.length - 1);
+
+          // Draw words with calculated spacing
+          let currentX = x;
+          words.forEach((word, wordIndex) => {
+            this.ctx.save();
+            this.ctx.translate(currentX, lineY);
+            this.ctx.scale(scaleX, 1);
+            this.ctx.fillText(word, 0, 0);
+            this.ctx.restore();
+            currentX += wordWidths[wordIndex] + spaceBetweenWords;
+          });
+          return; // Skip the normal rendering below
+        }
+        // Last line or single word: left-align (fall through)
+      }
 
       let lineX = x;
       // Apply justification using scaled width
@@ -690,7 +721,7 @@ class CanvasRenderer {
 
       // Apply horizontal scaling for text rendering
       this.ctx.save();
-      this.ctx.translate(lineX, y + (i * lineHeight));
+      this.ctx.translate(lineX, lineY);
       this.ctx.scale(scaleX, 1);
       this.ctx.fillText(line, 0, 0);
       this.ctx.restore();
