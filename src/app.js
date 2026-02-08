@@ -10,6 +10,7 @@ import { ZPLGenerator } from './services/ZPLGenerator.js';
 import { PropertiesPanelRenderer } from './ui/PropertiesPanelRenderer.js';
 import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
+import { CustomFontsManager } from './ui/CustomFontsManager.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -75,6 +76,7 @@ propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings,
 
 // Initialize UI renderers (will be fully initialized after DOM elements are loaded)
 let historyPanelUI;
+let customFontsManager;
 
 // DOM Elements
 const addTextBtn = document.getElementById("add-text-btn");
@@ -146,6 +148,23 @@ export function initApp() {
       state.setHistoryIndex(index);
       const historyEntries = state.getHistoryEntries();
       applyAppState(historyEntries[state.getHistoryIndex()].state);
+    }
+  );
+
+  // Initialize custom fonts manager
+  customFontsManager = new CustomFontsManager(
+    {
+      newFontId,
+      newFontFile,
+      list: customFontsList,
+      error: customFontError,
+      fontDropdown: fontId
+    },
+    BUILTIN_FONTS,
+    {
+      onRemove: (fontId) => removeCustomFont(fontId),
+      onUpdateFile: (fontId, newFile) => updateCustomFontFile(fontId, newFile),
+      onRender: () => renderCustomFonts()
     }
   );
 
@@ -495,40 +514,15 @@ function syncLabelSettingsInputs() {
 }
 
 function addCustomFont() {
-  const id = newFontId.value.trim().toUpperCase();
-  const file = newFontFile.value.trim();
+  const id = newFontId.value;
+  const file = newFontFile.value;
 
-  // Validation
-  if (!id || !file) {
-    showCustomFontError("Both ID and Font File are required");
-    return;
+  const newFonts = customFontsManager.add(id, file, state.labelSettings.customFonts);
+  if (newFonts === null) {
+    return; // Validation failed, error already shown
   }
 
-  if (!/^[A-Z0-9]$/.test(id)) {
-    showCustomFontError("ID must be a single letter (A-Z) or digit (0-9)");
-    return;
-  }
-
-  if (BUILTIN_FONTS.includes(id)) {
-    showCustomFontError(`Font ID '${id}' is a built-in font and cannot be overridden`);
-    return;
-  }
-
-  if (state.labelSettings.customFonts.some(f => f.id === id)) {
-    showCustomFontError(`Font ID '${id}' is already defined`);
-    return;
-  }
-
-  // Add font
-  const customFonts = [...state.labelSettings.customFonts, { id, fontFile: file }];
-  state.updateLabelSettings({ customFonts });
-
-  // Clear inputs and error
-  newFontId.value = "";
-  newFontFile.value = "";
-  hideCustomFontError();
-
-  // Update UI
+  state.updateLabelSettings({ customFonts: newFonts });
   renderCustomFonts();
   updateFontDropdownOptions();
   updateZPLOutput();
@@ -536,7 +530,7 @@ function addCustomFont() {
 }
 
 function removeCustomFont(id) {
-  const customFonts = state.labelSettings.customFonts.filter(f => f.id !== id);
+  const customFonts = customFontsManager.remove(id, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
   renderCustomFonts();
   updateFontDropdownOptions();
@@ -545,74 +539,12 @@ function removeCustomFont(id) {
 }
 
 function renderCustomFonts() {
-  if (!customFontsList) return;
-
-  if (state.labelSettings.customFonts.length === 0) {
-    customFontsList.innerHTML = '<p class="text-slate-400 text-[10px] italic">No custom fonts defined</p>';
-    return;
-  }
-
-  customFontsList.innerHTML = state.labelSettings.customFonts.map(font => `
-    <div class="flex items-center gap-2 bg-slate-50 rounded px-2 py-1.5 border border-slate-100">
-      <span class="font-mono font-bold text-blue-600 w-6">${font.id}</span>
-      <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
-        data-font-id="${font.id}" title="${font.fontFile} (click to edit)">${font.fontFile}</span>
-      <button onclick="removeCustomFont('${font.id}')"
-        class="text-slate-400 hover:text-red-500 transition-colors p-0.5" title="Remove">
-        <span class="material-icons-round text-sm">close</span>
-      </button>
-    </div>
-  `).join('');
-
-  // Attach click handlers for inline editing
-  customFontsList.querySelectorAll('.custom-font-file').forEach(span => {
-    span.addEventListener('click', startEditCustomFont);
-  });
+  customFontsManager.render(state.labelSettings.customFonts);
 }
 
-function startEditCustomFont(e) {
-  const span = e.target;
-  const fontId = span.dataset.fontId;
-  const currentValue = span.textContent;
-
-  // Create input field
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = currentValue;
-  input.className = 'flex-1 text-[11px] px-1 py-0.5 border border-blue-400 rounded outline-none focus:ring-1 focus:ring-blue-500';
-  input.dataset.fontId = fontId;
-
-  // Replace span with input
-  span.replaceWith(input);
-  input.focus();
-  input.select();
-
-  // Handle save on blur or Enter
-  const saveEdit = () => {
-    const newValue = input.value.trim();
-    if (newValue && newValue !== currentValue) {
-      updateCustomFontFile(fontId, newValue);
-    } else {
-      renderCustomFonts(); // Restore original if empty or unchanged
-    }
-  };
-
-  input.addEventListener('blur', saveEdit);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      input.blur();
-    } else if (e.key === 'Escape') {
-      input.value = currentValue; // Reset to original
-      input.blur();
-    }
-  });
-}
 
 function updateCustomFontFile(fontId, newFontFile) {
-  const customFonts = state.labelSettings.customFonts.map(f =>
-    f.id === fontId ? { ...f, fontFile: newFontFile } : f
-  );
+  const customFonts = customFontsManager.updateFile(fontId, newFontFile, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
   updateZPLOutput();
   scheduleHistoryCommit("label-settings", "Updated custom font", { kind: "settings" });
@@ -620,45 +552,9 @@ function updateCustomFontFile(fontId, newFontFile) {
 }
 
 function updateFontDropdownOptions() {
-  if (!fontId) return;
-
-  // Store current value
-  const currentValue = fontId.value;
-
-  // Remove existing custom font options (keep only built-in)
-  const options = Array.from(fontId.options);
-  options.forEach(opt => {
-    if (!BUILTIN_FONTS.includes(opt.value)) {
-      opt.remove();
-    }
-  });
-
-  // Add custom fonts
-  state.labelSettings.customFonts.forEach(font => {
-    const option = document.createElement('option');
-    option.value = font.id;
-    option.textContent = `${font.id} - Custom`;
-    fontId.appendChild(option);
-  });
-
-  // Restore value if still valid
-  if (Array.from(fontId.options).some(opt => opt.value === currentValue)) {
-    fontId.value = currentValue;
-  }
+  customFontsManager.updateFontDropdown(state.labelSettings.customFonts);
 }
 
-function showCustomFontError(message) {
-  if (customFontError) {
-    customFontError.textContent = message;
-    customFontError.classList.remove('hidden');
-  }
-}
-
-function hideCustomFontError() {
-  if (customFontError) {
-    customFontError.classList.add('hidden');
-  }
-}
 
 function applyAppState(stateData) {
   if (!stateData) return;
