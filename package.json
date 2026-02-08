@@ -1,0 +1,30 @@
+{
+  "name": "zebra",
+  "version": "1.0.0",
+  "description": "A web-based application for creating custom ZPL (Zebra Programming Language) templates using plain HTML and JavaScript.",
+  "main": "app.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IonelScutelnicu/zpl-template-designer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/IonelScutelnicu/zpl-template-designer/issues"
+  },
+  "homepage": "https://github.com/IonelScutelnicu/zpl-template-designer#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.9",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "serve": "^14.2.5"
+  }
+}
