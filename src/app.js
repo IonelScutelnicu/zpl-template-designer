@@ -14,8 +14,15 @@ import {
   getElementBoundsResolved,
   getElementBoundsSafe
 } from './utils/geometry.js';
+import { AppState } from './state/AppState.js';
 
-// Application State
+// Initialize centralized state management
+const state = new AppState();
+
+// Export state for use during migration
+export { state };
+
+// Legacy global state (will be removed after migration)
 let elements = [];
 let selectedElement = null;
 let labelSettings = {
@@ -149,9 +156,10 @@ export function initApp() {
   canvasRenderer = new CanvasRenderer('label-canvas');
 
   // Initialize interaction handler
-  interactionHandler = new InteractionHandler(canvasRenderer, elements, labelSettings, {
+  interactionHandler = new InteractionHandler(canvasRenderer, state.elements, state.labelSettings, {
     onElementSelected: (element) => {
-      selectedElement = element;
+      selectedElement = element;  // Keep legacy sync for now
+      state.setSelectedElement(element);
       updateElementsList();
       renderPropertiesPanel();
       renderCanvasPreview();
@@ -215,7 +223,7 @@ export function initApp() {
     },
     onUndo: () => undo(),
     onRedo: () => redo(),
-    getSelectedElement: () => selectedElement,
+    getSelectedElement: () => state.selectedElement,  // Read from state
     serializeElement: (element) => serializeElement(element),
     pasteElement: (data) => pasteElementFromData(data)
   });
