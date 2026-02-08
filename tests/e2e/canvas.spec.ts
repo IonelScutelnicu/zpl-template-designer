@@ -99,9 +99,12 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
 
             // Set a known initial position
             await page.locator('#prop-x').fill('50');
-            await page.locator('#prop-x').dispatchEvent('change');
+            await page.locator('#prop-x').dispatchEvent('input');
             await page.locator('#prop-y').fill('50');
-            await page.locator('#prop-y').dispatchEvent('change');
+            await page.locator('#prop-y').dispatchEvent('input');
+
+            // Wait for ZPL to update
+            await page.waitForTimeout(100);
 
             // Drag to new position
             await canvas.dragLabelCoords(60, 60, 150, 100);
@@ -152,14 +155,12 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
 
             const initialY = parseInt(await propertiesPanel.getProperty('prop-y'));
 
-            // Ensure focus is not on an input (clicking canvas wrapper or body)
-            await page.locator('body').click();
-            // Re-select if needed, but body click might deselect. 
-            // Safer to just ensure we haven't clicked an input. 
-            // In this specific test, we haven't clicked an input yet.
-            // But let's look at the next test where we do modify.
+            // Click on canvas to ensure focus is on the canvas, not on inputs
+            await page.locator('#label-canvas').click();
+            await page.waitForTimeout(100);
 
             await page.keyboard.press('ArrowDown');
+            await page.waitForTimeout(100);
 
             const newY = parseInt(await propertiesPanel.getProperty('prop-y'));
             expect(newY).toBeGreaterThan(initialY);

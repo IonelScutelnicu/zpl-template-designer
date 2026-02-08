@@ -57,8 +57,9 @@ export class PreviewPanel {
      */
     async waitForAPIPreviewLoaded(): Promise<void> {
         // Wait for loading to disappear and image to appear
-        await this.previewLoading.waitFor({ state: 'hidden', timeout: 30000 });
-        await this.previewImage.waitFor({ state: 'visible', timeout: 30000 });
+        // Increased timeout for Labelary API which can be slow
+        await this.previewLoading.waitFor({ state: 'hidden', timeout: 60000 });
+        await this.previewImage.waitFor({ state: 'visible', timeout: 60000 });
     }
 
     /**
