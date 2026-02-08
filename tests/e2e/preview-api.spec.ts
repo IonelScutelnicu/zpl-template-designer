@@ -92,8 +92,7 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             await expect(previewImage).toBeVisible();
         });
 
-        test.skip('should update preview when refresh is clicked after adding element', async () => {
-            // Skipped: Labelary API can be slow/unreliable
+        test('should update preview when refresh is clicked after adding element', async () => {
             // Increase timeout for this test due to Labelary API
             test.setTimeout(90000);
 
@@ -167,8 +166,7 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
     // ============== PREVIEW PARITY (CRITICAL) ==============
     test.describe('Preview Parity - Canvas vs API', () => {
-        test.skip('should render similar output between canvas and API for Text element', async () => {
-            // Skipped: Labelary API can be slow/unreliable
+        test('should render similar output between canvas and API for Text element', async () => {
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
 
@@ -196,8 +194,7 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             // This test verifies both previews render successfully
         });
 
-        test.skip('should render similar output between canvas and API for Barcode element', async () => {
-            // Skipped: Labelary API can be slow/unreliable
+        test('should render similar output between canvas and API for Barcode element', async () => {
             // Increase timeout for this test due to Labelary API
             test.setTimeout(90000);
 
@@ -230,8 +227,7 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             expect(apiImage.length).toBeGreaterThan(100);
         });
 
-        test.skip('should render similar output for multiple elements', async () => {
-            // Skipped: Labelary API can be slow/unreliable
+        test('should render similar output for multiple elements', async () => {
             await elementsPanel.addTextElement();
             await elementsPanel.addBarcodeElement();
             await elementsPanel.addBoxElement();

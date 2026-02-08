@@ -2,10 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/e2e',
-    fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
     reporter: 'html',
 
     use: {
@@ -16,8 +14,19 @@ export default defineConfig({
 
     projects: [
         {
-            name: 'chromium',
+            name: 'core',
+            testMatch: /.*\.spec\.ts/,
+            testIgnore: /.*-api\.spec\.ts/,
             use: { ...devices['Desktop Chrome'] },
+            fullyParallel: true,
+            workers: process.env.CI ? 2 : undefined, // Parallel for fast core tests
+        },
+        {
+            name: 'api-integration',
+            testMatch: /.*-api\.spec\.ts/,
+            use: { ...devices['Desktop Chrome'] },
+            fullyParallel: false,
+            workers: 1, // Sequential to respect Labelary rate limits
         },
     ],
 

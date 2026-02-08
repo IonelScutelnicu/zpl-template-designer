@@ -151,6 +151,48 @@ The application uses a modular architecture for maintainability and testability:
 - **Strategy Pattern**: Specialized renderers for each element type
 - **Maintainability**: Average file size ~230 lines (vs 1,741 in monolithic version)
 
+## Testing
+
+The project uses Playwright for end-to-end testing with a dual-project setup optimized for performance and reliability.
+
+### Test Organization
+
+Tests are split into two projects to handle different execution requirements:
+
+- **Core Tests** (~90 tests): Fast, parallel execution
+  - Element creation/deletion, property updates, canvas rendering
+  - ZPL generation, import/export, visual regression
+
+- **API Integration Tests** (~25 tests): Sequential execution with rate limiting
+  - API preview mode, canvas vs API parity testing
+  - Respects Labelary API limits (3 requests/second)
+
+### Running Tests
+
+```bash
+# Run all tests (both core and API)
+npm test
+
+# Run only core tests (fast, parallel)
+npm run test:core
+
+# Run only API tests (sequential with rate limiting)
+npm run test:api
+
+# Run tests in UI mode
+npm run test:ui
+
+# Debug tests
+npm run test:debug
+```
+
+### Test Files
+
+- Core tests: `*.spec.ts` (run in parallel)
+- API tests: `*-api.spec.ts` (run sequentially)
+
+API tests use automatic rate limiting (334ms between calls) to prevent hitting Labelary API limits. See `TESTING_IMPROVEMENTS.md` for detailed implementation information.
+
 ## Browser Compatibility
 
 Works in all modern browsers that support ES6 JavaScript features.
