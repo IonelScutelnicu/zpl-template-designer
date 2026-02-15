@@ -176,12 +176,28 @@ export class PropertiesPanelRenderer {
         </div>
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
-          <select id="prop-orientation" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="N" ${element.orientation === "N" ? "selected" : ""}>Normal (N)</option>
-            <option value="R" ${element.orientation === "R" ? "selected" : ""}>Rotated 90° (R)</option>
-            <option value="I" ${element.orientation === "I" ? "selected" : ""}>Inverted 180° (I)</option>
-            <option value="B" ${element.orientation === "B" ? "selected" : ""}>Bottom-Up 270° (B)</option>
-          </select>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            <button type="button" data-orientation="N"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "N" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              title="Normal (N)">
+              <span class="material-icons-round text-base">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="R"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "R" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              title="Rotated 90° (R)">
+              <span class="material-icons-round text-base inline-block rotate-90">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="I"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "I" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              title="Inverted 180° (I)">
+              <span class="material-icons-round text-base inline-block rotate-180">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="B"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "B" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              title="Bottom-Up 270° (B)">
+              <span class="material-icons-round text-base inline-block -rotate-90">text_rotation_none</span>
+            </button>
+          </div>
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Text Content", `
