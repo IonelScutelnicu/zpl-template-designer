@@ -39,13 +39,14 @@ export class CanvasRenderer {
    * @param {Object} labelSettings - Label configuration
    */
   renderCanvas(elements, labelSettings, selectedElement = null) {
-    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N' } = labelSettings;
+    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N', printMirror = 'N' } = labelSettings;
 
     // Store offsets and orientation for use in element drawing and coordinate conversion
     this.homeX = homeX;
     this.homeY = homeY;
     this.labelTop = labelTop;
     this.printOrientation = printOrientation;
+    this.printMirror = printMirror;
 
     // Calculate label dimensions in dots
     const labelWidthDots = width * dpmm;
@@ -90,12 +91,24 @@ export class CanvasRenderer {
       this.ctx.scale(-1, -1);
     }
 
+    // Apply mirror transformation (horizontal flip)
+    if (printMirror === 'Y') {
+      this.ctx.save();
+      this.ctx.translate(labelWidthDots, 0);
+      this.ctx.scale(-1, 1);
+    }
+
     // Render each element
     elements.forEach(element => {
       this.drawElement(element, labelSettings, selectedElement);
     });
 
-    // Restore context if transformed
+    // Restore mirror transform if applied
+    if (printMirror === 'Y') {
+      this.ctx.restore();
+    }
+
+    // Restore orientation transform if applied
     if (printOrientation === 'I') {
       this.ctx.restore();
     }
@@ -409,6 +422,11 @@ export class CanvasRenderer {
     if (this.printOrientation === 'I') {
       internalX = this.labelWidthDots - internalX;
       internalY = this.labelHeightDots - internalY;
+    }
+
+    // If mirror is enabled, flip the X coordinate
+    if (this.printMirror === 'Y') {
+      internalX = this.labelWidthDots - internalX;
     }
 
     // Subtract offsets to get element-relative coordinates
