@@ -78,7 +78,30 @@ export class PropertyListenersManager {
     attach("prop-font-id", "fontId");
     attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
     attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
-    attach("prop-orientation", "orientation");
+    // Orientation toggle buttons
+    const orientationButtons = document.querySelectorAll('[data-orientation]');
+    const setOrientationActive = (value) => {
+      orientationButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-orientation') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('text-slate-400', !isActive);
+        button.classList.toggle('hover:bg-white', !isActive);
+        button.classList.toggle('hover:text-slate-600', !isActive);
+        button.classList.toggle('hover:shadow-sm', !isActive);
+      });
+    };
+    setOrientationActive(element.orientation || "N");
+    orientationButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-orientation');
+        if (!value) return;
+        element.orientation = value;
+        setOrientationActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
 
     // Reverse toggle buttons
     const reverseButtons = document.querySelectorAll('[data-reverse]');
