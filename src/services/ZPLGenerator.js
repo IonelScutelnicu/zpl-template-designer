@@ -77,6 +77,7 @@ export class ZPLGenerator {
       homeY = 0,
       labelTop = 0,
       printOrientation = 'N',
+      printMirror = 'N',
       mediaDarkness = 25,
       printSpeed = 4,
       slewSpeed = 4,
@@ -100,6 +101,9 @@ export class ZPLGenerator {
 
     // Print orientation (N = normal, I = inverted, R = rotated 90°, B = bottom-up)
     header += `^PO${printOrientation}\n`;
+
+    // Print mirror (N = normal, Y = mirrored horizontally)
+    header += `^PM${printMirror}\n`;
 
     // Media darkness (0-30, ~SD command)
     header += `~SD${mediaDarkness}\n`;

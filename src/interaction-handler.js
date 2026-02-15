@@ -524,8 +524,9 @@ export class InteractionHandler {
     // Check if orientation is inverted - if so, reverse arrow key directions
     // so visual movement matches user expectations
     const isInverted = this.labelSettings.printOrientation === 'I';
+    const isMirrored = this.labelSettings.printMirror === 'Y';
 
-    // Determine effective direction based on orientation
+    // Determine effective direction based on orientation and mirror
     let effectiveKey = e.key;
     if (isInverted) {
       switch (e.key) {
@@ -533,6 +534,12 @@ export class InteractionHandler {
         case 'ArrowRight': effectiveKey = 'ArrowLeft'; break;
         case 'ArrowUp': effectiveKey = 'ArrowDown'; break;
         case 'ArrowDown': effectiveKey = 'ArrowUp'; break;
+      }
+    }
+    if (isMirrored) {
+      switch (effectiveKey) {
+        case 'ArrowLeft': effectiveKey = 'ArrowRight'; break;
+        case 'ArrowRight': effectiveKey = 'ArrowLeft'; break;
       }
     }
 
@@ -735,15 +742,16 @@ export class InteractionHandler {
    * Get cursor style for a given resize handle
    */
   getCursorForHandle(handle) {
+    const isMirrored = this.labelSettings.printMirror === 'Y';
     const cursorMap = {
-      'tl': 'nwse-resize',  // Top-left
-      'tr': 'nesw-resize',  // Top-right
-      'bl': 'nesw-resize',  // Bottom-left
-      'br': 'nwse-resize',  // Bottom-right
-      't': 'ns-resize',     // Top
-      'r': 'ew-resize',     // Right
-      'b': 'ns-resize',     // Bottom
-      'l': 'ew-resize'      // Left
+      'tl': isMirrored ? 'nesw-resize' : 'nwse-resize',
+      'tr': isMirrored ? 'nwse-resize' : 'nesw-resize',
+      'bl': isMirrored ? 'nwse-resize' : 'nesw-resize',
+      'br': isMirrored ? 'nesw-resize' : 'nwse-resize',
+      't': 'ns-resize',
+      'r': 'ew-resize',
+      'b': 'ns-resize',
+      'l': 'ew-resize'
     };
     return cursorMap[handle] || 'default';
   }

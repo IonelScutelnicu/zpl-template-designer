@@ -111,6 +111,7 @@ const homeX = document.getElementById("home-x");
 const homeY = document.getElementById("home-y");
 const labelTop = document.getElementById("label-top");
 const printOrientation = document.getElementById("print-orientation");
+const printMirror = document.getElementById("print-mirror");
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
@@ -339,6 +340,13 @@ export function initApp() {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
+  printMirror.addEventListener("change", (e) => {
+    state.updateLabelSettings({ printMirror: e.target.value || "N" });
+    updateZPLOutput();
+    renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
   mediaDarkness.addEventListener("input", (e) => {
     state.updateLabelSettings({ mediaDarkness: parseInt(e.target.value) || 25 });
     updateZPLOutput();
@@ -534,6 +542,7 @@ function syncLabelSettingsInputs() {
   homeY.value = state.labelSettings.homeY;
   labelTop.value = state.labelSettings.labelTop;
   printOrientation.value = state.labelSettings.printOrientation;
+  printMirror.value = state.labelSettings.printMirror;
   mediaDarkness.value = state.labelSettings.mediaDarkness;
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;

@@ -38,6 +38,10 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await zplOutput.verifyZPLContains('^PO');
         });
 
+        test('should include print mirror ^PM command in output', async () => {
+            await zplOutput.verifyZPLContains('^PM');
+        });
+
         test('should include media darkness ~SD command in output', async () => {
             await zplOutput.verifyZPLContains('~SD');
         });
@@ -180,6 +184,12 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await orientationSelect.selectOption('I');
 
             await zplOutput.verifyZPLContains('^POI');
+        });
+
+        test('should update ^PM when mirror is changed', async ({ page }) => {
+            const mirrorSelect = page.locator('#print-mirror');
+            await mirrorSelect.selectOption('Y');
+            await zplOutput.verifyZPLContains('^PMY');
         });
     });
 
