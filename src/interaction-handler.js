@@ -340,7 +340,7 @@ export class InteractionHandler {
         let newY = coords.y - this.dragOffsetY;
 
         // Constrain to label bounds
-        const bounds = this.getSelectionBounds(this.dragElement);
+        const bounds = this.getDragConstraintBounds(this.dragElement);
         const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
@@ -549,7 +549,7 @@ export class InteractionHandler {
         moved = true;
         break;
       case 'ArrowRight':
-        const maxX = this.labelSettings.width * this.labelSettings.dpmm - this.getSelectionBounds(selectedElement).width;
+        const maxX = this.labelSettings.width * this.labelSettings.dpmm - this.getDragConstraintBounds(selectedElement).width;
         selectedElement.x = Math.min(maxX, selectedElement.x + moveAmount);
         moved = true;
         break;
@@ -558,7 +558,7 @@ export class InteractionHandler {
         moved = true;
         break;
       case 'ArrowDown':
-        const maxY = this.labelSettings.height * this.labelSettings.dpmm - this.getSelectionBounds(selectedElement).height;
+        const maxY = this.labelSettings.height * this.labelSettings.dpmm - this.getDragConstraintBounds(selectedElement).height;
         selectedElement.y = Math.min(maxY, selectedElement.y + moveAmount);
         moved = true;
         break;
@@ -673,6 +673,17 @@ export class InteractionHandler {
       return { x: element.x, y: element.y, width: element.blockWidth || 200, height: totalHeight };
     }
     return element.getBounds();
+  }
+
+  /**
+   * Bounds used for drag and keyboard-move constraints.
+   * For TEXT elements, uses actual canvas measurement to match the drawn selection box exactly.
+   */
+  getDragConstraintBounds(element) {
+    if (element.type === 'TEXT' && this.labelSettings && this.renderer) {
+      return this.renderer.measureTextBounds(element, this.labelSettings);
+    }
+    return this.getSelectionBounds(element);
   }
 
   getHandleAtPosition(x, y, element) {

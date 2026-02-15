@@ -293,25 +293,33 @@ export class CanvasRenderer {
   /**
    * Draw selection indicator around element
    */
+  /**
+   * Measure actual rendered bounds of a TEXT element in dot coordinates.
+   * Uses canvas measureText for accuracy — matches the drawn selection box exactly.
+   */
+  measureTextBounds(element, labelSettings) {
+    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
+    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
+    const scaleX = rawFontWidth / rawFontSize;
+    const fontId = element.fontId || labelSettings.fontId || '0';
+    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    this.ctx.save();
+    this.ctx.font = `${fontConfig.weight} ${rawFontSize}px ${fontConfig.family}`;
+    const measuredWidth = this.ctx.measureText(element.previewText || '').width * scaleX;
+    this.ctx.restore();
+    const textW = Math.max(measuredWidth, rawFontWidth);
+    const textH = rawFontSize;
+    let w = textW, h = textH;
+    if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
+    return { x: element.x, y: element.y, width: w, height: h };
+  }
+
   drawSelectionIndicator(element, labelSettings) {
     let x, y, width, height;
     if (element.type === 'TEXT' && labelSettings) {
-      // Use actual canvas measurement for accurate TEXT bounds
-      const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
-      const fontSize = rawFontSize * this.scale;
-      const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
-      const fontWidth = rawFontWidth * this.scale;
-      const scaleX = fontWidth / fontSize;
-      const fontId = element.fontId || labelSettings.fontId || '0';
-      const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
-      this.ctx.save();
-      this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
-      const measuredWidth = this.ctx.measureText(element.previewText || '').width * scaleX;
-      this.ctx.restore();
-      const textW = Math.max(measuredWidth, 20);
-      const textH = fontSize;
-      let w = textW, h = textH;
-      if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
+      const bounds = this.measureTextBounds(element, labelSettings);
+      const w = bounds.width * this.scale;
+      const h = bounds.height * this.scale;
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;
       width = w;
