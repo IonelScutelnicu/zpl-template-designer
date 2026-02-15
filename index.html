@@ -256,32 +256,42 @@
                 </span>
               </summary>
               <div class="p-4 text-slate-500 text-xs space-y-3">
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      Orientation
-                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-po.html"
-                        target="_blank" class="text-blue-500 hover:underline">^PO</a>
-                    </label>
-                    <select id="print-orientation"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white bg-white">
-                      <option value="N" selected>Normal</option>
-                      <option value="I">Inverted</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      Mirror
-                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pm-printing-mirror.html"
-                        target="_blank" class="text-blue-500 hover:underline">^PM</a>
-                    </label>
-                    <select id="print-mirror"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                      <option value="N" selected>Normal</option>
-                      <option value="Y">Mirrored</option>
-                    </select>
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-medium text-slate-700">
+                    Orientation
+                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-po.html"
+                      target="_blank" class="text-blue-500 hover:underline">^PO</a>
+                  </label>
+                  <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+                    <button type="button" data-orientation="N"
+                      class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
+                      Normal
+                    </button>
+                    <button type="button" data-orientation="I"
+                      class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
+                      Inverted
+                    </button>
                   </div>
                 </div>
+
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-medium text-slate-700">
+                    Mirror
+                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pm-printing-mirror.html"
+                      target="_blank" class="text-blue-500 hover:underline">^PM</a>
+                  </label>
+                  <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+                    <button type="button" data-mirror="N"
+                      class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
+                      Normal
+                    </button>
+                    <button type="button" data-mirror="Y"
+                      class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
+                      Mirrored
+                    </button>
+                  </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                   <div>
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">

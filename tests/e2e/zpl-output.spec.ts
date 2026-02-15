@@ -180,15 +180,12 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
 
         test('should update ^PO when orientation is changed', async ({ page }) => {
-            const orientationSelect = page.locator('#print-orientation');
-            await orientationSelect.selectOption('I');
-
+            await page.locator('[data-orientation="I"]').click();
             await zplOutput.verifyZPLContains('^POI');
         });
 
         test('should update ^PM when mirror is changed', async ({ page }) => {
-            const mirrorSelect = page.locator('#print-mirror');
-            await mirrorSelect.selectOption('Y');
+            await page.locator('[data-mirror="Y"]').click();
             await zplOutput.verifyZPLContains('^PMY');
         });
     });

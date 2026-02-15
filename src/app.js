@@ -110,8 +110,22 @@ const labelDpmm = document.getElementById("label-dpmm");
 const homeX = document.getElementById("home-x");
 const homeY = document.getElementById("home-y");
 const labelTop = document.getElementById("label-top");
-const printOrientation = document.getElementById("print-orientation");
-const printMirror = document.getElementById("print-mirror");
+const orientationButtons = document.querySelectorAll('[data-orientation]');
+const mirrorButtons = document.querySelectorAll('[data-mirror]');
+
+const setOrientationActive = (value) => {
+  orientationButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-orientation') === value;
+    btn.className = `px-3 py-1 text-xs rounded transition-colors ${isActive ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'}`;
+  });
+};
+
+const setMirrorActive = (value) => {
+  mirrorButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-mirror') === value;
+    btn.className = `px-3 py-1 text-xs rounded transition-colors ${isActive ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'}`;
+  });
+};
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
@@ -333,18 +347,26 @@ export function initApp() {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
-  printOrientation.addEventListener("change", (e) => {
-    state.updateLabelSettings({ printOrientation: e.target.value || "N" });
-    updateZPLOutput();
-    renderCanvasPreview();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  orientationButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const value = btn.getAttribute('data-orientation');
+      state.updateLabelSettings({ printOrientation: value });
+      setOrientationActive(value);
+      updateZPLOutput();
+      renderCanvasPreview();
+      scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+    });
   });
 
-  printMirror.addEventListener("change", (e) => {
-    state.updateLabelSettings({ printMirror: e.target.value || "N" });
-    updateZPLOutput();
-    renderCanvasPreview();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  mirrorButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const value = btn.getAttribute('data-mirror');
+      state.updateLabelSettings({ printMirror: value });
+      setMirrorActive(value);
+      updateZPLOutput();
+      renderCanvasPreview();
+      scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+    });
   });
 
   mediaDarkness.addEventListener("input", (e) => {
@@ -541,8 +563,8 @@ function syncLabelSettingsInputs() {
   homeX.value = state.labelSettings.homeX;
   homeY.value = state.labelSettings.homeY;
   labelTop.value = state.labelSettings.labelTop;
-  printOrientation.value = state.labelSettings.printOrientation;
-  printMirror.value = state.labelSettings.printMirror;
+  setOrientationActive(state.labelSettings.printOrientation);
+  setMirrorActive(state.labelSettings.printMirror);
   mediaDarkness.value = state.labelSettings.mediaDarkness;
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;
