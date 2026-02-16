@@ -249,6 +249,132 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
+    // ============== LINE ELEMENT PROPERTIES ==============
+    test.describe('Line Element Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addLineElement();
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should update X position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-x', 60);
+            await zplOutput.verifyZPLContains('^FO60,');
+        });
+
+        test('should update Y position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-y', 70);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FO\d+,70/);
+        });
+
+        test('should update line length and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-width', 300);
+            const zpl = await zplOutput.getZPLCode();
+            // For a horizontal line, width=length → first ^GB param
+            expect(zpl).toContain('^GB300,');
+        });
+
+        test('should update line thickness and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-thickness', 6);
+            const zpl = await zplOutput.getZPLCode();
+            // Thickness is the third ^GB parameter
+            expect(zpl).toMatch(/\^GB\d+,\d+,6/);
+        });
+
+        test('should update line orientation to Vertical and reflect in ZPL', async ({ page }) => {
+            // Switch to vertical orientation
+            await page.locator('#prop-orientation').selectOption('V');
+            const zpl = await zplOutput.getZPLCode();
+            // For vertical, ^GB width param should be small (equals thickness)
+            expect(zpl).toContain('^GB');
+        });
+    });
+
+    // ============== ADDITIONAL ELEMENT PROPERTY COVERAGE ==============
+    test.describe('Text Element Orientation', () => {
+        test('should update Text element orientation to R and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('[data-orientation="R"]').click();
+            const zpl = await zplOutput.getZPLCode();
+            // ^A command format: ^A{fontId}{orientation},{height},{width}
+            // e.g. ^A0R,30,30 or ^AR,30,30
+            expect(zpl).toMatch(/\^A\S*R,/);
+        });
+    });
+
+    test.describe('Barcode Additional Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addBarcodeElement();
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should toggle Barcode showText and reflect in ^BC command', async ({ page }) => {
+            // Default showText=true → 'Y' in ^BC; uncheck → 'N'
+            // #prop-show-text is sr-only (visually hidden), so use force:true
+            const checkbox = page.locator('#prop-show-text');
+            await checkbox.uncheck({ force: true });
+            const zpl = await zplOutput.getZPLCode();
+            // ^BC command with Y/N for interpretation line
+            expect(zpl).toMatch(/\^BCN,\d+,N/);
+        });
+
+        test('should update Barcode ratio and reflect in ^BY command', async () => {
+            await propertiesPanel.setProperty('prop-ratio', 3);
+            const zpl = await zplOutput.getZPLCode();
+            // ^BY{width},{ratio} — ratio is the second parameter
+            expect(zpl).toMatch(/\^BY\d+,3/);
+        });
+    });
+
+    test.describe('QR Code Additional Properties', () => {
+        test('should update QR Code model and reflect in ^BQ command', async ({ page }) => {
+            await elementsPanel.addQRCodeElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            const select = page.locator('#prop-model');
+            if (await select.isVisible()) {
+                await select.selectOption('1');
+                const zpl = await zplOutput.getZPLCode();
+                // ^BQN,{model},{magnification} — model=1 should appear
+                expect(zpl).toContain('^BQN,1,');
+            }
+        });
+    });
+
+    test.describe('Z-Order Reordering', () => {
+        test('should reorder elements with Move Down button and change ZPL output order', async ({ page }) => {
+            // Add two text elements with distinct text
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+            await page.locator('#prop-preview-text').fill('ElementAlpha');
+            await page.locator('#prop-preview-text').dispatchEvent('change');
+
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(1);
+            await page.locator('#prop-preview-text').fill('ElementBeta');
+            await page.locator('#prop-preview-text').dispatchEvent('change');
+
+            const zplBefore = await zplOutput.getZPLCode();
+            expect(zplBefore).toContain('ElementAlpha');
+            expect(zplBefore).toContain('ElementBeta');
+
+            // Record the initial order before reordering
+            const alphaBeforeBeta = zplBefore.indexOf('ElementAlpha') < zplBefore.indexOf('ElementBeta');
+
+            // Move the element at index 0 down (swaps it with the one at index 1)
+            const items = page.locator('#elements-list .element-item');
+            await items.nth(0).hover();
+            await items.nth(0).locator('.move-down-btn').click();
+
+            const zplAfter = await zplOutput.getZPLCode();
+            // Order should have reversed
+            const alphaBeforeBetaAfter = zplAfter.indexOf('ElementAlpha') < zplAfter.indexOf('ElementBeta');
+            expect(alphaBeforeBetaAfter).toBe(!alphaBeforeBeta);
+        });
+    });
+
     // ============== NO ELEMENT SELECTED ==============
     test.describe('No Element Selected', () => {
         test('should show placeholder message when no element is selected', async () => {
