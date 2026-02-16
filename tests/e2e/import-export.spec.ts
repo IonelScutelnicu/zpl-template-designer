@@ -221,6 +221,8 @@ test.describe('Import/Export - Template Persistence', () => {
         });
 
         test('should preserve extended label settings in export', async ({ page }) => {
+            await elementsPanel.addBoxElement(); // Export requires at least one element
+
             await page.locator('#label-width').fill('100');
             await page.locator('#label-width').dispatchEvent('change');
 
@@ -251,6 +253,8 @@ test.describe('Import/Export - Template Persistence', () => {
         });
 
         test('should preserve label settings in export', async ({ page }) => {
+            await elementsPanel.addBoxElement(); // Export requires at least one element
+
             await page.locator('#label-width').fill('75');
             await page.locator('#label-width').dispatchEvent('change');
             await page.locator('#label-height').fill('40');

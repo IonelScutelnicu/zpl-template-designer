@@ -223,6 +223,7 @@ export function initApp() {
       renderPropertiesPanel();
       updateZPLOutput();
       renderCanvasPreview();
+      updateCopyExportUI();
     },
     onPushHistory: (label, options) => pushHistory(label, options)
   });
@@ -313,7 +314,14 @@ export function initApp() {
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
   modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
   exportBtn.addEventListener("click", exportTemplate);
-  importBtn.addEventListener("click", () => importFile.click());
+  importBtn.addEventListener("click", () => {
+    if (state.elements.length > 0) {
+      if (!window.confirm("Importing a template will replace your current work. Continue?")) {
+        return;
+      }
+    }
+    importFile.click();
+  });
   importFile.addEventListener("change", handleFileImport);
   undoBtn.addEventListener("click", undo);
   redoBtn.addEventListener("click", redo);
@@ -505,6 +513,7 @@ export function initApp() {
   updateZPLOutput();
   renderCanvasPreview();
   resetHistory("Initial state", { kind: "init" });
+  updateCopyExportUI();
 }
 
 // Render Canvas Preview
@@ -638,6 +647,7 @@ function applyAppState(stateData) {
 
   state.setApplyingHistory(false);
   updateUndoRedoUI();
+  updateCopyExportUI();
   renderHistoryList();
 }
 
@@ -694,6 +704,18 @@ function updateUndoRedoUI() {
   redoBtn.classList.toggle("hover:bg-blue-100", canRedo);
   redoBtn.classList.toggle("text-slate-400", !canRedo);
   redoBtn.classList.toggle("cursor-not-allowed", !canRedo);
+}
+
+function updateCopyExportUI() {
+  const hasElements = state.elements.length > 0;
+
+  copyBtn.disabled = !hasElements;
+  copyBtn.classList.toggle('opacity-50', !hasElements);
+  copyBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
+  exportBtn.disabled = !hasElements;
+  exportBtn.classList.toggle('opacity-50', !hasElements);
+  exportBtn.classList.toggle('cursor-not-allowed', !hasElements);
 }
 
 function renderHistoryList() {
@@ -1010,16 +1032,16 @@ function copyZPL() {
   document.execCommand("copy");
 
   // Visual feedback
-  const originalText = copyBtn.textContent;
-  const originalClasses = copyBtn.className;
-
   copyBtn.textContent = "Copied!";
   copyBtn.classList.remove('bg-slate-800', 'hover:bg-slate-700');
   copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
 
   setTimeout(() => {
-    copyBtn.textContent = originalText;
-    copyBtn.className = originalClasses;
+    copyBtn.textContent = "Copy";
+    copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+    copyBtn.classList.add('bg-slate-800', 'hover:bg-slate-700');
+    // Re-sync disabled styling in case elements changed during the feedback window
+    updateCopyExportUI();
   }, 2000);
 }
 
@@ -1067,6 +1089,7 @@ function importTemplate(template) {
   updateZPLOutput();
   renderCanvasPreview();
   resetHistory("Imported template", { kind: "import" });
+  updateCopyExportUI();
 }
 
 function handleHistoryClick(e) {
