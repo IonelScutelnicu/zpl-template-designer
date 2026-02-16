@@ -88,6 +88,10 @@ export class AlignmentService {
       case 'TEXT':
         this.matchTextWidth(element, labelSize, labelSettings);
         break;
+
+      case 'CIRCLE':
+        element.width = labelSize.width;
+        break;
     }
   }
 
@@ -124,6 +128,10 @@ export class AlignmentService {
 
       case 'TEXT':
         this.matchTextHeight(element, labelSize, labelSettings);
+        break;
+
+      case 'CIRCLE':
+        element.height = labelSize.height;
         break;
     }
   }

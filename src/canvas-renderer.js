@@ -8,6 +8,7 @@ import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
 import { QRCodeRenderer } from './rendering/QRCodeRenderer.js';
 import { BoxRenderer } from './rendering/BoxRenderer.js';
 import { LineRenderer } from './rendering/LineRenderer.js';
+import { CircleRenderer } from './rendering/CircleRenderer.js';
 
 export class CanvasRenderer {
   constructor(canvasId) {
@@ -29,7 +30,8 @@ export class CanvasRenderer {
       BARCODE: new BarcodeRenderer(),
       QRCODE: new QRCodeRenderer(),
       BOX: new BoxRenderer(),
-      LINE: new LineRenderer()
+      LINE: new LineRenderer(),
+      CIRCLE: new CircleRenderer()
     };
   }
 

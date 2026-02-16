@@ -209,6 +209,38 @@ test.describe('Elements - Add, Select, Delete', () => {
         });
     });
 
+    // ============== CIRCLE ELEMENT ==============
+    test.describe('Circle Element', () => {
+        test('should add a Circle element when clicking Add Circle button', async () => {
+            await elementsPanel.addCircleElement();
+            expect(await elementsPanel.getElementCount()).toBe(1);
+        });
+
+        test('should select Circle element and show properties panel', async () => {
+            await elementsPanel.addCircleElement();
+            await elementsPanel.selectElementByIndex(0);
+            expect(await propertiesPanel.hasNoElementSelected()).toBe(false);
+        });
+
+        test('should delete Circle element via UI delete button', async () => {
+            await elementsPanel.addCircleElement();
+            await elementsPanel.deleteElementByIndex(0);
+            expect(await elementsPanel.getElementCount()).toBe(0);
+        });
+
+        test('should delete Circle element via Delete key', async ({ page }) => {
+            await elementsPanel.addCircleElement();
+            await elementsPanel.selectElementByIndex(0);
+            await page.keyboard.press('Delete');
+            expect(await elementsPanel.getElementCount()).toBe(0);
+        });
+
+        test('should generate ZPL containing ^GE command for Circle element', async () => {
+            await elementsPanel.addCircleElement();
+            await zplOutput.verifyZPLContains('^GE');
+        });
+    });
+
     // ============== MULTIPLE ELEMENTS ==============
     test.describe('Multiple Elements', () => {
         test('should add multiple elements of different types', async () => {

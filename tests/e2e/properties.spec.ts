@@ -290,6 +290,53 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
+    // ============== CIRCLE ELEMENT PROPERTIES ==============
+    test.describe('Circle Element Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addCircleElement();
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should update X position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-x', 40);
+            await zplOutput.verifyZPLContains('^FO40,');
+        });
+
+        test('should update Y position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-y', 55);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FO\d+,55/);
+        });
+
+        test('should update width and reflect in ^GE command', async () => {
+            await propertiesPanel.setProperty('prop-width', 120);
+            await zplOutput.verifyZPLContains('^GE120,');
+        });
+
+        test('should update height and reflect in ^GE command', async () => {
+            await propertiesPanel.setProperty('prop-height', 100);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^GE\d+,100,/);
+        });
+
+        test('should update thickness and reflect in ^GE command', async () => {
+            await propertiesPanel.setProperty('prop-thickness', 8);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^GE\d+,\d+,8,/);
+        });
+
+        test('should update color to White and reflect in ^GE command', async ({ page }) => {
+            await page.locator('#prop-color').selectOption('W');
+            await zplOutput.verifyZPLContains(',W');
+        });
+
+        test('should show default circle dimensions in properties panel', async () => {
+            await propertiesPanel.verifyPropertyValue('prop-width', 80);
+            await propertiesPanel.verifyPropertyValue('prop-height', 80);
+            await propertiesPanel.verifyPropertyValue('prop-thickness', 3);
+        });
+    });
+
     // ============== ADDITIONAL ELEMENT PROPERTY COVERAGE ==============
     test.describe('Text Element Orientation', () => {
         test('should update Text element orientation to R and reflect in ZPL', async ({ page }) => {

@@ -47,6 +47,10 @@ export class ElementsPanel {
         await this.page.locator('#add-line-btn').click();
     }
 
+    async addCircleElement(): Promise<void> {
+        await this.page.locator('#add-circle-btn').click();
+    }
+
     async getElementCount(): Promise<number> {
         // Count element items in the list (excluding the placeholder message)
         const items = this.elementsList.locator('.element-item');

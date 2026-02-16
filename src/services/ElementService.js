@@ -7,6 +7,7 @@ import { BoxElement } from '../elements/BoxElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
+import { CircleElement } from '../elements/CircleElement.js';
 import { getElementBoundsResolved } from '../utils/geometry.js';
 
 /**
@@ -89,6 +90,16 @@ export class ElementService {
           props.width || 200,
           props.thickness || 3,
           props.orientation || 'H'
+        );
+        break;
+
+      case 'CIRCLE':
+        element = new CircleElement(
+          x, y,
+          props.width || 80,
+          props.height || 80,
+          props.thickness || 3,
+          props.color || 'B'
         );
         break;
 
