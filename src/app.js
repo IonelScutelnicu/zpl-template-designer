@@ -262,6 +262,11 @@ export function initApp() {
           const propHeight = document.getElementById('prop-height');
           if (propWidth) propWidth.value = element.width;
           if (propHeight) propHeight.value = element.height;
+        } else if (element.type === 'TEXT') {
+          const propFontSize = document.getElementById('prop-font-size');
+          const propFontWidth = document.getElementById('prop-font-width');
+          if (propFontSize) propFontSize.value = element.fontSize;
+          if (propFontWidth) propFontWidth.value = element.fontWidth;
         }
       }
     },
@@ -514,6 +519,16 @@ export function initApp() {
   renderCanvasPreview();
   resetHistory("Initial state", { kind: "init" });
   updateCopyExportUI();
+
+  // Expose internals for automated tests only
+  const isE2E = typeof window !== 'undefined' && (
+    window.__E2E__ === true ||
+    window.location.search.includes('e2e=1')
+  );
+  if (isE2E) {
+    window.canvasRenderer = canvasRenderer;
+    window.appState = state;
+  }
 }
 
 // Render Canvas Preview

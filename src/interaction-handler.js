@@ -58,7 +58,7 @@ export class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE')) {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         this.isResizing = true;
@@ -80,6 +80,14 @@ export class InteractionHandler {
         } else if (selectedElement.type === 'CIRCLE') {
           this.resizeStartWidth = selectedElement.width;
           this.resizeStartHeight = selectedElement.height;
+        } else if (selectedElement.type === 'TEXT') {
+          this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 20;
+          this.resizeStartFontWidth = selectedElement.fontWidth || this.labelSettings?.defaultFontWidth || 20;
+          // Store the measured text width so horizontal drag tracks the right edge 1:1
+          const measuredBounds = this.renderer.measureTextBounds(selectedElement, this.labelSettings);
+          this.resizeStartWidth = measuredBounds.width;
+          this.resizeStartMeasuredWidth = measuredBounds.width;
+          this.resizeStartMeasuredHeight = measuredBounds.height;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
           if (selectedElement.type === 'TEXTBLOCK') {
@@ -167,6 +175,20 @@ export class InteractionHandler {
         const clamped = Math.max(1, Math.min(10, targetMag));
 
         this.dragElement.magnification = clamped;
+        this.callbacks.onElementDragging(this.dragElement);
+      } else if (this.dragElement.type === 'TEXT') {
+        const dx = coords.x - this.resizeMouseStartX;
+        const dy = coords.y - this.resizeMouseStartY;
+        const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+        const fontSizeDelta = isRotated ? dx : dy;
+        this.dragElement.fontSize = Math.max(8, Math.round(this.resizeStartHeight + fontSizeDelta));
+        // Scale fontWidth so the right edge of the selection box tracks the mouse 1:1.
+        // measuredWidth = charPixels * fontWidth / fontSize, so fontWidth scales proportionally.
+        const startMeasure = isRotated ? this.resizeStartMeasuredHeight : this.resizeStartMeasuredWidth;
+        const deltaMeasure = isRotated ? dy : dx;
+        const targetWidth = Math.max(8, startMeasure + deltaMeasure);
+        const safeStart = Math.max(1, startMeasure);
+        this.dragElement.fontWidth = Math.max(8, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE') {
         // Calculate mouse delta from resize start
@@ -370,7 +392,7 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE')) {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -699,7 +721,10 @@ export class InteractionHandler {
     const handleSizeDots = 20 / scale; // Use larger hit area (20px) for better usability
     const hsHalf = handleSizeDots / 2;
 
-    const bounds = this.getSelectionBounds(element);
+    // Use accurate measured bounds for TEXT so the handle hit area matches the drawn selection box
+    const bounds = (element.type === 'TEXT' && this.labelSettings && this.renderer)
+      ? this.renderer.measureTextBounds(element, this.labelSettings)
+      : this.getSelectionBounds(element);
     const bx = bounds.x;
     const by = bounds.y;
     const bw = bounds.width;
@@ -742,8 +767,8 @@ export class InteractionHandler {
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
         return 'l';
       }
-    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE') {
-      // For TEXTBLOCK and QRCODE, only check bottom-right handle
+    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
+      // For TEXTBLOCK, QRCODE, and TEXT, only check bottom-right handle
       if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
         return 'br';
       }
