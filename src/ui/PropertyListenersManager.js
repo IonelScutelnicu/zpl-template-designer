@@ -60,6 +60,9 @@ export class PropertyListenersManager {
       case "LINE":
         this.attachLineProperties(element, attach);
         break;
+      case "CIRCLE":
+        this.attachCircleProperties(element, attach);
+        break;
       case "TEXTBLOCK":
         this.attachTextBlockProperties(element, attach);
         break;
@@ -167,6 +170,16 @@ export class PropertyListenersManager {
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-color", "color");
     attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+  }
+
+  /**
+   * Attach CIRCLE element property listeners
+   */
+  attachCircleProperties(element, attach) {
+    attach("prop-width", "width", (v) => parseInt(v) || 80);
+    attach("prop-height", "height", (v) => parseInt(v) || 80);
+    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    attach("prop-color", "color");
   }
 
   /**

@@ -84,6 +84,18 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await elementsPanel.addBoxElement();
             await zplOutput.verifyZPLContains('^GB');
         });
+
+        test('should generate ^GE command for Circle element', async () => {
+            await elementsPanel.addCircleElement();
+            await zplOutput.verifyZPLContains('^GE');
+        });
+
+        test('should generate correct ^GE format for Circle element', async () => {
+            await elementsPanel.addCircleElement();
+            const zpl = await zplOutput.getZPLCode();
+            // ^GE format: ^GEwidth,height,thickness,color
+            expect(zpl).toMatch(/\^GE\d+,\d+,\d+,[BW]/);
+        });
     });
 
     // ============== MULTIPLE ELEMENTS ==============

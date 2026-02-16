@@ -89,6 +89,7 @@ const addQRCodeBtn = document.getElementById("add-qrcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
 const addTextBlockBtn = document.getElementById("add-textblock-btn");
 const addLineBtn = document.getElementById("add-line-btn");
+const addCircleBtn = document.getElementById("add-circle-btn");
 const undoBtn = document.getElementById("undo-btn");
 const redoBtn = document.getElementById("redo-btn");
 const historyToggleBtn = document.getElementById("history-toggle-btn");
@@ -305,6 +306,7 @@ export function initApp() {
   addBoxBtn.addEventListener("click", addBoxElement);
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
   addLineBtn.addEventListener("click", addLineElement);
+  addCircleBtn.addEventListener("click", addCircleElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
   // Mode switching
@@ -817,6 +819,10 @@ function addTextBlockElement() {
 
 function addLineElement() {
   elementService.createElement('LINE', { width: 200, thickness: 3, orientation: 'H' });
+}
+
+function addCircleElement() {
+  elementService.createElement('CIRCLE', { width: 80, height: 80, thickness: 3, color: 'B' });
 }
 
 // Serialization functions (delegated to SerializationService)

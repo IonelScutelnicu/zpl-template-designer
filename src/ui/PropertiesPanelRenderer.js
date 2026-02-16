@@ -40,7 +40,8 @@ export class PropertiesPanelRenderer {
       QRCODE: () => this.renderQRCodeProperties(element),
       BOX: () => this.renderBoxProperties(element),
       LINE: () => this.renderLineProperties(element),
-      TEXTBLOCK: () => this.renderTextBlockProperties(element)
+      TEXTBLOCK: () => this.renderTextBlockProperties(element),
+      CIRCLE: () => this.renderCircleProperties(element)
     };
 
     const renderer = renderers[element.type];
@@ -360,6 +361,33 @@ export class PropertiesPanelRenderer {
           </select>
         </div>
       `, { elementType: element.type })}
+    `;
+  }
+
+  /**
+   * Render CIRCLE element properties
+   */
+  renderCircleProperties(element) {
+    return `
+      ${this.renderAlignmentControls(element)}
+      ${this.renderSection("Position &amp; Size", `
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+          ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
+        </div>
+      `, { elementType: element.type })}
+      ${this.renderSection("Appearance", `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
+          <select id="prop-color" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
+            <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
+          </select>
+        </div>
+      `, { open: true, elementType: element.type })}
     `;
   }
 

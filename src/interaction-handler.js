@@ -58,7 +58,7 @@ export class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE')) {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         this.isResizing = true;
@@ -77,6 +77,9 @@ export class InteractionHandler {
           const bounds = selectedElement.getBounds();
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
+        } else if (selectedElement.type === 'CIRCLE') {
+          this.resizeStartWidth = selectedElement.width;
+          this.resizeStartHeight = selectedElement.height;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
           if (selectedElement.type === 'TEXTBLOCK') {
@@ -165,7 +168,7 @@ export class InteractionHandler {
 
         this.dragElement.magnification = clamped;
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE') {
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -284,7 +287,7 @@ export class InteractionHandler {
         this.dragElement.x = Math.round(newX);
         this.dragElement.y = Math.round(newY);
 
-        if (this.dragElement.type === 'BOX') {
+        if (this.dragElement.type === 'BOX' || this.dragElement.type === 'CIRCLE') {
           this.dragElement.width = Math.round(newWidth);
           this.dragElement.height = Math.round(newHeight);
         } else if (this.dragElement.type === 'LINE') {
@@ -367,7 +370,7 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE')) {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
