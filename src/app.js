@@ -918,7 +918,7 @@ function animateElementListReorder(previousPositions) {
 
 // Alignment operations (delegated to AlignmentService)
 function applyAlignmentAction(action, element) {
-  alignmentService.applyAlignment(action, element, state.labelSettings);
+  alignmentService.applyAlignment(action, element, state.labelSettings, canvasRenderer);
 }
 
 function attachPropertyListeners(element) {

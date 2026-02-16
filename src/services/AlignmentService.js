@@ -1,7 +1,7 @@
 // Alignment Service
 // Handles element alignment calculations and operations
 
-import { getLabelSizeDots, getElementBoundsSafe } from '../utils/geometry.js';
+import { getLabelSizeDots, getElementBoundsResolved } from '../utils/geometry.js';
 import { clampNumber } from '../utils/geometry.js';
 
 /**
@@ -14,11 +14,13 @@ export class AlignmentService {
    * @param {Object} element - Element to align
    * @param {Object} labelSettings - Label configuration
    */
-  applyAlignment(action, element, labelSettings) {
+  applyAlignment(action, element, labelSettings, renderer = null) {
     if (!element) return;
 
     const labelSize = getLabelSizeDots(labelSettings);
-    const bounds = getElementBoundsSafe(element);
+    const bounds = (element.type === 'TEXT' && renderer)
+      ? renderer.measureTextBounds(element, labelSettings)
+      : getElementBoundsResolved(element, labelSettings);
 
     switch (action) {
       case 'center-x':
