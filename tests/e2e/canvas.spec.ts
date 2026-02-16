@@ -7,7 +7,7 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
     let canvas: Canvas;
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/?e2e=1');
         elementsPanel = new ElementsPanel(page);
         propertiesPanel = new PropertiesPanel(page);
         canvas = new Canvas(page);
@@ -341,6 +341,148 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
                 }
             });
         }
+
+        test('Text: br handle increases fontSize and fontWidth', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await page.waitForSelector('#properties-panel #prop-font-size');
+
+            const size0  = parseInt(await propertiesPanel.getProperty('prop-font-size'))  || 0;
+            const width0 = parseInt(await propertiesPanel.getProperty('prop-font-width')) || 0;
+
+            // Get br handle position from the canvas selection bounds
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                const renderer = (window as any).canvasRenderer;
+                if (!appState || !renderer) return null;
+                const el = appState.elements[0];
+                if (!el) return null;
+                const labelSettings = appState.labelSettings;
+                const bounds = renderer.measureTextBounds(el, labelSettings);
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+            });
+
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            const dx = 30;
+            const dy = 30;
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + dx) * cssScale,   (handlePos.y + dy) * cssScale
+            );
+            await canvas.waitForReady();
+
+            const size1  = parseInt(await propertiesPanel.getProperty('prop-font-size'));
+            const width1 = parseInt(await propertiesPanel.getProperty('prop-font-width'));
+
+            expect(size1).toBeGreaterThan(size0);
+            expect(width1).toBeGreaterThan(width0);
+        });
+
+        test('Text (R): horizontal drag increases fontSize only', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await page.waitForSelector('#properties-panel #prop-font-size');
+
+            await page.locator('#prop-font-size').fill('20');
+            await page.locator('#prop-font-size').dispatchEvent('change');
+            await page.locator('#prop-font-width').fill('20');
+            await page.locator('#prop-font-width').dispatchEvent('change');
+
+            // Set text orientation to R
+            await page.locator('#properties-panel [data-orientation="R"]').click();
+
+            const size0  = parseInt(await propertiesPanel.getProperty('prop-font-size'))  || 0;
+            const width0 = parseInt(await propertiesPanel.getProperty('prop-font-width')) || 0;
+
+            // Get br handle position from the canvas selection bounds
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                const renderer = (window as any).canvasRenderer;
+                if (!appState || !renderer) return null;
+                const el = appState.elements[0];
+                if (!el) return null;
+                const labelSettings = appState.labelSettings;
+                const bounds = renderer.measureTextBounds(el, labelSettings);
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+            });
+
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            const dx = 30;
+            const dy = 0;
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + dx) * cssScale,   (handlePos.y + dy) * cssScale
+            );
+            await canvas.waitForReady();
+
+            const size1  = parseInt(await propertiesPanel.getProperty('prop-font-size'));
+            const width1 = parseInt(await propertiesPanel.getProperty('prop-font-width'));
+
+            expect(size1).toBeGreaterThan(size0);
+            expect(width1).toBe(width0);
+        });
+
+        test('Text (R): vertical drag increases fontWidth only', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await page.waitForSelector('#properties-panel #prop-font-size');
+
+            await page.locator('#prop-font-size').fill('20');
+            await page.locator('#prop-font-size').dispatchEvent('change');
+            await page.locator('#prop-font-width').fill('20');
+            await page.locator('#prop-font-width').dispatchEvent('change');
+
+            // Set text orientation to R
+            await page.locator('#properties-panel [data-orientation="R"]').click();
+
+            const size0  = parseInt(await propertiesPanel.getProperty('prop-font-size'))  || 0;
+            const width0 = parseInt(await propertiesPanel.getProperty('prop-font-width')) || 0;
+
+            // Get br handle position from the canvas selection bounds
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                const renderer = (window as any).canvasRenderer;
+                if (!appState || !renderer) return null;
+                const el = appState.elements[0];
+                if (!el) return null;
+                const labelSettings = appState.labelSettings;
+                const bounds = renderer.measureTextBounds(el, labelSettings);
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+            });
+
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            const dx = 0;
+            const dy = 30;
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + dx) * cssScale,   (handlePos.y + dy) * cssScale
+            );
+            await canvas.waitForReady();
+
+            const size1  = parseInt(await propertiesPanel.getProperty('prop-font-size'));
+            const width1 = parseInt(await propertiesPanel.getProperty('prop-font-width'));
+
+            expect(size1).toBe(size0);
+            expect(width1).toBeGreaterThan(width0);
+        });
     });
 
     // ============== VISUAL REGRESSION ==============
