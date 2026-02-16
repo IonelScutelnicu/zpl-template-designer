@@ -705,8 +705,8 @@ export class InteractionHandler {
     const bw = bounds.width;
     const bh = bounds.height;
 
-    // For BOX, LINE, and BARCODE elements, check all 8 handles
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE') {
+    // For BOX, LINE, BARCODE, and CIRCLE elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {

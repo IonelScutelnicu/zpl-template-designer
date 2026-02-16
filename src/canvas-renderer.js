@@ -383,8 +383,8 @@ export class CanvasRenderer {
       this.ctx.restore();
     };
 
-    // For BOX, LINE, and BARCODE elements, show all 8 handles (4 corners + 4 edges)
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE') {
+    // For BOX, LINE, BARCODE, and CIRCLE elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE') {
       // Corner handles
       drawHandle(x, y); // Top-left
       drawHandle(x + width, y); // Top-right

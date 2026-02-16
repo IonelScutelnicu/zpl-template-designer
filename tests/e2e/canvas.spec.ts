@@ -278,6 +278,71 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
         });
     });
 
+    // ============== RESIZE VIA DRAG HANDLE ==============
+    // Each entry: handle name, position getter (label dots), drag delta (label dots),
+    // whether width / height are expected to grow.
+    // Corner handles (tl/tr/bl/br) resize both axes; edge handles (t/r/b/l) resize one axis.
+    const circleHandleCases: Array<{
+        handle: string;
+        pos: (x: number, y: number, w: number, h: number) => [number, number];
+        dx: number; dy: number;
+        wGrows: boolean; hGrows: boolean;
+    }> = [
+        { handle: 'br', pos: (x,y,w,h) => [x+w,     y+h    ], dx: +20, dy: +20, wGrows: true,  hGrows: true  },
+        { handle: 'tl', pos: (x,y,w,h) => [x,        y      ], dx: -20, dy: -20, wGrows: true,  hGrows: true  },
+        { handle: 'tr', pos: (x,y,w,h) => [x+w,      y      ], dx: +20, dy: -20, wGrows: true,  hGrows: true  },
+        { handle: 'bl', pos: (x,y,w,h) => [x,        y+h    ], dx: -20, dy: +20, wGrows: true,  hGrows: true  },
+        { handle: 't',  pos: (x,y,w,h) => [x+w/2,    y      ], dx:   0, dy: -20, wGrows: false, hGrows: true  },
+        { handle: 'r',  pos: (x,y,w,h) => [x+w,      y+h/2  ], dx: +20, dy:   0, wGrows: true,  hGrows: false },
+        { handle: 'b',  pos: (x,y,w,h) => [x+w/2,    y+h    ], dx:   0, dy: +20, wGrows: false, hGrows: true  },
+        { handle: 'l',  pos: (x,y,w,h) => [x,        y+h/2  ], dx: -20, dy:   0, wGrows: true,  hGrows: false },
+    ];
+
+    test.describe('Resize via Drag Handle', () => {
+        for (const { handle, pos, dx, dy, wGrows, hGrows } of circleHandleCases) {
+            test(`Circle: ${handle} handle resizes correctly`, async ({ page }) => {
+                await elementsPanel.addCircleElement();
+                // Adding an element auto-selects it; wait for the properties panel to render
+                await page.waitForSelector('#properties-panel #prop-width');
+
+                const w0 = parseInt(await propertiesPanel.getProperty('prop-width'));
+                const h0 = parseInt(await propertiesPanel.getProperty('prop-height'));
+                const x0 = parseInt(await propertiesPanel.getProperty('prop-x'));
+                const y0 = parseInt(await propertiesPanel.getProperty('prop-y'));
+
+                const [hx, hy] = pos(x0, y0, w0, h0);
+
+                // The canvas renders at 1 dot/px internally but may be displayed smaller
+                // via CSS. Compute the ratio so drag lands on the correct screen pixel.
+                const cssScale = await page.evaluate(() => {
+                    const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                    const rect = c.getBoundingClientRect();
+                    return rect.width / c.width;
+                });
+
+                await canvas.drag(
+                    hx * cssScale,        hy * cssScale,
+                    (hx + dx) * cssScale, (hy + dy) * cssScale
+                );
+                await canvas.waitForReady();
+
+                const w1 = parseInt(await propertiesPanel.getProperty('prop-width'));
+                const h1 = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+                if (wGrows) {
+                    expect(w1).toBeGreaterThan(w0);
+                } else {
+                    expect(w1).toBe(w0);
+                }
+                if (hGrows) {
+                    expect(h1).toBeGreaterThan(h0);
+                } else {
+                    expect(h1).toBe(h0);
+                }
+            });
+        }
+    });
+
     // ============== VISUAL REGRESSION ==============
     test.describe('Visual Regression', () => {
         test('should render Text element consistently', async () => {
