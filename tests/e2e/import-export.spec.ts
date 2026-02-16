@@ -106,6 +106,150 @@ test.describe('Import/Export - Template Persistence', () => {
             fs.unlinkSync(tempPath);
         });
 
+        test('should preserve Barcode element properties in export', async ({ page }) => {
+            await elementsPanel.addBarcodeElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-preview-data').fill('ABC123');
+            await page.locator('#prop-preview-data').dispatchEvent('change');
+            await page.locator('#prop-height').fill('80');
+            await page.locator('#prop-height').dispatchEvent('change');
+
+            const downloadPromise = page.waitForEvent('download');
+            await zplOutput.exportTemplate();
+            const download = await downloadPromise;
+
+            const tempPath = path.join(__dirname, '../fixtures/temp-export-barcode.json');
+            await download.saveAs(tempPath);
+
+            const content = fs.readFileSync(tempPath, 'utf-8');
+            const json = JSON.parse(content);
+
+            const el = json.elements[0];
+            expect(el.type).toBe('BARCODE');
+            expect(el.previewData).toBe('ABC123');
+            expect(el.height).toBe(80);
+
+            fs.unlinkSync(tempPath);
+        });
+
+        test('should preserve QR Code element properties in export', async ({ page }) => {
+            await elementsPanel.addQRCodeElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-preview-data').fill('https://example.com');
+            await page.locator('#prop-preview-data').dispatchEvent('change');
+            await page.locator('#prop-magnification').fill('4');
+            await page.locator('#prop-magnification').dispatchEvent('change');
+
+            const downloadPromise = page.waitForEvent('download');
+            await zplOutput.exportTemplate();
+            const download = await downloadPromise;
+
+            const tempPath = path.join(__dirname, '../fixtures/temp-export-qrcode.json');
+            await download.saveAs(tempPath);
+
+            const content = fs.readFileSync(tempPath, 'utf-8');
+            const json = JSON.parse(content);
+
+            const el = json.elements[0];
+            expect(el.type).toBe('QRCODE');
+            expect(el.previewData).toBe('https://example.com');
+            expect(el.magnification).toBe(4);
+
+            fs.unlinkSync(tempPath);
+        });
+
+        test('should preserve TextBlock element properties in export', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-block-width').fill('250');
+            await page.locator('#prop-block-width').dispatchEvent('change');
+            await page.locator('#prop-max-lines').fill('3');
+            await page.locator('#prop-max-lines').dispatchEvent('change');
+            await page.locator('#prop-line-spacing').fill('5');
+            await page.locator('#prop-line-spacing').dispatchEvent('change');
+
+            const downloadPromise = page.waitForEvent('download');
+            await zplOutput.exportTemplate();
+            const download = await downloadPromise;
+
+            const tempPath = path.join(__dirname, '../fixtures/temp-export-textblock.json');
+            await download.saveAs(tempPath);
+
+            const content = fs.readFileSync(tempPath, 'utf-8');
+            const json = JSON.parse(content);
+
+            const el = json.elements[0];
+            expect(el.type).toBe('TEXTBLOCK');
+            expect(el.blockWidth).toBe(250);
+            expect(el.maxLines).toBe(3);
+            expect(el.lineSpacing).toBe(5);
+
+            fs.unlinkSync(tempPath);
+        });
+
+        test('should preserve LINE element properties in export', async ({ page }) => {
+            await elementsPanel.addLineElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-x').fill('30');
+            await page.locator('#prop-x').dispatchEvent('change');
+            await page.locator('#prop-y').fill('40');
+            await page.locator('#prop-y').dispatchEvent('change');
+            await page.locator('#prop-width').fill('150');
+            await page.locator('#prop-width').dispatchEvent('change');
+
+            const downloadPromise = page.waitForEvent('download');
+            await zplOutput.exportTemplate();
+            const download = await downloadPromise;
+
+            const tempPath = path.join(__dirname, '../fixtures/temp-export-line.json');
+            await download.saveAs(tempPath);
+
+            const content = fs.readFileSync(tempPath, 'utf-8');
+            const json = JSON.parse(content);
+
+            const el = json.elements[0];
+            expect(el.type).toBe('LINE');
+            expect(el.x).toBe(30);
+            expect(el.y).toBe(40);
+            expect(el.width).toBe(150);
+
+            fs.unlinkSync(tempPath);
+        });
+
+        test('should preserve extended label settings in export', async ({ page }) => {
+            await page.locator('#label-width').fill('100');
+            await page.locator('#label-width').dispatchEvent('change');
+
+            // Expand Print Configuration section
+            await page.getByText('Print Configuration', { exact: true }).click();
+
+            await page.locator('#media-darkness').fill('20');
+            await page.locator('#media-darkness').dispatchEvent('change');
+            await page.locator('#print-speed').fill('6');
+            await page.locator('#print-speed').dispatchEvent('change');
+            await page.locator('[data-mirror="Y"]').click();
+
+            const downloadPromise = page.waitForEvent('download');
+            await zplOutput.exportTemplate();
+            const download = await downloadPromise;
+
+            const tempPath = path.join(__dirname, '../fixtures/temp-export-settings-ext.json');
+            await download.saveAs(tempPath);
+
+            const content = fs.readFileSync(tempPath, 'utf-8');
+            const json = JSON.parse(content);
+
+            expect(json.labelSettings.mediaDarkness).toBe(20);
+            expect(json.labelSettings.printSpeed).toBe(6);
+            expect(json.labelSettings.printMirror).toBe('Y');
+
+            fs.unlinkSync(tempPath);
+        });
+
         test('should preserve label settings in export', async ({ page }) => {
             await page.locator('#label-width').fill('75');
             await page.locator('#label-width').dispatchEvent('change');
@@ -277,18 +421,16 @@ test.describe('Import/Export - Template Persistence', () => {
 
     // ============== ROUND-TRIP ==============
     test.describe('Round-Trip', () => {
-        test.skip('should preserve all data through export then import cycle', async ({ page }) => {
-            // Skip: Round-trip timing needs investigation
-            // Create elements with specific values
+        test('should preserve all data through export then import cycle', async ({ page }) => {
+            // Create element with specific values
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
             await page.locator('#prop-preview-text').fill('Round Trip Test');
-            await page.locator('#prop-preview-text').dispatchEvent('input');
+            await page.locator('#prop-preview-text').dispatchEvent('change');
             await page.locator('#prop-x').fill('175');
-            await page.locator('#prop-x').dispatchEvent('input');
+            await page.locator('#prop-x').dispatchEvent('change');
             await page.locator('#prop-y').fill('225');
-            await page.locator('#prop-y').dispatchEvent('input');
-            await page.waitForTimeout(200);
+            await page.locator('#prop-y').dispatchEvent('change');
 
             // Export
             const downloadPromise = page.waitForEvent('download');
@@ -304,14 +446,13 @@ test.describe('Import/Export - Template Persistence', () => {
 
             // Import
             await zplOutput.importTemplate(tempPath);
-            await page.waitForTimeout(500);
 
-            // Verify
-            expect(await elementsPanel.getElementCount()).toBe(1);
-            await elementsPanel.selectElementByIndex(0);
-            await propertiesPanel.verifyPropertyValue('prop-preview-text', 'Round Trip Test');
-            await propertiesPanel.verifyPropertyValue('prop-x', '175');
-            await propertiesPanel.verifyPropertyValue('prop-y', '225');
+            // Wait for import to complete using element count assertion
+            await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+
+            // Verify via ZPL output — the imported element's data should be in the ZPL
+            await zplOutput.verifyZPLContains('^FDRound Trip Test^FS');
+            await zplOutput.verifyZPLContains('^FO175,225');
 
             fs.unlinkSync(tempPath);
         });

@@ -180,13 +180,56 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
 
         test('should update ^PO when orientation is changed', async ({ page }) => {
-            await page.locator('[data-orientation="I"]').click();
+            // Use the label-level orientation button (no title attr) vs element-level (has title)
+            await page.locator('[data-orientation="I"]:not([title])').click();
             await zplOutput.verifyZPLContains('^POI');
         });
 
         test('should update ^PM when mirror is changed', async ({ page }) => {
             await page.locator('[data-mirror="Y"]').click();
             await zplOutput.verifyZPLContains('^PMY');
+        });
+
+        test('should update ^LH value when homeX is changed', async ({ page }) => {
+            // Expand the Offsets section (collapsed by default)
+            await page.getByText('Offsets', { exact: true }).click();
+            await page.locator('#home-x').fill('20');
+            await page.locator('#home-x').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^LH20,/);
+        });
+
+        test('should update ^LH value when homeY is changed', async ({ page }) => {
+            // Expand the Offsets section (collapsed by default)
+            await page.getByText('Offsets', { exact: true }).click();
+            await page.locator('#home-y').fill('30');
+            await page.locator('#home-y').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^LH\d+,30/);
+        });
+
+        test('should update ^PW when dpmm is changed', async ({ page }) => {
+            // label-dpmm is a SELECT in Label Setup (open by default); select 12 dpmm
+            // Default label width is 100mm; 100 * 12 = 1200 dots
+            await page.locator('#label-dpmm').selectOption('12');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^PW1200');
+        });
+
+        test('should include slew speed in ^PR when changed', async ({ page }) => {
+            await page.locator('#slew-speed').fill('6');
+            await page.locator('#slew-speed').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            // ^PR format: ^PR{printSpeed},{slewSpeed},{backfeedSpeed}
+            expect(zpl).toMatch(/\^PR\d+,6/);
+        });
+
+        test('should include backfeed speed in ^PR when changed', async ({ page }) => {
+            await page.locator('#backfeed-speed').fill('8');
+            await page.locator('#backfeed-speed').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            // ^PR format: ^PR{printSpeed},{slewSpeed},{backfeedSpeed}
+            expect(zpl).toMatch(/\^PR\d+,\d+,8/);
         });
     });
 

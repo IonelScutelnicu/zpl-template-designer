@@ -43,6 +43,10 @@ export class ElementsPanel {
         await this.addBoxBtn.click();
     }
 
+    async addLineElement(): Promise<void> {
+        await this.page.locator('#add-line-btn').click();
+    }
+
     async getElementCount(): Promise<number> {
         // Count element items in the list (excluding the placeholder message)
         const items = this.elementsList.locator('.element-item');
