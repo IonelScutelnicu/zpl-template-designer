@@ -79,8 +79,8 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
+    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
     // Orientation toggle buttons
     const orientationButtons = document.querySelectorAll('[data-orientation]');
     const setOrientationActive = (value) => {
@@ -198,8 +198,8 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
+    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);

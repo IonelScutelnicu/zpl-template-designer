@@ -424,14 +424,16 @@ export function initApp() {
   addCustomFontBtn.addEventListener("click", addCustomFont);
 
   defaultFontHeight.addEventListener("input", (e) => {
-    state.updateLabelSettings({ defaultFontHeight: parseInt(e.target.value) || 20 });
+    const parsed = parseInt(e.target.value);
+    state.updateLabelSettings({ defaultFontHeight: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   defaultFontWidth.addEventListener("input", (e) => {
-    state.updateLabelSettings({ defaultFontWidth: parseInt(e.target.value) || 20 });
+    const parsed = parseInt(e.target.value);
+    state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });

@@ -47,6 +47,36 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toContain(',40');
         });
 
+        test('should clamp negative font height to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-size');
+            await input.fill('-20');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-20');
+            expect(zpl).toMatch(/\^A0N,22,11/);
+        });
+
+        test('should clamp negative font width to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-width');
+            await input.fill('-15');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-15');
+            expect(zpl).toMatch(/\^A0N,22,11/);
+        });
+
         test.skip('should preserve property values after re-selecting element', async ({ page }) => {
             // Skip: Property preservation timing needs investigation
             await propertiesPanel.setProperty('prop-preview-text', 'Test Value');
@@ -141,6 +171,36 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await propertiesPanel.setProperty('prop-font-width', 35);
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain(',35');
+        });
+
+        test('should clamp negative font height to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-size');
+            await input.fill('-20');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-20');
+            expect(zpl).toMatch(/\^A0N,22,11/);
+        });
+
+        test('should clamp negative font width to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-width');
+            await input.fill('-15');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-15');
+            expect(zpl).toMatch(/\^A0N,22,11/);
         });
     });
 
@@ -451,6 +511,40 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
             await elementsPanel.deleteElementByIndex(0);
             expect(await propertiesPanel.hasNoElementSelected()).toBe(true);
+        });
+    });
+
+    // ============== LABEL SETTINGS - DEFAULT FONT ==============
+    test.describe('Label Settings - Default Font', () => {
+        test.beforeEach(async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await page.locator('details summary:has-text("Default Font")').click();
+        });
+
+        test('should clamp negative default font height to 1', async ({ page }) => {
+            await page.locator('#default-font-height').fill('25');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('30');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            await page.locator('#default-font-height').fill('-10');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-10');
+            expect(zpl).toContain('^CF0,1,30');
+        });
+
+        test('should clamp negative default font width to 1', async ({ page }) => {
+            await page.locator('#default-font-height').fill('25');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('30');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            await page.locator('#default-font-width').fill('-5');
+            await page.locator('#default-font-width').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-5');
+            expect(zpl).toContain('^CF0,25,1');
         });
     });
 });
