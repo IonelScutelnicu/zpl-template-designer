@@ -426,12 +426,14 @@ export function initApp() {
   defaultFontHeight.addEventListener("input", (e) => {
     state.updateLabelSettings({ defaultFontHeight: parseInt(e.target.value) || 20 });
     updateZPLOutput();
+    renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   defaultFontWidth.addEventListener("input", (e) => {
     state.updateLabelSettings({ defaultFontWidth: parseInt(e.target.value) || 20 });
     updateZPLOutput();
+    renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 

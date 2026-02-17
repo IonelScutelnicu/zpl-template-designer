@@ -47,6 +47,39 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
 
             expect(beforeScreenshot.equals(afterScreenshot)).toBe(false);
         });
+
+        test('should update canvas when default font height/width changes in real time', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            // Ensure the element uses label defaults for size
+            await propertiesPanel.setProperty('prop-font-size', 0);
+            await propertiesPanel.setProperty('prop-font-width', 0);
+            await propertiesPanel.setProperty('prop-preview-text', 'Default Font');
+            await propertiesPanel.setProperty('prop-x', 80);
+            await propertiesPanel.setProperty('prop-y', 80);
+
+            await canvas.waitForReady();
+            const beforeScreenshot = await canvas.takeScreenshot();
+
+            // Expand Default Font section and update defaults
+            await page.getByText('Default Font', { exact: true }).click();
+            const heightInput = page.locator('#default-font-height');
+            const widthInput = page.locator('#default-font-width');
+
+            await heightInput.click();
+            await page.keyboard.press('Control+a');
+            await page.keyboard.type('40'); // input events only, no blur/change
+
+            await widthInput.click();
+            await page.keyboard.press('Control+a');
+            await page.keyboard.type('30'); // input events only, no blur/change
+
+            await canvas.waitForReady();
+            const afterScreenshot = await canvas.takeScreenshot();
+
+            expect(beforeScreenshot.equals(afterScreenshot)).toBe(false);
+        });
     });
 
     // ============== ELEMENT SELECTION ON CANVAS ==============
