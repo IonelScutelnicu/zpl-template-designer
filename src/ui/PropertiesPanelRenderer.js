@@ -122,24 +122,24 @@ export class PropertiesPanelRenderer {
         <div class="grid grid-cols-4 gap-2">
           <button id="prop-center-x"
             class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
-            title="Center Horizontally">
+            data-tooltip="Center Horizontally">
             <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">align_horizontal_center</span>
           </button>
           <button id="prop-center-y"
             class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
-            title="Center Vertically">
+            data-tooltip="Center Vertically">
             <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">align_vertical_center</span>
           </button>
           <button id="prop-match-width"
             class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all ${disabledClass}"
             ${disabledAttr}
-            title="Match Label Width">
+            data-tooltip="Match Label Width">
             <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">fit_screen</span>
           </button>
           <button id="prop-match-height"
             class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all ${disabledClass}"
             ${disabledAttr}
-            title="Match Label Height">
+            data-tooltip="Match Label Height">
             <span class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors rotate-90">fit_screen</span>
           </button>
         </div>
@@ -180,22 +180,22 @@ export class PropertiesPanelRenderer {
           <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
             <button type="button" data-orientation="N"
               class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "N" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
-              title="Normal (N)">
+              data-tooltip="Normal (N)">
               <span class="material-icons-round text-base">text_rotation_none</span>
             </button>
             <button type="button" data-orientation="R"
               class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "R" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
-              title="Rotated 90° (R)">
+              data-tooltip="Rotated 90° (R)">
               <span class="material-icons-round text-base inline-block rotate-90">text_rotation_none</span>
             </button>
             <button type="button" data-orientation="I"
               class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "I" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
-              title="Inverted 180° (I)">
+              data-tooltip="Inverted 180° (I)">
               <span class="material-icons-round text-base inline-block rotate-180">text_rotation_none</span>
             </button>
             <button type="button" data-orientation="B"
               class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "B" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
-              title="Bottom-Up 270° (B)">
+              data-tooltip="Bottom-Up 270° (B)">
               <span class="material-icons-round text-base inline-block -rotate-90">text_rotation_none</span>
             </button>
           </div>
@@ -432,22 +432,22 @@ export class PropertiesPanelRenderer {
           <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
             <button type="button" data-justification="L"
               class="flex-1 p-1 rounded-md ${element.justification === "L" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
-              title="Left Align">
+              data-tooltip="Left Align">
               <span class="material-icons-round text-sm">format_align_left</span>
             </button>
             <button type="button" data-justification="C"
               class="flex-1 p-1 rounded-md ${element.justification === "C" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
-              title="Center Align">
+              data-tooltip="Center Align">
               <span class="material-icons-round text-sm">format_align_center</span>
             </button>
             <button type="button" data-justification="R"
               class="flex-1 p-1 rounded-md ${element.justification === "R" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
-              title="Right Align">
+              data-tooltip="Right Align">
               <span class="material-icons-round text-sm">format_align_right</span>
             </button>
             <button type="button" data-justification="J"
               class="flex-1 p-1 rounded-md ${element.justification === "J" ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-all"
-              title="Justified">
+              data-tooltip="Justified">
               <span class="material-icons-round text-sm">format_align_justify</span>
             </button>
           </div>

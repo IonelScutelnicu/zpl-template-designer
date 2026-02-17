@@ -13,6 +13,7 @@ import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
+import { TooltipManager } from './ui/TooltipManager.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -157,6 +158,9 @@ let previewMode = 'canvas'; // 'canvas' or 'api'
 
 // Initialize function
 export function initApp() {
+  // Initialize tooltip manager
+  new TooltipManager().init();
+
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
 

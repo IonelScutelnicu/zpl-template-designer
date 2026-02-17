@@ -192,8 +192,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
 
         test('should update ^PO when orientation is changed', async ({ page }) => {
-            // Use the label-level orientation button (no title attr) vs element-level (has title)
-            await page.locator('[data-orientation="I"]:not([title])').click();
+            // Use the label-level orientation button (no data-tooltip) vs element-level (has data-tooltip)
+            await page.locator('[data-orientation="I"]:not([data-tooltip])').click();
             await zplOutput.verifyZPLContains('^POI');
         });
 
