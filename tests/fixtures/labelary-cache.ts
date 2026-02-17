@@ -49,11 +49,20 @@ export async function setupLabelaryCacheInterceptor(page: Page): Promise<void> {
         }
 
         // Cache miss – hit the real API, persist response
-        const response = await route.fetch();
-        const body = await response.body();
-        if (response.status() === 200) {
-            saveToCache(key, body);
+        try {
+            const response = await route.fetch();
+            const body = await response.body();
+            if (response.status() === 200) {
+                saveToCache(key, body);
+            }
+            await route.fulfill({ response, body });
+        } catch (error) {
+            // If the page/context closed during the request, ignore the error
+            const message = String(error);
+            if (message.includes('Target page, context or browser has been closed')) {
+                return;
+            }
+            throw error;
         }
-        await route.fulfill({ response, body });
     });
 }
