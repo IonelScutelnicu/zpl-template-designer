@@ -483,6 +483,136 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             expect(size1).toBe(size0);
             expect(width1).toBeGreaterThan(width0);
         });
+
+        test('Box: br handle increases width and height', async ({ page }) => {
+            await elementsPanel.addBoxElement();
+            await page.waitForSelector('#properties-panel #prop-width');
+
+            const w0 = parseInt(await propertiesPanel.getProperty('prop-width'));
+            const h0 = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                if (!appState || !appState.elements[0]) return null;
+                const bounds = appState.elements[0].getBounds();
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+            });
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + 30) * cssScale,   (handlePos.y + 20) * cssScale
+            );
+            await canvas.waitForReady();
+
+            const w1 = parseInt(await propertiesPanel.getProperty('prop-width'));
+            const h1 = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+            expect(w1).toBeGreaterThan(w0);
+            expect(h1).toBeGreaterThan(h0);
+        });
+
+        test('Line: right handle increases width', async ({ page }) => {
+            await elementsPanel.addLineElement();
+            await page.waitForSelector('#properties-panel #prop-width');
+
+            const w0 = parseInt(await propertiesPanel.getProperty('prop-width'));
+
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                if (!appState || !appState.elements[0]) return null;
+                const bounds = appState.elements[0].getBounds();
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 };
+            });
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + 40) * cssScale,   handlePos.y * cssScale
+            );
+            await canvas.waitForReady();
+
+            const w1 = parseInt(await propertiesPanel.getProperty('prop-width'));
+
+            expect(w1).toBeGreaterThan(w0);
+        });
+
+        test('Barcode: br handle increases width and height', async ({ page }) => {
+            await elementsPanel.addBarcodeElement();
+            await page.waitForSelector('#properties-panel #prop-width');
+
+            const w0 = parseFloat(await propertiesPanel.getProperty('prop-width'));
+            const h0 = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                if (!appState || !appState.elements[0]) return null;
+                const bounds = appState.elements[0].getBounds();
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+            });
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + 40) * cssScale,   (handlePos.y + 20) * cssScale
+            );
+            await canvas.waitForReady();
+
+            const w1 = parseFloat(await propertiesPanel.getProperty('prop-width'));
+            const h1 = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+            expect(w1).toBeGreaterThan(w0);
+            expect(h1).toBeGreaterThan(h0);
+        });
+
+        test('QRCode: br handle increases magnification', async ({ page }) => {
+            await elementsPanel.addQRCodeElement();
+            await page.waitForSelector('#properties-panel #prop-magnification');
+
+            const m0 = parseInt(await propertiesPanel.getProperty('prop-magnification'));
+
+            const handlePos = await page.evaluate(() => {
+                const appState = (window as any).appState;
+                if (!appState || !appState.elements[0]) return null;
+                const bounds = appState.elements[0].getBounds();
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+            });
+            if (!handlePos) throw new Error('Could not get handle position');
+
+            const cssScale = await page.evaluate(() => {
+                const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+                const rect = c.getBoundingClientRect();
+                return rect.width / c.width;
+            });
+
+            await canvas.drag(
+                handlePos.x * cssScale,          handlePos.y * cssScale,
+                (handlePos.x + 40) * cssScale,   (handlePos.y + 40) * cssScale
+            );
+            await canvas.waitForReady();
+
+            const m1 = parseInt(await propertiesPanel.getProperty('prop-magnification'));
+
+            expect(m1).toBeGreaterThan(m0);
+        });
     });
 
     // ============== VISUAL REGRESSION ==============
