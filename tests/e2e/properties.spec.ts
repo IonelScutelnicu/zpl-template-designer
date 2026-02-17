@@ -116,6 +116,22 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toContain(',C,');
         });
 
+        test('should update hanging indent and reflect in ^FB command', async () => {
+            await propertiesPanel.setProperty('prop-hanging-indent', 20);
+            const zpl = await zplOutput.getZPLCode();
+            // ^FB format: ^FBblockWidth,maxLines,lineSpacing,justification,hangingIndent
+            expect(zpl).toMatch(/\^FB\d+,\d+,\d+,[LCRJ],20/);
+        });
+
+        test('should reset hanging indent to 0 and reflect in ^FB command', async () => {
+            // Set to non-zero first
+            await propertiesPanel.setProperty('prop-hanging-indent', 15);
+            // Then reset to 0
+            await propertiesPanel.setProperty('prop-hanging-indent', 0);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FB\d+,\d+,\d+,[LCRJ],0/);
+        });
+
         test('should update font height and reflect in ZPL output', async () => {
             await propertiesPanel.setProperty('prop-font-size', 40);
             await zplOutput.verifyZPLContains(',40,');
