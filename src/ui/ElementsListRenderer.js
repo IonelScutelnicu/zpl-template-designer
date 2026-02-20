@@ -9,22 +9,23 @@ export class ElementsListRenderer {
    * Render the elements list
    * @param {Array} elements - Array of elements
    * @param {Object|null} selectedElement - Currently selected element
+   * @param {Array} warnings - Current warnings array
    * @returns {string} HTML string
    */
-  render(elements, selectedElement) {
+  render(elements, selectedElement, warnings = []) {
     if (elements.length === 0) {
       return '<p class="text-center text-slate-400 py-8 italic text-xs">No elements added yet</p>';
     }
 
     return elements
-      .map((element, index) => this.renderElementItem(element, index, selectedElement))
+      .map((element, index) => this.renderElementItem(element, index, selectedElement, warnings))
       .join("");
   }
 
   /**
    * Render a single element item
    */
-  renderElementItem(element, index, selectedElement) {
+  renderElementItem(element, index, selectedElement, warnings = []) {
     const isActive = selectedElement && String(selectedElement.id) === String(element.id);
 
     const activeClasses = isActive
@@ -34,6 +35,11 @@ export class ElementsListRenderer {
     const isFirst = index === 0;
     const isLast = index === element.length - 1; // Note: This will always be false in the map context
 
+    const hasWarnings = warnings.some(w => w.elementId !== null && String(w.elementId) === String(element.id));
+    const warningIcon = hasWarnings
+      ? '<span class="material-icons-round text-amber-500 text-xs" title="Has ZPL warnings">warning</span>'
+      : '';
+
     return `
       <div class="element-item group relative flex justify-between items-center p-2.5 mb-1.5 rounded-md border transition-all cursor-pointer ${activeClasses}" data-id="${element.id}" data-index="${index}">
         <div class="flex-1 min-w-0 pr-2">
@@ -41,6 +47,7 @@ export class ElementsListRenderer {
             <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-800">
               ${element.type}
             </span>
+            ${warningIcon}
           </div>
           <div class="text-xs text-slate-600 mt-1 truncate font-medium">${this.escapeHtml(element.getDisplayName())}</div>
         </div>

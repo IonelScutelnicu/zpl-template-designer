@@ -172,6 +172,55 @@ export class ZPLGenerator {
   }
 
   /**
+   * Generate ZPL for preview with a byte offset map for each element.
+   * Used for mapping Labelary API warnings back to elements.
+   * @param {Array} elements - Array of elements to render
+   * @param {Object} labelSettings - Label configuration
+   * @param {Object} selectedElement - Currently selected element
+   * @returns {{ zpl: string, byteMap: Array<{elementId: string|number, startByte: number, endByte: number}> }}
+   */
+  generatePreviewZPLWithMap(elements, labelSettings, selectedElement = null) {
+    if (!elements || elements.length === 0) {
+      return { zpl: '', byteMap: [] };
+    }
+
+    const encoder = new TextEncoder();
+    const header = this.buildHeader(labelSettings);
+    const byteMap = [];
+
+    let currentZpl = header;
+    let currentByteOffset = encoder.encode(header).length;
+
+    elements.forEach((element, index) => {
+      if (index > 0) {
+        const sep = '\n';
+        currentZpl += sep;
+        currentByteOffset += encoder.encode(sep).length;
+      }
+
+      const cmd = element.renderPreview(
+        labelSettings.fontId,
+        labelSettings.defaultFontHeight || 20,
+        labelSettings.defaultFontWidth || 20
+      );
+
+      const cmdBytes = encoder.encode(cmd).length;
+      byteMap.push({
+        elementId: element.id,
+        startByte: currentByteOffset,
+        endByte: currentByteOffset + cmdBytes - 1
+      });
+
+      currentZpl += cmd;
+      currentByteOffset += cmdBytes;
+    });
+
+    currentZpl += '\n^XZ';
+
+    return { zpl: currentZpl, byteMap };
+  }
+
+  /**
    * Generate ZPL for a single element (utility method)
    * @param {Object} element - Element to render
    * @param {string} fontId - Default font ID
