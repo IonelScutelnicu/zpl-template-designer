@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { ElementsPanel, Canvas, PreviewPanel, PropertiesPanel } from '../page-objects';
 import { compareImages } from '../fixtures/image-comparison';
 

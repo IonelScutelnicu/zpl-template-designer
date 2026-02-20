@@ -137,7 +137,9 @@ export class Canvas {
     }
 
     /**
-     * Get the current canvas scale factor from the renderer
+     * Get the current canvas scale factor from the renderer.
+     * Note: the canvas internal rendering scale is always 1 (1 dot = 1 pixel).
+     * The CSS display scale may differ, but this returns the rendering scale.
      */
     async getScale(): Promise<number> {
         return await this.page.evaluate(() => {

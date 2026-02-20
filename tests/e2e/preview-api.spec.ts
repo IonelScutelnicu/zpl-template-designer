@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { ElementsPanel, PreviewPanel, Canvas } from '../page-objects';
 
 test.describe('Preview - Canvas and API Preview Modes', () => {

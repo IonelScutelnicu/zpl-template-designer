@@ -13,6 +13,7 @@ import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
+import { TooltipManager } from './ui/TooltipManager.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -89,6 +90,7 @@ const addQRCodeBtn = document.getElementById("add-qrcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
 const addTextBlockBtn = document.getElementById("add-textblock-btn");
 const addLineBtn = document.getElementById("add-line-btn");
+const addCircleBtn = document.getElementById("add-circle-btn");
 const undoBtn = document.getElementById("undo-btn");
 const redoBtn = document.getElementById("redo-btn");
 const historyToggleBtn = document.getElementById("history-toggle-btn");
@@ -110,7 +112,22 @@ const labelDpmm = document.getElementById("label-dpmm");
 const homeX = document.getElementById("home-x");
 const homeY = document.getElementById("home-y");
 const labelTop = document.getElementById("label-top");
-const printOrientation = document.getElementById("print-orientation");
+const orientationButtons = document.querySelectorAll('[data-orientation]');
+const mirrorButtons = document.querySelectorAll('[data-mirror]');
+
+const setOrientationActive = (value) => {
+  orientationButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-orientation') === value;
+    btn.className = `px-3 py-1 text-xs rounded transition-colors ${isActive ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'}`;
+  });
+};
+
+const setMirrorActive = (value) => {
+  mirrorButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-mirror') === value;
+    btn.className = `px-3 py-1 text-xs rounded transition-colors ${isActive ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'}`;
+  });
+};
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
@@ -141,6 +158,9 @@ let previewMode = 'canvas'; // 'canvas' or 'api'
 
 // Initialize function
 export function initApp() {
+  // Initialize tooltip manager
+  new TooltipManager().init();
+
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
 
@@ -207,6 +227,7 @@ export function initApp() {
       renderPropertiesPanel();
       updateZPLOutput();
       renderCanvasPreview();
+      updateCopyExportUI();
     },
     onPushHistory: (label, options) => pushHistory(label, options)
   });
@@ -245,6 +266,11 @@ export function initApp() {
           const propHeight = document.getElementById('prop-height');
           if (propWidth) propWidth.value = element.width;
           if (propHeight) propHeight.value = element.height;
+        } else if (element.type === 'TEXT') {
+          const propFontSize = document.getElementById('prop-font-size');
+          const propFontWidth = document.getElementById('prop-font-width');
+          if (propFontSize) propFontSize.value = element.fontSize;
+          if (propFontWidth) propFontWidth.value = element.fontWidth;
         }
       }
     },
@@ -290,13 +316,21 @@ export function initApp() {
   addBoxBtn.addEventListener("click", addBoxElement);
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
   addLineBtn.addEventListener("click", addLineElement);
+  addCircleBtn.addEventListener("click", addCircleElement);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
   // Mode switching
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
   modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
   exportBtn.addEventListener("click", exportTemplate);
-  importBtn.addEventListener("click", () => importFile.click());
+  importBtn.addEventListener("click", () => {
+    if (state.elements.length > 0) {
+      if (!window.confirm("Importing a template will replace your current work. Continue?")) {
+        return;
+      }
+    }
+    importFile.click();
+  });
   importFile.addEventListener("change", handleFileImport);
   undoBtn.addEventListener("click", undo);
   redoBtn.addEventListener("click", redo);
@@ -332,11 +366,26 @@ export function initApp() {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
-  printOrientation.addEventListener("change", (e) => {
-    state.updateLabelSettings({ printOrientation: e.target.value || "N" });
-    updateZPLOutput();
-    renderCanvasPreview();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  orientationButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const value = btn.getAttribute('data-orientation');
+      state.updateLabelSettings({ printOrientation: value });
+      setOrientationActive(value);
+      updateZPLOutput();
+      renderCanvasPreview();
+      scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+    });
+  });
+
+  mirrorButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const value = btn.getAttribute('data-mirror');
+      state.updateLabelSettings({ printMirror: value });
+      setMirrorActive(value);
+      updateZPLOutput();
+      renderCanvasPreview();
+      scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+    });
   });
 
   mediaDarkness.addEventListener("input", (e) => {
@@ -375,14 +424,18 @@ export function initApp() {
   addCustomFontBtn.addEventListener("click", addCustomFont);
 
   defaultFontHeight.addEventListener("input", (e) => {
-    state.updateLabelSettings({ defaultFontHeight: parseInt(e.target.value) || 20 });
+    const parsed = parseInt(e.target.value);
+    state.updateLabelSettings({ defaultFontHeight: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
     updateZPLOutput();
+    renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   defaultFontWidth.addEventListener("input", (e) => {
-    state.updateLabelSettings({ defaultFontWidth: parseInt(e.target.value) || 20 });
+    const parsed = parseInt(e.target.value);
+    state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
     updateZPLOutput();
+    renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
@@ -473,6 +526,17 @@ export function initApp() {
   updateZPLOutput();
   renderCanvasPreview();
   resetHistory("Initial state", { kind: "init" });
+  updateCopyExportUI();
+
+  // Expose internals for automated tests only
+  const isE2E = typeof window !== 'undefined' && (
+    window.__E2E__ === true ||
+    window.location.search.includes('e2e=1')
+  );
+  if (isE2E) {
+    window.canvasRenderer = canvasRenderer;
+    window.appState = state;
+  }
 }
 
 // Render Canvas Preview
@@ -533,7 +597,8 @@ function syncLabelSettingsInputs() {
   homeX.value = state.labelSettings.homeX;
   homeY.value = state.labelSettings.homeY;
   labelTop.value = state.labelSettings.labelTop;
-  printOrientation.value = state.labelSettings.printOrientation;
+  setOrientationActive(state.labelSettings.printOrientation);
+  setMirrorActive(state.labelSettings.printMirror);
   mediaDarkness.value = state.labelSettings.mediaDarkness;
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;
@@ -605,6 +670,7 @@ function applyAppState(stateData) {
 
   state.setApplyingHistory(false);
   updateUndoRedoUI();
+  updateCopyExportUI();
   renderHistoryList();
 }
 
@@ -661,6 +727,18 @@ function updateUndoRedoUI() {
   redoBtn.classList.toggle("hover:bg-blue-100", canRedo);
   redoBtn.classList.toggle("text-slate-400", !canRedo);
   redoBtn.classList.toggle("cursor-not-allowed", !canRedo);
+}
+
+function updateCopyExportUI() {
+  const hasElements = state.elements.length > 0;
+
+  copyBtn.disabled = !hasElements;
+  copyBtn.classList.toggle('opacity-50', !hasElements);
+  copyBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
+  exportBtn.disabled = !hasElements;
+  exportBtn.classList.toggle('opacity-50', !hasElements);
+  exportBtn.classList.toggle('cursor-not-allowed', !hasElements);
 }
 
 function renderHistoryList() {
@@ -788,6 +866,10 @@ function addLineElement() {
   elementService.createElement('LINE', { width: 200, thickness: 3, orientation: 'H' });
 }
 
+function addCircleElement() {
+  elementService.createElement('CIRCLE', { width: 80, height: 80, thickness: 3, color: 'B' });
+}
+
 // Serialization functions (delegated to SerializationService)
 function serializeElement(element) {
   return serializationService.serializeElement(element);
@@ -881,7 +963,7 @@ function animateElementListReorder(previousPositions) {
 
 // Alignment operations (delegated to AlignmentService)
 function applyAlignmentAction(action, element) {
-  alignmentService.applyAlignment(action, element, state.labelSettings);
+  alignmentService.applyAlignment(action, element, state.labelSettings, canvasRenderer);
 }
 
 function attachPropertyListeners(element) {
@@ -973,16 +1055,16 @@ function copyZPL() {
   document.execCommand("copy");
 
   // Visual feedback
-  const originalText = copyBtn.textContent;
-  const originalClasses = copyBtn.className;
-
   copyBtn.textContent = "Copied!";
   copyBtn.classList.remove('bg-slate-800', 'hover:bg-slate-700');
   copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
 
   setTimeout(() => {
-    copyBtn.textContent = originalText;
-    copyBtn.className = originalClasses;
+    copyBtn.textContent = "Copy";
+    copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+    copyBtn.classList.add('bg-slate-800', 'hover:bg-slate-700');
+    // Re-sync disabled styling in case elements changed during the feedback window
+    updateCopyExportUI();
   }, 2000);
 }
 
@@ -1030,6 +1112,7 @@ function importTemplate(template) {
   updateZPLOutput();
   renderCanvasPreview();
   resetHistory("Imported template", { kind: "import" });
+  updateCopyExportUI();
 }
 
 function handleHistoryClick(e) {

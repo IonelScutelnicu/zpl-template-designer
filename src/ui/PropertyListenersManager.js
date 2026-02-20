@@ -60,6 +60,9 @@ export class PropertyListenersManager {
       case "LINE":
         this.attachLineProperties(element, attach);
         break;
+      case "CIRCLE":
+        this.attachCircleProperties(element, attach);
+        break;
       case "TEXTBLOCK":
         this.attachTextBlockProperties(element, attach);
         break;
@@ -76,9 +79,32 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
-    attach("prop-orientation", "orientation");
+    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+    // Orientation toggle buttons
+    const orientationButtons = document.querySelectorAll('[data-orientation]');
+    const setOrientationActive = (value) => {
+      orientationButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-orientation') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('text-slate-400', !isActive);
+        button.classList.toggle('hover:bg-white', !isActive);
+        button.classList.toggle('hover:text-slate-600', !isActive);
+        button.classList.toggle('hover:shadow-sm', !isActive);
+      });
+    };
+    setOrientationActive(element.orientation || "N");
+    orientationButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-orientation');
+        if (!value) return;
+        element.orientation = value;
+        setOrientationActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
 
     // Reverse toggle buttons
     const reverseButtons = document.querySelectorAll('[data-reverse]');
@@ -147,12 +173,24 @@ export class PropertyListenersManager {
   }
 
   /**
+   * Attach CIRCLE element property listeners
+   */
+  attachCircleProperties(element, attach) {
+    attach("prop-width", "width", (v) => parseInt(v) || 80);
+    attach("prop-height", "height", (v) => parseInt(v) || 80);
+    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    attach("prop-color", "color");
+  }
+
+  /**
    * Attach LINE element property listeners
    */
   attachLineProperties(element, attach) {
     attach("prop-width", "width", (v) => parseInt(v) || 100);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-orientation", "orientation");
+    attach("prop-color", "color");
+    attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
   }
 
   /**
@@ -162,8 +200,8 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => parseInt(v) || 0);
-    attach("prop-font-width", "fontWidth", (v) => parseInt(v) || 0);
+    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
