@@ -114,6 +114,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await centerButton.click();
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain(',C,');
+            // Centered field blocks must end with \& before ^FS to avoid layout issues
+            expect(zpl).toMatch(/\^FD.*\\&\^FS/);
         });
 
         test('should update font height and reflect in ZPL output', async () => {
