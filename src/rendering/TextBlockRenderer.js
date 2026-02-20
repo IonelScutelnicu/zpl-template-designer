@@ -42,6 +42,8 @@ export class TextBlockRenderer {
 
     const text = element.previewText || '';
 
+    const hangingIndentPx = (element.hangingIndent || 0) * scale;
+
     // Simple text wrapping - account for horizontal scaling when measuring
     const words = text.split(' ');
     const lines = [];
@@ -53,7 +55,12 @@ export class TextBlockRenderer {
       // Apply scaleX to measured width for accurate wrapping
       const scaledWidth = metrics.width * scaleX;
 
-      if (scaledWidth > blockWidth && currentLine) {
+      // First line: full blockWidth. Lines 2+: blockWidth minus hanging indent.
+      const maxWidth = lines.length === 0
+        ? blockWidth
+        : Math.max(0, blockWidth - hangingIndentPx);
+
+      if (scaledWidth > maxWidth && currentLine) {
         lines.push(currentLine);
         currentLine = word;
       } else {
@@ -112,12 +119,16 @@ export class TextBlockRenderer {
       lines.slice(0, maxLines).forEach((line, i) => {
         const lineY = y - top + (i * lineHeight);
         const measuredWidth = textCtx.measureText(line).width * scaleX;
+        const isFirstLine = i === 0;
+        const indent = isFirstLine ? 0 : hangingIndentPx;
+        const lineBlockWidth = isFirstLine ? blockWidth : Math.max(0, blockWidth - hangingIndentPx);
+        const lineStartX = x - left + indent;
 
-        let lineX = x - left;
+        let lineX = lineStartX;
         if (element.justification === 'C') {
-          lineX = x - left + (blockWidth - measuredWidth) / 2;
+          lineX = lineStartX + (lineBlockWidth - measuredWidth) / 2;
         } else if (element.justification === 'R') {
-          lineX = x - left + blockWidth - measuredWidth;
+          lineX = lineStartX + lineBlockWidth - measuredWidth;
         }
 
         // Apply horizontal scaling for text rendering
@@ -141,23 +152,26 @@ export class TextBlockRenderer {
       const measuredWidth = ctx.measureText(line).width * scaleX;
       const lineY = y + (i * lineHeight);
       const isLastLine = (i === lines.slice(0, maxLines).length - 1);
+      const isFirstLine = i === 0;
+      const indent = isFirstLine ? 0 : hangingIndentPx;
+      const lineBlockWidth = isFirstLine ? blockWidth : Math.max(0, blockWidth - hangingIndentPx);
+      const lineStartX = x + indent;
 
       // Handle justified text
       if (element.justification === 'J') {
         const words = line.split(/\s+/).filter(w => w.length > 0);
 
         // Only justify if: not last line AND has multiple words AND line is shorter than block width
-        if (!isLastLine && words.length > 1 && measuredWidth < blockWidth) {
+        if (!isLastLine && words.length > 1 && measuredWidth < lineBlockWidth) {
           // Measure individual words (without scaling first)
           const wordWidths = words.map(word => ctx.measureText(word).width * scaleX);
           const totalWordWidth = wordWidths.reduce((sum, w) => sum + w, 0);
 
           // Calculate space to distribute between words
-          const availableSpace = blockWidth - totalWordWidth;
-          const spaceBetweenWords = availableSpace / (words.length - 1);
+          const spaceBetweenWords = (lineBlockWidth - totalWordWidth) / (words.length - 1);
 
           // Draw words with calculated spacing
-          let currentX = x;
+          let currentX = lineStartX;
           words.forEach((word, wordIndex) => {
             ctx.save();
             ctx.translate(currentX, lineY);
@@ -171,12 +185,12 @@ export class TextBlockRenderer {
         // Last line or single word: left-align (fall through)
       }
 
-      let lineX = x;
+      let lineX = lineStartX;
       // Apply justification using scaled width
       if (element.justification === 'C') {
-        lineX = x + (blockWidth - measuredWidth) / 2;
+        lineX = lineStartX + (lineBlockWidth - measuredWidth) / 2;
       } else if (element.justification === 'R') {
-        lineX = x + blockWidth - measuredWidth;
+        lineX = lineStartX + lineBlockWidth - measuredWidth;
       }
 
       // Apply horizontal scaling for text rendering

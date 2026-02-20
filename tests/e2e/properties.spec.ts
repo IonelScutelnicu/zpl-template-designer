@@ -47,6 +47,36 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toContain(',40');
         });
 
+        test('should clamp negative font height to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-size');
+            await input.fill('-20');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-20');
+            expect(zpl).toMatch(/\^A0N,22,11/);
+        });
+
+        test('should clamp negative font width to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-width');
+            await input.fill('-15');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-15');
+            expect(zpl).toMatch(/\^A0N,22,11/);
+        });
+
         test.skip('should preserve property values after re-selecting element', async ({ page }) => {
             // Skip: Property preservation timing needs investigation
             await propertiesPanel.setProperty('prop-preview-text', 'Test Value');
@@ -118,6 +148,22 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toMatch(/\^FD.*\\&\^FS/);
         });
 
+        test('should update hanging indent and reflect in ^FB command', async () => {
+            await propertiesPanel.setProperty('prop-hanging-indent', 20);
+            const zpl = await zplOutput.getZPLCode();
+            // ^FB format: ^FBblockWidth,maxLines,lineSpacing,justification,hangingIndent
+            expect(zpl).toMatch(/\^FB\d+,\d+,\d+,[LCRJ],20/);
+        });
+
+        test('should reset hanging indent to 0 and reflect in ^FB command', async () => {
+            // Set to non-zero first
+            await propertiesPanel.setProperty('prop-hanging-indent', 15);
+            // Then reset to 0
+            await propertiesPanel.setProperty('prop-hanging-indent', 0);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FB\d+,\d+,\d+,[LCRJ],0/);
+        });
+
         test('should update font height and reflect in ZPL output', async () => {
             await propertiesPanel.setProperty('prop-font-size', 40);
             await zplOutput.verifyZPLContains(',40,');
@@ -127,6 +173,36 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await propertiesPanel.setProperty('prop-font-width', 35);
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain(',35');
+        });
+
+        test('should clamp negative font height to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-size');
+            await input.fill('-20');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-20');
+            expect(zpl).toMatch(/\^A0N,22,11/);
+        });
+
+        test('should clamp negative font width to 0', async ({ page }) => {
+            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('#default-font-height').fill('22');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('11');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            const input = page.locator('#prop-font-width');
+            await input.fill('-15');
+            await input.dispatchEvent('change');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-15');
+            expect(zpl).toMatch(/\^A0N,22,11/);
         });
     });
 
@@ -251,6 +327,190 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
+    // ============== LINE ELEMENT PROPERTIES ==============
+    test.describe('Line Element Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addLineElement();
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should update X position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-x', 60);
+            await zplOutput.verifyZPLContains('^FO60,');
+        });
+
+        test('should update Y position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-y', 70);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FO\d+,70/);
+        });
+
+        test('should update line length and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-width', 300);
+            const zpl = await zplOutput.getZPLCode();
+            // For a horizontal line, width=length → first ^GB param
+            expect(zpl).toContain('^GB300,');
+        });
+
+        test('should update line thickness and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-thickness', 6);
+            const zpl = await zplOutput.getZPLCode();
+            // Thickness is the third ^GB parameter
+            expect(zpl).toMatch(/\^GB\d+,\d+,6/);
+        });
+
+        test('should update line orientation to Vertical and reflect in ZPL', async ({ page }) => {
+            // Switch to vertical orientation
+            await page.locator('#prop-orientation').selectOption('V');
+            const zpl = await zplOutput.getZPLCode();
+            // For vertical, ^GB width param should be small (equals thickness)
+            expect(zpl).toContain('^GB');
+        });
+
+        test('should update color to White and reflect in ZPL', async ({ page }) => {
+            await page.locator('#prop-color').selectOption('W');
+            await zplOutput.verifyZPLContains(',W');
+        });
+
+        test('should update rounding and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-rounding', 4);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain(',4');
+        });
+    });
+
+    // ============== CIRCLE ELEMENT PROPERTIES ==============
+    test.describe('Circle Element Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addCircleElement();
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should update X position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-x', 40);
+            await zplOutput.verifyZPLContains('^FO40,');
+        });
+
+        test('should update Y position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-y', 55);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FO\d+,55/);
+        });
+
+        test('should update width and reflect in ^GE command', async () => {
+            await propertiesPanel.setProperty('prop-width', 120);
+            await zplOutput.verifyZPLContains('^GE120,');
+        });
+
+        test('should update height and reflect in ^GE command', async () => {
+            await propertiesPanel.setProperty('prop-height', 100);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^GE\d+,100,/);
+        });
+
+        test('should update thickness and reflect in ^GE command', async () => {
+            await propertiesPanel.setProperty('prop-thickness', 8);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^GE\d+,\d+,8,/);
+        });
+
+        test('should update color to White and reflect in ^GE command', async ({ page }) => {
+            await page.locator('#prop-color').selectOption('W');
+            await zplOutput.verifyZPLContains(',W');
+        });
+
+        test('should show default circle dimensions in properties panel', async () => {
+            await propertiesPanel.verifyPropertyValue('prop-width', 80);
+            await propertiesPanel.verifyPropertyValue('prop-height', 80);
+            await propertiesPanel.verifyPropertyValue('prop-thickness', 3);
+        });
+    });
+
+    // ============== ADDITIONAL ELEMENT PROPERTY COVERAGE ==============
+    test.describe('Text Element Orientation', () => {
+        test('should update Text element orientation to R and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('[data-orientation="R"]').click();
+            const zpl = await zplOutput.getZPLCode();
+            // ^A command format: ^A{fontId}{orientation},{height},{width}
+            // e.g. ^A0R,30,30 or ^AR,30,30
+            expect(zpl).toMatch(/\^A\S*R,/);
+        });
+    });
+
+    test.describe('Barcode Additional Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addBarcodeElement();
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should toggle Barcode showText and reflect in ^BC command', async ({ page }) => {
+            // Default showText=true → 'Y' in ^BC; uncheck → 'N'
+            // #prop-show-text is sr-only (visually hidden), so use force:true
+            const checkbox = page.locator('#prop-show-text');
+            await checkbox.uncheck({ force: true });
+            const zpl = await zplOutput.getZPLCode();
+            // ^BC command with Y/N for interpretation line
+            expect(zpl).toMatch(/\^BCN,\d+,N/);
+        });
+
+        test('should update Barcode ratio and reflect in ^BY command', async () => {
+            await propertiesPanel.setProperty('prop-ratio', 3);
+            const zpl = await zplOutput.getZPLCode();
+            // ^BY{width},{ratio} — ratio is the second parameter
+            expect(zpl).toMatch(/\^BY\d+,3/);
+        });
+    });
+
+    test.describe('QR Code Additional Properties', () => {
+        test('should update QR Code model and reflect in ^BQ command', async ({ page }) => {
+            await elementsPanel.addQRCodeElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            const select = page.locator('#prop-model');
+            if (await select.isVisible()) {
+                await select.selectOption('1');
+                const zpl = await zplOutput.getZPLCode();
+                // ^BQN,{model},{magnification} — model=1 should appear
+                expect(zpl).toContain('^BQN,1,');
+            }
+        });
+    });
+
+    test.describe('Z-Order Reordering', () => {
+        test('should reorder elements with Move Down button and change ZPL output order', async ({ page }) => {
+            // Add two text elements with distinct text
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+            await page.locator('#prop-preview-text').fill('ElementAlpha');
+            await page.locator('#prop-preview-text').dispatchEvent('change');
+
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(1);
+            await page.locator('#prop-preview-text').fill('ElementBeta');
+            await page.locator('#prop-preview-text').dispatchEvent('change');
+
+            const zplBefore = await zplOutput.getZPLCode();
+            expect(zplBefore).toContain('ElementAlpha');
+            expect(zplBefore).toContain('ElementBeta');
+
+            // Record the initial order before reordering
+            const alphaBeforeBeta = zplBefore.indexOf('ElementAlpha') < zplBefore.indexOf('ElementBeta');
+
+            // Move the element at index 0 down (swaps it with the one at index 1)
+            const items = page.locator('#elements-list .element-item');
+            await items.nth(0).hover();
+            await items.nth(0).locator('.move-down-btn').click();
+
+            const zplAfter = await zplOutput.getZPLCode();
+            // Order should have reversed
+            const alphaBeforeBetaAfter = zplAfter.indexOf('ElementAlpha') < zplAfter.indexOf('ElementBeta');
+            expect(alphaBeforeBetaAfter).toBe(!alphaBeforeBeta);
+        });
+    });
+
     // ============== NO ELEMENT SELECTED ==============
     test.describe('No Element Selected', () => {
         test('should show placeholder message when no element is selected', async () => {
@@ -264,6 +524,40 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
             await elementsPanel.deleteElementByIndex(0);
             expect(await propertiesPanel.hasNoElementSelected()).toBe(true);
+        });
+    });
+
+    // ============== LABEL SETTINGS - DEFAULT FONT ==============
+    test.describe('Label Settings - Default Font', () => {
+        test.beforeEach(async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await page.locator('details summary:has-text("Default Font")').click();
+        });
+
+        test('should clamp negative default font height to 1', async ({ page }) => {
+            await page.locator('#default-font-height').fill('25');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('30');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            await page.locator('#default-font-height').fill('-10');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-10');
+            expect(zpl).toContain('^CF0,1,30');
+        });
+
+        test('should clamp negative default font width to 1', async ({ page }) => {
+            await page.locator('#default-font-height').fill('25');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await page.locator('#default-font-width').fill('30');
+            await page.locator('#default-font-width').dispatchEvent('input');
+
+            await page.locator('#default-font-width').fill('-5');
+            await page.locator('#default-font-width').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('-5');
+            expect(zpl).toContain('^CF0,25,1');
         });
     });
 });

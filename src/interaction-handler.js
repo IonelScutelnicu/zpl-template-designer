@@ -58,7 +58,7 @@ export class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE')) {
+    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         this.isResizing = true;
@@ -77,6 +77,17 @@ export class InteractionHandler {
           const bounds = selectedElement.getBounds();
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
+        } else if (selectedElement.type === 'CIRCLE') {
+          this.resizeStartWidth = selectedElement.width;
+          this.resizeStartHeight = selectedElement.height;
+        } else if (selectedElement.type === 'TEXT') {
+          this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 20;
+          this.resizeStartFontWidth = selectedElement.fontWidth || this.labelSettings?.defaultFontWidth || 20;
+          // Store the measured text width so horizontal drag tracks the right edge 1:1
+          const measuredBounds = this.renderer.measureTextBounds(selectedElement, this.labelSettings);
+          this.resizeStartWidth = measuredBounds.width;
+          this.resizeStartMeasuredWidth = measuredBounds.width;
+          this.resizeStartMeasuredHeight = measuredBounds.height;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
           if (selectedElement.type === 'TEXTBLOCK') {
@@ -165,7 +176,21 @@ export class InteractionHandler {
 
         this.dragElement.magnification = clamped;
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE') {
+      } else if (this.dragElement.type === 'TEXT') {
+        const dx = coords.x - this.resizeMouseStartX;
+        const dy = coords.y - this.resizeMouseStartY;
+        const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+        const fontSizeDelta = isRotated ? dx : dy;
+        this.dragElement.fontSize = Math.max(8, Math.round(this.resizeStartHeight + fontSizeDelta));
+        // Scale fontWidth so the right edge of the selection box tracks the mouse 1:1.
+        // measuredWidth = charPixels * fontWidth / fontSize, so fontWidth scales proportionally.
+        const startMeasure = isRotated ? this.resizeStartMeasuredHeight : this.resizeStartMeasuredWidth;
+        const deltaMeasure = isRotated ? dy : dx;
+        const targetWidth = Math.max(8, startMeasure + deltaMeasure);
+        const safeStart = Math.max(1, startMeasure);
+        this.dragElement.fontWidth = Math.max(8, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
+        this.callbacks.onElementDragging(this.dragElement);
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -284,7 +309,7 @@ export class InteractionHandler {
         this.dragElement.x = Math.round(newX);
         this.dragElement.y = Math.round(newY);
 
-        if (this.dragElement.type === 'BOX') {
+        if (this.dragElement.type === 'BOX' || this.dragElement.type === 'CIRCLE') {
           this.dragElement.width = Math.round(newWidth);
           this.dragElement.height = Math.round(newHeight);
         } else if (this.dragElement.type === 'LINE') {
@@ -340,7 +365,7 @@ export class InteractionHandler {
         let newY = coords.y - this.dragOffsetY;
 
         // Constrain to label bounds
-        const bounds = this.getSelectionBounds(this.dragElement);
+        const bounds = this.getDragConstraintBounds(this.dragElement);
         const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
@@ -367,7 +392,7 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE')) {
+      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -524,8 +549,9 @@ export class InteractionHandler {
     // Check if orientation is inverted - if so, reverse arrow key directions
     // so visual movement matches user expectations
     const isInverted = this.labelSettings.printOrientation === 'I';
+    const isMirrored = this.labelSettings.printMirror === 'Y';
 
-    // Determine effective direction based on orientation
+    // Determine effective direction based on orientation and mirror
     let effectiveKey = e.key;
     if (isInverted) {
       switch (e.key) {
@@ -535,6 +561,12 @@ export class InteractionHandler {
         case 'ArrowDown': effectiveKey = 'ArrowUp'; break;
       }
     }
+    if (isMirrored) {
+      switch (effectiveKey) {
+        case 'ArrowLeft': effectiveKey = 'ArrowRight'; break;
+        case 'ArrowRight': effectiveKey = 'ArrowLeft'; break;
+      }
+    }
 
     switch (effectiveKey) {
       case 'ArrowLeft':
@@ -542,7 +574,7 @@ export class InteractionHandler {
         moved = true;
         break;
       case 'ArrowRight':
-        const maxX = this.labelSettings.width * this.labelSettings.dpmm - this.getSelectionBounds(selectedElement).width;
+        const maxX = this.labelSettings.width * this.labelSettings.dpmm - this.getDragConstraintBounds(selectedElement).width;
         selectedElement.x = Math.min(maxX, selectedElement.x + moveAmount);
         moved = true;
         break;
@@ -551,7 +583,7 @@ export class InteractionHandler {
         moved = true;
         break;
       case 'ArrowDown':
-        const maxY = this.labelSettings.height * this.labelSettings.dpmm - this.getSelectionBounds(selectedElement).height;
+        const maxY = this.labelSettings.height * this.labelSettings.dpmm - this.getDragConstraintBounds(selectedElement).height;
         selectedElement.y = Math.min(maxY, selectedElement.y + moveAmount);
         moved = true;
         break;
@@ -668,6 +700,17 @@ export class InteractionHandler {
     return element.getBounds();
   }
 
+  /**
+   * Bounds used for drag and keyboard-move constraints.
+   * For TEXT elements, uses actual canvas measurement to match the drawn selection box exactly.
+   */
+  getDragConstraintBounds(element) {
+    if (element.type === 'TEXT' && this.labelSettings && this.renderer) {
+      return this.renderer.measureTextBounds(element, this.labelSettings);
+    }
+    return this.getSelectionBounds(element);
+  }
+
   getHandleAtPosition(x, y, element) {
     if (!element) return null;
 
@@ -678,14 +721,17 @@ export class InteractionHandler {
     const handleSizeDots = 20 / scale; // Use larger hit area (20px) for better usability
     const hsHalf = handleSizeDots / 2;
 
-    const bounds = this.getSelectionBounds(element);
+    // Use accurate measured bounds for TEXT so the handle hit area matches the drawn selection box
+    const bounds = (element.type === 'TEXT' && this.labelSettings && this.renderer)
+      ? this.renderer.measureTextBounds(element, this.labelSettings)
+      : this.getSelectionBounds(element);
     const bx = bounds.x;
     const by = bounds.y;
     const bw = bounds.width;
     const bh = bounds.height;
 
-    // For BOX, LINE, and BARCODE elements, check all 8 handles
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE') {
+    // For BOX, LINE, BARCODE, and CIRCLE elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {
@@ -721,8 +767,8 @@ export class InteractionHandler {
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
         return 'l';
       }
-    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE') {
-      // For TEXTBLOCK and QRCODE, only check bottom-right handle
+    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
+      // For TEXTBLOCK, QRCODE, and TEXT, only check bottom-right handle
       if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
         return 'br';
       }
@@ -735,15 +781,16 @@ export class InteractionHandler {
    * Get cursor style for a given resize handle
    */
   getCursorForHandle(handle) {
+    const isMirrored = this.labelSettings.printMirror === 'Y';
     const cursorMap = {
-      'tl': 'nwse-resize',  // Top-left
-      'tr': 'nesw-resize',  // Top-right
-      'bl': 'nesw-resize',  // Bottom-left
-      'br': 'nwse-resize',  // Bottom-right
-      't': 'ns-resize',     // Top
-      'r': 'ew-resize',     // Right
-      'b': 'ns-resize',     // Bottom
-      'l': 'ew-resize'      // Left
+      'tl': isMirrored ? 'nesw-resize' : 'nwse-resize',
+      'tr': isMirrored ? 'nwse-resize' : 'nesw-resize',
+      'bl': isMirrored ? 'nwse-resize' : 'nesw-resize',
+      'br': isMirrored ? 'nesw-resize' : 'nwse-resize',
+      't': 'ns-resize',
+      'r': 'ew-resize',
+      'b': 'ns-resize',
+      'l': 'ew-resize'
     };
     return cursorMap[handle] || 'default';
   }

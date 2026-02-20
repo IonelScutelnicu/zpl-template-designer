@@ -8,6 +8,7 @@ import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
 import { QRCodeRenderer } from './rendering/QRCodeRenderer.js';
 import { BoxRenderer } from './rendering/BoxRenderer.js';
 import { LineRenderer } from './rendering/LineRenderer.js';
+import { CircleRenderer } from './rendering/CircleRenderer.js';
 
 export class CanvasRenderer {
   constructor(canvasId) {
@@ -29,7 +30,8 @@ export class CanvasRenderer {
       BARCODE: new BarcodeRenderer(),
       QRCODE: new QRCodeRenderer(),
       BOX: new BoxRenderer(),
-      LINE: new LineRenderer()
+      LINE: new LineRenderer(),
+      CIRCLE: new CircleRenderer()
     };
   }
 
@@ -39,13 +41,14 @@ export class CanvasRenderer {
    * @param {Object} labelSettings - Label configuration
    */
   renderCanvas(elements, labelSettings, selectedElement = null) {
-    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N' } = labelSettings;
+    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N', printMirror = 'N' } = labelSettings;
 
     // Store offsets and orientation for use in element drawing and coordinate conversion
     this.homeX = homeX;
     this.homeY = homeY;
     this.labelTop = labelTop;
     this.printOrientation = printOrientation;
+    this.printMirror = printMirror;
 
     // Calculate label dimensions in dots
     const labelWidthDots = width * dpmm;
@@ -90,12 +93,24 @@ export class CanvasRenderer {
       this.ctx.scale(-1, -1);
     }
 
+    // Apply mirror transformation (horizontal flip)
+    if (printMirror === 'Y') {
+      this.ctx.save();
+      this.ctx.translate(labelWidthDots, 0);
+      this.ctx.scale(-1, 1);
+    }
+
     // Render each element
     elements.forEach(element => {
       this.drawElement(element, labelSettings, selectedElement);
     });
 
-    // Restore context if transformed
+    // Restore mirror transform if applied
+    if (printMirror === 'Y') {
+      this.ctx.restore();
+    }
+
+    // Restore orientation transform if applied
     if (printOrientation === 'I') {
       this.ctx.restore();
     }
@@ -280,25 +295,33 @@ export class CanvasRenderer {
   /**
    * Draw selection indicator around element
    */
+  /**
+   * Measure actual rendered bounds of a TEXT element in dot coordinates.
+   * Uses canvas measureText for accuracy — matches the drawn selection box exactly.
+   */
+  measureTextBounds(element, labelSettings) {
+    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
+    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
+    const scaleX = rawFontWidth / rawFontSize;
+    const fontId = element.fontId || labelSettings.fontId || '0';
+    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    this.ctx.save();
+    this.ctx.font = `${fontConfig.weight} ${rawFontSize}px ${fontConfig.family}`;
+    const measuredWidth = this.ctx.measureText(element.previewText || '').width * scaleX;
+    this.ctx.restore();
+    const textW = Math.max(measuredWidth, rawFontWidth);
+    const textH = rawFontSize;
+    let w = textW, h = textH;
+    if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
+    return { x: element.x, y: element.y, width: w, height: h };
+  }
+
   drawSelectionIndicator(element, labelSettings) {
     let x, y, width, height;
     if (element.type === 'TEXT' && labelSettings) {
-      // Use actual canvas measurement for accurate TEXT bounds
-      const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
-      const fontSize = rawFontSize * this.scale;
-      const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
-      const fontWidth = rawFontWidth * this.scale;
-      const scaleX = fontWidth / fontSize;
-      const fontId = element.fontId || labelSettings.fontId || '0';
-      const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
-      this.ctx.save();
-      this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
-      const measuredWidth = this.ctx.measureText(element.previewText || '').width * scaleX;
-      this.ctx.restore();
-      const textW = Math.max(measuredWidth, 20);
-      const textH = fontSize;
-      let w = textW, h = textH;
-      if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
+      const bounds = this.measureTextBounds(element, labelSettings);
+      const w = bounds.width * this.scale;
+      const h = bounds.height * this.scale;
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;
       width = w;
@@ -330,10 +353,7 @@ export class CanvasRenderer {
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
     this.ctx.restore();
 
-    // Draw resize handles (skip for TEXT elements as they don't support resize)
-    if (element.type === 'TEXT') {
-      return; // These elements don't support resize, so don't draw handles
-    }
+    // Draw resize handles
 
     const handleRadius = 6; // 12px diameter (matches w-3)
 
@@ -360,8 +380,8 @@ export class CanvasRenderer {
       this.ctx.restore();
     };
 
-    // For BOX, LINE, and BARCODE elements, show all 8 handles (4 corners + 4 edges)
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE') {
+    // For BOX, LINE, BARCODE, and CIRCLE elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE') {
       // Corner handles
       drawHandle(x, y); // Top-left
       drawHandle(x + width, y); // Top-right
@@ -373,8 +393,8 @@ export class CanvasRenderer {
       drawHandle(x + width, y + height / 2); // Right
       drawHandle(x + width / 2, y + height); // Bottom
       drawHandle(x, y + height / 2); // Left
-    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE') {
-      // For TEXTBLOCK and QRCODE, only show bottom-right handle
+    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
+      // For TEXTBLOCK, QRCODE, and TEXT, only show bottom-right handle
       drawHandle(x + width, y + height);
     } else {
       // For other elements, show 4 corner handles
@@ -409,6 +429,11 @@ export class CanvasRenderer {
     if (this.printOrientation === 'I') {
       internalX = this.labelWidthDots - internalX;
       internalY = this.labelHeightDots - internalY;
+    }
+
+    // If mirror is enabled, flip the X coordinate
+    if (this.printMirror === 'Y') {
+      internalX = this.labelWidthDots - internalX;
     }
 
     // Subtract offsets to get element-relative coordinates

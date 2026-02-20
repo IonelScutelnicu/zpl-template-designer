@@ -7,6 +7,7 @@ import { BoxElement } from '../elements/BoxElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
+import { CircleElement } from '../elements/CircleElement.js';
 
 /**
  * Service for serializing and deserializing elements and application state
@@ -125,7 +126,20 @@ export class SerializationService {
           data.y,
           data.width,
           data.thickness,
-          data.orientation
+          data.orientation,
+          data.color,
+          data.rounding
+        );
+        break;
+
+      case 'CIRCLE':
+        element = new CircleElement(
+          data.x,
+          data.y,
+          data.width,
+          data.height,
+          data.thickness,
+          data.color
         );
         break;
 
@@ -192,7 +206,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'TEXTBLOCK'];
+    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'TEXTBLOCK', 'CIRCLE'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {
