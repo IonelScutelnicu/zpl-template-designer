@@ -200,6 +200,9 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#prop-y').dispatchEvent('change');
             await page.locator('#prop-width').fill('150');
             await page.locator('#prop-width').dispatchEvent('change');
+            await page.locator('#prop-color').selectOption('W');
+            await page.locator('#prop-rounding').fill('5');
+            await page.locator('#prop-rounding').dispatchEvent('change');
 
             const downloadPromise = page.waitForEvent('download');
             await zplOutput.exportTemplate();
@@ -216,6 +219,8 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(el.x).toBe(30);
             expect(el.y).toBe(40);
             expect(el.width).toBe(150);
+            expect(el.color).toBe('W');
+            expect(el.rounding).toBe(5);
 
             fs.unlinkSync(tempPath);
         });

@@ -361,6 +361,16 @@ export class PropertiesPanelRenderer {
           </select>
         </div>
       `, { elementType: element.type })}
+      ${this.renderSection("Appearance", `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Color</label>
+          <select id="prop-color" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            <option value="B" ${element.color === "B" ? "selected" : ""}>Black</option>
+            <option value="W" ${element.color === "W" ? "selected" : ""}>White</option>
+          </select>
+        </div>
+        ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
+      `, { open: true, elementType: element.type })}
     `;
   }
 
