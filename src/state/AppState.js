@@ -41,6 +41,9 @@ export class AppState {
       commitTimers: new Map()
     };
 
+    // Warnings from Labelary linter
+    this.warnings = [];
+
     // Transform session tracking
     this.activeTransformSession = null;
     this.keyboardMoveSession = null;
@@ -312,6 +315,35 @@ export class AppState {
    */
   setKeyboardMoveSession(session) {
     this.keyboardMoveSession = session;
+  }
+
+  // ===== Warnings Management =====
+
+  /**
+   * Set warnings from Labelary linter
+   * @param {Array} warnings - Parsed and resolved warning objects
+   */
+  setWarnings(warnings) {
+    this.warnings = warnings;
+    this.notify('warningsChanged', this.warnings);
+  }
+
+  /**
+   * Clear all warnings
+   */
+  clearWarnings() {
+    this.warnings = [];
+    this.notify('warningsChanged', this.warnings);
+  }
+
+  /**
+   * Get warnings for a specific element
+   * @param {string|number} elementId - Element ID
+   * @returns {Array} Warnings for the element
+   */
+  getWarningsForElement(elementId) {
+    const idStr = String(elementId);
+    return this.warnings.filter(w => w.elementId !== null && String(w.elementId) === idStr);
   }
 
   // ===== Complete State Serialization =====

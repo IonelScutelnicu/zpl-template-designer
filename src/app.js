@@ -14,6 +14,8 @@ import { HistoryPanel } from './ui/HistoryPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
 import { TooltipManager } from './ui/TooltipManager.js';
+import { WarningParser } from './services/WarningParser.js';
+import { WarningsPanelRenderer } from './ui/WarningsPanelRenderer.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -28,6 +30,10 @@ let elementService; // Initialized after pushHistory is defined
 // Initialize UI renderers (getSectionState will be available later)
 let propertiesPanelRenderer;
 const elementsListRenderer = new ElementsListRenderer();
+const warningParser = new WarningParser();
+const warningsPanelRenderer = new WarningsPanelRenderer(
+  (id) => state.elements.find(el => String(el.id) === String(id)) || null
+);
 
 // Export state for use in other modules
 export { state };
@@ -144,6 +150,10 @@ const previewImage = document.getElementById("preview-image");
 const previewLoading = document.getElementById("preview-loading");
 const previewError = document.getElementById("preview-error");
 const previewPlaceholder = document.getElementById("preview-placeholder");
+const warningsPanel = document.getElementById("warnings-panel");
+const warningsList = document.getElementById("warnings-list");
+const warningsCount = document.getElementById("warnings-count");
+const warningsDismissBtn = document.getElementById("warnings-dismiss-btn");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
 const togglePreviewModeBtn = null; // Deprecated
 const modeCanvasBtn = document.getElementById("mode-canvas-btn");
@@ -339,6 +349,38 @@ export function initApp() {
   historyBackdrop.addEventListener("click", closeHistoryPanel);
   historyClearBtn.addEventListener("click", () => resetHistory("History cleared", { kind: "clear" }));
   historyList.addEventListener("click", handleHistoryClick);
+
+  // Warnings panel event listeners
+  warningsDismissBtn.addEventListener("click", () => {
+    warningsPanelDismissed = true;
+    warningsPanel.classList.add('hidden');
+  });
+
+  warningsList.addEventListener("click", (e) => {
+    const item = e.target.closest('.warning-item[data-element-id]');
+    if (!item) return;
+    const elementId = item.getAttribute('data-element-id');
+    const element = state.elements.find(el => String(el.id) === String(elementId));
+    if (element) {
+      state.setSelectedElement(element);
+      updateElementsList();
+      renderPropertiesPanel();
+      renderCanvasPreview();
+    }
+  });
+
+  // Subscribe to warnings changes
+  state.subscribe('warningsChanged', (warnings) => {
+    if (warnings.length > 0 && !warningsPanelDismissed) {
+      warningsPanel.classList.remove('hidden');
+      warningsCount.textContent = warnings.length;
+      warningsList.innerHTML = warningsPanelRenderer.render(warnings);
+    } else {
+      warningsPanel.classList.add('hidden');
+    }
+    updateElementsList();
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeHistoryPanel();
@@ -899,7 +941,7 @@ function renderPropertiesPanel() {
 
 // Update Elements List
 function updateElementsList() {
-  const html = elementsListRenderer.render(state.elements, state.selectedElement);
+  const html = elementsListRenderer.render(state.elements, state.selectedElement, state.warnings);
   elementsList.innerHTML = html;
 }
 
@@ -979,6 +1021,7 @@ function updateZPLOutput() {
 // Cache for API preview
 let lastPreviewZpl = null;
 let lastPreviewImageUrl = null;
+let warningsPanelDismissed = false;
 
 // Update Preview using Labelary API
 async function updatePreview() {
@@ -989,11 +1032,12 @@ async function updatePreview() {
 
   if (state.elements.length === 0) {
     previewPlaceholder.classList.remove('hidden');
+    state.clearWarnings();
     return;
   }
 
-  // Generate preview ZPL
-  const previewZpl = zplGenerator.generatePreviewZPL(state.elements, state.labelSettings, state.selectedElement);
+  // Generate preview ZPL with byte map for warning resolution
+  const { zpl: previewZpl, byteMap } = zplGenerator.generatePreviewZPLWithMap(state.elements, state.labelSettings, state.selectedElement);
   const { width, height, dpmm } = state.labelSettings;
 
   // Check cache - if ZPL hasn't changed, reuse the existing image
@@ -1016,12 +1060,24 @@ async function updatePreview() {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        "X-Linter": "On",
       },
       body: previewZpl,
     });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Parse linter warnings from response header
+    const warningsHeader = response.headers.get('X-Warnings');
+    if (warningsHeader) {
+      const parsed = warningParser.parse(warningsHeader);
+      const resolved = warningParser.resolveElements(parsed, byteMap);
+      state.setWarnings(resolved);
+      warningsPanelDismissed = false;
+    } else {
+      state.clearWarnings();
     }
 
     const blob = await response.blob();
@@ -1043,6 +1099,7 @@ async function updatePreview() {
     console.error("Preview error:", error);
     previewError.textContent = `Error loading preview: ${error.message}`;
     previewError.classList.remove('hidden');
+    state.clearWarnings();
   } finally {
     previewLoading.classList.add('hidden');
   }
