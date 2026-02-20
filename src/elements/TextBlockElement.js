@@ -31,7 +31,8 @@ export class TextBlockElement extends ZPLElement {
         // ^FD - Field Data (uses placeholder for template)
         // ^FS - Field Separator
         const fontId = this.fontId || defaultFontId;
-        const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
+        const rawContent = this.placeholder ? `%${this.placeholder}%` : this.previewText;
+        const content = this.justification === 'C' ? `${rawContent}\\&` : rawContent;
         const reverseCmd = this.reverse ? '^FR' : '';
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
@@ -46,7 +47,8 @@ export class TextBlockElement extends ZPLElement {
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${this.previewText}^FS`;
+        const previewContent = this.justification === 'C' ? `${this.previewText}\\&` : this.previewText;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${previewContent}^FS`;
     }
 
     getDisplayName() {
