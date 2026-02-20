@@ -14,6 +14,7 @@ import { HistoryPanel } from './ui/HistoryPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
 import { TooltipManager } from './ui/TooltipManager.js';
+import { highlightZPL } from './utils/zpl-highlighter.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -101,7 +102,8 @@ const historyClearBtn = document.getElementById("history-clear-btn");
 const historyBackdrop = document.getElementById("history-backdrop");
 const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
-const zplOutput = document.getElementById("zpl-output");
+const zplOutputHighlight = document.getElementById("zpl-output-highlight");
+const zplOutputRaw = document.getElementById("zpl-output-raw");
 const copyBtn = document.getElementById("copy-btn");
 const exportBtn = document.getElementById("export-btn");
 const importBtn = document.getElementById("import-btn");
@@ -973,7 +975,9 @@ function attachPropertyListeners(element) {
 // Update ZPL Output
 function updateZPLOutput() {
   const zpl = zplGenerator.generateZPL(state.elements, state.labelSettings);
-  zplOutput.value = zpl;
+  zplOutputRaw.value = zpl;
+  zplOutputHighlight.innerHTML = highlightZPL(zpl);
+  zplOutputHighlight.classList.toggle("is-empty", zpl.trim().length === 0);
 }
 
 // Cache for API preview
@@ -1050,9 +1054,13 @@ async function updatePreview() {
 
 // Copy ZPL to Clipboard
 function copyZPL() {
-  zplOutput.select();
-  zplOutput.setSelectionRange(0, 99999); // For mobile devices
-  document.execCommand("copy");
+  const text = zplOutputRaw.value;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopyZPL(text));
+  } else {
+    fallbackCopyZPL(text);
+  }
 
   // Visual feedback
   copyBtn.textContent = "Copied!";
@@ -1067,6 +1075,14 @@ function copyZPL() {
     updateCopyExportUI();
   }, 2000);
 }
+
+function fallbackCopyZPL(text) {
+  zplOutputRaw.value = text;
+  zplOutputRaw.select();
+  zplOutputRaw.setSelectionRange(0, 99999); // For mobile devices
+  document.execCommand("copy");
+}
+
 
 // Export Template to JSON
 function exportTemplate() {

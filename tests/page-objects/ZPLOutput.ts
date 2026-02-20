@@ -7,6 +7,7 @@ import { Page, Locator, expect } from '@playwright/test';
 export class ZPLOutput {
     readonly page: Page;
     readonly output: Locator;
+    readonly highlightedOutput: Locator;
     readonly copyBtn: Locator;
     readonly exportBtn: Locator;
     readonly importBtn: Locator;
@@ -14,7 +15,8 @@ export class ZPLOutput {
 
     constructor(page: Page) {
         this.page = page;
-        this.output = page.locator('#zpl-output');
+        this.output = page.locator('#zpl-output-raw');
+        this.highlightedOutput = page.locator('#zpl-output-highlight');
         this.copyBtn = page.locator('#copy-btn');
         this.exportBtn = page.locator('#export-btn');
         this.importBtn = page.locator('#import-btn');
@@ -26,6 +28,10 @@ export class ZPLOutput {
      */
     async getZPLCode(): Promise<string> {
         return await this.output.inputValue();
+    }
+
+    async getHighlightedHtml(): Promise<string> {
+        return await this.highlightedOutput.innerHTML();
     }
 
     /**
