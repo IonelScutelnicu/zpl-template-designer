@@ -189,6 +189,8 @@ export class PropertyListenersManager {
     attach("prop-width", "width", (v) => parseInt(v) || 100);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-orientation", "orientation");
+    attach("prop-color", "color");
+    attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
   }
 
   /**

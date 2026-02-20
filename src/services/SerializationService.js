@@ -126,7 +126,9 @@ export class SerializationService {
           data.y,
           data.width,
           data.thickness,
-          data.orientation
+          data.orientation,
+          data.color,
+          data.rounding
         );
         break;
 

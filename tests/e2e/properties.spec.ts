@@ -364,6 +364,17 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             // For vertical, ^GB width param should be small (equals thickness)
             expect(zpl).toContain('^GB');
         });
+
+        test('should update color to White and reflect in ZPL', async ({ page }) => {
+            await page.locator('#prop-color').selectOption('W');
+            await zplOutput.verifyZPLContains(',W');
+        });
+
+        test('should update rounding and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-rounding', 4);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain(',4');
+        });
     });
 
     // ============== CIRCLE ELEMENT PROPERTIES ==============
