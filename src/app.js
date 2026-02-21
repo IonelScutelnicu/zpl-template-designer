@@ -281,8 +281,8 @@ export function initApp() {
         } else if (element.type === 'TEXT') {
           const propFontSize = document.getElementById('prop-font-size');
           const propFontWidth = document.getElementById('prop-font-width');
-          if (propFontSize) propFontSize.value = element.fontSize;
-          if (propFontWidth) propFontWidth.value = element.fontWidth;
+          if (propFontSize) propFontSize.value = element.fontSize === 0 ? "" : element.fontSize;
+          if (propFontWidth) propFontWidth.value = element.fontWidth === 0 ? "" : element.fontWidth;
         }
       }
     },
