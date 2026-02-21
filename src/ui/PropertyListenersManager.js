@@ -168,7 +168,7 @@ export class PropertyListenersManager {
     attach("prop-width", "width", (v) => parseInt(v) || 100);
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
-    attach("prop-color", "color");
+    this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
   }
 
@@ -179,7 +179,7 @@ export class PropertyListenersManager {
     attach("prop-width", "width", (v) => parseInt(v) || 80);
     attach("prop-height", "height", (v) => parseInt(v) || 80);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
-    attach("prop-color", "color");
+    this._attachColorToggle(element);
   }
 
   /**
@@ -189,8 +189,35 @@ export class PropertyListenersManager {
     attach("prop-width", "width", (v) => parseInt(v) || 100);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-orientation", "orientation");
-    attach("prop-color", "color");
+    this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+  }
+
+  /**
+   * Attach color toggle button listeners for Box/Line elements
+   */
+  _attachColorToggle(element) {
+    const colorButtons = document.querySelectorAll('[data-color]');
+    const setColorActive = (value) => {
+      colorButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-color') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setColorActive(element.color || "B");
+    colorButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-color');
+        if (!value) return;
+        element.color = value;
+        setColorActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
   }
 
   /**
