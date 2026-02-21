@@ -607,7 +607,7 @@
                   <span class="text-xs font-medium pr-1">Shortcuts</span>
                 </button>
                 <div
-                  class="absolute bottom-full right-0 mb-3 w-72 bg-white/95 backdrop-blur-md rounded-lg border border-slate-200 shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-bottom-right scale-95 group-hover:scale-100">
+                  class="absolute bottom-full right-0 mb-3 w-72 max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-lg border border-slate-200 shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-bottom-right scale-95 group-hover:scale-100">
                   <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
                     <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">
                       Keyboard &amp; Mouse</h4>
@@ -618,6 +618,15 @@
                       <span class="text-slate-500">Cycle elements</span>
                       <code
                         class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Cycle reverse</span>
+                      <div class="flex gap-1">
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
+                      </div>
                     </div>
                     <div class="flex justify-between items-center">
                       <span class="text-slate-500">Nudge 1px</span>
@@ -639,16 +648,55 @@
                         class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Del</code>
                     </div>
                     <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Copy/Paste</span>
+                      <span class="text-slate-500">Copy / Paste</span>
                       <div class="flex gap-1">
                         <code
                           class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
                         <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">C/V</code>
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">C / V</code>
                       </div>
                     </div>
                     <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
-                      <span class="text-slate-500">Cycle Layers</span>
+                      <span class="text-slate-500">Undo</span>
+                      <div class="flex gap-1">
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Z</code>
+                      </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Redo</span>
+                      <div class="flex gap-1">
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift Z / Y</code>
+                      </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Close history panel</span>
+                      <code
+                        class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
+                    </div>
+                    <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
+                      <span class="text-slate-500">Select</span>
+                      <span class="text-[10px] text-slate-500">Click element</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Deselect</span>
+                      <span class="text-[10px] text-slate-500">Click empty area</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Move</span>
+                      <span class="text-[10px] text-slate-500">Drag element</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Resize</span>
+                      <span class="text-[10px] text-slate-500">Drag handles</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-500">Cycle layers</span>
                       <div class="flex gap-1 items-center">
                         <code
                           class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Alt</code>
