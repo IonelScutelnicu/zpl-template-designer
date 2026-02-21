@@ -139,6 +139,32 @@
       font-family: Inter, sans-serif;
     }
     .zpl-tooltip.visible { opacity: 1; visibility: visible; }
+
+    .zpl-output {
+      white-space: pre;
+    }
+
+    .zpl-output.is-empty {
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    .zpl-token-command {
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    .zpl-token-number {
+      color: #0f766e;
+    }
+
+    .zpl-token-punct {
+      color: #94a3b8;
+    }
+
+    .zpl-token-data {
+      color: #b45309;
+    }
   </style>
 </head>
 
@@ -683,9 +709,10 @@
                   </div>
                 </div>
                 <div class="relative">
-                  <textarea id="zpl-output" readonly
-                    class="w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-600 focus:outline-none resize-none border-none leading-relaxed"
-                    placeholder="Generated ZPL will appear here..."></textarea>
+                  <pre id="zpl-output-highlight"
+                    class="zpl-output w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-none leading-relaxed overflow-auto"></pre>
+                  <textarea id="zpl-output-raw" readonly
+                    class="absolute inset-0 w-full h-full opacity-0 pointer-events-none"></textarea>
                 </div>
               </div>
             </div>
