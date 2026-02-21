@@ -4,6 +4,7 @@ export class ZPLElement {
         this.x = x;
         this.y = y;
         this.id = Date.now() + Math.random();
+        this.locked = false;
     }
 
     render() {

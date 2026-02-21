@@ -61,6 +61,7 @@ export class InteractionHandler {
     if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
+        if (selectedElement.locked) return;
         this.isResizing = true;
         this.resizeHandle = handle;
         this.dragElement = selectedElement; // Use same drag element ref
@@ -125,17 +126,19 @@ export class InteractionHandler {
     }
 
     if (element) {
-      this.dragElement = element;
-      this.dragOffsetX = coords.x - element.x;
-      this.dragOffsetY = coords.y - element.y;
-      this.dragStartX = element.x;
-      this.dragStartY = element.y;
-
-      // Update cursor
-      this.canvas.style.cursor = 'grab';
-
-      // Select immediately on mouse down (for drag or click)
+      // Select immediately on mouse down (locked elements can still be selected for viewing)
       this.callbacks.onElementSelected(element);
+
+      if (!element.locked) {
+        this.dragElement = element;
+        this.dragOffsetX = coords.x - element.x;
+        this.dragOffsetY = coords.y - element.y;
+        this.dragStartX = element.x;
+        this.dragStartY = element.y;
+
+        // Update cursor
+        this.canvas.style.cursor = 'grab';
+      }
     } else {
       // Clicked on empty canvas - deselect
       this.callbacks.onElementSelected(null);
@@ -542,6 +545,15 @@ export class InteractionHandler {
 
     const selectedElement = this.callbacks.getSelectedElement();
     if (!selectedElement) return;
+
+    // Locked elements can't be moved or deleted via keyboard
+    if (selectedElement.locked) {
+      // Still allow Delete key to be handled (guard is in the callback)
+      if (e.key === 'Delete' && this.callbacks.onElementDeleted) {
+        this.callbacks.onElementDeleted(selectedElement);
+      }
+      return;
+    }
 
     let moved = false;
     const moveAmount = e.shiftKey ? 10 : 1;
