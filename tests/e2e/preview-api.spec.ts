@@ -96,13 +96,14 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             // Increase timeout for this test due to Labelary API
             test.setTimeout(90000);
 
+            // Add an initial element so the API returns an image
+            await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
 
             const beforeSrc = await previewPanel.getAPIPreviewSrc();
 
-            // Add element and refresh
+            // Add another element and refresh
             await elementsPanel.addBarcodeElement();
             await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
