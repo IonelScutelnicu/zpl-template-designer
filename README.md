@@ -1,64 +1,54 @@
-# ZPL Template Creator
+# ZPL Template Designer
 
-A web-based application for creating custom ZPL (Zebra Programming Language) templates using plain HTML and JavaScript.
+A visual, browser-based editor for creating Zebra Programming Language (ZPL) label templates. Design labels interactively on a canvas and generate production-ready ZPL code.
 
 ## Features
 
-- **Text Elements**: Add and customize text elements with position, font size, and font width
-- **Barcode Elements**: Add and customize barcode elements (Code 128) with position, height, width, and ratio
-- **Box Elements**: Add and customize box (graphic) elements with dimensions, thickness, and rounding
-- **Text Block Elements**: Add multi-line, formatted text blocks with wrapping and justification
-- **Real-time ZPL Generation**: See the ZPL code update as you modify elements
-- **Easy Property Editing**: Click on any element to edit its properties
-- **Copy to Clipboard**: One-click copy of the generated ZPL code
-- **Import/Export**: Save and load your templates as JSON files
+- **7 element types** — Text, Text Block, Barcode (Code 128), QR Code, Box, Line, Circle
+- **Dual preview** — real-time Canvas rendering + Labelary API preview with ZPL syntax highlighting
+- **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge
+- **Element locking** — lock elements to prevent accidental move, resize, or delete
+- **Alignment tools** — center horizontally/vertically, match to label dimensions
+- **Undo/redo history** — full history panel with named entries
+- **Import/export** — save and load templates as JSON files
+- **Custom fonts** — register custom ZPL fonts via `^CW` commands
+- **Print settings** — orientation, mirror, darkness, speed, home position, label top
+- **ZPL warnings** — Labelary API linter warnings with element-level attribution
+- **Keyboard shortcuts** — Tab cycling, Ctrl+Z/Y undo/redo, Delete, Ctrl+C/V copy/paste, arrow nudge
 
-## Usage
+## Getting Started
 
-1. Open `index.html` in a web browser
-2. Click "Add Text", "Add Barcode", "Add Box", or "Add Text Block" to add elements
-3. Select an element from the list to edit its properties
-4. Modify properties in the properties panel
-5. View the generated ZPL code in the output area
-6. Click "Copy" to copy the code to your clipboard
+```bash
+git clone https://github.com/IonelScutelnicu/zpl-template-designer.git
+cd zpl-template-designer
+npm install
+npx serve . -l 3000
+```
+
+Open http://localhost:3000 — no build step required (vanilla JS + Tailwind CDN).
 
 ## Element Properties
 
-### Text Element
-- **X Position**: Horizontal position (in dots)
-- **Y Position**: Vertical position (in dots)
-- **Text**: The text content to display
-- **Font Size (Height)**: Font height in dots (1-32000)
-- **Font Width**: Font width in dots (1-32000)
+### Text
+Position (X, Y), text content, font size (height), font width, font family, orientation.
 
-### Barcode Element
-- **X Position**: Horizontal position (in dots)
-- **Y Position**: Vertical position (in dots)
-- **Barcode Data**: The data to encode in the barcode
-- **Height**: Barcode height in dots (1-1000)
-- **Width Multiplier**: Bar width multiplier (1-10)
-- **Ratio**: Wide to narrow bar ratio (1-10)
+### Text Block
+Position (X, Y), text content (multi-line), font size, font width, block width, max lines, line spacing, justification (L/C/R/J), hanging indent.
 
-### Box Element
-- **X Position**: Horizontal position (in dots)
-- **Y Position**: Vertical position (in dots)
-- **Width**: Box width in dots
-- **Height**: Box height in dots
-- **Thickness**: Border line thickness in dots
-- **Color**: Black (B) or White (W)
-- **Rounding**: Corner rounding radius (0-8)
+### Barcode (Code 128)
+Position (X, Y), barcode data, height, width multiplier, ratio, show interpretation line.
 
-### Text Block Element
-- **X Position**: Horizontal position (in dots)
-- **Y Position**: Vertical position (in dots)
-- **Text**: The text content to display (supports multi-line)
-- **Font Size (Height)**: Font height in dots
-- **Font Width**: Font width in dots
-- **Block Width**: Width of the text block in dots
-- **Max Lines**: Maximum number of lines allowed
-- **Line Spacing**: +/- spacing between lines
-- **Justification**: Left (L), Center (C), Right (R), or Justified (J)
-- **Hanging Indent**: Indentation for second and subsequent lines
+### QR Code
+Position (X, Y), data, magnification factor, error correction level (H/Q/M/L), model.
+
+### Box
+Position (X, Y), width, height, thickness, color (B/W), corner rounding (0–8).
+
+### Line
+Position (X, Y), length, thickness, orientation (horizontal/vertical), color (B/W).
+
+### Circle
+Position (X, Y), diameter, thickness, color (B/W).
 
 ## ZPL Output Format
 
@@ -80,76 +70,96 @@ The application generates ZPL code in the following format:
 ```
 
 Where:
-- `^XA`/`^XZ` - Start/End of label format
-- `^PW` - Print Width
-- `^PR` - Print Speed
-- `^PO` - Print Orientation
-- `~SD` - Media Darkness
-- `^LH`/`^LT` - Label Home / Top
-- `^CW`/`^CF` - Font Configuration
+- `^XA`/`^XZ` — Start/End of label format
+- `^PW` — Print Width
+- `^PR` — Print Speed
+- `^PO` — Print Orientation
+- `~SD` — Media Darkness
+- `^LH`/`^LT` — Label Home / Top
+- `^CW`/`^CF` — Font Configuration
 - Element commands are generated by each element's `render()` method
+
+## Keyboard & Mouse Shortcuts
+
+| Action | Shortcut |
+|---|---|
+| Cycle elements | `Tab` |
+| Cycle reverse | `Shift` + `Tab` |
+| Nudge 1px | `Arrow keys` |
+| Nudge 10px | `Shift` + `Arrow keys` |
+| Delete element | `Del` |
+| Copy / Paste | `Ctrl` + `C` / `V` |
+| Undo | `Ctrl` + `Z` |
+| Redo | `Ctrl` + `Shift+Z` / `Y` |
+| Close history panel | `Esc` |
+| Select element | Click element |
+| Deselect | Click empty area |
+| Move element | Drag element |
+| Resize element | Drag handles |
+| Cycle layers | `Alt` + Click |
 
 ## Architecture
 
 The application uses a modular architecture for maintainability and testability:
 
 ### Core Files
-- `index.html` - Main HTML structure and UI layout
-- `main.js` - Application entry point
-- `app.js` - Application orchestration and initialization (1,045 lines)
-- `canvas-renderer.js` - Canvas rendering orchestration (421 lines)
-- `interaction-handler.js` - Canvas interaction and drag/drop logic
+- `index.html` — Main HTML structure and UI layout
+- `main.js` — Application entry point
+- `app.js` — Application orchestration and initialization
+- `canvas-renderer.js` — Canvas rendering orchestration
+- `interaction-handler.js` — Canvas interaction and drag/drop logic
 
 ### Element Definitions
-- `elements/TextElement.js` - Text element with font and orientation support
-- `elements/BarcodeElement.js` - Code 128 barcode element
-- `elements/QRCodeElement.js` - QR code element with error correction
-- `elements/BoxElement.js` - Rectangular box/border element
-- `elements/LineElement.js` - Horizontal/vertical line element
-- `elements/TextBlockElement.js` - Multi-line text with wrapping and justification
+- `elements/TextElement.js` — Text element with font and orientation support
+- `elements/BarcodeElement.js` — Code 128 barcode element
+- `elements/QRCodeElement.js` — QR code element with error correction
+- `elements/BoxElement.js` — Rectangular box/border element
+- `elements/LineElement.js` — Horizontal/vertical line element
+- `elements/CircleElement.js` — Circle element with diameter and thickness
+- `elements/TextBlockElement.js` — Multi-line text with wrapping and justification
 
 ### State Management
-- `state/AppState.js` - Centralized observable state store
+- `state/AppState.js` — Centralized observable state store
   - Elements collection and selection
   - Label settings configuration
   - History management (undo/redo)
   - Event subscription system
 
 ### Services (Business Logic)
-- `services/ElementService.js` - Element CRUD operations
-- `services/AlignmentService.js` - Element alignment calculations
-- `services/SerializationService.js` - JSON serialization/deserialization
-- `services/ZPLGenerator.js` - ZPL code generation
-- `services/TemplateManager.js` - Template import/export file operations
+- `services/ElementService.js` — Element CRUD operations
+- `services/AlignmentService.js` — Element alignment calculations
+- `services/SerializationService.js` — JSON serialization/deserialization
+- `services/ZPLGenerator.js` — ZPL code generation
+- `services/TemplateManager.js` — Template import/export file operations
 
 ### UI Components
-- `ui/PropertiesPanelRenderer.js` - Property form rendering for all element types
-- `ui/ElementsListRenderer.js` - Elements list sidebar rendering
-- `ui/PropertyListenersManager.js` - Property change event handling
-- `ui/HistoryPanel.js` - History panel UI and navigation
-- `ui/CustomFontsManager.js` - Custom font management UI
+- `ui/PropertiesPanelRenderer.js` — Property form rendering for all element types
+- `ui/ElementsListRenderer.js` — Elements list sidebar rendering
+- `ui/PropertyListenersManager.js` — Property change event handling
+- `ui/HistoryPanel.js` — History panel UI and navigation
+- `ui/CustomFontsManager.js` — Custom font management UI
 
 ### Specialized Renderers
-- `rendering/TextRenderer.js` - TEXT element canvas rendering
-- `rendering/TextBlockRenderer.js` - TEXTBLOCK element with text wrapping
-- `rendering/BarcodeRenderer.js` - Code 128 barcode rendering
-- `rendering/QRCodeRenderer.js` - QR code pattern generation
-- `rendering/BoxRenderer.js` - Box/rectangle rendering with rounded corners
-- `rendering/LineRenderer.js` - Line rendering (horizontal/vertical)
+- `rendering/TextRenderer.js` — Text element canvas rendering
+- `rendering/TextBlockRenderer.js` — Text block with text wrapping
+- `rendering/BarcodeRenderer.js` — Code 128 barcode rendering
+- `rendering/QRCodeRenderer.js` — QR code pattern generation
+- `rendering/BoxRenderer.js` — Box/rectangle with rounded corners
+- `rendering/LineRenderer.js` — Line rendering (horizontal/vertical)
+- `rendering/CircleRenderer.js` — Circle rendering
 
 ### Utilities
-- `config/constants.js` - ZPL fonts, barcode patterns, configuration
-- `utils/geometry.js` - Geometry helper functions
-- `utils/barcode-encoding.js` - Code 128 encoding logic
+- `config/constants.js` — ZPL fonts, barcode patterns, configuration
+- `utils/geometry.js` — Geometry helper functions
+- `utils/barcode-encoding.js` — Code 128 encoding logic
 
-## Design Principles
+### Design Principles
 
-- **Single Responsibility**: Each module has one clear purpose
-- **Separation of Concerns**: UI, business logic, and rendering are separated
-- **Observable State**: Central state management with event subscriptions
-- **Dependency Injection**: Services receive dependencies via constructor
-- **Strategy Pattern**: Specialized renderers for each element type
-- **Maintainability**: Average file size ~230 lines (vs 1,741 in monolithic version)
+- **Single Responsibility** — Each module has one clear purpose
+- **Separation of Concerns** — UI, business logic, and rendering are separated
+- **Observable State** — Central state management with event subscriptions
+- **Dependency Injection** — Services receive dependencies via constructor
+- **Strategy Pattern** — Specialized renderers for each element type
 
 ## Testing
 
@@ -191,9 +201,16 @@ npm run test:debug
 - Core tests: `*.spec.ts` (run in parallel)
 - API tests: `*-api.spec.ts` (run sequentially)
 
-API tests use automatic rate limiting (334ms between calls) to prevent hitting Labelary API limits. See `TESTING_IMPROVEMENTS.md` for detailed implementation information.
+API tests use automatic rate limiting (334ms between calls) to prevent hitting Labelary API limits.
 
-## Browser Compatibility
+## Tech Stack
 
-Works in all modern browsers that support ES6 JavaScript features.
+- Vanilla JavaScript (ES modules, no framework)
+- HTML5 Canvas API
+- Tailwind CSS (CDN)
+- Labelary API for ZPL preview
+- Playwright for E2E testing
 
+## License
+
+ISC
