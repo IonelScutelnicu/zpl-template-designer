@@ -63,7 +63,7 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             const beforeScreenshot = await canvas.takeScreenshot();
 
             // Expand Default Font section and update defaults
-            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('details summary:has-text("Default Font")').click();
             const heightInput = page.locator('#default-font-height');
             const widthInput = page.locator('#default-font-width');
 
