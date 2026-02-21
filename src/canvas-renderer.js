@@ -345,13 +345,46 @@ export class CanvasRenderer {
       height = bounds.height * this.scale;
     }
 
-    // Blue dashed outline
+    // Dashed outline — amber for locked, blue for unlocked
+    const isLocked = element.locked;
+    const selectionColor = isLocked ? '#F59E0B' : '#3B82F6';
+
     this.ctx.save();
-    this.ctx.strokeStyle = '#3B82F6';
+    this.ctx.strokeStyle = selectionColor;
     this.ctx.lineWidth = 2;
     this.ctx.setLineDash([6, 6]);
     this.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4);
     this.ctx.restore();
+
+    // Draw lock icon for locked elements (top-right corner)
+    if (isLocked) {
+      const iconSize = 14;
+      const iconX = x + width - iconSize + 4;
+      const iconY = y - iconSize - 4;
+
+      this.ctx.save();
+      // Background circle
+      this.ctx.fillStyle = '#F59E0B';
+      this.ctx.beginPath();
+      this.ctx.arc(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2 + 2, 0, 2 * Math.PI);
+      this.ctx.fill();
+
+      // Lock body (white)
+      this.ctx.fillStyle = '#FFFFFF';
+      const bodyW = 8, bodyH = 6;
+      const bodyX = iconX + (iconSize - bodyW) / 2;
+      const bodyY = iconY + iconSize / 2;
+      this.ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
+
+      // Lock shackle (white arc)
+      this.ctx.strokeStyle = '#FFFFFF';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.arc(iconX + iconSize / 2, bodyY, 3, Math.PI, 0);
+      this.ctx.stroke();
+
+      this.ctx.restore();
+    }
 
     // Draw resize handles
 
@@ -373,7 +406,7 @@ export class CanvasRenderer {
 
       // Border (reset shadow for stroke to avoid double shadow)
       this.ctx.shadowColor = 'transparent';
-      this.ctx.strokeStyle = '#3B82F6';
+      this.ctx.strokeStyle = selectionColor;
       this.ctx.lineWidth = 1.5;
       this.ctx.stroke();
 

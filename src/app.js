@@ -300,6 +300,7 @@ export function initApp() {
       renderPropertiesPanel();
     },
     onElementDeleted: (element) => {
+      if (element.locked) return;
       if (previewMode === 'canvas') {
         const idStr = String(element.id);
         deleteElement(idStr);
@@ -507,6 +508,25 @@ export function initApp() {
 
   // Set up event delegation for elements list (only once)
   elementsList.addEventListener("click", (e) => {
+    // Check if lock button was clicked
+    const lockBtn = e.target.closest(".lock-btn");
+    if (lockBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      const idStr = lockBtn.getAttribute("data-id");
+      if (idStr) {
+        const element = state.elements.find((el) => String(el.id) === idStr);
+        if (element) {
+          element.locked = !element.locked;
+          pushHistory(element.locked ? `Locked ${element.type}` : `Unlocked ${element.type}`, { kind: "edit", detail: element.getDisplayName() });
+          updateElementsList();
+          renderPropertiesPanel();
+          renderCanvasPreview();
+        }
+      }
+      return;
+    }
+
     // Check if delete button was clicked (either directly or as closest parent)
     const deleteBtn = e.target.closest(".delete-btn");
     if (deleteBtn || e.target.classList.contains("delete-btn")) {
@@ -515,6 +535,8 @@ export function initApp() {
       const btn = deleteBtn || e.target;
       const idStr = btn.getAttribute("data-id");
       if (idStr) {
+        const element = state.elements.find((el) => String(el.id) === idStr);
+        if (element && element.locked) return;
         deleteElement(idStr);
       }
       return;
