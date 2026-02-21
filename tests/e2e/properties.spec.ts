@@ -319,11 +319,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update color and reflect in ^GB command', async ({ page }) => {
-            const select = page.locator('#prop-color');
-            if (await select.isVisible()) {
-                await select.selectOption('W');
-                await zplOutput.verifyZPLContains(',W');
-            }
+            await page.locator('[data-color="W"]').click();
+            await zplOutput.verifyZPLContains(',W');
         });
     });
 
@@ -368,7 +365,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update color to White and reflect in ZPL', async ({ page }) => {
-            await page.locator('#prop-color').selectOption('W');
+            await page.locator('[data-color="W"]').click();
             await zplOutput.verifyZPLContains(',W');
         });
 
@@ -415,7 +412,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update color to White and reflect in ^GE command', async ({ page }) => {
-            await page.locator('#prop-color').selectOption('W');
+            await page.locator('[data-color="W"]').click();
             await zplOutput.verifyZPLContains(',W');
         });
 

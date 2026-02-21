@@ -200,7 +200,7 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#prop-y').dispatchEvent('change');
             await page.locator('#prop-width').fill('150');
             await page.locator('#prop-width').dispatchEvent('change');
-            await page.locator('#prop-color').selectOption('W');
+            await page.locator('[data-color="W"]').click();
             await page.locator('#prop-rounding').fill('5');
             await page.locator('#prop-rounding').dispatchEvent('change');
 
