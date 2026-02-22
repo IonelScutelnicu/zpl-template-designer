@@ -16,8 +16,9 @@ export class QRCodeRenderer {
   render(ctx, element, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
+    // QR codes in ZPL: no X offset, fixed ~11 dot Y offset (quiet zone, independent of magnification)
     const x = (element.x + homeX) * scale;
-    const y = (element.y + homeY + labelTop) * scale;
+    const y = (element.y + homeY + labelTop) * scale + 11 * scale;
 
     // Calculate QR code size based on data length and error correction
     const dataLength = element.previewData.length;

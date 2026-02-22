@@ -200,6 +200,66 @@ export function deleteBaseline(baselineName: string): boolean {
 /**
  * Clean up all diff images
  */
+export interface ContentBounds {
+    top: number;
+    left: number;
+    bottom: number;
+    right: number;
+    width: number;
+    height: number;
+}
+
+/**
+ * Find the bounding box of dark pixels in a PNG image
+ * @param imageBuffer PNG image buffer
+ * @param maxBrightness Max brightness (0-255) to count as content. Default 128 (dark pixels only).
+ * @returns Bounding box of detected content
+ */
+export function findContentBounds(imageBuffer: Buffer, maxBrightness: number = 128): ContentBounds {
+    const png = PNG.sync.read(imageBuffer);
+    let top = png.height;
+    let left = png.width;
+    let bottom = 0;
+    let right = 0;
+
+    for (let y = 0; y < png.height; y++) {
+        for (let x = 0; x < png.width; x++) {
+            const idx = (y * png.width + x) * 4;
+            const r = png.data[idx];
+            const g = png.data[idx + 1];
+            const b = png.data[idx + 2];
+
+            if (r <= maxBrightness && g <= maxBrightness && b <= maxBrightness) {
+                if (y < top) top = y;
+                if (y > bottom) bottom = y;
+                if (x < left) left = x;
+                if (x > right) right = x;
+            }
+        }
+    }
+
+    if (top > bottom || left > right) {
+        return { top: 0, left: 0, bottom: 0, right: 0, width: 0, height: 0 };
+    }
+
+    return {
+        top,
+        left,
+        bottom,
+        right,
+        width: right - left + 1,
+        height: bottom - top + 1,
+    };
+}
+
+/**
+ * Get the pixel dimensions of a PNG image
+ */
+export function getImageDimensions(imageBuffer: Buffer): { width: number; height: number } {
+    const png = PNG.sync.read(imageBuffer);
+    return { width: png.width, height: png.height };
+}
+
 export function cleanupDiffs(): void {
     const diffDir = path.join(__dirname, '../fixtures/visual-diffs');
     if (fs.existsSync(diffDir)) {

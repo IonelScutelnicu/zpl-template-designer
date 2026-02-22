@@ -105,6 +105,6 @@ export class QRCodeElement extends ZPLElement {
         const version = calculateQRVersion(dataLength, this.errorCorrection);
         const modules = qrVersionToModules(version);
         const size = modules * this.magnification;
-        return { x: this.x, y: this.y, width: size, height: size };
+        return { x: this.x, y: this.y, width: size, height: size + 11 };
     }
 }
