@@ -40,6 +40,9 @@ export class TextBlockRenderer {
     ctx.font = font;
     ctx.textBaseline = 'top';
 
+    // Nudge text upward to better match ZPL printer positioning.
+    const yOffset = fontSize * -0.05;
+
     const text = element.previewText || '';
 
     const hangingIndentPx = (element.hangingIndent || 0) * scale;
@@ -117,7 +120,7 @@ export class TextBlockRenderer {
       textCtx.fillStyle = '#FFFFFF';
 
       lines.slice(0, maxLines).forEach((line, i) => {
-        const lineY = y - top + (i * lineHeight);
+        const lineY = y - top + (i * lineHeight) + yOffset;
         const measuredWidth = textCtx.measureText(line).width * scaleX;
         const isFirstLine = i === 0;
         const indent = isFirstLine ? 0 : hangingIndentPx;
@@ -150,7 +153,7 @@ export class TextBlockRenderer {
 
     lines.slice(0, maxLines).forEach((line, i) => {
       const measuredWidth = ctx.measureText(line).width * scaleX;
-      const lineY = y + (i * lineHeight);
+      const lineY = y + (i * lineHeight) + yOffset;
       const isLastLine = (i === lines.slice(0, maxLines).length - 1);
       const isFirstLine = i === 0;
       const indent = isFirstLine ? 0 : hangingIndentPx;

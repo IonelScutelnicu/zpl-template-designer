@@ -66,7 +66,8 @@ export class BarcodeRenderer {
       ctx.font = `${18 * scale}px Arial, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.fillText(data, x + totalWidth / 2, y + height + 4 + (2 * scale));
+      const barcodeYOffset = (18 * scale) * -0.05;
+      ctx.fillText(data, x + totalWidth / 2, y + height + 4 + (2 * scale) + barcodeYOffset);
     }
   }
 }
