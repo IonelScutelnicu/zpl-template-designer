@@ -47,6 +47,11 @@ export class TextRenderer {
     const textWidth = measuredWidth * scaleX;
     const textHeight = fontSize;
 
+    // Nudge text upward to better match ZPL printer positioning.
+    // Canvas textBaseline='top' adds slight padding above glyphs for diacritics;
+    // ZPL printers place the top of capital letters at the Y coordinate.
+    const yOffset = fontSize * -0.05;
+
     const drawTransformedText = (context, color, offsetX = 0, offsetY = 0) => {
       context.save();
       context.fillStyle = color;
@@ -54,19 +59,19 @@ export class TextRenderer {
       context.textBaseline = 'top';
 
       if (element.orientation === 'R') {
-        context.translate(x + textHeight + offsetX, y + offsetY);
+        context.translate(x + textHeight + offsetX, y + offsetY + yOffset);
         context.rotate(Math.PI / 2);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'I') {
-        context.translate(x + textWidth + offsetX, y + textHeight + offsetY);
+        context.translate(x + textWidth + offsetX, y + textHeight + offsetY + yOffset);
         context.rotate(Math.PI);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'B') {
-        context.translate(x + offsetX, y + textWidth + offsetY);
+        context.translate(x + offsetX, y + textWidth + offsetY + yOffset);
         context.rotate(-Math.PI / 2);
         context.scale(scaleX, 1);
       } else {
-        context.translate(x + offsetX, y + offsetY);
+        context.translate(x + offsetX, y + offsetY + yOffset);
         context.scale(scaleX, 1);
       }
 
