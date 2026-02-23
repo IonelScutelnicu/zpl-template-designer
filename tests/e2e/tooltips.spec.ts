@@ -55,6 +55,18 @@ test.describe('Tooltips', () => {
         await expect(tooltip).toContainText('Toggle edit history panel');
     });
 
+    test('should show Esc shortcut for cancel drag / resize in shortcuts panel', async ({ page }) => {
+        const shortcutsButton = page.locator('button:has-text("Shortcuts")');
+        await shortcutsButton.hover();
+        await page.waitForTimeout(250);
+
+        const cancelRow = page.locator('div.flex.justify-between.items-center').filter({
+            hasText: 'Cancel drag / resize'
+        });
+        await expect(cancelRow).toBeVisible();
+        await expect(cancelRow.locator('code')).toHaveText('Esc');
+    });
+
     // 3. ZPL output buttons show tooltips
     test('should show tooltip for Copy button', async ({ page }) => {
         await page.locator('#copy-btn').hover();

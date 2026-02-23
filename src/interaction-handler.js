@@ -454,6 +454,22 @@ export class InteractionHandler {
   }
 
   handleKeyDown(e) {
+    // ESC cancels an active drag/resize transform and restores pre-transform state.
+    if (e.key === 'Escape' && (this.isDragging || this.isResizing) && this.dragElement) {
+      e.preventDefault();
+      if (this.callbacks.onElementTransformCancel) {
+        this.callbacks.onElementTransformCancel(this.dragElement);
+      }
+
+      this.isDragging = false;
+      this.isResizing = false;
+      this.resizeHandle = null;
+      this.dragElement = null;
+      this.canvas.style.cursor = 'default';
+      this.hasNotifiedDragStart = false;
+      return;
+    }
+
     // Don't handle keys when focus is on input/textarea
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
 

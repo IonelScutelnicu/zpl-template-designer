@@ -32,6 +32,44 @@ test.describe('Drag - Element Position', () => {
         await canvas.waitForReady();
     }
 
+    async function dragAndCancelWithEsc(
+        page: import('@playwright/test').Page,
+        fromX: number,
+        fromY: number,
+        toX: number,
+        toY: number
+    ): Promise<void> {
+        const box = await canvas.getBoundingBox();
+        if (!box) throw new Error('Canvas not found');
+
+        const scale = await canvas.getScale();
+        await page.mouse.move(box.x + fromX * scale, box.y + fromY * scale);
+        await page.mouse.down();
+        await page.mouse.move(box.x + toX * scale, box.y + toY * scale, { steps: 10 });
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await canvas.waitForReady();
+    }
+
+    async function resizeAndCancelWithEsc(
+        page: import('@playwright/test').Page,
+        handleX: number,
+        handleY: number,
+        toX: number,
+        toY: number
+    ): Promise<void> {
+        const box = await canvas.getBoundingBox();
+        if (!box) throw new Error('Canvas not found');
+
+        const scale = await canvas.getScale();
+        await page.mouse.move(box.x + handleX * scale, box.y + handleY * scale);
+        await page.mouse.down();
+        await page.mouse.move(box.x + toX * scale, box.y + toY * scale, { steps: 10 });
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await canvas.waitForReady();
+    }
+
     // ============== TEXT ELEMENT DRAG ==============
     test('should move TEXT element when dragged', async ({ page }) => {
         await elementsPanel.addTextElement();
@@ -79,6 +117,50 @@ test.describe('Drag - Element Position', () => {
 
         expect(newX).toBeGreaterThan(50);
         expect(newY).toBeGreaterThan(50);
+    });
+
+    test('should restore BOX position when Escape is pressed during drag', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 100, 100);
+
+        // Start drag from inside the shape (away from resize handles), then cancel with Esc.
+        await dragAndCancelWithEsc(page, 130, 120, 260, 180);
+
+        await elementsPanel.selectElementByIndex(0);
+        const x = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const y = parseInt(await propertiesPanel.getProperty('prop-y'));
+
+        expect(x).toBe(100);
+        expect(y).toBe(100);
+        expect(await zplOutput.getZPLCode()).toContain('^FO100,100');
+    });
+
+    test('should restore BOX size when Escape is pressed during resize', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 80, 80);
+
+        const x = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const y = parseInt(await propertiesPanel.getProperty('prop-y'));
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        // Drag bottom-right resize handle, then cancel with Esc.
+        await resizeAndCancelWithEsc(page, x + width, y + height, x + width + 60, y + height + 40);
+
+        await elementsPanel.selectElementByIndex(0);
+        const widthAfter = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const heightAfter = parseInt(await propertiesPanel.getProperty('prop-height'));
+        const xAfter = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const yAfter = parseInt(await propertiesPanel.getProperty('prop-y'));
+
+        expect(widthAfter).toBe(width);
+        expect(heightAfter).toBe(height);
+        expect(xAfter).toBe(x);
+        expect(yAfter).toBe(y);
     });
 
     // ============== TEXTBLOCK ELEMENT DRAG ==============
