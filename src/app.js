@@ -309,6 +309,9 @@ export function initApp() {
     onElementTransformStart: (element, mode) => {
       startTransformSession(element, mode);
     },
+    onElementTransformCancel: (element) => {
+      cancelTransformSession(element);
+    },
     onKeyboardMoveStart: (element) => {
       startKeyboardMoveSession(element);
     },
@@ -385,7 +388,7 @@ export function initApp() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !e.defaultPrevented) {
       closeHistoryPanel();
     }
   });
@@ -844,6 +847,10 @@ function getElementTransformState(element) {
   } else if (element.type === "BARCODE") {
     state.width = element.width;
     state.height = element.height;
+  } else if (element.type === "CIRCLE") {
+    state.width = element.width;
+    state.height = element.height;
+    state.thickness = element.thickness;
   } else if (element.type === "TEXTBLOCK") {
     state.blockWidth = element.blockWidth;
     state.maxLines = element.maxLines;
@@ -855,6 +862,38 @@ function getElementTransformState(element) {
   }
 
   return state;
+}
+
+function restoreElementTransformState(element, before) {
+  if (!element || !before) return;
+
+  if (typeof before.x === "number") element.x = before.x;
+  if (typeof before.y === "number") element.y = before.y;
+
+  if (element.type === "BOX") {
+    if (typeof before.width === "number") element.width = before.width;
+    if (typeof before.height === "number") element.height = before.height;
+    if (typeof before.thickness === "number") element.thickness = before.thickness;
+  } else if (element.type === "LINE") {
+    if (typeof before.width === "number") element.width = before.width;
+    if (typeof before.thickness === "number") element.thickness = before.thickness;
+    if (typeof before.orientation === "string") element.orientation = before.orientation;
+  } else if (element.type === "BARCODE") {
+    if (typeof before.width === "number") element.width = before.width;
+    if (typeof before.height === "number") element.height = before.height;
+  } else if (element.type === "CIRCLE") {
+    if (typeof before.width === "number") element.width = before.width;
+    if (typeof before.height === "number") element.height = before.height;
+    if (typeof before.thickness === "number") element.thickness = before.thickness;
+  } else if (element.type === "TEXTBLOCK") {
+    if (typeof before.blockWidth === "number") element.blockWidth = before.blockWidth;
+    if (typeof before.maxLines === "number") element.maxLines = before.maxLines;
+  } else if (element.type === "QRCODE") {
+    if (typeof before.magnification === "number") element.magnification = before.magnification;
+  } else if (element.type === "TEXT") {
+    if (typeof before.fontSize === "number") element.fontSize = before.fontSize;
+    if (typeof before.fontWidth === "number") element.fontWidth = before.fontWidth;
+  }
 }
 
 function startTransformSession(element, mode) {
@@ -882,6 +921,22 @@ function finalizeTransformSession(element) {
   }
 
   state.setActiveTransformSession(null);
+}
+
+function cancelTransformSession(element) {
+  const activeTransformSession = state.getActiveTransformSession();
+  if (!activeTransformSession || !element) return;
+
+  if (String(element.id) !== activeTransformSession.id) {
+    state.setActiveTransformSession(null);
+    return;
+  }
+
+  restoreElementTransformState(element, activeTransformSession.before);
+  state.setActiveTransformSession(null);
+  updateZPLOutput();
+  renderCanvasPreview();
+  renderPropertiesPanel();
 }
 
 function startKeyboardMoveSession(element) {

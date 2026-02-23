@@ -91,7 +91,8 @@ Where:
 | Copy / Paste | `Ctrl` + `C` / `V` |
 | Undo | `Ctrl` + `Z` |
 | Redo | `Ctrl` + `Shift+Z` / `Y` |
-| Close history panel | `Esc` |
+| Cancel drag / resize | `Esc` |
+| Close history panel (idle) | `Esc` |
 | Select element | Click element |
 | Deselect | Click empty area |
 | Move element | Drag element |
