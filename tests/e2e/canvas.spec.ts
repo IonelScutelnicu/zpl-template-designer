@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { ElementsPanel, PropertiesPanel, Canvas } from '../page-objects';
 
 test.describe('Canvas - Drag, Resize, and Interactions', () => {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { ElementsPanel, ZPLOutput } from '../page-objects';
 
 test.describe('ZPL Output - Syntax Highlighting', () => {

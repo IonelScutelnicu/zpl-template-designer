@@ -10,23 +10,18 @@ export default defineConfig({
         baseURL: 'http://localhost:3000',
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
+        viewport: {
+            width: 1920,
+            height: 1080
+        },
     },
 
     projects: [
         {
-            name: 'core',
-            testMatch: /.*\.spec\.ts/,
-            testIgnore: /.*-api\.spec\.ts/,
-            use: { ...devices['Desktop Chrome'] },
+            name: 'chromium',
+            use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
             fullyParallel: true,
-            workers: process.env.CI ? 2 : undefined, // Parallel for fast core tests
-        },
-        {
-            name: 'api-integration',
-            testMatch: /.*-api\.spec\.ts/,
-            use: { ...devices['Desktop Chrome'] },
-            fullyParallel: false,
-            workers: 1, // Sequential to respect Labelary rate limits
+            workers: process.env.CI ? 2 : undefined,
         },
     ],
 

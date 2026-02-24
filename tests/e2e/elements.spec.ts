@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 
 test.describe('Elements - Add, Select, Delete', () => {

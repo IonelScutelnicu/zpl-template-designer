@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { ElementsPanel, PropertiesPanel, Canvas, ZPLOutput } from '../page-objects';
 
 test.describe('Drag - Element Position', () => {
@@ -6,6 +6,8 @@ test.describe('Drag - Element Position', () => {
     let propertiesPanel: PropertiesPanel;
     let canvas: Canvas;
     let zplOutput: ZPLOutput;
+
+    test.use({ viewport: { width: 1920, height: 1080 } });
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
@@ -61,10 +63,19 @@ test.describe('Drag - Element Position', () => {
         const box = await canvas.getBoundingBox();
         if (!box) throw new Error('Canvas not found');
 
-        const scale = await canvas.getScale();
-        await page.mouse.move(box.x + handleX * scale, box.y + handleY * scale);
+        // Use the CSS display scale (rect.width / canvas.width) to correctly convert
+        // label dot coordinates to viewport pixel offsets. canvasRenderer.scale is
+        // always 1 (internal rendering), but the canvas element is CSS-scaled to fit
+        // its container, so we must account for that here.
+        const cssScale = await page.evaluate(() => {
+            const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+            if (!c || !c.width) return 1;
+            return c.getBoundingClientRect().width / c.width;
+        });
+
+        await page.mouse.move(box.x + handleX * cssScale, box.y + handleY * cssScale);
         await page.mouse.down();
-        await page.mouse.move(box.x + toX * scale, box.y + toY * scale, { steps: 10 });
+        await page.mouse.move(box.x + toX * cssScale, box.y + toY * cssScale, { steps: 10 });
         await page.keyboard.press('Escape');
         await page.mouse.up();
         await canvas.waitForReady();
@@ -76,7 +87,8 @@ test.describe('Drag - Element Position', () => {
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 100, 100);
 
-        await dragAndWait(100, 100, 200, 150);
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 200, 150);
 
         await elementsPanel.selectElementByIndex(0);
         const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
@@ -92,8 +104,8 @@ test.describe('Drag - Element Position', () => {
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 100, 100);
 
-        // Grab slightly inside the element (5 dots from corner) to ensure hitbox hit
-        await dragAndWait(105, 105, 200, 160);
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 200, 160);
 
         await elementsPanel.selectElementByIndex(0);
         const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
@@ -109,7 +121,8 @@ test.describe('Drag - Element Position', () => {
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 50, 50);
 
-        await dragAndWait(50, 50, 160, 130);
+        const inside = 20;
+        await dragAndWait(50 + inside, 50 + inside, 160, 130);
 
         await elementsPanel.selectElementByIndex(0);
         const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
@@ -126,7 +139,8 @@ test.describe('Drag - Element Position', () => {
         await setPosition(page, 100, 100);
 
         // Start drag from inside the shape (away from resize handles), then cancel with Esc.
-        await dragAndCancelWithEsc(page, 130, 120, 260, 180);
+        const inside = 20;
+        await dragAndCancelWithEsc(page, 100 + inside, 100 + inside, 260, 180);
 
         await elementsPanel.selectElementByIndex(0);
         const x = parseInt(await propertiesPanel.getProperty('prop-x'));
@@ -170,7 +184,8 @@ test.describe('Drag - Element Position', () => {
         await setPosition(page, 100, 100);
 
         // Grab slightly inside the element (5 dots from corner) to ensure hitbox hit
-        await dragAndWait(105, 105, 200, 160);
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 200, 160);
 
         await elementsPanel.selectElementByIndex(0);
         const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
@@ -184,16 +199,17 @@ test.describe('Drag - Element Position', () => {
     test('should move QRCODE element when dragged', async ({ page }) => {
         await elementsPanel.addQRCodeElement();
         await elementsPanel.selectElementByIndex(0);
-        await setPosition(page, 40, 40);
+        await setPosition(page, 100, 100);
 
-        await dragAndWait(40, 40, 140, 110);
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 150, 150);
 
         await elementsPanel.selectElementByIndex(0);
         const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
         const newY = parseInt(await propertiesPanel.getProperty('prop-y'));
 
-        expect(newX).toBeGreaterThan(40);
-        expect(newY).toBeGreaterThan(40);
+        expect(newX).toBeGreaterThan(100);
+        expect(newY).toBeGreaterThan(100);
     });
 
     // ============== LINE ELEMENT DRAG ==============
@@ -203,27 +219,19 @@ test.describe('Drag - Element Position', () => {
         await setPosition(page, 100, 100);
 
         // Increase thickness to 30 dots for a larger hitbox
-        await page.locator('#prop-thickness').fill('30');
+        await page.locator('#prop-thickness').fill('50');
         await page.locator('#prop-thickness').dispatchEvent('input');
         await canvas.waitForReady();
 
-        // Deselect the element by clicking empty canvas area near the bottom-right.
-        // When an element is selected, resize handles are checked first on mousedown, which
-        // can intercept the drag. Deselecting first avoids this.
-        const box = await canvas.getBoundingBox();
-        if (box) {
-            await page.mouse.click(box.x + box.width - 20, box.y + box.height - 20);
-        }
-        await page.waitForTimeout(150);
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 250, 200);
 
-        // LINE at (100,100), width=200, height=30 (thickness).
-        // Grab at CSS pixel y=100. The canvas is CSS-scaled (~0.88), so
-        // label coord y ≈ 100/0.88 ≈ 114, safely inside the 30-dot LINE body [100,130].
-        await dragAndWait(150, 100, 250, 200);
+        await elementsPanel.selectElementByIndex(0);
+        const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const newY = parseInt(await propertiesPanel.getProperty('prop-y'));
 
-        // Verify the ZPL position changed
-        const zpl = await zplOutput.getZPLCode();
-        expect(zpl).not.toContain('^FO100,100');
+        expect(newX).toBeGreaterThan(100);
+        expect(newY).toBeGreaterThan(100);
     });
 
     // ============== BOUNDARY: cannot drag above y=0 ==============
@@ -250,7 +258,8 @@ test.describe('Drag - Element Position', () => {
 
         // Default label width is 100mm * 8dpmm = 800 dots
         // Drag element toward the right edge
-        await dragAndWait(100, 100, 750, 100);
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 750, 100);
 
         await elementsPanel.selectElementByIndex(0);
         const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
