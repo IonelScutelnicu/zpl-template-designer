@@ -7,8 +7,6 @@ test.describe('Drag - Element Position', () => {
     let canvas: Canvas;
     let zplOutput: ZPLOutput;
 
-    test.use({ viewport: { width: 1920, height: 1080 } });
-
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
         elementsPanel = new ElementsPanel(page);
@@ -27,13 +25,24 @@ test.describe('Drag - Element Position', () => {
         await canvas.waitForReady();
     }
 
+    // Helper: get the CSS display scale of the canvas element.
+    // canvasRenderer.scale is always 1 (internal rendering); the canvas element is
+    // CSS-scaled to fit its container, so mouse coordinates must use this ratio.
+    async function getCSSScale(page: import('@playwright/test').Page): Promise<number> {
+        return await page.evaluate(() => {
+            const c = document.getElementById('label-canvas') as HTMLCanvasElement;
+            if (!c || !c.width) return 1;
+            return c.getBoundingClientRect().width / c.width;
+        });
+    }
+
     // Helper: drag element from its position to a new label coordinate position
-    // Grabs the element slightly inside its top-left corner, moves to destination
     async function dragAndWait(fromX: number, fromY: number, toX: number, toY: number): Promise<void> {
         await canvas.dragLabelCoords(fromX, fromY, toX, toY);
         await canvas.waitForReady();
     }
 
+    // Helper: drag from a label coordinate and cancel with Escape
     async function dragAndCancelWithEsc(
         page: import('@playwright/test').Page,
         fromX: number,
@@ -44,15 +53,35 @@ test.describe('Drag - Element Position', () => {
         const box = await canvas.getBoundingBox();
         if (!box) throw new Error('Canvas not found');
 
-        const scale = await canvas.getScale();
-        await page.mouse.move(box.x + fromX * scale, box.y + fromY * scale);
+        const cssScale = await getCSSScale(page);
+        await page.mouse.move(box.x + fromX * cssScale, box.y + fromY * cssScale);
         await page.mouse.down();
-        await page.mouse.move(box.x + toX * scale, box.y + toY * scale, { steps: 10 });
+        await page.mouse.move(box.x + toX * cssScale, box.y + toY * cssScale, { steps: 10 });
         await page.keyboard.press('Escape');
         await page.mouse.up();
         await canvas.waitForReady();
     }
 
+    // Helper: drag a resize handle to a new position (label dot coordinates)
+    async function resizeAndWait(
+        page: import('@playwright/test').Page,
+        handleX: number,
+        handleY: number,
+        toX: number,
+        toY: number
+    ): Promise<void> {
+        const box = await canvas.getBoundingBox();
+        if (!box) throw new Error('Canvas not found');
+
+        const cssScale = await getCSSScale(page);
+        await page.mouse.move(box.x + handleX * cssScale, box.y + handleY * cssScale);
+        await page.mouse.down();
+        await page.mouse.move(box.x + toX * cssScale, box.y + toY * cssScale, { steps: 10 });
+        await page.mouse.up();
+        await canvas.waitForReady();
+    }
+
+    // Helper: drag a resize handle and cancel with Escape
     async function resizeAndCancelWithEsc(
         page: import('@playwright/test').Page,
         handleX: number,
@@ -63,16 +92,7 @@ test.describe('Drag - Element Position', () => {
         const box = await canvas.getBoundingBox();
         if (!box) throw new Error('Canvas not found');
 
-        // Use the CSS display scale (rect.width / canvas.width) to correctly convert
-        // label dot coordinates to viewport pixel offsets. canvasRenderer.scale is
-        // always 1 (internal rendering), but the canvas element is CSS-scaled to fit
-        // its container, so we must account for that here.
-        const cssScale = await page.evaluate(() => {
-            const c = document.getElementById('label-canvas') as HTMLCanvasElement;
-            if (!c || !c.width) return 1;
-            return c.getBoundingClientRect().width / c.width;
-        });
-
+        const cssScale = await getCSSScale(page);
         await page.mouse.move(box.x + handleX * cssScale, box.y + handleY * cssScale);
         await page.mouse.down();
         await page.mouse.move(box.x + toX * cssScale, box.y + toY * cssScale, { steps: 10 });
@@ -81,7 +101,7 @@ test.describe('Drag - Element Position', () => {
         await canvas.waitForReady();
     }
 
-    // ============== TEXT ELEMENT DRAG ==============
+    // ============== TEXT ELEMENT ==============
     test('should move TEXT element when dragged', async ({ page }) => {
         await elementsPanel.addTextElement();
         await elementsPanel.selectElementByIndex(0);
@@ -98,7 +118,7 @@ test.describe('Drag - Element Position', () => {
         expect(newY).toBeGreaterThan(100);
     });
 
-    // ============== BARCODE ELEMENT DRAG ==============
+    // ============== BARCODE ELEMENT ==============
     test('should move BARCODE element when dragged', async ({ page }) => {
         await elementsPanel.addBarcodeElement();
         await elementsPanel.selectElementByIndex(0);
@@ -115,7 +135,38 @@ test.describe('Drag - Element Position', () => {
         expect(newY).toBeGreaterThan(100);
     });
 
-    // ============== BOX ELEMENT DRAG ==============
+    test('should resize BARCODE element when dragged', async ({ page }) => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-height');
+        await setPosition(page, 100, 100);
+
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        // Grab the bottom resize handle (mid-width estimate) and drag downward
+        await resizeAndWait(page, 100 + 145, 100 + height, 100 + 145, 100 + height + 60);
+
+        await elementsPanel.selectElementByIndex(0);
+        const newHeight = parseInt(await propertiesPanel.getProperty('prop-height'));
+        expect(newHeight).toBeGreaterThan(height);
+    });
+
+    test('should restore BARCODE height when Escape is pressed during resize', async ({ page }) => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-height');
+        await setPosition(page, 100, 100);
+
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        await resizeAndCancelWithEsc(page, 100 + 145, 100 + height, 100 + 145, 100 + height + 60);
+
+        await elementsPanel.selectElementByIndex(0);
+        const heightAfter = parseInt(await propertiesPanel.getProperty('prop-height'));
+        expect(heightAfter).toBe(height);
+    });
+
+    // ============== BOX ELEMENT ==============
     test('should move BOX element when dragged', async ({ page }) => {
         await elementsPanel.addBoxElement();
         await elementsPanel.selectElementByIndex(0);
@@ -130,6 +181,28 @@ test.describe('Drag - Element Position', () => {
 
         expect(newX).toBeGreaterThan(50);
         expect(newY).toBeGreaterThan(50);
+    });
+
+    test('should resize BOX element when dragged', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 80, 80);
+
+        const x = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const y = parseInt(await propertiesPanel.getProperty('prop-y'));
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        // Drag bottom-right resize handle outward
+        await resizeAndWait(page, x + width, y + height, x + width + 60, y + height + 40);
+
+        await elementsPanel.selectElementByIndex(0);
+        const newWidth = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const newHeight = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        expect(newWidth).toBeGreaterThan(width);
+        expect(newHeight).toBeGreaterThan(height);
     });
 
     test('should restore BOX position when Escape is pressed during drag', async ({ page }) => {
@@ -177,13 +250,12 @@ test.describe('Drag - Element Position', () => {
         expect(yAfter).toBe(y);
     });
 
-    // ============== TEXTBLOCK ELEMENT DRAG ==============
+    // ============== TEXTBLOCK ELEMENT ==============
     test('should move TEXTBLOCK element when dragged', async ({ page }) => {
         await elementsPanel.addTextBlockElement();
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 100, 100);
 
-        // Grab slightly inside the element (5 dots from corner) to ensure hitbox hit
         const inside = 20;
         await dragAndWait(100 + inside, 100 + inside, 200, 160);
 
@@ -195,7 +267,49 @@ test.describe('Drag - Element Position', () => {
         expect(newY).toBeGreaterThan(100);
     });
 
-    // ============== QRCODE ELEMENT DRAG ==============
+    test('should resize TEXTBLOCK element when dragged', async ({ page }) => {
+        await elementsPanel.addTextBlockElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-block-width');
+        await setPosition(page, 100, 100);
+
+        const x = 100;
+        const y = 100;
+        const blockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
+        const maxLines = parseInt(await propertiesPanel.getProperty('prop-max-lines'));
+        // TEXTBLOCK only has a bottom-right corner handle
+        // Height = fontSize(default 20) * 1.2 * maxLines
+        const textBlockHeight = 20 * 1.2 * maxLines;
+
+        // Drag the bottom-right resize handle outward
+        await resizeAndWait(page, x + blockWidth, y + textBlockHeight, x + blockWidth + 80, y + textBlockHeight);
+
+        await elementsPanel.selectElementByIndex(0);
+        const newBlockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
+        expect(newBlockWidth).toBeGreaterThan(blockWidth);
+    });
+
+    test('should restore TEXTBLOCK width when Escape is pressed during resize', async ({ page }) => {
+        await elementsPanel.addTextBlockElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-block-width');
+        await setPosition(page, 100, 100);
+
+        const x = 100;
+        const y = 100;
+        const blockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
+        const maxLines = parseInt(await propertiesPanel.getProperty('prop-max-lines'));
+        // TEXTBLOCK only has a bottom-right corner handle
+        const textBlockHeight = 20 * 1.2 * maxLines;
+
+        await resizeAndCancelWithEsc(page, x + blockWidth, y + textBlockHeight, x + blockWidth + 80, y + textBlockHeight);
+
+        await elementsPanel.selectElementByIndex(0);
+        const blockWidthAfter = parseInt(await propertiesPanel.getProperty('prop-block-width'));
+        expect(blockWidthAfter).toBe(blockWidth);
+    });
+
+    // ============== QRCODE ELEMENT ==============
     test('should move QRCODE element when dragged', async ({ page }) => {
         await elementsPanel.addQRCodeElement();
         await elementsPanel.selectElementByIndex(0);
@@ -212,13 +326,13 @@ test.describe('Drag - Element Position', () => {
         expect(newY).toBeGreaterThan(100);
     });
 
-    // ============== LINE ELEMENT DRAG ==============
+    // ============== LINE ELEMENT ==============
     test('should move LINE element when dragged', async ({ page }) => {
         await elementsPanel.addLineElement();
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 100, 100);
 
-        // Increase thickness to 30 dots for a larger hitbox
+        // Increase thickness to 50 dots for a larger hitbox
         await page.locator('#prop-thickness').fill('50');
         await page.locator('#prop-thickness').dispatchEvent('input');
         await canvas.waitForReady();
@@ -232,6 +346,110 @@ test.describe('Drag - Element Position', () => {
 
         expect(newX).toBeGreaterThan(100);
         expect(newY).toBeGreaterThan(100);
+    });
+
+    test('should resize LINE element when dragged', async ({ page }) => {
+        await elementsPanel.addLineElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 100, 100);
+
+        // Use a thick line so the right-end resize handle has a larger hit area
+        await page.locator('#prop-thickness').fill('20');
+        await page.locator('#prop-thickness').dispatchEvent('input');
+        await canvas.waitForReady();
+
+        const x = 100;
+        const y = 100;
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+
+        // Drag the right-end resize handle; y+10 is the vertical center of thickness=20
+        await resizeAndWait(page, x + width, y + 10, x + width + 60, y + 10);
+
+        await elementsPanel.selectElementByIndex(0);
+        const newWidth = parseInt(await propertiesPanel.getProperty('prop-width'));
+        expect(newWidth).toBeGreaterThan(width);
+    });
+
+    test('should restore LINE length when Escape is pressed during resize', async ({ page }) => {
+        await elementsPanel.addLineElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 100, 100);
+
+        await page.locator('#prop-thickness').fill('20');
+        await page.locator('#prop-thickness').dispatchEvent('input');
+        await canvas.waitForReady();
+
+        const x = 100;
+        const y = 100;
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+
+        await resizeAndCancelWithEsc(page, x + width, y + 10, x + width + 60, y + 10);
+
+        await elementsPanel.selectElementByIndex(0);
+        const widthAfter = parseInt(await propertiesPanel.getProperty('prop-width'));
+        expect(widthAfter).toBe(width);
+    });
+
+    // ============== CIRCLE ELEMENT ==============
+    test('should move CIRCLE element when dragged', async ({ page }) => {
+        await elementsPanel.addCircleElement();
+        await elementsPanel.selectElementByIndex(0);
+        await setPosition(page, 100, 100);
+
+        const inside = 20;
+        await dragAndWait(100 + inside, 100 + inside, 200, 160);
+
+        await elementsPanel.selectElementByIndex(0);
+        const newX = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const newY = parseInt(await propertiesPanel.getProperty('prop-y'));
+
+        expect(newX).toBeGreaterThan(100);
+        expect(newY).toBeGreaterThan(100);
+    });
+
+    test('should resize CIRCLE element when dragged', async ({ page }) => {
+        await elementsPanel.addCircleElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 100, 100);
+
+        const x = 100;
+        const y = 100;
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        // Drag bottom-right resize handle outward
+        await resizeAndWait(page, x + width, y + height, x + width + 60, y + height + 40);
+
+        await elementsPanel.selectElementByIndex(0);
+        const newWidth = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const newHeight = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        expect(newWidth).toBeGreaterThan(width);
+        expect(newHeight).toBeGreaterThan(height);
+    });
+
+    test('should restore CIRCLE size when Escape is pressed during resize', async ({ page }) => {
+        await elementsPanel.addCircleElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 100, 100);
+
+        const x = 100;
+        const y = 100;
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        await resizeAndCancelWithEsc(page, x + width, y + height, x + width + 60, y + height + 40);
+
+        await elementsPanel.selectElementByIndex(0);
+        const widthAfter = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const heightAfter = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        expect(widthAfter).toBe(width);
+        expect(heightAfter).toBe(height);
     });
 
     // ============== BOUNDARY: cannot drag above y=0 ==============
