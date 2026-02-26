@@ -140,6 +140,10 @@ const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
 const backfeedSpeed = document.getElementById("backfeed-speed");
+const printQuantity = document.getElementById("print-quantity");
+const pauseCount = document.getElementById("pause-count");
+const replicatesInput = document.getElementById("replicates");
+const printQuantityPlaceholder = document.getElementById("print-quantity-placeholder");
 const fontId = document.getElementById("font-id");
 const defaultFontHeight = document.getElementById("default-font-height");
 const defaultFontWidth = document.getElementById("default-font-width");
@@ -460,6 +464,30 @@ export function initApp() {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
+  printQuantity.addEventListener("input", (e) => {
+    state.updateLabelSettings({ printQuantity: parseInt(e.target.value) || 1 });
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
+  pauseCount.addEventListener("input", (e) => {
+    state.updateLabelSettings({ pauseCount: parseInt(e.target.value) || 0 });
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
+  replicatesInput.addEventListener("input", (e) => {
+    state.updateLabelSettings({ replicates: parseInt(e.target.value) || 0 });
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
+  printQuantityPlaceholder.addEventListener("input", (e) => {
+    state.updateLabelSettings({ printQuantityPlaceholder: e.target.value || '' });
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
   // Font settings event listeners
   fontId.addEventListener("change", (e) => {
     state.updateLabelSettings({ fontId: e.target.value || "0" });
@@ -672,6 +700,10 @@ function syncLabelSettingsInputs() {
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;
   backfeedSpeed.value = state.labelSettings.backfeedSpeed;
+  printQuantity.value = state.labelSettings.printQuantity ?? 1;
+  pauseCount.value = state.labelSettings.pauseCount ?? 0;
+  replicatesInput.value = state.labelSettings.replicates ?? 0;
+  printQuantityPlaceholder.value = state.labelSettings.printQuantityPlaceholder ?? '';
   fontId.value = state.labelSettings.fontId;
   renderCustomFonts();
   defaultFontHeight.value = state.labelSettings.defaultFontHeight;

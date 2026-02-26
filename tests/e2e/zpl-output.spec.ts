@@ -243,6 +243,47 @@ test.describe('ZPL Output - Generation and Validation', () => {
             // ^PR format: ^PR{printSpeed},{slewSpeed},{backfeedSpeed}
             expect(zpl).toMatch(/\^PR\d+,\d+,8/);
         });
+
+        test('should include ^PQ when print quantity is changed', async ({ page }) => {
+            await page.locator('#print-quantity').fill('50');
+            await page.locator('#print-quantity').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^PQ50,0,0');
+        });
+
+        test('should include ^PQ with pause count and replicates', async ({ page }) => {
+            await page.locator('#print-quantity').fill('100');
+            await page.locator('#print-quantity').dispatchEvent('input');
+            await page.locator('#pause-count').fill('10');
+            await page.locator('#pause-count').dispatchEvent('input');
+            await page.locator('#replicates').fill('3');
+            await page.locator('#replicates').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^PQ100,10,3');
+        });
+
+        test('should not include ^PQ when all values are default', async ({ page }) => {
+            // Default: quantity=1, pause=0, replicates=0 — ^PQ should be omitted
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('^PQ');
+        });
+
+        test('should place ^PQ just before ^XZ', async ({ page }) => {
+            await page.locator('#print-quantity').fill('5');
+            await page.locator('#print-quantity').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            // ^PQ should appear after all element commands, right before ^XZ
+            expect(zpl).toMatch(/\^PQ5,0,0\s*\^XZ$/);
+        });
+
+        test('should use placeholder in ^PQ quantity when set', async ({ page }) => {
+            await page.locator('#print-quantity').fill('1');
+            await page.locator('#print-quantity').dispatchEvent('input');
+            await page.locator('#print-quantity-placeholder').fill('qty');
+            await page.locator('#print-quantity-placeholder').dispatchEvent('input');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^PQ%qty%,0,0');
+        });
     });
 
     // ============== EXACT ZPL VALIDATION ==============

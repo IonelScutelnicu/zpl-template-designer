@@ -25,7 +25,8 @@ export class ZPLGenerator {
       ))
       .join('\n');
 
-    return `${header}${elementCommands}\n^XZ`;
+    const footer = this.buildFooter(labelSettings, false);
+    return `${header}${elementCommands}\n${footer}^XZ`;
   }
 
   /**
@@ -61,7 +62,8 @@ export class ZPLGenerator {
       })
       .join('\n');
 
-    return `${header}${elementCommands}\n^XZ`;
+    const footer = this.buildFooter(labelSettings, true);
+    return `${header}${elementCommands}\n${footer}^XZ`;
   }
 
   /**
@@ -131,6 +133,33 @@ export class ZPLGenerator {
     header += `^CF${fontId},${defaultFontHeight},${defaultFontWidth}\n`;
 
     return header;
+  }
+
+  /**
+   * Build ZPL footer commands (placed just before ^XZ)
+   * @param {Object} labelSettings - Label configuration
+   * @param {boolean} preview - If true, always use numeric values (for Labelary preview)
+   * @returns {string} ZPL footer commands (empty string if nothing to add)
+   */
+  buildFooter(labelSettings, preview = false) {
+    const {
+      printQuantity = 1,
+      pauseCount = 0,
+      replicates = 0,
+      printQuantityPlaceholder = ''
+    } = labelSettings;
+
+    let footer = '';
+
+    // Print quantity (^PQ: quantity, pause count, replicates)
+    if (printQuantity > 1 || pauseCount > 0 || replicates > 0 || printQuantityPlaceholder) {
+      const qty = (!preview && printQuantityPlaceholder)
+        ? `%${printQuantityPlaceholder}%`
+        : printQuantity;
+      footer += `^PQ${qty},${pauseCount},${replicates}\n`;
+    }
+
+    return footer;
   }
 
   /**

@@ -24,6 +24,10 @@ export class AppState {
       printSpeed: 4,           // ^PR value (2-14)
       slewSpeed: 4,            // ^PR value (2-14)
       backfeedSpeed: 4,        // ^PR value (2-14)
+      printQuantity: 1,        // ^PQ quantity (1-99999999)
+      pauseCount: 0,           // ^PQ pause/cut count (0-99999999)
+      replicates: 0,           // ^PQ replicates of each serial number (0-99999999)
+      printQuantityPlaceholder: '', // ^PQ quantity placeholder name (e.g. 'qty' → %qty%)
       fontId: "0",             // ^CF default font identifier
       customFonts: [],         // Array of {id, fontFile} for ^CW commands
       defaultFontHeight: 20,   // ^CF default font height

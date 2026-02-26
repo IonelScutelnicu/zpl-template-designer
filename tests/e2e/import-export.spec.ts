@@ -240,6 +240,16 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#print-speed').dispatchEvent('change');
             await page.locator('[data-mirror="Y"]').click();
 
+            // Set Print Quantity (^PQ) fields
+            await page.locator('#print-quantity').fill('50');
+            await page.locator('#print-quantity').dispatchEvent('change');
+            await page.locator('#pause-count').fill('10');
+            await page.locator('#pause-count').dispatchEvent('change');
+            await page.locator('#replicates').fill('2');
+            await page.locator('#replicates').dispatchEvent('change');
+            await page.locator('#print-quantity-placeholder').fill('qty');
+            await page.locator('#print-quantity-placeholder').dispatchEvent('change');
+
             const downloadPromise = page.waitForEvent('download');
             await zplOutput.exportTemplate();
             const download = await downloadPromise;
@@ -253,6 +263,10 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(json.labelSettings.mediaDarkness).toBe(20);
             expect(json.labelSettings.printSpeed).toBe(6);
             expect(json.labelSettings.printMirror).toBe('Y');
+            expect(json.labelSettings.printQuantity).toBe(50);
+            expect(json.labelSettings.pauseCount).toBe(10);
+            expect(json.labelSettings.replicates).toBe(2);
+            expect(json.labelSettings.printQuantityPlaceholder).toBe('qty');
 
             fs.unlinkSync(tempPath);
         });
