@@ -17,6 +17,7 @@ import { TooltipManager } from './ui/TooltipManager.js';
 import { WarningParser } from './services/WarningParser.js';
 import { WarningsPanelRenderer } from './ui/WarningsPanelRenderer.js';
 import { highlightZPL } from './utils/zpl-highlighter.js';
+import { ZPLParser } from './services/ZPLParser.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -26,6 +27,7 @@ const serializationService = new SerializationService();
 const alignmentService = new AlignmentService();
 const zplGenerator = new ZPLGenerator();
 const templateManager = new TemplateManager(serializationService);
+const zplParser = new ZPLParser();
 let elementService; // Initialized after pushHistory is defined
 
 // Initialize UI renderers (getSectionState will be available later)
@@ -114,6 +116,15 @@ const copyBtn = document.getElementById("copy-btn");
 const exportBtn = document.getElementById("export-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
+const importZPLBtn = document.getElementById("import-zpl-btn");
+const zplImportModal = document.getElementById("zpl-import-modal");
+const zplImportBackdrop = document.getElementById("zpl-import-backdrop");
+const zplImportInput = document.getElementById("zpl-import-input");
+const zplImportWarnings = document.getElementById("zpl-import-warnings");
+const zplImportWarningsList = document.getElementById("zpl-import-warnings-list");
+const zplImportCloseBtn = document.getElementById("zpl-import-close-btn");
+const zplImportCancelBtn = document.getElementById("zpl-import-cancel-btn");
+const zplImportConfirmBtn = document.getElementById("zpl-import-confirm-btn");
 const labelWidth = document.getElementById("label-width");
 const labelHeight = document.getElementById("label-height");
 const labelDpmm = document.getElementById("label-dpmm");
@@ -352,6 +363,23 @@ export function initApp() {
     importFile.click();
   });
   importFile.addEventListener("change", handleFileImport);
+  importZPLBtn.addEventListener("click", () => {
+    if (state.elements.length > 0) {
+      if (!window.confirm("Importing a ZPL template will replace your current work. Continue?")) {
+        return;
+      }
+    }
+    openZPLImportModal();
+  });
+  zplImportBackdrop.addEventListener("click", closeZPLImportModal);
+  zplImportCloseBtn.addEventListener("click", closeZPLImportModal);
+  zplImportCancelBtn.addEventListener("click", closeZPLImportModal);
+  zplImportConfirmBtn.addEventListener("click", handleZPLImport);
+  zplImportInput.addEventListener("input", () => {
+    pendingZPLResult = null;
+    zplImportConfirmBtn.textContent = 'Import';
+    zplImportWarnings.classList.add('hidden');
+  });
   undoBtn.addEventListener("click", undo);
   redoBtn.addEventListener("click", redo);
   historyToggleBtn.addEventListener("click", openHistoryPanel);
@@ -393,7 +421,11 @@ export function initApp() {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !e.defaultPrevented) {
-      closeHistoryPanel();
+      if (!zplImportModal.classList.contains('hidden')) {
+        closeZPLImportModal();
+      } else {
+        closeHistoryPanel();
+      }
     }
   });
 
@@ -1282,6 +1314,72 @@ function handleFileImport(event) {
     (template) => importTemplate(template),
     (error) => alert("Error importing template: " + error)
   );
+}
+
+// ZPL Import Modal
+let pendingZPLResult = null;
+
+function openZPLImportModal() {
+  zplImportInput.value = '';
+  zplImportWarnings.classList.add('hidden');
+  zplImportWarningsList.innerHTML = '';
+  zplImportConfirmBtn.textContent = 'Import';
+  pendingZPLResult = null;
+  zplImportModal.classList.remove('hidden');
+  zplImportInput.focus();
+}
+
+function closeZPLImportModal() {
+  zplImportModal.classList.add('hidden');
+  pendingZPLResult = null;
+}
+
+function handleZPLImport() {
+  const zplText = zplImportInput.value.trim();
+  if (!zplText) return;
+
+  // If we already parsed and showed warnings, proceed with import on second click
+  if (pendingZPLResult) {
+    const template = {
+      elements: pendingZPLResult.elements,
+      labelSettings: pendingZPLResult.labelSettings
+    };
+    importTemplate(template);
+    pendingZPLResult = null;
+    closeZPLImportModal();
+    return;
+  }
+
+  const dpmm = state.labelSettings.dpmm || 8;
+  const labelHeightVal = state.labelSettings.height || 50;
+  const result = zplParser.parse(zplText, { dpmm, labelHeight: labelHeightVal });
+
+  if (result.warnings.length > 0) {
+    // Show warnings inline, change button to "Import Anyway"
+    zplImportWarnings.classList.remove('hidden');
+    zplImportWarningsList.innerHTML = result.warnings
+      .map(w => {
+        const cmd = w.command ? `<code class="bg-amber-100 px-1 rounded">${escapeHtmlForZPLImport(w.command)}</code> ` : '';
+        return `<li>${cmd}${escapeHtmlForZPLImport(w.message)}</li>`;
+      })
+      .join('');
+    zplImportConfirmBtn.textContent = 'Import Anyway';
+    pendingZPLResult = result;
+  } else {
+    // No warnings, import directly
+    const template = {
+      elements: result.elements,
+      labelSettings: result.labelSettings
+    };
+    importTemplate(template);
+    closeZPLImportModal();
+  }
+}
+
+function escapeHtmlForZPLImport(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Import Template from JSON

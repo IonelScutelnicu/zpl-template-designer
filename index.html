@@ -799,6 +799,10 @@
                       class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
                       Import
                     </button>
+                    <button id="import-zpl-btn" data-tooltip="Import template from ZPL code"
+                      class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+                      Import ZPL
+                    </button>
                     <input type="file" id="import-file" accept=".json" style="display: none" />
                   </div>
                 </div>
@@ -856,6 +860,50 @@
   </aside>
 
   <div id="history-backdrop" class="fixed inset-0 bg-slate-900/30 z-40"></div>
+
+  <!-- ZPL Import Modal -->
+  <div id="zpl-import-modal" class="fixed inset-0 z-50 hidden">
+    <div id="zpl-import-backdrop" class="absolute inset-0 bg-black/50"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div class="border-b border-slate-100 bg-slate-50 px-6 py-4 flex justify-between items-center rounded-t-xl">
+          <h2 class="font-semibold text-slate-700 text-base">Import ZPL Template</h2>
+          <button id="zpl-import-close-btn"
+            class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors">
+            <span class="material-icons-round text-xl">close</span>
+          </button>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5">Paste ZPL Code</label>
+            <textarea id="zpl-import-input" rows="12"
+              placeholder="^XA&#10;^PW800&#10;^FO50,50^A0N,30,30^FDHello World^FS&#10;^XZ"
+              class="w-full font-mono text-xs border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
+          </div>
+          <div id="zpl-import-warnings" class="hidden">
+            <div class="bg-amber-50 border border-amber-300 rounded-lg p-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="material-icons-round text-amber-600 text-sm">warning</span>
+                <span class="text-xs font-semibold text-amber-800">Unsupported Commands</span>
+              </div>
+              <ul id="zpl-import-warnings-list"
+                class="text-xs text-amber-700 space-y-0.5 list-disc list-inside"></ul>
+            </div>
+          </div>
+        </div>
+        <div class="border-t border-slate-100 px-6 py-4 flex justify-end gap-3 rounded-b-xl">
+          <button id="zpl-import-cancel-btn"
+            class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button id="zpl-import-confirm-btn"
+            class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm">
+            Import
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="src/main.js"></script>
 </body>
