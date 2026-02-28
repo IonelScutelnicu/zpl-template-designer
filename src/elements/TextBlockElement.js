@@ -2,7 +2,7 @@ import { ZPLElement } from './ZPLElement.js';
 
 // Text Block Element Class
 export class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false) {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false, orientation = 'N') {
         super(x, y);
         this.type = 'TEXTBLOCK';
         this.previewText = previewText;
@@ -16,6 +16,7 @@ export class TextBlockElement extends ZPLElement {
         this.justification = justification;
         this.hangingIndent = hangingIndent;
         this.reverse = reverse; // ^FR (reverse print)
+        this.orientation = orientation; // N, R, I, B
     }
 
     render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
@@ -37,7 +38,7 @@ export class TextBlockElement extends ZPLElement {
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
     }
 
     renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
@@ -48,7 +49,7 @@ export class TextBlockElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const previewContent = this.justification === 'C' ? `${this.previewText}\\&` : this.previewText;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}N,${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${previewContent}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${previewContent}^FS`;
     }
 
     getDisplayName() {
@@ -57,13 +58,22 @@ export class TextBlockElement extends ZPLElement {
     }
 
     getBounds() {
-        const width = this.blockWidth || 200;
+        const blockW = this.blockWidth || 200;
         const fontSize = this.fontSize || 30;
         const maxLines = this.maxLines || 1;
         const lineSpacing = this.lineSpacing || 0;
         // Base line height times number of lines, plus line spacing between lines (maxLines - 1)
         const baseLineHeight = fontSize * 1.2;
-        const height = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1) + 10;
+        const blockH = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1) + 10;
+
+        let width = blockW;
+        let height = blockH;
+
+        if (this.orientation === 'R' || this.orientation === 'B') {
+            width = blockH;
+            height = blockW;
+        }
+
         return { x: this.x, y: this.y, width, height };
     }
 }

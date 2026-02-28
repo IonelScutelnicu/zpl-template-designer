@@ -156,8 +156,14 @@ export class InteractionHandler {
         const lineSpacing = this.dragElement.lineSpacing || 0;
         const baseLineHeight = fontSize * 1.2;
         const minHeight = baseLineHeight; // Minimum height is one line
-        const newWidth = Math.max(50, coords.x - this.dragElement.x);
-        const newHeight = Math.max(minHeight, coords.y - this.dragElement.y);
+        const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+        // When rotated, visual width comes from Y axis, visual height from X axis
+        const newWidth = isRotated
+          ? Math.max(50, coords.y - this.dragElement.y)
+          : Math.max(50, coords.x - this.dragElement.x);
+        const newHeight = isRotated
+          ? Math.max(minHeight, coords.x - this.dragElement.x)
+          : Math.max(minHeight, coords.y - this.dragElement.y);
 
         this.dragElement.blockWidth = Math.round(newWidth);
         // Calculate maxLines considering line spacing between lines
@@ -723,7 +729,11 @@ export class InteractionHandler {
       // Line spacing is only between lines, not after the last line
       const baseLineHeight = resolvedHeight * 1.2;
       const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
-      return { x: element.x, y: element.y, width: element.blockWidth || 200, height: totalHeight };
+      const blockW = element.blockWidth || 200;
+      if (element.orientation === 'R' || element.orientation === 'B') {
+        return { x: element.x, y: element.y, width: totalHeight, height: blockW };
+      }
+      return { x: element.x, y: element.y, width: blockW, height: totalHeight };
     }
     return element.getBounds();
   }

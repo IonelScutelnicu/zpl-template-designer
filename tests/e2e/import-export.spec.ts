@@ -170,6 +170,7 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#prop-max-lines').dispatchEvent('change');
             await page.locator('#prop-line-spacing').fill('5');
             await page.locator('#prop-line-spacing').dispatchEvent('change');
+            await page.locator('[data-orientation="R"]').click();
 
             const downloadPromise = page.waitForEvent('download');
             await zplOutput.exportTemplate();
@@ -186,6 +187,7 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(el.blockWidth).toBe(250);
             expect(el.maxLines).toBe(3);
             expect(el.lineSpacing).toBe(5);
+            expect(el.orientation).toBe('R');
 
             fs.unlinkSync(tempPath);
         });

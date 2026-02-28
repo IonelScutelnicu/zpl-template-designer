@@ -116,7 +116,8 @@ export class SerializationService {
           data.hangingIndent,
           data.placeholder,
           data.fontId,
-          data.reverse
+          data.reverse,
+          data.orientation
         );
         break;
 

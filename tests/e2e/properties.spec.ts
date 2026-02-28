@@ -437,6 +437,35 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
+    test.describe('TextBlock Element Orientation', () => {
+        test('should update TextBlock element orientation to R and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('[data-orientation="R"][data-tooltip]').click();
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^A\S*R,/);
+        });
+
+        test('should update TextBlock element orientation to I and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('[data-orientation="I"][data-tooltip]').click();
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^A\S*I,/);
+        });
+
+        test('should update TextBlock element orientation to B and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('[data-orientation="B"][data-tooltip]').click();
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^A\S*B,/);
+        });
+    });
+
     test.describe('Barcode Additional Properties', () => {
         test.beforeEach(async () => {
             await elementsPanel.addBarcodeElement();

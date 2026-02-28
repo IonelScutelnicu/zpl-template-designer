@@ -37,10 +37,14 @@ export function getElementBoundsResolved(element, labelSettings) {
     // Line spacing is only between lines, not after the last line
     const baseLineHeight = resolvedHeight * 1.2;
     const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+    const blockWidth = element.blockWidth || 200;
+    if (element.orientation === 'R' || element.orientation === 'B') {
+      return { x: element.x, y: element.y, width: totalHeight, height: blockWidth };
+    }
     return {
       x: element.x,
       y: element.y,
-      width: element.blockWidth || 200,
+      width: blockWidth,
       height: totalHeight
     };
   }

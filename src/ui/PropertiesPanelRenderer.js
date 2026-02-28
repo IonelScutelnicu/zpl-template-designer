@@ -430,6 +430,31 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            <button type="button" data-orientation="N"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "N" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Normal (N)">
+              <span class="material-icons-round text-base">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="R"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "R" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Rotated 90° (R)">
+              <span class="material-icons-round text-base inline-block rotate-90">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="I"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "I" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Inverted 180° (I)">
+              <span class="material-icons-round text-base inline-block rotate-180">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="B"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "B" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Bottom-Up 270° (B)">
+              <span class="material-icons-round text-base inline-block -rotate-90">text_rotation_none</span>
+            </button>
+          </div>
+        </div>
       `, { elementType: element.type })}
       ${this.renderSection("Text Content", `
         <div class="mb-3">

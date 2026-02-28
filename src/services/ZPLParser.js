@@ -362,8 +362,16 @@ export class ZPLParser {
     const params = aToken.params;
     // First char is fontId, second is orientation, then comma-separated height,width
     const fontId = params.charAt(0) || '0';
-    const orientation = params.charAt(1) || 'N';
-    const rest = params.substring(2);
+    const validOrientations = ['N', 'R', 'I', 'B'];
+    let orientation = params.charAt(1);
+    let rest;
+    if (validOrientations.includes(orientation)) {
+      rest = params.substring(2);
+    } else {
+      // Orientation omitted (e.g. ^A0,30,20) — default to N
+      orientation = 'N';
+      rest = params.substring(1);
+    }
     const parts = rest.split(',').filter(p => p !== '');
     const height = parseInt(parts[0]) || 0;
     const width = parseInt(parts[1]) || 0;
@@ -446,7 +454,8 @@ export class ZPLParser {
       lineSpacing,
       justification,
       hangingIndent,
-      reverse: hasReverse
+      reverse: hasReverse,
+      orientation: font.orientation
     };
   }
 

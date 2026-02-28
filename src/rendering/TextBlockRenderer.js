@@ -83,11 +83,89 @@ export class TextBlockRenderer {
     const lineHeight = baseLineHeight + lineSpacing;
     const blockHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
 
+    const orientation = element.orientation || 'N';
+
+    // Helper to draw all lines at local coordinates (0,0 based)
+    const drawLines = (targetCtx, offsetX, offsetY, color) => {
+      targetCtx.fillStyle = color;
+      targetCtx.font = font;
+      targetCtx.textBaseline = 'top';
+
+      lines.slice(0, maxLines).forEach((line, i) => {
+        const measuredWidth = targetCtx.measureText(line).width * scaleX;
+        const lineY = offsetY + (i * lineHeight) + yOffset;
+        const isLastLine = (i === lines.slice(0, maxLines).length - 1);
+        const isFirstLine = i === 0;
+        const indent = isFirstLine ? 0 : hangingIndentPx;
+        const lineBlockWidth = isFirstLine ? blockWidth : Math.max(0, blockWidth - hangingIndentPx);
+        const lineStartX = offsetX + indent;
+
+        // Handle justified text
+        if (element.justification === 'J') {
+          const jWords = line.split(/\s+/).filter(w => w.length > 0);
+
+          // Only justify if: not last line AND has multiple words AND line is shorter than block width
+          if (!isLastLine && jWords.length > 1 && measuredWidth < lineBlockWidth) {
+            const wordWidths = jWords.map(word => targetCtx.measureText(word).width * scaleX);
+            const totalWordWidth = wordWidths.reduce((sum, w) => sum + w, 0);
+            const spaceBetweenWords = (lineBlockWidth - totalWordWidth) / (jWords.length - 1);
+
+            let currentX = lineStartX;
+            jWords.forEach((word, wordIndex) => {
+              targetCtx.save();
+              targetCtx.translate(currentX, lineY);
+              targetCtx.scale(scaleX, 1);
+              targetCtx.fillText(word, 0, 0);
+              targetCtx.restore();
+              currentX += wordWidths[wordIndex] + spaceBetweenWords;
+            });
+            return;
+          }
+        }
+
+        let lineX = lineStartX;
+        if (element.justification === 'C') {
+          lineX = lineStartX + (lineBlockWidth - measuredWidth) / 2;
+        } else if (element.justification === 'R') {
+          lineX = lineStartX + lineBlockWidth - measuredWidth;
+        }
+
+        targetCtx.save();
+        targetCtx.translate(lineX, lineY);
+        targetCtx.scale(scaleX, 1);
+        targetCtx.fillText(line, 0, 0);
+        targetCtx.restore();
+      });
+    };
+
+    // Screen-space bounding box (swapped for R/B orientations)
+    let bboxW = blockWidth, bboxH = blockHeight;
+    if (orientation === 'R' || orientation === 'B') {
+      bboxW = blockHeight;
+      bboxH = blockWidth;
+    }
+
+    // Helper to apply rotation transform on a context
+    const applyRotation = (targetCtx, originX, originY) => {
+      if (orientation === 'R') {
+        targetCtx.translate(originX + blockHeight, originY);
+        targetCtx.rotate(Math.PI / 2);
+      } else if (orientation === 'I') {
+        targetCtx.translate(originX + blockWidth, originY + blockHeight);
+        targetCtx.rotate(Math.PI);
+      } else if (orientation === 'B') {
+        targetCtx.translate(originX, originY + blockWidth);
+        targetCtx.rotate(-Math.PI / 2);
+      } else {
+        targetCtx.translate(originX, originY);
+      }
+    };
+
     const createReverseOverlay = () => {
       const left = Math.max(0, Math.floor(x));
       const top = Math.max(0, Math.floor(y));
-      const right = Math.min(canvas.width, Math.ceil(x + blockWidth));
-      const bottom = Math.min(canvas.height, Math.ceil(y + blockHeight));
+      const right = Math.min(canvas.width, Math.ceil(x + bboxW));
+      const bottom = Math.min(canvas.height, Math.ceil(y + bboxH));
       const width = Math.max(0, right - left);
       const height = Math.max(0, bottom - top);
       if (width === 0 || height === 0) return null;
@@ -115,32 +193,12 @@ export class TextBlockRenderer {
       textCanvas.width = width;
       textCanvas.height = height;
       const textCtx = textCanvas.getContext('2d');
-      textCtx.font = font;
-      textCtx.textBaseline = 'top';
-      textCtx.fillStyle = '#FFFFFF';
 
-      lines.slice(0, maxLines).forEach((line, i) => {
-        const lineY = y - top + (i * lineHeight) + yOffset;
-        const measuredWidth = textCtx.measureText(line).width * scaleX;
-        const isFirstLine = i === 0;
-        const indent = isFirstLine ? 0 : hangingIndentPx;
-        const lineBlockWidth = isFirstLine ? blockWidth : Math.max(0, blockWidth - hangingIndentPx);
-        const lineStartX = x - left + indent;
-
-        let lineX = lineStartX;
-        if (element.justification === 'C') {
-          lineX = lineStartX + (lineBlockWidth - measuredWidth) / 2;
-        } else if (element.justification === 'R') {
-          lineX = lineStartX + lineBlockWidth - measuredWidth;
-        }
-
-        // Apply horizontal scaling for text rendering
-        textCtx.save();
-        textCtx.translate(lineX, lineY);
-        textCtx.scale(scaleX, 1);
-        textCtx.fillText(line, 0, 0);
-        textCtx.restore();
-      });
+      // Draw white text with same rotation on temp canvas
+      textCtx.save();
+      applyRotation(textCtx, x - left, y - top);
+      drawLines(textCtx, 0, 0, '#FFFFFF');
+      textCtx.restore();
 
       textCtx.globalCompositeOperation = 'destination-in';
       textCtx.drawImage(maskCanvas, 0, 0);
@@ -149,60 +207,12 @@ export class TextBlockRenderer {
     };
 
     const overlay = element.reverse ? createReverseOverlay() : null;
-    ctx.fillStyle = '#000000';
 
-    lines.slice(0, maxLines).forEach((line, i) => {
-      const measuredWidth = ctx.measureText(line).width * scaleX;
-      const lineY = y + (i * lineHeight) + yOffset;
-      const isLastLine = (i === lines.slice(0, maxLines).length - 1);
-      const isFirstLine = i === 0;
-      const indent = isFirstLine ? 0 : hangingIndentPx;
-      const lineBlockWidth = isFirstLine ? blockWidth : Math.max(0, blockWidth - hangingIndentPx);
-      const lineStartX = x + indent;
-
-      // Handle justified text
-      if (element.justification === 'J') {
-        const words = line.split(/\s+/).filter(w => w.length > 0);
-
-        // Only justify if: not last line AND has multiple words AND line is shorter than block width
-        if (!isLastLine && words.length > 1 && measuredWidth < lineBlockWidth) {
-          // Measure individual words (without scaling first)
-          const wordWidths = words.map(word => ctx.measureText(word).width * scaleX);
-          const totalWordWidth = wordWidths.reduce((sum, w) => sum + w, 0);
-
-          // Calculate space to distribute between words
-          const spaceBetweenWords = (lineBlockWidth - totalWordWidth) / (words.length - 1);
-
-          // Draw words with calculated spacing
-          let currentX = lineStartX;
-          words.forEach((word, wordIndex) => {
-            ctx.save();
-            ctx.translate(currentX, lineY);
-            ctx.scale(scaleX, 1);
-            ctx.fillText(word, 0, 0);
-            ctx.restore();
-            currentX += wordWidths[wordIndex] + spaceBetweenWords;
-          });
-          return; // Skip the normal rendering below
-        }
-        // Last line or single word: left-align (fall through)
-      }
-
-      let lineX = lineStartX;
-      // Apply justification using scaled width
-      if (element.justification === 'C') {
-        lineX = lineStartX + (lineBlockWidth - measuredWidth) / 2;
-      } else if (element.justification === 'R') {
-        lineX = lineStartX + lineBlockWidth - measuredWidth;
-      }
-
-      // Apply horizontal scaling for text rendering
-      ctx.save();
-      ctx.translate(lineX, lineY);
-      ctx.scale(scaleX, 1);
-      ctx.fillText(line, 0, 0);
-      ctx.restore();
-    });
+    // Main drawing with rotation
+    ctx.save();
+    applyRotation(ctx, x, y);
+    drawLines(ctx, 0, 0, '#000000');
+    ctx.restore();
 
     if (overlay) {
       ctx.drawImage(overlay.canvas, overlay.x, overlay.y);

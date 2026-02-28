@@ -286,6 +286,27 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
     });
 
+    // ============== TEXTBLOCK ORIENTATION ZPL ==============
+    test.describe('TextBlock Orientation ZPL', () => {
+        test('should generate ^A with orientation R for rotated TextBlock', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('[data-orientation="R"]').click();
+            const zpl = await zplOutput.getZPLCode();
+            // ^A command should contain R orientation: ^A0R, or ^ADR, etc.
+            expect(zpl).toMatch(/\^A\w*R,/);
+            // Should NOT contain ^A0N (default orientation)
+            expect(zpl).not.toMatch(/\^A\w*N,/);
+        });
+
+        test('should default to N orientation for new TextBlock', async () => {
+            await elementsPanel.addTextBlockElement();
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^A\w*N,/);
+        });
+    });
+
     // ============== EXACT ZPL VALIDATION ==============
     test.describe('Exact ZPL Strings', () => {
         test('should generate exact Text element ZPL format', async ({ page }) => {

@@ -335,8 +335,15 @@ export class CanvasRenderer {
       const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;
-      width = (element.blockWidth || 200) * this.scale;
-      height = totalHeight * this.scale;
+      let blockW = (element.blockWidth || 200) * this.scale;
+      let blockH = totalHeight * this.scale;
+      if (element.orientation === 'R' || element.orientation === 'B') {
+        width = blockH;
+        height = blockW;
+      } else {
+        width = blockW;
+        height = blockH;
+      }
     } else {
       const bounds = element.getBounds();
       x = (bounds.x + this.homeX) * this.scale;
