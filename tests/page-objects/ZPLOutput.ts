@@ -9,6 +9,8 @@ export class ZPLOutput {
     readonly output: Locator;
     readonly highlightedOutput: Locator;
     readonly copyBtn: Locator;
+    readonly moreBtn: Locator;
+    readonly moreMenu: Locator;
     readonly exportBtn: Locator;
     readonly shareBtn: Locator;
     readonly importBtn: Locator;
@@ -19,10 +21,20 @@ export class ZPLOutput {
         this.output = page.locator('#zpl-output-raw');
         this.highlightedOutput = page.locator('#zpl-output-highlight');
         this.copyBtn = page.locator('#copy-btn');
+        this.moreBtn = page.locator('#zpl-more-btn');
+        this.moreMenu = page.locator('#zpl-more-menu');
         this.exportBtn = page.locator('#export-btn');
         this.shareBtn = page.locator('#share-btn');
         this.importBtn = page.locator('#import-btn');
         this.importFile = page.locator('#import-file');
+    }
+
+    async openMoreActions(): Promise<void> {
+        const isExpanded = await this.moreBtn.getAttribute('aria-expanded');
+        if (isExpanded !== 'true') {
+            await this.moreBtn.click();
+        }
+        await expect(this.moreMenu).toBeVisible();
     }
 
     /**
@@ -108,6 +120,7 @@ export class ZPLOutput {
      * Note: This will trigger a download
      */
     async exportTemplate(): Promise<void> {
+        await this.openMoreActions();
         await this.exportBtn.click();
     }
 
@@ -124,6 +137,7 @@ export class ZPLOutput {
     async importTemplateFromJSON(jsonContent: string): Promise<void> {
         // Create a file chooser promise before clicking import
         const fileChooserPromise = this.page.waitForEvent('filechooser');
+        await this.openMoreActions();
         await this.importBtn.click();
         const fileChooser = await fileChooserPromise;
 

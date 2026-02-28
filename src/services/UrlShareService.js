@@ -62,7 +62,9 @@ export class UrlShareService {
    * Remove the template hash from the URL without reload
    */
   clearUrlTemplate() {
-    history.replaceState(null, '', window.location.pathname + window.location.search);
+    if (window.location.hash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
   }
 
   // --- Private helpers ---

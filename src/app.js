@@ -115,10 +115,14 @@ const propertiesPanel = document.getElementById("properties-panel");
 const zplOutputHighlight = document.getElementById("zpl-output-highlight");
 const zplOutputRaw = document.getElementById("zpl-output-raw");
 const copyBtn = document.getElementById("copy-btn");
+const copyBtnLabel = document.getElementById("copy-btn-label");
 const exportBtn = document.getElementById("export-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
 const shareBtn = document.getElementById("share-btn");
+const shareBtnLabel = document.getElementById("share-btn-label");
+const zplMoreBtn = document.getElementById("zpl-more-btn");
+const zplMoreMenu = document.getElementById("zpl-more-menu");
 const importZPLBtn = document.getElementById("import-zpl-btn");
 const zplImportModal = document.getElementById("zpl-import-modal");
 const zplImportBackdrop = document.getElementById("zpl-import-backdrop");
@@ -356,9 +360,17 @@ export function initApp() {
   // Mode switching
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
   modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
-  exportBtn.addEventListener("click", exportTemplate);
+  zplMoreBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleZPLMoreMenu();
+  });
+  exportBtn.addEventListener("click", () => {
+    exportTemplate();
+    closeZPLMoreMenu();
+  });
   shareBtn.addEventListener("click", shareTemplate);
   importBtn.addEventListener("click", () => {
+    closeZPLMoreMenu();
     if (state.elements.length > 0) {
       if (!window.confirm("Importing a template will replace your current work. Continue?")) {
         return;
@@ -368,12 +380,18 @@ export function initApp() {
   });
   importFile.addEventListener("change", handleFileImport);
   importZPLBtn.addEventListener("click", () => {
+    closeZPLMoreMenu();
     if (state.elements.length > 0) {
       if (!window.confirm("Importing a ZPL template will replace your current work. Continue?")) {
         return;
       }
     }
     openZPLImportModal();
+  });
+  document.addEventListener("click", (event) => {
+    if (zplMoreMenu.classList.contains("hidden")) return;
+    if (zplMoreMenu.contains(event.target) || zplMoreBtn.contains(event.target)) return;
+    closeZPLMoreMenu();
   });
   zplImportBackdrop.addEventListener("click", closeZPLImportModal);
   zplImportCloseBtn.addEventListener("click", closeZPLImportModal);
@@ -427,6 +445,8 @@ export function initApp() {
     if (e.key === "Escape" && !e.defaultPrevented) {
       if (!zplImportModal.classList.contains('hidden')) {
         closeZPLImportModal();
+      } else if (!zplMoreMenu.classList.contains('hidden')) {
+        closeZPLMoreMenu();
       } else {
         closeHistoryPanel();
       }
@@ -666,10 +686,17 @@ export function initApp() {
   if (sharedEncoded) {
     urlShareService.decodeTemplate(sharedEncoded).then(template => {
       if (template) {
-        importTemplate(template);
+        try {
+          importTemplate(template);
+        } catch (err) {
+          console.error('Failed to apply shared template:', err);
+        }
       } else {
         console.warn('Invalid shared template in URL');
       }
+    }).catch(error => {
+      console.error('Failed to decode shared template:', error);
+    }).finally(() => {
       urlShareService.clearUrlTemplate();
     });
   }
@@ -683,6 +710,20 @@ export function initApp() {
     window.canvasRenderer = canvasRenderer;
     window.appState = state;
   }
+}
+
+function toggleZPLMoreMenu() {
+  if (zplMoreMenu.classList.contains('hidden')) {
+    zplMoreMenu.classList.remove('hidden');
+    zplMoreBtn.setAttribute('aria-expanded', 'true');
+    return;
+  }
+  closeZPLMoreMenu();
+}
+
+function closeZPLMoreMenu() {
+  zplMoreMenu.classList.add('hidden');
+  zplMoreBtn.setAttribute('aria-expanded', 'false');
 }
 
 // Render Canvas Preview
@@ -1294,20 +1335,15 @@ async function updatePreview() {
 // Copy ZPL to Clipboard
 function copyZPL() {
   const text = zplOutputRaw.value;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).catch(() => fallbackCopyZPL(text));
-  } else {
-    fallbackCopyZPL(text);
-  }
+  copyTextToClipboard(text);
 
   // Visual feedback
-  copyBtn.textContent = "Copied!";
+  copyBtnLabel.textContent = "Copied!";
   copyBtn.classList.remove('bg-slate-800', 'hover:bg-slate-700');
   copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
 
   setTimeout(() => {
-    copyBtn.textContent = "Copy";
+    copyBtnLabel.textContent = "Copy";
     copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
     copyBtn.classList.add('bg-slate-800', 'hover:bg-slate-700');
     // Re-sync disabled styling in case elements changed during the feedback window
@@ -1315,11 +1351,23 @@ function copyZPL() {
   }, 2000);
 }
 
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      // Fall back to execCommand copy below.
+    }
+  }
+  return fallbackCopyZPL(text);
+}
+
 function fallbackCopyZPL(text) {
   zplOutputRaw.value = text;
   zplOutputRaw.select();
   zplOutputRaw.setSelectionRange(0, 99999); // For mobile devices
-  document.execCommand("copy");
+  return document.execCommand("copy");
 }
 
 
@@ -1332,22 +1380,25 @@ function exportTemplate() {
 async function shareTemplate() {
   try {
     const url = await urlShareService.generateShareUrl(state.elements, state.labelSettings);
-    await navigator.clipboard.writeText(url);
+    const copied = await copyTextToClipboard(url);
+    if (!copied) {
+      throw new Error('Clipboard copy failed');
+    }
 
     // Visual feedback
-    shareBtn.textContent = "Link Copied!";
+    shareBtnLabel.textContent = "Link Copied!";
     shareBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
     shareBtn.classList.add('bg-green-600', 'hover:bg-green-700');
 
     setTimeout(() => {
-      shareBtn.textContent = "Share";
+      shareBtnLabel.textContent = "Share";
       shareBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
       shareBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
       updateCopyExportUI();
     }, 2000);
   } catch (error) {
-    console.error('Failed to generate share URL:', error);
-    alert('Failed to generate share link. Please try exporting as a file instead.');
+    console.error('Failed to share template URL:', error);
+    alert('Failed to copy share link. Please try exporting as a file instead.');
   }
 }
 

@@ -785,27 +785,46 @@
                       Reference
                     </a>
                   </div>
-                  <div class="flex gap-2">
+                  <div class="flex items-center gap-2">
                     <button id="copy-btn" disabled data-tooltip="Copy ZPL code to clipboard"
-                      class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
-                      Copy
-                    </button>
-                    <button id="export-btn" disabled data-tooltip="Export template as JSON file"
-                      class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
-                      Export
+                      class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
+                      <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">content_copy</span>
+                      <span id="copy-btn-label">Copy</span>
                     </button>
                     <button id="share-btn" disabled data-tooltip="Copy shareable link to clipboard"
-                      class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
-                      Share
+                      class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
+                      <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">share</span>
+                      <span id="share-btn-label">Share</span>
                     </button>
-                    <button id="import-btn" data-tooltip="Import template from JSON file"
-                      class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
-                      Import
-                    </button>
-                    <button id="import-zpl-btn" data-tooltip="Import template from ZPL code"
-                      class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
-                      Import ZPL
-                    </button>
+                    <div class="relative">
+                      <button id="zpl-more-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="zpl-more-menu"
+                        data-tooltip="More ZPL actions"
+                        class="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+                        <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">more_horiz</span>
+                        <span>More</span>
+                        <span class="material-icons-round text-[14px] leading-none -mr-0.5"
+                          aria-hidden="true">expand_more</span>
+                      </button>
+                      <div id="zpl-more-menu" role="menu"
+                        class="hidden absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
+                        <button id="export-btn" role="menuitem" disabled data-tooltip="Export template as JSON file"
+                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
+                          <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">download</span>
+                          <span>Export JSON</span>
+                        </button>
+                        <button id="import-btn" role="menuitem" data-tooltip="Import template from JSON file"
+                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                          <span class="material-icons-round text-[14px] leading-none"
+                            aria-hidden="true">upload_file</span>
+                          <span>Import JSON</span>
+                        </button>
+                        <button id="import-zpl-btn" role="menuitem" data-tooltip="Import template from ZPL code"
+                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                          <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">code</span>
+                          <span>Import ZPL</span>
+                        </button>
+                      </div>
+                    </div>
                     <input type="file" id="import-file" accept=".json" style="display: none" />
                   </div>
                 </div>

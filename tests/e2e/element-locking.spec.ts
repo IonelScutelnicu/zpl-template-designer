@@ -178,9 +178,8 @@ test.describe('Element Locking', () => {
 
         // Import the file back
         const fileChooserPromise = page.waitForEvent('filechooser');
-        await page.locator('#import-btn').click();
-        // Accept the confirmation dialog
-        page.on('dialog', dialog => dialog.accept());
+        page.once('dialog', dialog => dialog.accept());
+        await zplOutput.openMoreActions();
         await page.locator('#import-btn').click();
         const fileChooser = await fileChooserPromise;
         await fileChooser.setFiles(tempPath);

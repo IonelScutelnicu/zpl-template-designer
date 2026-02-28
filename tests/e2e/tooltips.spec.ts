@@ -77,6 +77,7 @@ test.describe('Tooltips', () => {
     });
 
     test('should show tooltip for Import button', async ({ page }) => {
+        await page.locator('#zpl-more-btn').click();
         await page.locator('#import-btn').hover();
         await page.waitForTimeout(600);
         const tooltip = page.locator('.zpl-tooltip');

@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures';
+import { Page } from '@playwright/test';
 import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 
 test.describe('URL Sharing', () => {
@@ -12,6 +13,18 @@ test.describe('URL Sharing', () => {
         propertiesPanel = new PropertiesPanel(page);
         zplOutput = new ZPLOutput(page);
     });
+
+    async function shareAndReadUrl(): Promise<string> {
+        await zplOutput.shareBtn.click();
+        await expect(zplOutput.page.locator('#share-btn-label')).toHaveText('Link Copied!');
+        return await zplOutput.page.evaluate(() => navigator.clipboard.readText());
+    }
+
+    /** Navigate to a shared URL, ensuring a full page reload */
+    async function navigateToSharedUrl(page: Page, sharedUrl: string): Promise<void> {
+        await page.goto('about:blank');
+        await page.goto(sharedUrl);
+    }
 
     // ============== SHARE BUTTON STATE ==============
     test.describe('Share Button State', () => {
@@ -44,9 +57,7 @@ test.describe('URL Sharing', () => {
             await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
             await elementsPanel.addTextElement();
-            await zplOutput.shareBtn.click();
-
-            const clipboardUrl = await page.evaluate(() => navigator.clipboard.readText());
+            const clipboardUrl = await shareAndReadUrl();
             expect(clipboardUrl).toContain('#template=');
             // Verify it's a valid URL
             expect(clipboardUrl).toMatch(/^https?:\/\//);
@@ -58,11 +69,11 @@ test.describe('URL Sharing', () => {
             await elementsPanel.addTextElement();
             await zplOutput.shareBtn.click();
 
-            await expect(zplOutput.shareBtn).toHaveText('Link Copied!');
+            await expect(page.locator('#share-btn-label')).toHaveText('Link Copied!');
             await expect(zplOutput.shareBtn).toHaveClass(/bg-green-600/);
 
             // Wait for feedback to revert
-            await expect(zplOutput.shareBtn).toHaveText('Share', { timeout: 3000 });
+            await expect(page.locator('#share-btn-label')).toHaveText('Share', { timeout: 3000 });
             await expect(zplOutput.shareBtn).toHaveClass(/bg-indigo-600/);
         });
     });
@@ -79,15 +90,16 @@ test.describe('URL Sharing', () => {
             await page.locator('#prop-preview-text').dispatchEvent('change');
 
             // Share and get URL
-            await zplOutput.shareBtn.click();
-            const sharedUrl = await page.evaluate(() => navigator.clipboard.readText());
+            const sharedUrl = await shareAndReadUrl();
 
-            // Navigate to shared URL
-            await page.goto(sharedUrl);
+            // Navigate to shared URL (via about:blank to ensure full reload)
+            await navigateToSharedUrl(page, sharedUrl);
 
-            // Verify element was imported
-            const elementCount = await elementsPanel.getElementCount();
-            expect(elementCount).toBe(1);
+            // Wait for async import to complete
+            await expect(async () => {
+                const count = await elementsPanel.getElementCount();
+                expect(count).toBe(1);
+            }).toPass({ timeout: 5000 });
 
             // Verify element properties
             await elementsPanel.selectElementByIndex(0);
@@ -98,19 +110,20 @@ test.describe('URL Sharing', () => {
             await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
             await elementsPanel.addTextElement();
-            await zplOutput.shareBtn.click();
-            const sharedUrl = await page.evaluate(() => navigator.clipboard.readText());
+            const sharedUrl = await shareAndReadUrl();
 
-            await page.goto(sharedUrl);
+            await navigateToSharedUrl(page, sharedUrl);
 
-            // Wait for async import to complete
+            // Wait for async import to complete and hash to be cleaned
             await expect(async () => {
                 const hash = await page.evaluate(() => window.location.hash);
                 expect(hash).toBe('');
-            }).toPass({ timeout: 3000 });
+            }).toPass({ timeout: 5000 });
         });
 
         test('should handle invalid hash data gracefully', async ({ page }) => {
+            // Navigate directly to an invalid shared URL
+            await page.goto('about:blank');
             await page.goto('/#template=INVALID_DATA_HERE');
 
             // App should load normally without errors
@@ -120,7 +133,7 @@ test.describe('URL Sharing', () => {
             await expect(async () => {
                 const hash = await page.evaluate(() => window.location.hash);
                 expect(hash).toBe('');
-            }).toPass({ timeout: 3000 });
+            }).toPass({ timeout: 5000 });
         });
 
         test('should preserve label settings in shared URL', async ({ page, context }) => {
@@ -133,17 +146,16 @@ test.describe('URL Sharing', () => {
             await page.locator('#label-height').dispatchEvent('input');
 
             await elementsPanel.addTextElement();
-            await zplOutput.shareBtn.click();
-            const sharedUrl = await page.evaluate(() => navigator.clipboard.readText());
+            const sharedUrl = await shareAndReadUrl();
 
-            // Navigate to shared URL
-            await page.goto(sharedUrl);
+            // Navigate to shared URL (via about:blank to ensure full reload)
+            await navigateToSharedUrl(page, sharedUrl);
 
             // Wait for import
             await expect(async () => {
                 const count = await elementsPanel.getElementCount();
                 expect(count).toBe(1);
-            }).toPass({ timeout: 3000 });
+            }).toPass({ timeout: 5000 });
 
             await expect(page.locator('#label-width')).toHaveValue('80');
             await expect(page.locator('#label-height')).toHaveValue('40');
@@ -161,17 +173,16 @@ test.describe('URL Sharing', () => {
             await elementsPanel.addBoxElement();
 
             // Share
-            await zplOutput.shareBtn.click();
-            const sharedUrl = await page.evaluate(() => navigator.clipboard.readText());
+            const sharedUrl = await shareAndReadUrl();
 
-            // Navigate to shared URL
-            await page.goto(sharedUrl);
+            // Navigate to shared URL (via about:blank to ensure full reload)
+            await navigateToSharedUrl(page, sharedUrl);
 
             // Verify all elements were imported
             await expect(async () => {
                 const count = await elementsPanel.getElementCount();
                 expect(count).toBe(3);
-            }).toPass({ timeout: 3000 });
+            }).toPass({ timeout: 5000 });
         });
     });
 });
