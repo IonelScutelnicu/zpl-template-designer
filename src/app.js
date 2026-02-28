@@ -18,6 +18,7 @@ import { WarningParser } from './services/WarningParser.js';
 import { WarningsPanelRenderer } from './ui/WarningsPanelRenderer.js';
 import { highlightZPL } from './utils/zpl-highlighter.js';
 import { ZPLParser } from './services/ZPLParser.js';
+import { UrlShareService } from './services/UrlShareService.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -28,6 +29,7 @@ const alignmentService = new AlignmentService();
 const zplGenerator = new ZPLGenerator();
 const templateManager = new TemplateManager(serializationService);
 const zplParser = new ZPLParser();
+const urlShareService = new UrlShareService(serializationService);
 let elementService; // Initialized after pushHistory is defined
 
 // Initialize UI renderers (getSectionState will be available later)
@@ -116,6 +118,7 @@ const copyBtn = document.getElementById("copy-btn");
 const exportBtn = document.getElementById("export-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
+const shareBtn = document.getElementById("share-btn");
 const importZPLBtn = document.getElementById("import-zpl-btn");
 const zplImportModal = document.getElementById("zpl-import-modal");
 const zplImportBackdrop = document.getElementById("zpl-import-backdrop");
@@ -354,6 +357,7 @@ export function initApp() {
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
   modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
   exportBtn.addEventListener("click", exportTemplate);
+  shareBtn.addEventListener("click", shareTemplate);
   importBtn.addEventListener("click", () => {
     if (state.elements.length > 0) {
       if (!window.confirm("Importing a template will replace your current work. Continue?")) {
@@ -657,6 +661,19 @@ export function initApp() {
   resetHistory("Initial state", { kind: "init" });
   updateCopyExportUI();
 
+  // Check for shared template in URL hash
+  const sharedEncoded = urlShareService.getTemplateFromUrl();
+  if (sharedEncoded) {
+    urlShareService.decodeTemplate(sharedEncoded).then(template => {
+      if (template) {
+        importTemplate(template);
+      } else {
+        console.warn('Invalid shared template in URL');
+      }
+      urlShareService.clearUrlTemplate();
+    });
+  }
+
   // Expose internals for automated tests only
   const isE2E = typeof window !== 'undefined' && (
     window.__E2E__ === true ||
@@ -872,6 +889,10 @@ function updateCopyExportUI() {
   exportBtn.disabled = !hasElements;
   exportBtn.classList.toggle('opacity-50', !hasElements);
   exportBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
+  shareBtn.disabled = !hasElements;
+  shareBtn.classList.toggle('opacity-50', !hasElements);
+  shareBtn.classList.toggle('cursor-not-allowed', !hasElements);
 }
 
 function renderHistoryList() {
@@ -1305,6 +1326,29 @@ function fallbackCopyZPL(text) {
 // Export Template to JSON
 function exportTemplate() {
   templateManager.exportToFile(state.elements, state.labelSettings);
+}
+
+// Share Template via URL
+async function shareTemplate() {
+  try {
+    const url = await urlShareService.generateShareUrl(state.elements, state.labelSettings);
+    await navigator.clipboard.writeText(url);
+
+    // Visual feedback
+    shareBtn.textContent = "Link Copied!";
+    shareBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+    shareBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+
+    setTimeout(() => {
+      shareBtn.textContent = "Share";
+      shareBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+      shareBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+      updateCopyExportUI();
+    }, 2000);
+  } catch (error) {
+    console.error('Failed to generate share URL:', error);
+    alert('Failed to generate share link. Please try exporting as a file instead.');
+  }
 }
 
 // Handle File Import

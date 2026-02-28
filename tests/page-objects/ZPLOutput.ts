@@ -10,6 +10,7 @@ export class ZPLOutput {
     readonly highlightedOutput: Locator;
     readonly copyBtn: Locator;
     readonly exportBtn: Locator;
+    readonly shareBtn: Locator;
     readonly importBtn: Locator;
     readonly importFile: Locator;
 
@@ -19,6 +20,7 @@ export class ZPLOutput {
         this.highlightedOutput = page.locator('#zpl-output-highlight');
         this.copyBtn = page.locator('#copy-btn');
         this.exportBtn = page.locator('#export-btn');
+        this.shareBtn = page.locator('#share-btn');
         this.importBtn = page.locator('#import-btn');
         this.importFile = page.locator('#import-file');
     }
