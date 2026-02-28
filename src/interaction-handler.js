@@ -507,6 +507,10 @@ export class InteractionHandler {
     }
 
     if (isModifier && key === 'c') {
+      // Allow native copy when text is selected on the page
+      const copySelection = window.getSelection();
+      if (copySelection && copySelection.toString().length > 0) return;
+
       const selectedElement = this.callbacks.getSelectedElement();
       if (selectedElement && this.callbacks.serializeElement) {
         this.clipboardData = this.callbacks.serializeElement(selectedElement);
@@ -516,6 +520,10 @@ export class InteractionHandler {
     }
 
     if (isModifier && key === 'v') {
+      // Allow native paste when text is selected on the page
+      const pasteSelection = window.getSelection();
+      if (pasteSelection && pasteSelection.toString().length > 0) return;
+
       if (this.clipboardData && this.callbacks.pasteElement) {
         this.callbacks.pasteElement(this.clipboardData);
       }
