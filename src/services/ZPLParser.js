@@ -342,7 +342,7 @@ export class ZPLParser {
     }
 
     if (hasCommand('A') && hasCommand('FB')) {
-      return this._parseTextBlock(group, getCommand('A'), getCommand('FB'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseFieldBlock(group, getCommand('A'), getCommand('FB'), getCommand('FD'), hasCommand('FR'), state);
     }
 
     if (hasCommand('A')) {
@@ -416,9 +416,9 @@ export class ZPLParser {
   }
 
   /**
-   * Parse TEXTBLOCK element from ^A + ^FB + ^FD
+   * Parse FIELDBLOCK element from ^A + ^FB + ^FD
    */
-  _parseTextBlock(group, aToken, fbToken, fdToken, hasReverse, state) {
+  _parseFieldBlock(group, aToken, fbToken, fdToken, hasReverse, state) {
     const font = this._parseFontCommand(aToken);
 
     // Parse ^FB params: blockWidth,maxLines,lineSpacing,justification,hangingIndent
@@ -441,7 +441,7 @@ export class ZPLParser {
     const placeholder = match ? match[1] : '';
 
     return {
-      type: 'TEXTBLOCK',
+      type: 'FIELDBLOCK',
       x: group.x,
       y: group.y,
       previewText: text,

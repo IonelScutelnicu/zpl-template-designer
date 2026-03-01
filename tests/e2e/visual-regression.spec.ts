@@ -51,8 +51,8 @@ test.describe('Visual Regression Tests', () => {
             expect(result.diffPercentage).toBeLessThan(5);
         });
 
-        test('should render TextBlock element consistently', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should render FieldBlock element consistently', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await page.locator('#prop-x').fill('50');
@@ -64,7 +64,7 @@ test.describe('Visual Regression Tests', () => {
 
             await canvas.waitForReady();
             const screenshot = await canvas.takeScreenshot();
-            const result = await compareWithBaseline(screenshot, 'canvas-textblock-element', { threshold: 0.1 });
+            const result = await compareWithBaseline(screenshot, 'canvas-fieldblock-element', { threshold: 0.1 });
 
             expect(result.diffPercentage).toBeLessThan(5);
         });

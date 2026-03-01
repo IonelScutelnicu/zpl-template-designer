@@ -6,7 +6,7 @@ import { Page, Locator } from '@playwright/test';
  */
 export class ElementsPanel {
     readonly page: Page;
-    readonly addTextBlockBtn: Locator;
+    readonly addFieldBlockBtn: Locator;
     readonly addTextBtn: Locator;
     readonly addBarcodeBtn: Locator;
     readonly addQRCodeBtn: Locator;
@@ -15,7 +15,7 @@ export class ElementsPanel {
 
     constructor(page: Page) {
         this.page = page;
-        this.addTextBlockBtn = page.locator('#add-textblock-btn');
+        this.addFieldBlockBtn = page.locator('#add-fieldblock-btn');
         this.addTextBtn = page.locator('#add-text-btn');
         this.addBarcodeBtn = page.locator('#add-barcode-btn');
         this.addQRCodeBtn = page.locator('#add-qrcode-btn');
@@ -27,8 +27,8 @@ export class ElementsPanel {
         await this.addTextBtn.click();
     }
 
-    async addTextBlockElement(): Promise<void> {
-        await this.addTextBlockBtn.click();
+    async addFieldBlockElement(): Promise<void> {
+        await this.addFieldBlockBtn.click();
     }
 
     async addBarcodeElement(): Promise<void> {

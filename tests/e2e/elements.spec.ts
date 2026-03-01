@@ -47,34 +47,34 @@ test.describe('Elements - Add, Select, Delete', () => {
         });
     });
 
-    // ============== TEXT BLOCK ELEMENT ==============
-    test.describe('TextBlock Element', () => {
-        test('should add a TextBlock element when clicking Add Text Block button', async () => {
-            await elementsPanel.addTextBlockElement();
+    // ============== FIELD BLOCK ELEMENT ==============
+    test.describe('FieldBlock Element', () => {
+        test('should add a FieldBlock element when clicking Add Text Block button', async () => {
+            await elementsPanel.addFieldBlockElement();
             expect(await elementsPanel.getElementCount()).toBe(1);
         });
 
-        test('should select TextBlock element and show properties panel', async () => {
-            await elementsPanel.addTextBlockElement();
+        test('should select FieldBlock element and show properties panel', async () => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
             expect(await propertiesPanel.hasNoElementSelected()).toBe(false);
         });
 
-        test('should delete TextBlock element via UI delete button', async () => {
-            await elementsPanel.addTextBlockElement();
+        test('should delete FieldBlock element via UI delete button', async () => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.deleteElementByIndex(0);
             expect(await elementsPanel.getElementCount()).toBe(0);
         });
 
-        test('should delete TextBlock element via Delete key', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should delete FieldBlock element via Delete key', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
             await page.keyboard.press('Delete');
             expect(await elementsPanel.getElementCount()).toBe(0);
         });
 
-        test('should generate ZPL containing ^FB command for TextBlock element', async () => {
-            await elementsPanel.addTextBlockElement();
+        test('should generate ZPL containing ^FB command for FieldBlock element', async () => {
+            await elementsPanel.addFieldBlockElement();
             await zplOutput.verifyZPLContains('^FB');
         });
     });
@@ -248,7 +248,7 @@ test.describe('Elements - Add, Select, Delete', () => {
             await elementsPanel.addBarcodeElement();
             await elementsPanel.addQRCodeElement();
             await elementsPanel.addBoxElement();
-            await elementsPanel.addTextBlockElement();
+            await elementsPanel.addFieldBlockElement();
             expect(await elementsPanel.getElementCount()).toBe(5);
         });
 

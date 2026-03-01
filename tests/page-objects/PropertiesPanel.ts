@@ -99,7 +99,7 @@ export class PropertiesPanel {
     async getBoxWidth(): Promise<string> { return this.getProperty('prop-width'); }
     async setBoxWidth(value: number): Promise<void> { await this.setProperty('prop-width', value); }
 
-    // TextBlock properties
+    // FieldBlock properties
     async getBlockWidth(): Promise<string> { return this.getProperty('prop-block-width'); }
     async setBlockWidth(value: number): Promise<void> { await this.setProperty('prop-block-width', value); }
 

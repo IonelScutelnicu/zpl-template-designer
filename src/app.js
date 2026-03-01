@@ -99,7 +99,7 @@ const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
 const addQRCodeBtn = document.getElementById("add-qrcode-btn");
 const addBoxBtn = document.getElementById("add-box-btn");
-const addTextBlockBtn = document.getElementById("add-textblock-btn");
+const addFieldBlockBtn = document.getElementById("add-fieldblock-btn");
 const addLineBtn = document.getElementById("add-line-btn");
 const addCircleBtn = document.getElementById("add-circle-btn");
 const undoBtn = document.getElementById("undo-btn");
@@ -285,7 +285,7 @@ export function initApp() {
         if (propY) propY.value = element.y;
 
         // Update size properties if they exist (for resizing)
-        if (element.type === 'TEXTBLOCK') {
+        if (element.type === 'FIELDBLOCK') {
           const propBlockWidth = document.getElementById('prop-block-width');
           const propMaxLines = document.getElementById('prop-max-lines');
           if (propBlockWidth) propBlockWidth.value = element.blockWidth;
@@ -352,7 +352,7 @@ export function initApp() {
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
   addQRCodeBtn.addEventListener("click", addQRCodeElement);
   addBoxBtn.addEventListener("click", addBoxElement);
-  addTextBlockBtn.addEventListener("click", addTextBlockElement);
+  addFieldBlockBtn.addEventListener("click", addFieldBlockElement);
   addLineBtn.addEventListener("click", addLineElement);
   addCircleBtn.addEventListener("click", addCircleElement);
   copyBtn.addEventListener("click", copyZPL);
@@ -977,7 +977,7 @@ function getElementTransformState(element) {
     state.width = element.width;
     state.height = element.height;
     state.thickness = element.thickness;
-  } else if (element.type === "TEXTBLOCK") {
+  } else if (element.type === "FIELDBLOCK") {
     state.blockWidth = element.blockWidth;
     state.maxLines = element.maxLines;
   } else if (element.type === "QRCODE") {
@@ -1011,7 +1011,7 @@ function restoreElementTransformState(element, before) {
     if (typeof before.width === "number") element.width = before.width;
     if (typeof before.height === "number") element.height = before.height;
     if (typeof before.thickness === "number") element.thickness = before.thickness;
-  } else if (element.type === "TEXTBLOCK") {
+  } else if (element.type === "FIELDBLOCK") {
     if (typeof before.blockWidth === "number") element.blockWidth = before.blockWidth;
     if (typeof before.maxLines === "number") element.maxLines = before.maxLines;
   } else if (element.type === "QRCODE") {
@@ -1105,8 +1105,8 @@ function addBoxElement() {
   elementService.createElement('BOX', { width: 100, height: 50, thickness: 3, color: 'B', rounding: 0 });
 }
 
-function addTextBlockElement() {
-  elementService.createElement('TEXTBLOCK', { text: 'Sample text that can wrap across multiple lines', blockWidth: 200, maxLines: 3, justification: 'L' });
+function addFieldBlockElement() {
+  elementService.createElement('FIELDBLOCK', { text: 'Sample text that can wrap across multiple lines', blockWidth: 200, maxLines: 3, justification: 'L' });
 }
 
 function addLineElement() {
@@ -1137,7 +1137,7 @@ function pasteElementFromData(data) {
 // Render Properties Panel
 const ZPL_DOC_MAP = {
   TEXT:      { command: '^A',  url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-a.html' },
-  TEXTBLOCK:{ command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
+  FIELDBLOCK:{ command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
   BARCODE:  { command: '^BC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bc.html' },
   QRCODE:   { command: '^BQ', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bq.html' },
   BOX:      { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },

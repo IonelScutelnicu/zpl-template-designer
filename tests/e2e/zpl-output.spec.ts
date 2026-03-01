@@ -64,8 +64,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await zplOutput.verifyZPLContains('^FS');
         });
 
-        test('should generate ^FB command for TextBlock element', async () => {
-            await elementsPanel.addTextBlockElement();
+        test('should generate ^FB command for FieldBlock element', async () => {
+            await elementsPanel.addFieldBlockElement();
             await zplOutput.verifyZPLContains('^FB');
         });
 
@@ -286,10 +286,10 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
     });
 
-    // ============== TEXTBLOCK ORIENTATION ZPL ==============
-    test.describe('TextBlock Orientation ZPL', () => {
-        test('should generate ^A with orientation R for rotated TextBlock', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+    // ============== FIELDBLOCK ORIENTATION ZPL ==============
+    test.describe('FieldBlock Orientation ZPL', () => {
+        test('should generate ^A with orientation R for rotated FieldBlock', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await page.locator('[data-orientation="R"]').click();
@@ -300,8 +300,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
             expect(zpl).not.toMatch(/\^A\w*N,/);
         });
 
-        test('should default to N orientation for new TextBlock', async () => {
-            await elementsPanel.addTextBlockElement();
+        test('should default to N orientation for new FieldBlock', async () => {
+            await elementsPanel.addFieldBlockElement();
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toMatch(/\^A\w*N,/);
         });

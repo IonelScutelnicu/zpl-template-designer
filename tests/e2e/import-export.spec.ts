@@ -160,8 +160,8 @@ test.describe('Import/Export - Template Persistence', () => {
             fs.unlinkSync(tempPath);
         });
 
-        test('should preserve TextBlock element properties in export', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should preserve FieldBlock element properties in export', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await page.locator('#prop-block-width').fill('250');
@@ -176,14 +176,14 @@ test.describe('Import/Export - Template Persistence', () => {
             await zplOutput.exportTemplate();
             const download = await downloadPromise;
 
-            const tempPath = path.join(__dirname, '../fixtures/temp-export-textblock.json');
+            const tempPath = path.join(__dirname, '../fixtures/temp-export-fieldblock.json');
             await download.saveAs(tempPath);
 
             const content = fs.readFileSync(tempPath, 'utf-8');
             const json = JSON.parse(content);
 
             const el = json.elements[0];
-            expect(el.type).toBe('TEXTBLOCK');
+            expect(el.type).toBe('FIELDBLOCK');
             expect(el.blockWidth).toBe(250);
             expect(el.maxLines).toBe(3);
             expect(el.lineSpacing).toBe(5);

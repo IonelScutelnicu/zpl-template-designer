@@ -117,7 +117,7 @@ The application uses a modular architecture for maintainability and testability:
 - `elements/BoxElement.js` — Rectangular box/border element
 - `elements/LineElement.js` — Horizontal/vertical line element
 - `elements/CircleElement.js` — Circle element with diameter and thickness
-- `elements/TextBlockElement.js` — Multi-line text with wrapping and justification
+- `elements/FieldBlockElement.js` — Multi-line text with wrapping and justification
 
 ### State Management
 - `state/AppState.js` — Centralized observable state store
@@ -142,7 +142,7 @@ The application uses a modular architecture for maintainability and testability:
 
 ### Specialized Renderers
 - `rendering/TextRenderer.js` — Text element canvas rendering
-- `rendering/TextBlockRenderer.js` — Text block with text wrapping
+- `rendering/FieldBlockRenderer.js` — Field block with text wrapping
 - `rendering/BarcodeRenderer.js` — Code 128 barcode rendering
 - `rendering/QRCodeRenderer.js` — QR code pattern generation
 - `rendering/BoxRenderer.js` — Box/rectangle with rounded corners

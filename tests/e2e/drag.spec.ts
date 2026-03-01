@@ -250,9 +250,9 @@ test.describe('Drag - Element Position', () => {
         expect(yAfter).toBe(y);
     });
 
-    // ============== TEXTBLOCK ELEMENT ==============
-    test('should move TEXTBLOCK element when dragged', async ({ page }) => {
-        await elementsPanel.addTextBlockElement();
+    // ============== FIELDBLOCK ELEMENT ==============
+    test('should move FIELDBLOCK element when dragged', async ({ page }) => {
+        await elementsPanel.addFieldBlockElement();
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 100, 100);
 
@@ -267,8 +267,8 @@ test.describe('Drag - Element Position', () => {
         expect(newY).toBeGreaterThan(100);
     });
 
-    test('should resize TEXTBLOCK element when dragged', async ({ page }) => {
-        await elementsPanel.addTextBlockElement();
+    test('should resize FIELDBLOCK element when dragged', async ({ page }) => {
+        await elementsPanel.addFieldBlockElement();
         await elementsPanel.selectElementByIndex(0);
         await page.waitForSelector('#properties-panel #prop-block-width');
         await setPosition(page, 100, 100);
@@ -277,7 +277,7 @@ test.describe('Drag - Element Position', () => {
         const y = 100;
         const blockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
         const maxLines = parseInt(await propertiesPanel.getProperty('prop-max-lines'));
-        // TEXTBLOCK only has a bottom-right corner handle
+        // FIELDBLOCK only has a bottom-right corner handle
         // Height = fontSize(default 20) * 1.2 * maxLines
         const textBlockHeight = 20 * 1.2 * maxLines;
 
@@ -289,8 +289,8 @@ test.describe('Drag - Element Position', () => {
         expect(newBlockWidth).toBeGreaterThan(blockWidth);
     });
 
-    test('should restore TEXTBLOCK width when Escape is pressed during resize', async ({ page }) => {
-        await elementsPanel.addTextBlockElement();
+    test('should restore FIELDBLOCK width when Escape is pressed during resize', async ({ page }) => {
+        await elementsPanel.addFieldBlockElement();
         await elementsPanel.selectElementByIndex(0);
         await page.waitForSelector('#properties-panel #prop-block-width');
         await setPosition(page, 100, 100);
@@ -299,7 +299,7 @@ test.describe('Drag - Element Position', () => {
         const y = 100;
         const blockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
         const maxLines = parseInt(await propertiesPanel.getProperty('prop-max-lines'));
-        // TEXTBLOCK only has a bottom-right corner handle
+        // FIELDBLOCK only has a bottom-right corner handle
         const textBlockHeight = 20 * 1.2 * maxLines;
 
         await resizeAndCancelWithEsc(page, x + blockWidth, y + textBlockHeight, x + blockWidth + 80, y + textBlockHeight);

@@ -58,7 +58,7 @@ export class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
+    if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         if (selectedElement.locked) return;
@@ -91,7 +91,7 @@ export class InteractionHandler {
           this.resizeStartMeasuredHeight = measuredBounds.height;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
-          if (selectedElement.type === 'TEXTBLOCK') {
+          if (selectedElement.type === 'FIELDBLOCK') {
             const fontSize = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
             const maxLines = selectedElement.maxLines || 1;
             const lineSpacing = selectedElement.lineSpacing || 0;
@@ -150,8 +150,8 @@ export class InteractionHandler {
 
     // Handle Resize
     if (this.isResizing && this.dragElement) {
-      if (this.dragElement.type === 'TEXTBLOCK') {
-        // TEXTBLOCK only supports bottom-right resize
+      if (this.dragElement.type === 'FIELDBLOCK') {
+        // FIELDBLOCK only supports bottom-right resize
         const fontSize = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
         const lineSpacing = this.dragElement.lineSpacing || 0;
         const baseLineHeight = fontSize * 1.2;
@@ -401,7 +401,7 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
+      if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -730,7 +730,7 @@ export class InteractionHandler {
    * Get resize handle at position
    */
   getSelectionBounds(element) {
-    if (element.type === 'TEXTBLOCK' && this.labelSettings) {
+    if (element.type === 'FIELDBLOCK' && this.labelSettings) {
       const resolvedHeight = element.fontSize || this.labelSettings.defaultFontHeight || 30;
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
@@ -813,8 +813,8 @@ export class InteractionHandler {
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
         return 'l';
       }
-    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
-      // For TEXTBLOCK, QRCODE, and TEXT, only check bottom-right handle
+    } else if (element.type === 'FIELDBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
+      // For FIELDBLOCK, QRCODE, and TEXT, only check bottom-right handle
       if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
         return 'br';
       }

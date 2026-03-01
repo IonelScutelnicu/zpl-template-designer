@@ -63,8 +63,8 @@ export class PropertyListenersManager {
       case "CIRCLE":
         this.attachCircleProperties(element, attach);
         break;
-      case "TEXTBLOCK":
-        this.attachTextBlockProperties(element, attach);
+      case "FIELDBLOCK":
+        this.attachFieldBlockProperties(element, attach);
         break;
     }
 
@@ -221,9 +221,9 @@ export class PropertyListenersManager {
   }
 
   /**
-   * Attach TEXTBLOCK element property listeners
+   * Attach FIELDBLOCK element property listeners
    */
-  attachTextBlockProperties(element, attach) {
+  attachFieldBlockProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");

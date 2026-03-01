@@ -4,7 +4,7 @@
 import { TextElement } from '../elements/TextElement.js';
 import { BarcodeElement } from '../elements/BarcodeElement.js';
 import { BoxElement } from '../elements/BoxElement.js';
-import { TextBlockElement } from '../elements/TextBlockElement.js';
+import { FieldBlockElement } from '../elements/FieldBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
@@ -102,8 +102,9 @@ export class SerializationService {
         );
         break;
 
-      case 'TEXTBLOCK':
-        element = new TextBlockElement(
+      case 'TEXTBLOCK': // backward compat: old saved files
+      case 'FIELDBLOCK':
+        element = new FieldBlockElement(
           data.x,
           data.y,
           data.previewText,
@@ -207,7 +208,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'TEXTBLOCK', 'CIRCLE'];
+    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'TEXTBLOCK', 'CIRCLE'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {

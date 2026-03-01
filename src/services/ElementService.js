@@ -4,7 +4,7 @@
 import { TextElement } from '../elements/TextElement.js';
 import { BarcodeElement } from '../elements/BarcodeElement.js';
 import { BoxElement } from '../elements/BoxElement.js';
-import { TextBlockElement } from '../elements/TextBlockElement.js';
+import { FieldBlockElement } from '../elements/FieldBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
@@ -28,7 +28,7 @@ export class ElementService {
 
   /**
    * Create and add a new element to the canvas
-   * @param {string} type - Element type ('TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'TEXTBLOCK')
+   * @param {string} type - Element type ('TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK')
    * @param {Object} options - Optional configuration for element position and properties
    * @returns {Object} Created element instance
    */
@@ -103,8 +103,8 @@ export class ElementService {
         );
         break;
 
-      case 'TEXTBLOCK':
-        element = new TextBlockElement(
+      case 'FIELDBLOCK':
+        element = new FieldBlockElement(
           x, y,
           props.text || 'Sample text that can wrap across multiple lines',
           props.fontSize || 0,
@@ -128,7 +128,7 @@ export class ElementService {
     // Notify callbacks
     this.callbacks.onElementsChanged();
     this.callbacks.onPushHistory(
-      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'TEXTBLOCK' ? 'Text Block' : type.charAt(0) + type.slice(1).toLowerCase()}`,
+      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type.charAt(0) + type.slice(1).toLowerCase()}`,
       { kind: 'add', detail: element.getDisplayName() }
     );
 

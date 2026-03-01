@@ -223,11 +223,11 @@
               <h2 class="font-semibold text-slate-700 text-sm">Elements</h2>
             </div>
             <div class="p-3 grid grid-cols-2 gap-2">
-              <button id="add-textblock-btn" data-tooltip="Add Text Block element"
+              <button id="add-fieldblock-btn" data-tooltip="Add Field Block element"
                 class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
                 <span
                   class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">text_fields</span>
-                <span class="font-medium">Text Block</span>
+                <span class="font-medium">Field Block</span>
               </button>
               <button id="add-text-btn" data-tooltip="Add Text element"
                 class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
@@ -889,7 +889,11 @@
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div class="border-b border-slate-100 bg-slate-50 px-6 py-4 flex justify-between items-center rounded-t-xl">
-          <h2 class="font-semibold text-slate-700 text-base">Import ZPL Template</h2>
+          <div class="flex items-center gap-2">
+            <h2 class="font-semibold text-slate-700 text-base">Import ZPL Template</h2>
+            <span
+              class="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-inset ring-amber-600/20">Experimental</span>
+          </div>
           <button id="zpl-import-close-btn" class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors">
             <span class="material-icons-round text-xl">close</span>
           </button>

@@ -75,7 +75,7 @@ export class AlignmentService {
         }
         break;
 
-      case 'TEXTBLOCK':
+      case 'FIELDBLOCK':
         element.blockWidth = labelSize.width;
         break;
 
@@ -124,8 +124,8 @@ export class AlignmentService {
         this.matchQRCodeSize(element, labelSize, 'height');
         break;
 
-      case 'TEXTBLOCK':
-        this.matchTextBlockHeight(element, labelSize, labelSettings);
+      case 'FIELDBLOCK':
+        this.matchFieldBlockHeight(element, labelSize, labelSettings);
         break;
 
       case 'TEXT':
@@ -184,9 +184,9 @@ export class AlignmentService {
   }
 
   /**
-   * Match text block height by adjusting max lines
+   * Match field block height by adjusting max lines
    */
-  matchTextBlockHeight(element, labelSize, labelSettings) {
+  matchFieldBlockHeight(element, labelSize, labelSettings) {
     const fontSize = element.fontSize || labelSettings.defaultFontHeight || 30;
     const estimatedLines = Math.max(1, Math.round(labelSize.height / fontSize));
     element.maxLines = clampNumber(estimatedLines, 1, 9999);

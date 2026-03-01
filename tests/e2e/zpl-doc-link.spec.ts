@@ -3,7 +3,7 @@ import { ElementsPanel } from '../page-objects';
 
 const ZPL_DOC_EXPECTED: Record<string, { command: string; url: string }> = {
   TEXT: { command: '^A', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-a.html' },
-  TEXTBLOCK: { command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
+  FIELDBLOCK: { command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
   BARCODE: { command: '^BC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bc.html' },
   QRCODE: { command: '^BQ', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bq.html' },
   BOX: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
@@ -15,7 +15,7 @@ type AddMethod = keyof ElementsPanel & `add${string}Element`;
 
 const ELEMENT_ADDERS: Record<string, AddMethod> = {
   TEXT: 'addTextElement',
-  TEXTBLOCK: 'addTextBlockElement',
+  FIELDBLOCK: 'addFieldBlockElement',
   BARCODE: 'addBarcodeElement',
   QRCODE: 'addQRCodeElement',
   BOX: 'addBoxElement',

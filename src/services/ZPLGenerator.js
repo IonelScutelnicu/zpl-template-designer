@@ -53,7 +53,7 @@ export class ZPLGenerator {
         // Optional: Add debug highlighting for selected text elements
         // (Currently commented out in original code)
         // if (selectedElement && String(element.id) === String(selectedElement.id) &&
-        //     (element.type === 'TEXT' || element.type === 'TEXTBLOCK')) {
+        //     (element.type === 'TEXT' || element.type === 'FIELDBLOCK')) {
         //   const highlightBox = this.generateHighlightBox(element, labelSettings);
         //   cmd = highlightBox + '\n' + cmd;
         // }
@@ -171,7 +171,7 @@ export class ZPLGenerator {
   generateHighlightBox(element, labelSettings) {
     let boxWidth, boxHeight;
 
-    if (element.type === 'TEXTBLOCK') {
+    if (element.type === 'FIELDBLOCK') {
       boxWidth = element.blockWidth || 200;
       const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
       const maxLines = element.maxLines || 1;

@@ -12,7 +12,7 @@ import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
  *   BOX:       width=100, height=50
  *   LINE (H):  width=200, thickness=3
  *   CIRCLE:    width=80,  height=80
- *   TEXTBLOCK: blockWidth=200, maxLines=3
+ *   FIELDBLOCK: blockWidth=200, maxLines=3
  *   BARCODE:   width=2 (multiplier), height=50, data='1234567890'
  *   QRCODE:    magnification=5, data='https://example.com'
  */
@@ -71,13 +71,13 @@ test.describe('Alignment Features', () => {
             await propertiesPanel.verifyPropertyValue('prop-x', 360);
         });
 
-        test('should center a TextBlock element horizontally on the label', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should center a FieldBlock element horizontally on the label', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await propertiesPanel.setProperty('prop-x', 10);
 
-            // TextBlock default blockWidth = 200, label width = 800
+            // FieldBlock default blockWidth = 200, label width = 800
             // Expected x = Math.round((800 - 200) / 2) = 300
             await clickAlignment(page, 'center-x');
 
@@ -239,15 +239,15 @@ test.describe('Alignment Features', () => {
             await propertiesPanel.verifyPropertyValue('prop-x', 0);
         });
 
-        test('should expand TextBlock blockWidth to match label width', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should expand FieldBlock blockWidth to match label width', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await propertiesPanel.setProperty('prop-x', 50);
 
             await clickAlignment(page, 'match-width');
 
-            // TextBlock blockWidth = label width (800), x = 0
+            // FieldBlock blockWidth = label width (800), x = 0
             await propertiesPanel.verifyPropertyValue('prop-block-width', LABEL_WIDTH);
             await propertiesPanel.verifyPropertyValue('prop-x', 0);
         });

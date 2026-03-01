@@ -98,10 +98,10 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
-    // ============== TEXTBLOCK ELEMENT PROPERTIES ==============
-    test.describe('TextBlock Element Properties', () => {
+    // ============== FIELDBLOCK ELEMENT PROPERTIES ==============
+    test.describe('FieldBlock Element Properties', () => {
         test.beforeEach(async () => {
-            await elementsPanel.addTextBlockElement();
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
         });
 
@@ -437,9 +437,9 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
-    test.describe('TextBlock Element Orientation', () => {
-        test('should update TextBlock element orientation to R and reflect in ZPL', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+    test.describe('FieldBlock Element Orientation', () => {
+        test('should update FieldBlock element orientation to R and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await page.locator('[data-orientation="R"][data-tooltip]').click();
@@ -447,8 +447,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toMatch(/\^A\S*R,/);
         });
 
-        test('should update TextBlock element orientation to I and reflect in ZPL', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should update FieldBlock element orientation to I and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await page.locator('[data-orientation="I"][data-tooltip]').click();
@@ -456,8 +456,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toMatch(/\^A\S*I,/);
         });
 
-        test('should update TextBlock element orientation to B and reflect in ZPL', async ({ page }) => {
-            await elementsPanel.addTextBlockElement();
+        test('should update FieldBlock element orientation to B and reflect in ZPL', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
 
             await page.locator('[data-orientation="B"][data-tooltip]').click();

@@ -3,7 +3,7 @@
 
 import { ZPL_FONTS } from './config/constants.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
-import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
+import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
 import { QRCodeRenderer } from './rendering/QRCodeRenderer.js';
 import { BoxRenderer } from './rendering/BoxRenderer.js';
@@ -26,7 +26,7 @@ export class CanvasRenderer {
     // Initialize specialized renderers
     this.renderers = {
       TEXT: new TextRenderer(),
-      TEXTBLOCK: new TextBlockRenderer(),
+      FIELDBLOCK: new FieldBlockRenderer(),
       BARCODE: new BarcodeRenderer(),
       QRCODE: new QRCodeRenderer(),
       BOX: new BoxRenderer(),
@@ -276,7 +276,7 @@ export class CanvasRenderer {
     // Draw element using specialized renderer
     const renderer = this.renderers[element.type];
     if (renderer) {
-      if (element.type === 'TEXT' || element.type === 'TEXTBLOCK') {
+      if (element.type === 'TEXT' || element.type === 'FIELDBLOCK') {
         renderer.render(this.ctx, this.canvas, element, labelSettings, transform);
       } else {
         renderer.render(this.ctx, element, transform);
@@ -326,7 +326,7 @@ export class CanvasRenderer {
       y = (element.y + this.homeY + this.labelTop) * this.scale;
       width = w;
       height = h;
-    } else if (element.type === 'TEXTBLOCK' && labelSettings) {
+    } else if (element.type === 'FIELDBLOCK' && labelSettings) {
       const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
@@ -433,8 +433,8 @@ export class CanvasRenderer {
       drawHandle(x + width, y + height / 2); // Right
       drawHandle(x + width / 2, y + height); // Bottom
       drawHandle(x, y + height / 2); // Left
-    } else if (element.type === 'TEXTBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
-      // For TEXTBLOCK, QRCODE, and TEXT, only show bottom-right handle
+    } else if (element.type === 'FIELDBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
+      // For FIELDBLOCK, QRCODE, and TEXT, only show bottom-right handle
       drawHandle(x + width, y + height);
     } else {
       // For other elements, show 4 corner handles

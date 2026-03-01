@@ -1,17 +1,17 @@
-// Text Block Renderer
-// Renders TEXTBLOCK elements on canvas with word wrapping and justification
+// Field Block Renderer
+// Renders FIELDBLOCK elements on canvas with word wrapping and justification
 
 import { ZPL_FONTS } from '../config/constants.js';
 
 /**
- * Renderer for TEXTBLOCK elements
+ * Renderer for FIELDBLOCK elements
  */
-export class TextBlockRenderer {
+export class FieldBlockRenderer {
   /**
-   * Render a TEXTBLOCK element on canvas
+   * Render a FIELDBLOCK element on canvas
    * @param {CanvasRenderingContext2D} ctx - Canvas context
    * @param {HTMLCanvasElement} canvas - Canvas element (for reverse overlay)
-   * @param {Object} element - TEXTBLOCK element
+   * @param {Object} element - FIELDBLOCK element
    * @param {Object} labelSettings - Label settings
    * @param {Object} transform - Transform parameters {scale, homeX, homeY, labelTop}
    */

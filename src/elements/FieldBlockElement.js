@@ -1,10 +1,10 @@
 import { ZPLElement } from './ZPLElement.js';
 
-// Text Block Element Class
-export class TextBlockElement extends ZPLElement {
+// Field Block Element Class
+export class FieldBlockElement extends ZPLElement {
     constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false, orientation = 'N') {
         super(x, y);
-        this.type = 'TEXTBLOCK';
+        this.type = 'FIELDBLOCK';
         this.previewText = previewText;
         this.placeholder = placeholder;
         this.fontId = fontId; // Element-level font override (empty = use label default)
@@ -54,7 +54,7 @@ export class TextBlockElement extends ZPLElement {
 
     getDisplayName() {
         const displayText = this.placeholder || this.previewText;
-        return `Text Block: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+        return `Field Block: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     getBounds() {

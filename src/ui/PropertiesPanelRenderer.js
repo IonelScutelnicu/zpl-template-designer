@@ -40,7 +40,7 @@ export class PropertiesPanelRenderer {
       QRCODE: () => this.renderQRCodeProperties(element),
       BOX: () => this.renderBoxProperties(element),
       LINE: () => this.renderLineProperties(element),
-      TEXTBLOCK: () => this.renderTextBlockProperties(element),
+      FIELDBLOCK: () => this.renderFieldBlockProperties(element),
       CIRCLE: () => this.renderCircleProperties(element)
     };
 
@@ -420,9 +420,9 @@ export class PropertiesPanelRenderer {
   }
 
   /**
-   * Render TEXTBLOCK element properties
+   * Render FIELDBLOCK element properties
    */
-  renderTextBlockProperties(element) {
+  renderFieldBlockProperties(element) {
     return `
       ${this.renderAlignmentControls(element)}
       ${this.renderSection("Position &amp; Size", `

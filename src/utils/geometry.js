@@ -24,13 +24,13 @@ export function getLabelSizeDots(labelSettings) {
 }
 
 /**
- * Get element bounds with resolved font dimensions (for TEXT and TEXTBLOCK)
+ * Get element bounds with resolved font dimensions (for TEXT and FIELDBLOCK)
  * @param {Object} element - Element to get bounds for
  * @param {Object} labelSettings - Label configuration (for default font sizes)
  * @returns {Object} Bounds {x, y, width, height}
  */
 export function getElementBoundsResolved(element, labelSettings) {
-  if (element.type === 'TEXTBLOCK') {
+  if (element.type === 'FIELDBLOCK') {
     const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
     const maxLines = element.maxLines || 1;
     const lineSpacing = element.lineSpacing || 0;
