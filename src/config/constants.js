@@ -31,7 +31,7 @@ export const FONT_LABELS = {
  */
 export const ZPL_FONTS = {
   '0': {
-    family: '"Arial Narrow", "Helvetica Condensed", Arial, sans-serif',
+    family: '"Roboto Condensed", "Arial Narrow", "Helvetica Condensed", Arial, sans-serif',
     weight: 'bold',
     monospace: false,
     baseHeight: 18,
