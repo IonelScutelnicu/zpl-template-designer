@@ -91,10 +91,12 @@ export class FieldBlockRenderer {
       targetCtx.font = font;
       targetCtx.textBaseline = 'top';
 
-      lines.slice(0, maxLines).forEach((line, i) => {
+      lines.forEach((line, i) => {
         const measuredWidth = targetCtx.measureText(line).width * scaleX;
-        const lineY = offsetY + (i * lineHeight) + yOffset;
-        const isLastLine = (i === lines.slice(0, maxLines).length - 1);
+        // Clamp overflow lines to the last line's Y position (ZPL ^FB spec behavior)
+        const clampedIndex = Math.min(i, maxLines - 1);
+        const lineY = offsetY + (clampedIndex * lineHeight) + yOffset;
+        const isLastLine = (i === lines.length - 1);
         const isFirstLine = i === 0;
         const indent = isFirstLine ? 0 : hangingIndentPx;
         const lineBlockWidth = isFirstLine ? blockWidth : Math.max(0, blockWidth - hangingIndentPx);
