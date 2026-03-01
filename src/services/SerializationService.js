@@ -102,7 +102,6 @@ export class SerializationService {
         );
         break;
 
-      case 'TEXTBLOCK': // backward compat: old saved files
       case 'FIELDBLOCK':
         element = new FieldBlockElement(
           data.x,
@@ -208,7 +207,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'TEXTBLOCK', 'CIRCLE'];
+    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'CIRCLE'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {
