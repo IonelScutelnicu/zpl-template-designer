@@ -6,7 +6,7 @@
  */
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'PQ', 'FO', 'A', 'FB', 'FD', 'FS', 'FR', 'BC', 'BY',
+  'CF', 'CW', 'PQ', 'FO', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE'
 ]);
 
@@ -341,6 +341,10 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), state);
     }
 
+    if (hasCommand('A') && hasCommand('TB')) {
+      return this._parseTextBlock(group, getCommand('A'), getCommand('TB'), getCommand('FD'), hasCommand('FR'), state);
+    }
+
     if (hasCommand('A') && hasCommand('FB')) {
       return this._parseFieldBlock(group, getCommand('A'), getCommand('FB'), getCommand('FD'), hasCommand('FR'), state);
     }
@@ -456,6 +460,46 @@ export class ZPLParser {
       hangingIndent,
       reverse: hasReverse,
       orientation: font.orientation
+    };
+  }
+
+  /**
+   * Parse TEXTBLOCK element from ^A + ^TB + ^FD
+   */
+  _parseTextBlock(group, aToken, tbToken, fdToken, hasReverse, state) {
+    const font = this._parseFontCommand(aToken);
+
+    // Parse ^TB params: orientation,blockWidth,blockHeight
+    const tbParts = tbToken.params.split(',');
+    // First param may be orientation (N/R/I/B) or start of width
+    let tbOrientation = 'N';
+    let widthIndex = 0;
+    const firstParam = (tbParts[0] || '').trim();
+    if (['N', 'R', 'I', 'B'].includes(firstParam)) {
+      tbOrientation = firstParam;
+      widthIndex = 1;
+    }
+    const blockWidth = parseInt(tbParts[widthIndex]) || 200;
+    const blockHeight = parseInt(tbParts[widthIndex + 1]) || 50;
+
+    // Use ^A orientation if available, fall back to ^TB orientation
+    const orientation = font.orientation !== 'N' ? font.orientation : tbOrientation;
+
+    const { text, placeholder } = this._parseFieldData(fdToken);
+
+    return {
+      type: 'TEXTBLOCK',
+      x: group.x,
+      y: group.y,
+      previewText: text,
+      placeholder,
+      fontId: font.fontId === state.defaultFont.id ? '' : font.fontId,
+      fontSize: font.height === state.defaultFont.height ? 0 : font.height,
+      fontWidth: font.width === state.defaultFont.width ? 0 : font.width,
+      blockWidth,
+      blockHeight,
+      reverse: hasReverse,
+      orientation
     };
   }
 

@@ -58,7 +58,7 @@ export class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
+    if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         if (selectedElement.locked) return;
@@ -89,6 +89,9 @@ export class InteractionHandler {
           this.resizeStartWidth = measuredBounds.width;
           this.resizeStartMeasuredWidth = measuredBounds.width;
           this.resizeStartMeasuredHeight = measuredBounds.height;
+        } else if (selectedElement.type === 'TEXTBLOCK') {
+          this.resizeStartWidth = selectedElement.blockWidth;
+          this.resizeStartHeight = selectedElement.blockHeight;
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
           if (selectedElement.type === 'FIELDBLOCK') {
@@ -150,7 +153,21 @@ export class InteractionHandler {
 
     // Handle Resize
     if (this.isResizing && this.dragElement) {
-      if (this.dragElement.type === 'FIELDBLOCK') {
+      if (this.dragElement.type === 'TEXTBLOCK') {
+        // TEXTBLOCK supports bottom-right resize for both blockWidth and blockHeight
+        const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+        const newWidth = isRotated
+          ? Math.max(50, coords.y - this.dragElement.y)
+          : Math.max(50, coords.x - this.dragElement.x);
+        const newHeight = isRotated
+          ? Math.max(20, coords.x - this.dragElement.x)
+          : Math.max(20, coords.y - this.dragElement.y);
+
+        this.dragElement.blockWidth = Math.round(newWidth);
+        this.dragElement.blockHeight = Math.round(newHeight);
+
+        this.callbacks.onElementDragging(this.dragElement);
+      } else if (this.dragElement.type === 'FIELDBLOCK') {
         // FIELDBLOCK only supports bottom-right resize
         const fontSize = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
         const lineSpacing = this.dragElement.lineSpacing || 0;
@@ -401,7 +418,7 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
+      if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -730,6 +747,14 @@ export class InteractionHandler {
    * Get resize handle at position
    */
   getSelectionBounds(element) {
+    if (element.type === 'TEXTBLOCK') {
+      const blockW = element.blockWidth || 200;
+      const blockH = element.blockHeight || 50;
+      if (element.orientation === 'R' || element.orientation === 'B') {
+        return { x: element.x, y: element.y, width: blockH, height: blockW };
+      }
+      return { x: element.x, y: element.y, width: blockW, height: blockH };
+    }
     if (element.type === 'FIELDBLOCK' && this.labelSettings) {
       const resolvedHeight = element.fontSize || this.labelSettings.defaultFontHeight || 30;
       const maxLines = element.maxLines || 1;
@@ -813,8 +838,8 @@ export class InteractionHandler {
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by + bh / 2 - hsHalf && y <= by + bh / 2 + hsHalf) {
         return 'l';
       }
-    } else if (element.type === 'FIELDBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
-      // For FIELDBLOCK, QRCODE, and TEXT, only check bottom-right handle
+    } else if (element.type === 'FIELDBLOCK' || element.type === 'TEXTBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
+      // For FIELDBLOCK, TEXTBLOCK, QRCODE, and TEXT, only check bottom-right handle
       if (x >= bx + bw - hsHalf && x <= bx + bw + hsHalf && y >= by + bh - hsHalf && y <= by + bh + hsHalf) {
         return 'br';
       }

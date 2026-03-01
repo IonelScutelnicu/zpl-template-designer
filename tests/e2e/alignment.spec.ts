@@ -13,6 +13,7 @@ import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
  *   LINE (H):  width=200, thickness=3
  *   CIRCLE:    width=80,  height=80
  *   FIELDBLOCK: blockWidth=200, maxLines=3
+ *   TEXTBLOCK:  blockWidth=200, blockHeight=50
  *   BARCODE:   width=2 (multiplier), height=50, data='1234567890'
  *   QRCODE:    magnification=5, data='https://example.com'
  */
@@ -78,6 +79,19 @@ test.describe('Alignment Features', () => {
             await propertiesPanel.setProperty('prop-x', 10);
 
             // FieldBlock default blockWidth = 200, label width = 800
+            // Expected x = Math.round((800 - 200) / 2) = 300
+            await clickAlignment(page, 'center-x');
+
+            await propertiesPanel.verifyPropertyValue('prop-x', 300);
+        });
+
+        test('should center a TextBlock element horizontally on the label', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await propertiesPanel.setProperty('prop-x', 10);
+
+            // TextBlock default blockWidth = 200, label width = 800
             // Expected x = Math.round((800 - 200) / 2) = 300
             await clickAlignment(page, 'center-x');
 
@@ -178,6 +192,19 @@ test.describe('Alignment Features', () => {
             await clickAlignment(page, 'center-y');
 
             await propertiesPanel.verifyPropertyValue('prop-y', 160);
+        });
+
+        test('should center a TextBlock element vertically on the label', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await propertiesPanel.setProperty('prop-y', 10);
+
+            // TextBlock default blockHeight = 50, label height = 400
+            // Expected y = Math.round((400 - 50) / 2) = 175
+            await clickAlignment(page, 'center-y');
+
+            await propertiesPanel.verifyPropertyValue('prop-y', 175);
         });
 
         test('should clamp y to 0 when element is taller than the label', async ({ page }) => {

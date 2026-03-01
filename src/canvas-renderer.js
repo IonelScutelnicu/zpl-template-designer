@@ -9,6 +9,7 @@ import { QRCodeRenderer } from './rendering/QRCodeRenderer.js';
 import { BoxRenderer } from './rendering/BoxRenderer.js';
 import { LineRenderer } from './rendering/LineRenderer.js';
 import { CircleRenderer } from './rendering/CircleRenderer.js';
+import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
 
 export class CanvasRenderer {
   constructor(canvasId) {
@@ -26,6 +27,7 @@ export class CanvasRenderer {
     // Initialize specialized renderers
     this.renderers = {
       TEXT: new TextRenderer(),
+      TEXTBLOCK: new TextBlockRenderer(),
       FIELDBLOCK: new FieldBlockRenderer(),
       BARCODE: new BarcodeRenderer(),
       QRCODE: new QRCodeRenderer(),
@@ -276,7 +278,7 @@ export class CanvasRenderer {
     // Draw element using specialized renderer
     const renderer = this.renderers[element.type];
     if (renderer) {
-      if (element.type === 'TEXT' || element.type === 'FIELDBLOCK') {
+      if (element.type === 'TEXT' || element.type === 'FIELDBLOCK' || element.type === 'TEXTBLOCK') {
         renderer.render(this.ctx, this.canvas, element, labelSettings, transform);
       } else {
         renderer.render(this.ctx, element, transform);

@@ -8,6 +8,7 @@ import { FieldBlockElement } from '../elements/FieldBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
+import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { getElementBoundsResolved } from '../utils/geometry.js';
 
 /**
@@ -28,7 +29,7 @@ export class ElementService {
 
   /**
    * Create and add a new element to the canvas
-   * @param {string} type - Element type ('TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK')
+   * @param {string} type - Element type ('TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK')
    * @param {Object} options - Optional configuration for element position and properties
    * @returns {Object} Created element instance
    */
@@ -117,6 +118,21 @@ export class ElementService {
         );
         break;
 
+      case 'TEXTBLOCK':
+        element = new TextBlockElement(
+          x, y,
+          props.text || 'Sample text block content',
+          props.fontSize || 0,
+          props.fontWidth || 0,
+          props.blockWidth || 200,
+          props.blockHeight || 50,
+          props.placeholder || '',
+          props.fontId || '',
+          props.reverse || false,
+          props.orientation || 'N'
+        );
+        break;
+
       default:
         throw new Error(`Unknown element type: ${type}`);
     }
@@ -128,7 +144,7 @@ export class ElementService {
     // Notify callbacks
     this.callbacks.onElementsChanged();
     this.callbacks.onPushHistory(
-      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type.charAt(0) + type.slice(1).toLowerCase()}`,
+      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type === 'TEXTBLOCK' ? 'Text Block' : type.charAt(0) + type.slice(1).toLowerCase()}`,
       { kind: 'add', detail: element.getDisplayName() }
     );
 

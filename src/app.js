@@ -95,6 +95,7 @@ let customFontsManager;
 let propertyListenersManager;
 
 // DOM Elements
+const addTextBlockBtn = document.getElementById("add-textblock-btn");
 const addTextBtn = document.getElementById("add-text-btn");
 const addBarcodeBtn = document.getElementById("add-barcode-btn");
 const addQRCodeBtn = document.getElementById("add-qrcode-btn");
@@ -348,6 +349,7 @@ export function initApp() {
   });
 
   // Add button event listeners
+  addTextBlockBtn.addEventListener("click", addTextBlockElement);
   addTextBtn.addEventListener("click", addTextElement);
   addBarcodeBtn.addEventListener("click", addBarcodeElement);
   addQRCodeBtn.addEventListener("click", addQRCodeElement);
@@ -1089,6 +1091,10 @@ function endKeyboardMoveSession(element) {
 }
 
 // Add Element Functions (delegated to ElementService)
+function addTextBlockElement() {
+  elementService.createElement('TEXTBLOCK', { text: 'Sample text block content', blockWidth: 200, blockHeight: 50 });
+}
+
 function addTextElement() {
   elementService.createElement('TEXT', { text: 'Sample Text', orientation: 'N' });
 }
@@ -1137,6 +1143,7 @@ function pasteElementFromData(data) {
 // Render Properties Panel
 const ZPL_DOC_MAP = {
   TEXT:      { command: '^A',  url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-a.html' },
+  TEXTBLOCK: { command: '^TB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-tb.html' },
   FIELDBLOCK:{ command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
   BARCODE:  { command: '^BC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bc.html' },
   QRCODE:   { command: '^BQ', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bq.html' },

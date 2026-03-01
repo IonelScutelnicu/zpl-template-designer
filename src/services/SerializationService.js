@@ -8,6 +8,7 @@ import { FieldBlockElement } from '../elements/FieldBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
+import { TextBlockElement } from '../elements/TextBlockElement.js';
 
 /**
  * Service for serializing and deserializing elements and application state
@@ -121,6 +122,22 @@ export class SerializationService {
         );
         break;
 
+      case 'TEXTBLOCK':
+        element = new TextBlockElement(
+          data.x,
+          data.y,
+          data.previewText,
+          data.fontSize,
+          data.fontWidth,
+          data.blockWidth,
+          data.blockHeight,
+          data.placeholder,
+          data.fontId,
+          data.reverse,
+          data.orientation
+        );
+        break;
+
       case 'LINE':
         element = new LineElement(
           data.x,
@@ -207,7 +224,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'CIRCLE'];
+    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'CIRCLE'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {

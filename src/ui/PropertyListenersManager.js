@@ -66,6 +66,9 @@ export class PropertyListenersManager {
       case "FIELDBLOCK":
         this.attachFieldBlockProperties(element, attach);
         break;
+      case "TEXTBLOCK":
+        this.attachTextBlockProperties(element, attach);
+        break;
     }
 
     // Attach section toggle listeners for state persistence
@@ -301,6 +304,67 @@ export class PropertyListenersManager {
         if (!value) return;
         element.justification = value;
         setJustificationActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
+  }
+
+  /**
+   * Attach TEXTBLOCK element property listeners
+   */
+  attachTextBlockProperties(element, attach) {
+    attach("prop-placeholder", "placeholder");
+    attach("prop-preview-text", "previewText");
+    attach("prop-font-id", "fontId");
+    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 300);
+    attach("prop-block-height", "blockHeight", (v) => parseInt(v) || 200);
+
+    // Orientation toggle buttons (scoped to element panel via [data-tooltip])
+    const orientationButtons = document.querySelectorAll('[data-orientation][data-tooltip]');
+    const setOrientationActive = (value) => {
+      orientationButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-orientation') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('text-slate-400', !isActive);
+        button.classList.toggle('hover:bg-white', !isActive);
+        button.classList.toggle('hover:text-slate-600', !isActive);
+        button.classList.toggle('hover:shadow-sm', !isActive);
+      });
+    };
+    setOrientationActive(element.orientation || "N");
+    orientationButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-orientation');
+        if (!value) return;
+        element.orientation = value;
+        setOrientationActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
+
+    // Reverse toggle buttons
+    const reverseButtons = document.querySelectorAll('[data-reverse]');
+    const setReverseActive = (value) => {
+      reverseButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-reverse') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setReverseActive(element.reverse ? "Y" : "N");
+    reverseButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-reverse');
+        if (!value) return;
+        element.reverse = value === "Y";
+        setReverseActive(value);
         this.callbacks.onPropertyChange(element);
       });
     });

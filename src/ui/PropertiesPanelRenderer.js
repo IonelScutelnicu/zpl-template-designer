@@ -36,6 +36,7 @@ export class PropertiesPanelRenderer {
   renderElementProperties(element) {
     const renderers = {
       TEXT: () => this.renderTextProperties(element),
+      TEXTBLOCK: () => this.renderTextBlockProperties(element),
       BARCODE: () => this.renderBarcodeProperties(element),
       QRCODE: () => this.renderQRCodeProperties(element),
       BOX: () => this.renderBoxProperties(element),
@@ -412,6 +413,86 @@ export class PropertiesPanelRenderer {
             <button type="button" data-color="W"
               class="px-3 py-1 text-xs rounded ${element.color === 'W' ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'} transition-colors">
               White
+            </button>
+          </div>
+        </div>
+      `, { open: true, elementType: element.type })}
+    `;
+  }
+
+  /**
+   * Render TEXTBLOCK element properties
+   */
+  renderTextBlockProperties(element) {
+    return `
+      ${this.renderAlignmentControls(element)}
+      ${this.renderSection("Position &amp; Size", `
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+          ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+        </div>
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            <button type="button" data-orientation="N"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "N" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Normal (N)">
+              <span class="material-icons-round text-base">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="R"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "R" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Rotated 90° (R)">
+              <span class="material-icons-round text-base inline-block rotate-90">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="I"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "I" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Inverted 180° (I)">
+              <span class="material-icons-round text-base inline-block rotate-180">text_rotation_none</span>
+            </button>
+            <button type="button" data-orientation="B"
+              class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${element.orientation === "B" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+              data-tooltip="Bottom-Up 270° (B)">
+              <span class="material-icons-round text-base inline-block -rotate-90">text_rotation_none</span>
+            </button>
+          </div>
+        </div>
+      `, { elementType: element.type })}
+      ${this.renderSection("Text Content", `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
+          <textarea id="prop-preview-text" rows="3"
+            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${element.previewText}</textarea>
+        </div>
+        ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+      `, { elementType: element.type })}
+      ${this.renderSection("Font Settings", `
+        ${this.renderFontSelect(element)}
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+          ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+        </div>
+      `, { elementType: element.type })}
+      ${this.renderSection("Block Configuration", `
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("Block Width (dots)", "prop-block-width", element.blockWidth, "number", { min: 0, max: 32000 })}
+          ${this.createInputGroup("Block Height (dots)", "prop-block-height", element.blockHeight, "number", { min: 0, max: 32000 })}
+        </div>
+      `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", `
+        <div class="flex items-center justify-between">
+          <label class="text-xs text-slate-700">
+            Reverse Print
+            <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
+              target="_blank" class="text-blue-500 hover:underline">^FR</a>
+          </label>
+          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+            <button type="button" data-reverse="N"
+              class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
+              Normal
+            </button>
+            <button type="button" data-reverse="Y"
+              class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
+              Reverse
             </button>
           </div>
         </div>

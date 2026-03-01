@@ -1,7 +1,8 @@
 /node_modules
 AGENTS.md
 settings.local.json
-
+.*
+!/.gitignore
 # Test artifacts
 /test-results/
 /playwright-report/

@@ -6,6 +6,7 @@ import { Page, Locator } from '@playwright/test';
  */
 export class ElementsPanel {
     readonly page: Page;
+    readonly addTextBlockBtn: Locator;
     readonly addFieldBlockBtn: Locator;
     readonly addTextBtn: Locator;
     readonly addBarcodeBtn: Locator;
@@ -15,6 +16,7 @@ export class ElementsPanel {
 
     constructor(page: Page) {
         this.page = page;
+        this.addTextBlockBtn = page.locator('#add-textblock-btn');
         this.addFieldBlockBtn = page.locator('#add-fieldblock-btn');
         this.addTextBtn = page.locator('#add-text-btn');
         this.addBarcodeBtn = page.locator('#add-barcode-btn');
@@ -25,6 +27,10 @@ export class ElementsPanel {
 
     async addTextElement(): Promise<void> {
         await this.addTextBtn.click();
+    }
+
+    async addTextBlockElement(): Promise<void> {
+        await this.addTextBlockBtn.click();
     }
 
     async addFieldBlockElement(): Promise<void> {

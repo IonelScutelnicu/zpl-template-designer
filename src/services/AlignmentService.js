@@ -76,6 +76,7 @@ export class AlignmentService {
         break;
 
       case 'FIELDBLOCK':
+      case 'TEXTBLOCK':
         element.blockWidth = labelSize.width;
         break;
 
@@ -126,6 +127,10 @@ export class AlignmentService {
 
       case 'FIELDBLOCK':
         this.matchFieldBlockHeight(element, labelSize, labelSettings);
+        break;
+
+      case 'TEXTBLOCK':
+        element.blockHeight = labelSize.height;
         break;
 
       case 'TEXT':
