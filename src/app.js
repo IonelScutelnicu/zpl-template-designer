@@ -19,6 +19,7 @@ import { WarningsPanelRenderer } from './ui/WarningsPanelRenderer.js';
 import { highlightZPL } from './utils/zpl-highlighter.js';
 import { ZPLParser } from './services/ZPLParser.js';
 import { UrlShareService } from './services/UrlShareService.js';
+import { SmartGuideService } from './services/SmartGuideService.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -30,6 +31,7 @@ const zplGenerator = new ZPLGenerator();
 const templateManager = new TemplateManager(serializationService);
 const zplParser = new ZPLParser();
 const urlShareService = new UrlShareService(serializationService);
+const smartGuideService = new SmartGuideService();
 let elementService; // Initialized after pushHistory is defined
 
 // Initialize UI renderers (getSectionState will be available later)
@@ -347,6 +349,9 @@ export function initApp() {
     serializeElement: (element) => serializeElement(element),
     pasteElement: (data) => pasteElementFromData(data)
   });
+
+  // Wire up smart guide service
+  interactionHandler.smartGuideService = smartGuideService;
 
   // Add button event listeners
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
@@ -1142,14 +1147,14 @@ function pasteElementFromData(data) {
 
 // Render Properties Panel
 const ZPL_DOC_MAP = {
-  TEXT:      { command: '^A',  url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-a.html' },
+  TEXT: { command: '^A', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-a.html' },
   TEXTBLOCK: { command: '^TB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-tb.html' },
-  FIELDBLOCK:{ command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
-  BARCODE:  { command: '^BC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bc.html' },
-  QRCODE:   { command: '^BQ', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bq.html' },
-  BOX:      { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
-  LINE:     { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
-  CIRCLE:   { command: '^GE', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html' },
+  FIELDBLOCK: { command: '^FB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fb.html' },
+  BARCODE: { command: '^BC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bc.html' },
+  QRCODE: { command: '^BQ', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bq.html' },
+  BOX: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
+  LINE: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
+  CIRCLE: { command: '^GE', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html' },
 };
 
 function renderPropertiesPanel() {

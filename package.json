@@ -23,10 +23,10 @@
   },
   "homepage": "https://github.com/IonelScutelnicu/zpl-template-designer#readme",
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
-    "@types/node": "^25.0.9",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.5",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
-    "serve": "^14.2.5"
+    "serve": "^14.2.6"
   }
 }
