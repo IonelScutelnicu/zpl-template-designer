@@ -77,21 +77,17 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toMatch(/\^A0N,22,11/);
         });
 
-        test.skip('should preserve property values after re-selecting element', async ({ page }) => {
-            // Skip: Property preservation timing needs investigation
+        test('should preserve property values after re-selecting element', async ({ page }) => {
             await propertiesPanel.setProperty('prop-preview-text', 'Test Value');
-            await page.waitForTimeout(100);
             await propertiesPanel.setProperty('prop-x', 100);
-            await page.waitForTimeout(100);
 
             // Add another element and select it
             await elementsPanel.addBoxElement();
+            await expect(page.locator('#elements-list .element-item')).toHaveCount(2, { timeout: 5000 });
             await elementsPanel.selectElementByIndex(1);
-            await page.waitForTimeout(100);
 
             // Re-select text element
             await elementsPanel.selectElementByIndex(0);
-            await page.waitForTimeout(100);
 
             await propertiesPanel.verifyPropertyValue('prop-preview-text', 'Test Value');
             await propertiesPanel.verifyPropertyValue('prop-x', '100');
