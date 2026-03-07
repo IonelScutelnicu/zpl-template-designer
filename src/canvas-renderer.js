@@ -23,6 +23,7 @@ export class CanvasRenderer {
     this.offsetX = 0;
     this.offsetY = 0;
     this.showGrid = false; // Hide grid to match API preview look
+    this.smartGuides = []; // Active smart guide lines during drag
 
     // Initialize specialized renderers
     this.renderers = {
@@ -106,6 +107,12 @@ export class CanvasRenderer {
     elements.forEach(element => {
       this.drawElement(element, labelSettings, selectedElement);
     });
+
+    // Draw smart guide lines on top of elements in the same transformed space
+    // so guides align with offsets/orientation/mirror.
+    if (this.smartGuides.length > 0) {
+      this.drawSmartGuides(labelWidthDots, labelHeightDots);
+    }
 
     // Restore mirror transform if applied
     if (printMirror === 'Y') {
@@ -490,5 +497,65 @@ export class CanvasRenderer {
    */
   toggleGrid() {
     this.showGrid = !this.showGrid;
+  }
+
+  /**
+   * Set active smart guides (called by interaction handler during drag)
+   * @param {Array} guides - Array of {axis: 'x'|'y', position: number, type: string}
+   */
+  setSmartGuides(guides) {
+    this.smartGuides = guides;
+  }
+
+  /**
+   * Clear active smart guides (called on drag end)
+   */
+  clearSmartGuides() {
+    this.smartGuides = [];
+  }
+
+  /**
+   * Draw smart guide lines on canvas
+   */
+  drawSmartGuides(labelWidthDots, labelHeightDots) {
+    this.ctx.save();
+
+    for (const guide of this.smartGuides) {
+      const pos = guide.axis === 'x'
+        ? (guide.position + this.homeX) * this.scale
+        : (guide.position + this.homeY + this.labelTop) * this.scale;
+
+      // Guide line style
+      this.ctx.strokeStyle = '#06b6d4'; // cyan-500
+      this.ctx.lineWidth = 1;
+      this.ctx.setLineDash([4, 3]);
+
+      this.ctx.beginPath();
+      if (guide.axis === 'x') {
+        // Vertical guide line
+        this.ctx.moveTo(pos + 0.5, 0);
+        this.ctx.lineTo(pos + 0.5, labelHeightDots * this.scale);
+      } else {
+        // Horizontal guide line
+        this.ctx.moveTo(0, pos + 0.5);
+        this.ctx.lineTo(labelWidthDots * this.scale, pos + 0.5);
+      }
+      this.ctx.stroke();
+
+      // Small indicator dot at the guide position
+      this.ctx.setLineDash([]);
+      this.ctx.fillStyle = '#06b6d4';
+      this.ctx.beginPath();
+      if (guide.axis === 'x') {
+        // Dot at the top of vertical guide
+        this.ctx.arc(pos, 4, 3, 0, Math.PI * 2);
+      } else {
+        // Dot at the left of horizontal guide
+        this.ctx.arc(4, pos, 3, 0, Math.PI * 2);
+      }
+      this.ctx.fill();
+    }
+
+    this.ctx.restore();
   }
 }
