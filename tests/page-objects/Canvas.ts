@@ -162,6 +162,13 @@ export class Canvas {
     }
 
     /**
+     * Right-click at a specific position on the canvas (relative to canvas origin)
+     */
+    async rightClickAt(x: number, y: number): Promise<void> {
+        await this.canvas.click({ position: { x, y }, button: 'right' });
+    }
+
+    /**
      * Drag using label coordinates
      */
     async dragLabelCoords(fromX: number, fromY: number, toLabelX: number, toLabelY: number): Promise<void> {

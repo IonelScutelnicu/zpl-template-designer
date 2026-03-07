@@ -20,6 +20,7 @@ import { highlightZPL } from './utils/zpl-highlighter.js';
 import { ZPLParser } from './services/ZPLParser.js';
 import { UrlShareService } from './services/UrlShareService.js';
 import { SmartGuideService } from './services/SmartGuideService.js';
+import { ContextMenu } from './ui/ContextMenu.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -191,6 +192,8 @@ const apiPreviewContainer = document.getElementById("api-preview-container");
 // Canvas and interaction state
 let canvasRenderer = null;
 let interactionHandler = null;
+let contextMenu = null;
+let lastContextMenuLabelPosition = null;
 let previewMode = 'canvas'; // 'canvas' or 'api'
 
 // Initialize function
@@ -347,11 +350,89 @@ export function initApp() {
     onRedo: () => redo(),
     getSelectedElement: () => state.selectedElement,  // Read from state
     serializeElement: (element) => serializeElement(element),
-    pasteElement: (data) => pasteElementFromData(data)
+    pasteElement: (data) => pasteElementFromData(data),
+    onContextMenu: (clientX, clientY, labelPosition, element) => {
+      if (previewMode === 'canvas') {
+        lastContextMenuLabelPosition = labelPosition;
+        contextMenu.show(clientX, clientY, element);
+      }
+    }
   });
 
   // Wire up smart guide service
   interactionHandler.smartGuideService = smartGuideService;
+
+  const runContextMenuAlignment = (action, element, historyLabel) => {
+    applyAlignmentAction(action, element);
+    updateZPLOutput();
+    updateElementsList();
+    renderCanvasPreview();
+    renderPropertiesPanel();
+    scheduleHistoryCommit(`element-${element.id}`, historyLabel, {
+      kind: 'align',
+      detail: element.getDisplayName()
+    });
+  };
+
+  // Initialize context menu
+  contextMenu = new ContextMenu(document.getElementById('preview-container'), {
+    getSelectedElement: () => state.selectedElement,
+    getClipboardData: () => interactionHandler.clipboardData,
+    getElements: () => state.elements,
+    closeOtherMenus: () => closeZPLMoreMenu(),
+    onCopy: (element) => {
+      interactionHandler.clipboardData = serializeElement(element);
+    },
+    onPaste: () => {
+      if (interactionHandler.clipboardData) {
+        pasteElementFromData(interactionHandler.clipboardData, lastContextMenuLabelPosition);
+      }
+    },
+    onDuplicate: (element) => {
+      const data = serializeElement(element);
+      if (data) {
+        pasteElementFromData(data);
+      }
+    },
+    onMoveUp: (element) => {
+      const index = state.elements.findIndex(el => String(el.id) === String(element.id));
+      if (index > 0) {
+        moveElementUp(index);
+      }
+    },
+    onMoveDown: (element) => {
+      const index = state.elements.findIndex(el => String(el.id) === String(element.id));
+      if (index >= 0 && index < state.elements.length - 1) {
+        moveElementDown(index);
+      }
+    },
+    onCenterHorizontally: (element) => {
+      runContextMenuAlignment('center-x', element, `Centered ${element.type} horizontally`);
+    },
+    onCenterVertically: (element) => {
+      runContextMenuAlignment('center-y', element, `Centered ${element.type} vertically`);
+    },
+    onMatchLabelWidth: (element) => {
+      runContextMenuAlignment('match-width', element, `Matched ${element.type} to label width`);
+    },
+    onMatchLabelHeight: (element) => {
+      runContextMenuAlignment('match-height', element, `Matched ${element.type} to label height`);
+    },
+    onToggleLock: (element) => {
+      element.locked = !element.locked;
+      pushHistory(element.locked ? `Locked ${element.type}` : `Unlocked ${element.type}`, {
+        kind: 'edit',
+        detail: element.getDisplayName()
+      });
+      updateElementsList();
+      renderPropertiesPanel();
+      renderCanvasPreview();
+    },
+    onDelete: (element) => {
+      if (element.locked) return;
+      deleteElement(String(element.id));
+    }
+  });
 
   // Add button event listeners
   addTextBlockBtn.addEventListener("click", addTextBlockElement);
@@ -1141,8 +1222,8 @@ function createElementFromData(data, options = {}) {
   return serializationService.createElementFromData(data, options);
 }
 
-function pasteElementFromData(data) {
-  elementService.pasteElement(data, createElementFromData);
+function pasteElementFromData(data, options = {}) {
+  elementService.pasteElement(data, createElementFromData, options);
 }
 
 // Render Properties Panel

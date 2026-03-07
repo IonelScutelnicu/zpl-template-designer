@@ -45,6 +45,7 @@ export class InteractionHandler {
     this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
     this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
     this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+    this.canvas.addEventListener('contextmenu', this.handleContextMenu.bind(this));
 
     // Keyboard events (needs to be on document for arrow keys)
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -541,6 +542,29 @@ export class InteractionHandler {
     this.dragElement = null;
     this.canvas.style.cursor = 'default';
     this.hasNotifiedDragStart = false;
+  }
+
+  handleContextMenu(e) {
+    e.preventDefault();
+
+    // Don't show context menu during drag or resize
+    if (this.isDragging || this.isResizing) return;
+
+    // Hit test at right-click position
+    const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
+    const element = this.getElementAtPosition(coords.x, coords.y);
+
+    // Select the element if right-clicked on one that isn't already selected
+    if (element) {
+      const currentSelected = this.callbacks.getSelectedElement();
+      if (!currentSelected || String(currentSelected.id) !== String(element.id)) {
+        this.callbacks.onElementSelected(element);
+      }
+    }
+
+    if (this.callbacks.onContextMenu) {
+      this.callbacks.onContextMenu(e.clientX, e.clientY, coords, element);
+    }
   }
 
   handleKeyDown(e) {

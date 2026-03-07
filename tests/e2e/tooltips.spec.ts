@@ -66,6 +66,17 @@ test.describe('Tooltips', () => {
         await expect(cancelRow).toBeVisible();
         await expect(cancelRow.locator('code')).toHaveText('Esc');
     });
+    test('should show context-menu hint in the shortcuts panel', async ({ page }) => {
+        const shortcutsButton = page.locator('button:has-text("Shortcuts")');
+        await shortcutsButton.hover();
+        await page.waitForTimeout(250);
+
+        const contextMenuRow = page.locator('div.flex.justify-between.items-center').filter({
+            hasText: 'Open context menu'
+        });
+        await expect(contextMenuRow).toBeVisible();
+        await expect(contextMenuRow).toContainText('Right-click canvas');
+    });
 
     // 3. ZPL output buttons show tooltips
     test('should show tooltip for Copy button', async ({ page }) => {

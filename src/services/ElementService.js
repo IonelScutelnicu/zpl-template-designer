@@ -226,7 +226,7 @@ export class ElementService {
    * @param {Function} createFromData - Function to create element from data
    * @returns {Object|null} Created element or null if failed
    */
-  pasteElement(data, createFromData) {
+  pasteElement(data, createFromData, options = {}) {
     const element = createFromData(data);
     if (!element) return null;
 
@@ -234,15 +234,23 @@ export class ElementService {
     const labelW = this.state.labelSettings.width * this.state.labelSettings.dpmm;
     const labelH = this.state.labelSettings.height * this.state.labelSettings.dpmm;
     const offset = 10;
+    const hasTargetPosition = Number.isFinite(options.x) && Number.isFinite(options.y);
 
-    // Offset position slightly
-    element.x = Math.max(0, element.x + offset);
-    element.y = Math.max(0, element.y + offset);
+    if (hasTargetPosition) {
+      element.x = Math.round(options.x);
+      element.y = Math.round(options.y);
+    } else {
+      // Offset position slightly
+      element.x = Math.max(0, element.x + offset);
+      element.y = Math.max(0, element.y + offset);
+    }
 
-    // Keep element within label bounds
+    // Keep element fully within label bounds
     const bounds = getElementBoundsResolved(element, this.state.labelSettings);
-    element.x = Math.min(element.x, Math.max(0, labelW - bounds.width));
-    element.y = Math.min(element.y, Math.max(0, labelH - bounds.height));
+    const maxX = Math.max(0, labelW - bounds.width);
+    const maxY = Math.max(0, labelH - bounds.height);
+    element.x = Math.max(0, Math.min(element.x, maxX));
+    element.y = Math.max(0, Math.min(element.y, maxY));
 
     // Add to state
     this.state.addElement(element);
