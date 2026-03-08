@@ -155,51 +155,7 @@ export async function compareWithBaseline(
     return compareImages(baselineImage, actualImage, baselineName, options);
 }
 
-/**
- * Update a baseline image
- * @param image New baseline image buffer
- * @param baselineName Name of the baseline (without extension)
- */
-export function updateBaseline(image: Buffer, baselineName: string): void {
-    const baselineDir = path.join(__dirname, '../fixtures/baselines');
-    if (!fs.existsSync(baselineDir)) {
-        fs.mkdirSync(baselineDir, { recursive: true });
-    }
-    const baselinePath = path.join(baselineDir, `${baselineName}.png`);
-    fs.writeFileSync(baselinePath, image);
-    console.log(`Updated baseline: ${baselinePath}`);
-}
 
-/**
- * Get all baseline names
- * @returns Array of baseline names (without extensions)
- */
-export function getBaselineNames(): string[] {
-    const baselineDir = path.join(__dirname, '../fixtures/baselines');
-    if (!fs.existsSync(baselineDir)) {
-        return [];
-    }
-    return fs.readdirSync(baselineDir)
-        .filter(f => f.endsWith('.png'))
-        .map(f => f.replace('.png', ''));
-}
-
-/**
- * Delete a baseline
- * @param baselineName Name of the baseline (without extension)
- */
-export function deleteBaseline(baselineName: string): boolean {
-    const baselinePath = path.join(__dirname, '../fixtures/baselines', `${baselineName}.png`);
-    if (fs.existsSync(baselinePath)) {
-        fs.unlinkSync(baselinePath);
-        return true;
-    }
-    return false;
-}
-
-/**
- * Clean up all diff images
- */
 export interface ContentBounds {
     top: number;
     left: number;
@@ -260,12 +216,3 @@ export function getImageDimensions(imageBuffer: Buffer): { width: number; height
     return { width: png.width, height: png.height };
 }
 
-export function cleanupDiffs(): void {
-    const diffDir = path.join(__dirname, '../fixtures/visual-diffs');
-    if (fs.existsSync(diffDir)) {
-        const files = fs.readdirSync(diffDir);
-        for (const file of files) {
-            fs.unlinkSync(path.join(diffDir, file));
-        }
-    }
-}

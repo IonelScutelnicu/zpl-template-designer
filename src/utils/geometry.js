@@ -70,19 +70,3 @@ export function getElementBoundsResolved(element, labelSettings) {
   return element.getBounds();
 }
 
-/**
- * Safely get element bounds, handling elements without getBounds method
- * @param {Object} element - Element to get bounds for
- * @returns {Object} Bounds {x, y, width, height}
- */
-export function getElementBoundsSafe(element) {
-  if (element && typeof element.getBounds === "function") {
-    return element.getBounds();
-  }
-  return {
-    x: element?.x || 0,
-    y: element?.y || 0,
-    width: element?.width || 0,
-    height: element?.height || 0
-  };
-}

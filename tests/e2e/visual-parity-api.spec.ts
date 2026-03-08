@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, Canvas, PreviewPanel, PropertiesPanel } from '../page-objects';
+import { ElementsPanel, Canvas, PreviewPanel } from '../page-objects';
 import { compareImages, findContentBounds, getImageDimensions } from '../fixtures/image-comparison';
 
 /**

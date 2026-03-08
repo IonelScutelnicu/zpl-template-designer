@@ -15,11 +15,6 @@ test.describe('Visual Regression Tests', () => {
         await canvas.waitForReady();
     });
 
-    test.afterAll(() => {
-        // Optional: Clean up diff images after test run
-        // cleanupDiffs();
-    });
-
     // ============== CANVAS RENDERING BASELINES ==============
     test.describe('Canvas Rendering - Element Type Baselines', () => {
         test('should render empty canvas consistently', async () => {

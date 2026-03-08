@@ -1,7 +1,7 @@
 // Application imports
 import { CanvasRenderer } from './canvas-renderer.js';
 import { InteractionHandler } from './interaction-handler.js';
-import { HISTORY_LIMIT, BUILTIN_FONTS, FONT_LABELS } from './config/constants.js';
+import { BUILTIN_FONTS } from './config/constants.js';
 import { AppState } from './state/AppState.js';
 import { ElementService } from './services/ElementService.js';
 import { AlignmentService } from './services/AlignmentService.js';
@@ -78,14 +78,6 @@ function setSectionState(elementType, sectionTitle, isOpen) {
     localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(state));
   } catch (error) {
     console.warn('Failed to save section state to localStorage:', error);
-  }
-}
-
-function clearSectionStates() {
-  try {
-    localStorage.removeItem(SECTION_STATE_KEY);
-  } catch (error) {
-    console.warn('Failed to clear section states from localStorage:', error);
   }
 }
 

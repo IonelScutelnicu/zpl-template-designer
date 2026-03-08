@@ -23,10 +23,3 @@ export async function waitForRateLimit(): Promise<void> {
     lastApiCall = Date.now();
 }
 
-/**
- * Reset the rate limiter state.
- * Useful for testing or when starting a fresh batch of API calls.
- */
-export function resetRateLimiter(): void {
-    lastApiCall = 0;
-}
