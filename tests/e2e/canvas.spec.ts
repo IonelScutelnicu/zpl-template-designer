@@ -200,6 +200,16 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             expect(await elementsPanel.getElementCount()).toBe(2);
         });
 
+        test('should duplicate element with Ctrl+D', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+            expect(await elementsPanel.getElementCount()).toBe(1);
+
+            await page.keyboard.press('Control+d');
+
+            expect(await elementsPanel.getElementCount()).toBe(2);
+        });
+
         test('should undo element addition with Ctrl+Z', async ({ page }) => {
             await elementsPanel.addTextElement();
             expect(await elementsPanel.getElementCount()).toBe(1);

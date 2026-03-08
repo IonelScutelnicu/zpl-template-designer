@@ -644,6 +644,18 @@ export class InteractionHandler {
       return;
     }
 
+    if (isModifier && key === 'd') {
+      e.preventDefault();
+      const selectedElement = this.callbacks.getSelectedElement();
+      if (selectedElement && this.callbacks.serializeElement && this.callbacks.pasteElement) {
+        const data = this.callbacks.serializeElement(selectedElement);
+        if (data) {
+          this.callbacks.pasteElement(data);
+        }
+      }
+      return;
+    }
+
 
     // Handle Tab key for element navigation
     if (e.key === 'Tab') {
