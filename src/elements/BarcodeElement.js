@@ -14,23 +14,24 @@ export class BarcodeElement extends ZPLElement {
     }
 
     render() {
-        // ZPL format: ^FOx,y^BYwidth,ratio^BCN,height,f^FDdata^FS
+        // ZPL format: ^FOx,y^BYwidth,ratio^BCN,height,f^FD>:data^FS
         // ^FO - Field Origin (position)
         // ^BY - Barcode field defaults (width multiplier, ratio)
         // ^BCN - Code 128 barcode (N = normal orientation)
         // h - height
         // f - print interpretation line (Y/N)
         // ^FD - Field Data (uses placeholder for template)
+        //   >: - Code 128 Subset B start character (standard ASCII)
         // ^FS - Field Separator
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewData;
         const interpretation = this.showText ? 'Y' : 'N';
-        return `^FO${this.x},${this.y}^BY${this.width},${this.ratio}^BCN,${this.height},${interpretation}^FD${content}^FS`;
+        return `^FO${this.x},${this.y}^BY${this.width},${this.ratio}^BCN,${this.height},${interpretation}^FD>:${content}^FS`;
     }
 
     renderPreview() {
         // Uses preview data for Labelary API visualization
         const interpretation = this.showText ? 'Y' : 'N';
-        return `^FO${this.x},${this.y}^BY${this.width},${this.ratio}^BCN,${this.height},${interpretation}^FD${this.previewData}^FS`;
+        return `^FO${this.x},${this.y}^BY${this.width},${this.ratio}^BCN,${this.height},${interpretation}^FD>:${this.previewData}^FS`;
     }
 
     getDisplayName() {

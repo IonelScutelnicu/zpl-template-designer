@@ -222,7 +222,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should update barcode data and reflect in ZPL output', async () => {
             await propertiesPanel.setProperty('prop-preview-data', '1234567890');
-            await zplOutput.verifyZPLContains('^FD1234567890^FS');
+            await zplOutput.verifyZPLContains('^FD>:1234567890^FS');
         });
 
         test('should update barcode height and reflect in ^BC command', async () => {

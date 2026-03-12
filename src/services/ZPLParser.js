@@ -6,7 +6,7 @@
  */
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'PQ', 'FO', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
+  'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE'
 ]);
 
@@ -151,6 +151,25 @@ export class ZPLParser {
           y: parseInt(parts[1]) || 0,
           commands: []
         };
+        continue;
+      }
+
+      // ^FT (Field Typeset) is treated as ^FO (Field Origin)
+      // ^FT uses bottom-left origin while ^FO uses top-left, so positions may need adjustment
+      if (token.command === 'FT') {
+        const parts = token.params.split(',');
+        state.currentGroup = {
+          x: parseInt(parts[0]) || 0,
+          y: parseInt(parts[1]) || 0,
+          commands: []
+        };
+        if (!state.ftWarningAdded) {
+          state.warnings.push({
+            command: '^FT',
+            message: '^FT (Field Typeset) was converted to ^FO (Field Origin). Position may need adjustment — ^FT uses bottom-left origin while ^FO uses top-left.'
+          });
+          state.ftWarningAdded = true;
+        }
         continue;
       }
 
@@ -523,11 +542,14 @@ export class ZPLParser {
 
     const { text, placeholder } = this._parseFieldData(fdToken);
 
+    // Strip Code 128 Subset B start character (>:) if present at the beginning
+    const cleanText = text.startsWith('>:') ? text.slice(2) : text;
+
     return {
       type: 'BARCODE',
       x: group.x,
       y: group.y,
-      previewData: text,
+      previewData: cleanText,
       placeholder,
       height,
       width,
