@@ -17,9 +17,10 @@ export function clampNumber(value, min, max) {
  * @returns {Object} Label dimensions {width, height} in dots
  */
 export function getLabelSizeDots(labelSettings) {
+  const actualDpi = Math.floor(labelSettings.dpmm * 25.4);
   return {
-    width: Math.round(labelSettings.width * labelSettings.dpmm),
-    height: Math.round(labelSettings.height * labelSettings.dpmm)
+    width: Math.floor((labelSettings.width / 25.4) * actualDpi),
+    height: Math.floor((labelSettings.height / 25.4) * actualDpi)
   };
 }
 

@@ -360,10 +360,11 @@ test.describe('Canvas Context Menu', () => {
             const element = window.appState.elements[0];
             // @ts-ignore
             const labelSettings = window.appState.labelSettings;
+            const actualDpi = Math.floor(labelSettings.dpmm * 25.4);
             return {
                 x: element.x,
                 width: element.width,
-                labelWidth: labelSettings.width * labelSettings.dpmm
+                labelWidth: Math.floor((labelSettings.width / 25.4) * actualDpi)
             };
         });
 
@@ -387,10 +388,11 @@ test.describe('Canvas Context Menu', () => {
             const element = window.appState.elements[0];
             // @ts-ignore
             const labelSettings = window.appState.labelSettings;
+            const actualDpi = Math.floor(labelSettings.dpmm * 25.4);
             return {
                 y: element.y,
                 height: element.height,
-                labelHeight: labelSettings.height * labelSettings.dpmm
+                labelHeight: Math.floor((labelSettings.height / 25.4) * actualDpi)
             };
         });
 

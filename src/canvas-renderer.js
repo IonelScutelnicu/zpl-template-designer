@@ -53,9 +53,10 @@ export class CanvasRenderer {
     this.printOrientation = printOrientation;
     this.printMirror = printMirror;
 
-    // Calculate label dimensions in dots
-    const labelWidthDots = width * dpmm;
-    const labelHeightDots = height * dpmm;
+    // Calculate label dimensions in dots (match Labelary's internal integer DPI)
+    const actualDpi = Math.floor(dpmm * 25.4);
+    const labelWidthDots = Math.floor((width / 25.4) * actualDpi);
+    const labelHeightDots = Math.floor((height / 25.4) * actualDpi);
 
     // Store label dimensions for coordinate conversion
     this.labelWidthDots = labelWidthDots;

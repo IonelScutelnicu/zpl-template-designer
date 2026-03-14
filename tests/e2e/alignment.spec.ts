@@ -19,8 +19,10 @@ import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
  */
 
 // Label size in dots for default 100mm × 50mm @ 8dpmm
-const LABEL_WIDTH = 800;
-const LABEL_HEIGHT = 400;
+// Labelary uses integer DPI: floor(8 * 25.4) = 203
+// width = floor((100 / 25.4) * 203) = 799, height = floor((50 / 25.4) * 203) = 399
+const LABEL_WIDTH = 799;
+const LABEL_HEIGHT = 399;
 
 test.describe('Alignment Features', () => {
     let elementsPanel: ElementsPanel;
@@ -298,9 +300,9 @@ test.describe('Alignment Features', () => {
 
             await clickAlignment(page, 'match-width');
 
-            // ZPL should contain ^FO0, (x reset) and ^GB800, (full label width)
+            // ZPL should contain ^FO0, (x reset) and ^GB799, (full label width)
             await zplOutput.verifyZPLContains('^FO0,');
-            await zplOutput.verifyZPLContains('^GB800,');
+            await zplOutput.verifyZPLContains('^GB799,');
         });
 
         test('should be disabled for Text elements', async ({ page }) => {
@@ -371,10 +373,10 @@ test.describe('Alignment Features', () => {
 
             await clickAlignment(page, 'match-height');
 
-            // match-height sets y=0 and height=400 (does NOT change x)
-            // Default element x=50, so ZPL should contain ^FO50,0 and ,400,
+            // match-height sets y=0 and height=399 (does NOT change x)
+            // Default element x=50, so ZPL should contain ^FO50,0 and ,399,
             await zplOutput.verifyZPLContains('^FO50,0');
-            await zplOutput.verifyZPLContains(',400,');
+            await zplOutput.verifyZPLContains(',399,');
         });
 
         test('should be disabled for Text elements', async ({ page }) => {

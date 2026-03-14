@@ -20,8 +20,9 @@ export class SmartGuideService {
    * @returns {Object} { guides: [{axis, position, type}], snapX: number|null, snapY: number|null }
    */
   detectGuides(dragElement, proposedX, proposedY, allElements, labelSettings, renderer) {
-    const labelW = Math.round(labelSettings.width * labelSettings.dpmm);
-    const labelH = Math.round(labelSettings.height * labelSettings.dpmm);
+    const actualDpi = Math.floor(labelSettings.dpmm * 25.4);
+    const labelW = Math.floor((labelSettings.width / 25.4) * actualDpi);
+    const labelH = Math.floor((labelSettings.height / 25.4) * actualDpi);
 
     // Get bounds of the dragged element at the proposed position
     const dragBounds = this._getBoundsAtPosition(dragElement, proposedX, proposedY, labelSettings, renderer);

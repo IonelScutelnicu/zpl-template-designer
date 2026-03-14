@@ -227,10 +227,10 @@ test.describe('ZPL Output - Generation and Validation', () => {
 
         test('should update ^PW when dpmm is changed', async ({ page }) => {
             // label-dpmm is a SELECT in Label Setup (open by default); select 12 dpmm
-            // Default label width is 100mm; 100 * 12 = 1200 dots
+            // Default label width is 100mm; floor((100/25.4) * floor(12*25.4)) = floor((100/25.4)*304) = 1196 dots
             await page.locator('#label-dpmm').selectOption('12');
             const zpl = await zplOutput.getZPLCode();
-            expect(zpl).toContain('^PW1200');
+            expect(zpl).toContain('^PW1196');
         });
 
         test('should include slew speed in ^PR when changed', async ({ page }) => {
