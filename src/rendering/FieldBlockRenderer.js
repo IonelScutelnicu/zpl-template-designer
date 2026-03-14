@@ -2,6 +2,7 @@
 // Renders FIELDBLOCK elements on canvas with word wrapping and justification
 
 import { ZPL_FONTS } from '../config/constants.js';
+import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 
 /**
  * Renderer for FIELDBLOCK elements
@@ -79,7 +80,7 @@ export class FieldBlockRenderer {
     const maxLines = element.maxLines || lines.length;
     // Line spacing is only between lines, not after the last line
     const lineSpacing = (element.lineSpacing || 0) * scale;
-    const baseLineHeight = fontSize * 1.2;
+    const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
     const lineHeight = baseLineHeight + lineSpacing;
     const blockHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
 

@@ -278,8 +278,8 @@ test.describe('Drag - Element Position', () => {
         const blockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
         const maxLines = parseInt(await propertiesPanel.getProperty('prop-max-lines'));
         // FIELDBLOCK only has a bottom-right corner handle
-        // Height = fontSize(default 20) * 1.2 * maxLines
-        const fieldBlockHeight = 20 * 1.2 * maxLines;
+        // Height = fontSize(default 20) * maxLines (LINE_HEIGHT_RATIO = 1.0)
+        const fieldBlockHeight = 20 * maxLines;
 
         // Drag the bottom-right resize handle outward
         await resizeAndWait(page, x + blockWidth, y + fieldBlockHeight, x + blockWidth + 80, y + fieldBlockHeight);
@@ -300,7 +300,7 @@ test.describe('Drag - Element Position', () => {
         const blockWidth = parseInt(await propertiesPanel.getProperty('prop-block-width'));
         const maxLines = parseInt(await propertiesPanel.getProperty('prop-max-lines'));
         // FIELDBLOCK only has a bottom-right corner handle
-        const fieldBlockHeight = 20 * 1.2 * maxLines;
+        const fieldBlockHeight = 20 * maxLines;
 
         await resizeAndCancelWithEsc(page, x + blockWidth, y + fieldBlockHeight, x + blockWidth + 80, y + fieldBlockHeight);
 

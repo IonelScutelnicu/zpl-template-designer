@@ -2,6 +2,7 @@
 // Orchestrates rendering of all element types on HTML5 Canvas
 
 import { ZPL_FONTS } from './config/constants.js';
+import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
@@ -341,7 +342,7 @@ export class CanvasRenderer {
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
       // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolvedHeight * 1.2;
+      const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
       const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;

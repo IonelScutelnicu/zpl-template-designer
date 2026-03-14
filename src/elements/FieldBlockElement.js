@@ -1,4 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
+import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 
 // Field Block Element Class
 export class FieldBlockElement extends ZPLElement {
@@ -63,7 +64,7 @@ export class FieldBlockElement extends ZPLElement {
         const maxLines = this.maxLines || 1;
         const lineSpacing = this.lineSpacing || 0;
         // Base line height times number of lines, plus line spacing between lines (maxLines - 1)
-        const baseLineHeight = fontSize * 1.2;
+        const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
         const blockH = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1) + 10;
 
         let width = blockW;

@@ -1,6 +1,8 @@
 // ZPL Generator Service
 // Handles generation of ZPL command strings from elements and label settings
 
+import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
+
 /**
  * Service for generating ZPL (Zebra Programming Language) output
  */
@@ -178,7 +180,7 @@ export class ZPLGenerator {
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
       // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolvedHeight * 1.2;
+      const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
       boxHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     } else if (element.type === 'TEXT') {
       const text = element.previewText || '';

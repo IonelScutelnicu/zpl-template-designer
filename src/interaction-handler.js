@@ -5,6 +5,7 @@ import {
   calculateQRVersion,
   qrVersionToModules
 } from './elements/QRCodeElement.js';
+import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -150,7 +151,7 @@ export class InteractionHandler {
             const maxLines = selectedElement.maxLines || 1;
             const lineSpacing = selectedElement.lineSpacing || 0;
             // Line spacing is only between lines, not after the last line
-            const baseLineHeight = fontSize * 1.2;
+            const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
             this.resizeStartHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
           } else {
             this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
@@ -223,7 +224,7 @@ export class InteractionHandler {
         // FIELDBLOCK only supports bottom-right resize
         const fontSize = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
         const lineSpacing = this.dragElement.lineSpacing || 0;
-        const baseLineHeight = fontSize * 1.2;
+        const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
         const minHeight = baseLineHeight; // Minimum height is one line
         const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
         // When rotated, visual width comes from Y axis, visual height from X axis
@@ -873,7 +874,7 @@ export class InteractionHandler {
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
       // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolvedHeight * 1.2;
+      const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
       const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
       const blockW = element.blockWidth || 200;
       if (element.orientation === 'R' || element.orientation === 'B') {

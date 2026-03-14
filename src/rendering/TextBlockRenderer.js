@@ -2,6 +2,7 @@
 // Renders TEXTBLOCK elements on canvas with word wrapping and truncation
 
 import { ZPL_FONTS } from '../config/constants.js';
+import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 
 /**
  * Renderer for TEXTBLOCK elements (^TB command)
@@ -68,7 +69,7 @@ export class TextBlockRenderer {
     }
 
     // ^TB truncates text that exceeds the block height
-    const baseLineHeight = fontSize * 1.2;
+    const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
     const maxVisibleLines = Math.max(1, Math.floor(blockHeight / baseLineHeight));
     const visibleLines = lines.slice(0, maxVisibleLines);
 

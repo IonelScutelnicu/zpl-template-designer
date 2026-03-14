@@ -1,7 +1,7 @@
 // Alignment Service
 // Handles element alignment calculations and operations
 
-import { getLabelSizeDots, getElementBoundsResolved } from '../utils/geometry.js';
+import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { clampNumber } from '../utils/geometry.js';
 
 /**
@@ -75,10 +75,26 @@ export class AlignmentService {
         }
         break;
 
-      case 'FIELDBLOCK':
-      case 'TEXTBLOCK':
-        element.blockWidth = labelSize.width;
+      case 'FIELDBLOCK': {
+        const isRotated = this._isRotated(element);
+        if (isRotated) {
+          // Rotated: visual width = totalHeight (from maxLines), so adjust maxLines
+          this.matchFieldBlockHeight(element, labelSize, labelSettings, 'width');
+        } else {
+          element.blockWidth = labelSize.width;
+        }
         break;
+      }
+
+      case 'TEXTBLOCK': {
+        const isRotated = this._isRotated(element);
+        if (isRotated) {
+          element.blockHeight = labelSize.width;
+        } else {
+          element.blockWidth = labelSize.width;
+        }
+        break;
+      }
 
       case 'BARCODE':
         this.matchBarcodeWidth(element, labelSize);
@@ -125,13 +141,27 @@ export class AlignmentService {
         this.matchQRCodeSize(element, labelSize, 'height');
         break;
 
-      case 'FIELDBLOCK':
-        this.matchFieldBlockHeight(element, labelSize, labelSettings);
+      case 'FIELDBLOCK': {
+        const isRotated = this._isRotated(element);
+        if (isRotated) {
+          // Rotated: visual height = blockWidth, so set blockWidth to label height
+          element.blockWidth = labelSize.height;
+        } else {
+          this.matchFieldBlockHeight(element, labelSize, labelSettings);
+        }
         break;
+      }
 
-      case 'TEXTBLOCK':
-        element.blockHeight = labelSize.height;
+      case 'TEXTBLOCK': {
+        const isRotated = this._isRotated(element);
+        if (isRotated) {
+          // Rotated: visual height = blockWidth, so set blockWidth to label height
+          element.blockWidth = labelSize.height;
+        } else {
+          element.blockHeight = labelSize.height;
+        }
         break;
+      }
 
       case 'TEXT':
         this.matchTextHeight(element, labelSize, labelSettings);
@@ -141,6 +171,14 @@ export class AlignmentService {
         element.height = labelSize.height;
         break;
     }
+  }
+
+  /**
+   * Check if element has a rotated orientation (90° or 270°)
+   * When rotated, visual width/height are swapped relative to blockWidth/blockHeight
+   */
+  _isRotated(element) {
+    return element.orientation === 'R' || element.orientation === 'B';
   }
 
   /**
@@ -190,10 +228,20 @@ export class AlignmentService {
 
   /**
    * Match field block height by adjusting max lines
+   * Uses the same height formula as getElementBoundsResolved:
+   *   totalHeight = baseLineHeight * maxLines + lineSpacing * (maxLines - 1)
+   *   where baseLineHeight = fontSize * LINE_HEIGHT_RATIO
+   * @param {string} [dimension='height'] - Which label dimension to fill ('width' or 'height')
    */
-  matchFieldBlockHeight(element, labelSize, labelSettings) {
+  matchFieldBlockHeight(element, labelSize, labelSettings, dimension = 'height') {
     const fontSize = element.fontSize || labelSettings.defaultFontHeight || 30;
-    const estimatedLines = Math.max(1, Math.round(labelSize.height / fontSize));
+    const lineSpacing = element.lineSpacing || 0;
+    const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
+    const targetSize = dimension === 'width' ? labelSize.width : labelSize.height;
+    // Solve: baseLineHeight * n + lineSpacing * (n - 1) <= targetSize
+    // => n * (baseLineHeight + lineSpacing) <= targetSize + lineSpacing
+    // => n <= (targetSize + lineSpacing) / (baseLineHeight + lineSpacing)
+    const estimatedLines = Math.max(1, Math.floor((targetSize + lineSpacing) / (baseLineHeight + lineSpacing)));
     element.maxLines = clampNumber(estimatedLines, 1, 9999);
   }
 

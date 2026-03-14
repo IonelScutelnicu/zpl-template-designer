@@ -1,6 +1,14 @@
 // Geometry and Math Utilities for ZPL Template Creator
 
 /**
+ * Line height multiplier for FieldBlock/TextBlock rendering.
+ * Each line of text occupies fontSize * LINE_HEIGHT_RATIO dots vertically.
+ * In ZPL, the line height equals the font height (no extra leading),
+ * so this is 1.0 to match actual printer/Labelary output.
+ */
+export const LINE_HEIGHT_RATIO = 1.0;
+
+/**
  * Clamp a number between min and max values
  * @param {number} value - Value to clamp
  * @param {number} min - Minimum value
@@ -44,7 +52,7 @@ export function getElementBoundsResolved(element, labelSettings) {
     const maxLines = element.maxLines || 1;
     const lineSpacing = element.lineSpacing || 0;
     // Line spacing is only between lines, not after the last line
-    const baseLineHeight = resolvedHeight * 1.2;
+    const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
     const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     const blockWidth = element.blockWidth || 200;
     if (element.orientation === 'R' || element.orientation === 'B') {

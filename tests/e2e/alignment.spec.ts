@@ -281,6 +281,39 @@ test.describe('Alignment Features', () => {
             await propertiesPanel.verifyPropertyValue('prop-x', 0);
         });
 
+        test('should adjust maxLines for rotated FieldBlock match-width (orientation R)', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            // Set orientation to R (90°)
+            await page.locator('[data-orientation="R"]').click();
+            await propertiesPanel.setProperty('prop-x', 50);
+
+            await clickAlignment(page, 'match-width');
+
+            // Rotated: visual width = totalHeight (from maxLines × baseLineHeight)
+            // So match-width adjusts maxLines to fill label width
+            // baseLineHeight = fontSize * LINE_HEIGHT_RATIO = 20 * 1.0 = 20; floor(799 / 20) = 39
+            const expectedLines = Math.floor(LABEL_WIDTH / 20);
+            await propertiesPanel.verifyPropertyValue('prop-max-lines', expectedLines);
+            await propertiesPanel.verifyPropertyValue('prop-x', 0);
+        });
+
+        test('should set blockHeight for rotated TextBlock match-width (orientation B)', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            // Set orientation to B (270°)
+            await page.locator('[data-orientation="B"]').click();
+            await propertiesPanel.setProperty('prop-x', 50);
+
+            await clickAlignment(page, 'match-width');
+
+            // Rotated: visual width = blockHeight, so set blockHeight = label width
+            await propertiesPanel.verifyPropertyValue('prop-block-height', LABEL_WIDTH);
+            await propertiesPanel.verifyPropertyValue('prop-x', 0);
+        });
+
         test('should expand Circle width to match label width', async ({ page }) => {
             await elementsPanel.addCircleElement();
             await elementsPanel.selectElementByIndex(0);
@@ -364,6 +397,36 @@ test.describe('Alignment Features', () => {
 
             // Circle height = label height (400), y = 0
             await propertiesPanel.verifyPropertyValue('prop-height', LABEL_HEIGHT);
+            await propertiesPanel.verifyPropertyValue('prop-y', 0);
+        });
+
+        test('should set blockWidth for rotated FieldBlock match-height (orientation R)', async ({ page }) => {
+            await elementsPanel.addFieldBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            // Set orientation to R (90°)
+            await page.locator('[data-orientation="R"]').click();
+            await propertiesPanel.setProperty('prop-y', 50);
+
+            await clickAlignment(page, 'match-height');
+
+            // Rotated: visual height = blockWidth, so set blockWidth = label height
+            await propertiesPanel.verifyPropertyValue('prop-block-width', LABEL_HEIGHT);
+            await propertiesPanel.verifyPropertyValue('prop-y', 0);
+        });
+
+        test('should set blockWidth for rotated TextBlock match-height (orientation B)', async ({ page }) => {
+            await elementsPanel.addTextBlockElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            // Set orientation to B (270°)
+            await page.locator('[data-orientation="B"]').click();
+            await propertiesPanel.setProperty('prop-y', 50);
+
+            await clickAlignment(page, 'match-height');
+
+            // Rotated: visual height = blockWidth, so set blockWidth = label height
+            await propertiesPanel.verifyPropertyValue('prop-block-width', LABEL_HEIGHT);
             await propertiesPanel.verifyPropertyValue('prop-y', 0);
         });
 
