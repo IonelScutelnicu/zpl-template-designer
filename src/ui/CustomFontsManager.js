@@ -33,6 +33,11 @@ export class CustomFontsManager {
       return null;
     }
 
+    if (!/^[\w\-. ]+$/.test(trimmedFile)) {
+      this.showError("Font file name contains invalid characters");
+      return null;
+    }
+
     if (this.builtinFonts.includes(trimmedId)) {
       this.showError(`Font ID '${trimmedId}' is a built-in font and cannot be overridden`);
       return null;
@@ -70,8 +75,13 @@ export class CustomFontsManager {
    * @returns {Array} - New fonts array
    */
   updateFile(fontId, newFontFile, existingFonts) {
+    const trimmed = newFontFile.trim();
+    if (!/^[\w\-. ]+$/.test(trimmed)) {
+      this.showError("Font file name contains invalid characters");
+      return existingFonts;
+    }
     return existingFonts.map(f =>
-      f.id === fontId ? { ...f, fontFile: newFontFile } : f
+      f.id === fontId ? { ...f, fontFile: trimmed } : f
     );
   }
 
@@ -89,11 +99,11 @@ export class CustomFontsManager {
 
     this.elements.list.innerHTML = customFonts.map(font => `
       <div class="flex items-center gap-2 bg-slate-50 rounded px-2 py-1.5 border border-slate-100">
-        <span class="font-mono font-bold text-blue-600 w-6">${font.id}</span>
+        <span class="font-mono font-bold text-blue-600 w-6">${this.escapeHtml(font.id)}</span>
         <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
-          data-font-id="${font.id}" title="${font.fontFile} (click to edit)">${font.fontFile}</span>
+          data-font-id="${this.escapeHtml(font.id)}" title="${this.escapeHtml(font.fontFile)} (click to edit)">${this.escapeHtml(font.fontFile)}</span>
         <button class="remove-custom-font text-slate-400 hover:text-red-500 transition-colors p-0.5"
-          data-font-id="${font.id}" title="Remove">
+          data-font-id="${this.escapeHtml(font.id)}" title="Remove">
           <span class="material-icons-round text-sm">close</span>
         </button>
       </div>

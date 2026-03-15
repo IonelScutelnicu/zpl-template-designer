@@ -168,8 +168,10 @@ export class SerializationService {
 
     if (!element) return null;
 
-    // Copy all properties from data to element
-    Object.assign(element, data);
+    // Copy only own properties from data to element (prevents prototype pollution)
+    for (const key of Object.keys(data)) {
+      element[key] = data[key];
+    }
 
     // Generate new ID if not keeping original
     if (!keepId) {
