@@ -5,6 +5,10 @@ export const test = base.extend<{}>({
     page: async ({ page }, use) => {
         await page.setViewportSize({ width: 1920, height: 1080 });
         await setupLabelaryCacheInterceptor(page);
+        // Skip onboarding walkthrough in tests
+        await page.addInitScript(() => {
+            localStorage.setItem('zebra-walkthrough-complete', '1');
+        });
         await use(page);
     },
 });

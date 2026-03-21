@@ -21,6 +21,7 @@ import { ZPLParser } from './services/ZPLParser.js';
 import { UrlShareService } from './services/UrlShareService.js';
 import { SmartGuideService } from './services/SmartGuideService.js';
 import { ContextMenu } from './ui/ContextMenu.js';
+import { OnboardingWalkthrough } from './ui/OnboardingWalkthrough.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -780,6 +781,11 @@ export function initApp() {
       urlShareService.clearUrlTemplate();
     });
   }
+
+  // Initialize onboarding walkthrough
+  const walkthrough = new OnboardingWalkthrough();
+  walkthrough.init();
+  document.getElementById('tour-btn').addEventListener('click', () => walkthrough.start());
 
   // Expose internals for automated tests only
   const isE2E = typeof window !== 'undefined' && (

@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data: https://api.labelary.com; connect-src 'self' https://api.labelary.com;" />
   <title>ZPL Template Creator</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Condensed:wght@700&display=swap"
     rel="stylesheet">
@@ -148,6 +148,40 @@
       visibility: visible;
     }
 
+    /* Onboarding walkthrough */
+    .walkthrough-spotlight {
+      position: fixed;
+      z-index: 10000;
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+
+    .walkthrough-popover {
+      position: fixed;
+      z-index: 10001;
+      background: white;
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.3);
+      max-width: 340px;
+      width: 340px;
+      animation: walkthrough-fade-in 0.2s ease;
+    }
+
+    @keyframes walkthrough-fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .walkthrough-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: auto;
+    }
+
     .zpl-output {
       white-space: pre;
     }
@@ -206,6 +240,11 @@
         <!-- Right Section: Links & Actions -->
         <div class="flex shrink-0 items-center justify-end gap-5">
           <!-- Right Section removed Canvas + ZPL -->
+          <button id="tour-btn" data-tooltip="Replay guided tour"
+            class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors">
+            <span class="material-icons-round text-[16px]">help_outline</span>
+            Tour
+          </button>
           <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands.html" target="_blank"
             class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors">
             <span class="material-icons-round text-[16px]">menu_book</span>
