@@ -31,7 +31,7 @@ export class AppState {
       fontId: "0",             // ^CF default font identifier
       customFonts: [],         // Array of {id, fontFile} for ^CW commands
       defaultFontHeight: 20,   // ^CF default font height
-      defaultFontWidth: 20,    // ^CF default font width
+      defaultFontWidth: 0,     // ^CF default font width (0 = omit from ZPL)
       homeX: 0,                // ^LH x position
       homeY: 0,                // ^LH y position
       labelTop: 0,             // ^LT label top shift

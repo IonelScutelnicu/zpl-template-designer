@@ -38,7 +38,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should update font height and reflect in ZPL output', async () => {
             await propertiesPanel.setProperty('prop-font-size', 50);
-            await zplOutput.verifyZPLContains(',50,');
+            await zplOutput.verifyZPLContains(',50');
         });
 
         test('should update font width and reflect in ZPL output', async () => {
@@ -162,7 +162,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should update font height and reflect in ZPL output', async () => {
             await propertiesPanel.setProperty('prop-font-size', 40);
-            await zplOutput.verifyZPLContains(',40,');
+            await zplOutput.verifyZPLContains(',40');
         });
 
         test('should update font width and reflect in ZPL output', async () => {
@@ -569,7 +569,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toContain('^CF0,1,30');
         });
 
-        test('should clamp negative default font width to 1', async ({ page }) => {
+        test('should clamp negative default font width to 0 and omit from ZPL', async ({ page }) => {
             await page.locator('#default-font-height').fill('25');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('30');
@@ -579,7 +579,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await page.locator('#default-font-width').dispatchEvent('input');
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).not.toContain('-5');
-            expect(zpl).toContain('^CF0,25,1');
+            expect(zpl).toContain('^CF0,25');
+            expect(zpl).not.toContain('^CF0,25,');
         });
     });
 });

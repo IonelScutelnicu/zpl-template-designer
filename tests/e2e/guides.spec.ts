@@ -7,7 +7,10 @@ test.describe('Smart Guides', () => {
     let canvas: Canvas;
 
     test.beforeEach(async ({ page }) => {
-        await page.addInitScript(() => localStorage.clear());
+        await page.addInitScript(() => {
+            localStorage.clear();
+            localStorage.setItem('zebra-walkthrough-complete', '1');
+        });
         await page.goto('/?e2e=1');
         elementsPanel = new ElementsPanel(page);
         propertiesPanel = new PropertiesPanel(page);

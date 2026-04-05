@@ -23,7 +23,7 @@ export class ZPLGenerator {
       .map(element => element.render(
         labelSettings.fontId,
         labelSettings.defaultFontHeight || 20,
-        labelSettings.defaultFontWidth || 20
+        labelSettings.defaultFontWidth ?? 0
       ))
       .join('\n');
 
@@ -49,7 +49,7 @@ export class ZPLGenerator {
         let cmd = element.renderPreview(
           labelSettings.fontId,
           labelSettings.defaultFontHeight || 20,
-          labelSettings.defaultFontWidth || 20
+          labelSettings.defaultFontWidth ?? 0
         );
 
         // Optional: Add debug highlighting for selected text elements
@@ -89,7 +89,7 @@ export class ZPLGenerator {
       fontId = '0',
       customFonts = [],
       defaultFontHeight = 20,
-      defaultFontWidth = 20
+      defaultFontWidth = 0
     } = labelSettings;
 
     // Calculate print width in dots (match Labelary's internal integer DPI)
@@ -133,7 +133,9 @@ export class ZPLGenerator {
     }
 
     // Default font (^CF: id, height, width)
-    header += `^CF${fontId},${defaultFontHeight},${defaultFontWidth}\n`;
+    header += defaultFontWidth > 0
+      ? `^CF${fontId},${defaultFontHeight},${defaultFontWidth}\n`
+      : `^CF${fontId},${defaultFontHeight}\n`;
 
     return header;
   }
@@ -233,7 +235,7 @@ export class ZPLGenerator {
       const cmd = element.renderPreview(
         labelSettings.fontId,
         labelSettings.defaultFontHeight || 20,
-        labelSettings.defaultFontWidth || 20
+        labelSettings.defaultFontWidth ?? 0
       );
 
       const cmdBytes = encoder.encode(cmd).length;
@@ -261,7 +263,7 @@ export class ZPLGenerator {
    * @param {number} defaultFontWidth - Default font width
    * @returns {string} ZPL commands for element
    */
-  generateElementZPL(element, fontId, preview = false, defaultFontHeight = 20, defaultFontWidth = 20) {
+  generateElementZPL(element, fontId, preview = false, defaultFontHeight = 20, defaultFontWidth = 0) {
     return preview ?
       element.renderPreview(fontId, defaultFontHeight, defaultFontWidth) :
       element.render(fontId, defaultFontHeight, defaultFontWidth);

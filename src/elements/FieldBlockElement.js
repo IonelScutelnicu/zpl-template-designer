@@ -20,8 +20,8 @@ export class FieldBlockElement extends ZPLElement {
         this.orientation = orientation; // N, R, I, B
     }
 
-    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
-        // ZPL format: ^FOx,y^A{fontId}N,height,width^FBa,b,c,d,e^FDtext^FS
+    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+        // ZPL format: ^FOx,y^A{fontId}N,height[,width]^FBa,b,c,d,e^FDtext^FS
         // ^FO - Field Origin (position)
         // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
         // ^FB - Field Block
@@ -39,18 +39,20 @@ export class FieldBlockElement extends ZPLElement {
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
+        const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${content}^FS`;
     }
 
-    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
+    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
         // Uses preview text for Labelary API visualization
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
+        const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
         const previewContent = this.justification === 'C' ? `${this.previewText}\\&` : this.previewText;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${previewContent}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}^FD${previewContent}^FS`;
     }
 
     getDisplayName() {

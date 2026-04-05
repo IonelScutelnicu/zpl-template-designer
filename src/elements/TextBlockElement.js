@@ -16,22 +16,24 @@ export class TextBlockElement extends ZPLElement {
         this.orientation = orientation; // N, R, I, B
     }
 
-    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
-        // ZPL format: ^FOx,y[^FR]^A{fontId}{o},{h},{w}^TB{o},{blockW},{blockH}^FDtext^FS
+    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+        // ZPL format: ^FOx,y[^FR]^A{fontId}{o},{h}[,{w}]^TB{o},{blockW},{blockH}^FDtext^FS
         const fontId = this.fontId || defaultFontId;
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const reverseCmd = this.reverse ? '^FR' : '';
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^TB${this.orientation},${this.blockWidth},${this.blockHeight}^FD${content}^FS`;
+        const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}^FD${content}^FS`;
     }
 
-    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 20) {
+    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize},${fontWidth}^TB${this.orientation},${this.blockWidth},${this.blockHeight}^FD${this.previewText}^FS`;
+        const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}^FD${this.previewText}^FS`;
     }
 
     getDisplayName() {

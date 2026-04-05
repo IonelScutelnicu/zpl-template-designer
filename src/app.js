@@ -646,7 +646,7 @@ export function initApp() {
 
   defaultFontWidth.addEventListener("input", (e) => {
     const parsed = parseInt(e.target.value);
-    state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
+    state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 0 : Math.max(0, parsed) });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
@@ -883,7 +883,7 @@ function syncLabelSettingsInputs() {
   fontId.value = state.labelSettings.fontId;
   renderCustomFonts();
   defaultFontHeight.value = state.labelSettings.defaultFontHeight;
-  defaultFontWidth.value = state.labelSettings.defaultFontWidth;
+  defaultFontWidth.value = state.labelSettings.defaultFontWidth || '';
 }
 
 function addCustomFont() {
