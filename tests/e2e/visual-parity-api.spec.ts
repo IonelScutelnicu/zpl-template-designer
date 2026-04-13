@@ -77,6 +77,90 @@ test.describe('Visual Parity - Canvas vs API', () => {
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
+    test('should have similar rendering for Box with rounding=4 between canvas and API', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await page.locator('#prop-x').fill('50');
+        await page.locator('#prop-x').dispatchEvent('input');
+        await page.locator('#prop-y').fill('50');
+        await page.locator('#prop-y').dispatchEvent('input');
+        await page.locator('#prop-width').fill('200');
+        await page.locator('#prop-width').dispatchEvent('input');
+        await page.locator('#prop-height').fill('100');
+        await page.locator('#prop-height').dispatchEvent('input');
+        await page.locator('#prop-rounding').fill('4');
+        await page.locator('#prop-rounding').dispatchEvent('input');
+
+        const canvasImage = await canvas.takeScreenshot();
+
+        await previewPanel.switchToAPIMode();
+        await previewPanel.refreshPreview();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.previewImage.screenshot();
+
+        const result = await compareImages(canvasImage, apiImage, 'parity-box-rounded-4', { threshold: 0.3 });
+
+        console.log(`Box rounding=4 parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        expect(result.diffPercentage).toBeLessThan(50);
+    });
+
+    test('should have similar rendering for Box with rounding=8 between canvas and API', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await page.locator('#prop-x').fill('50');
+        await page.locator('#prop-x').dispatchEvent('input');
+        await page.locator('#prop-y').fill('50');
+        await page.locator('#prop-y').dispatchEvent('input');
+        await page.locator('#prop-width').fill('200');
+        await page.locator('#prop-width').dispatchEvent('input');
+        await page.locator('#prop-height').fill('100');
+        await page.locator('#prop-height').dispatchEvent('input');
+        await page.locator('#prop-rounding').fill('8');
+        await page.locator('#prop-rounding').dispatchEvent('input');
+
+        const canvasImage = await canvas.takeScreenshot();
+
+        await previewPanel.switchToAPIMode();
+        await previewPanel.refreshPreview();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.previewImage.screenshot();
+
+        const result = await compareImages(canvasImage, apiImage, 'parity-box-rounded-8', { threshold: 0.3 });
+
+        console.log(`Box rounding=8 parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        expect(result.diffPercentage).toBeLessThan(50);
+    });
+
+    test('should have similar rendering for Line with rounding=4 between canvas and API', async ({ page }) => {
+        await elementsPanel.addLineElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await page.locator('#prop-x').fill('50');
+        await page.locator('#prop-x').dispatchEvent('input');
+        await page.locator('#prop-y').fill('50');
+        await page.locator('#prop-y').dispatchEvent('input');
+        await page.locator('#prop-width').fill('200');
+        await page.locator('#prop-width').dispatchEvent('input');
+        await page.locator('#prop-thickness').fill('30');
+        await page.locator('#prop-thickness').dispatchEvent('input');
+        await page.locator('#prop-rounding').fill('4');
+        await page.locator('#prop-rounding').dispatchEvent('input');
+
+        const canvasImage = await canvas.takeScreenshot();
+
+        await previewPanel.switchToAPIMode();
+        await previewPanel.refreshPreview();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.previewImage.screenshot();
+
+        const result = await compareImages(canvasImage, apiImage, 'parity-line-rounded-4', { threshold: 0.3 });
+
+        console.log(`Line rounding=4 parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        expect(result.diffPercentage).toBeLessThan(50);
+    });
+
     test('should have similar rendering for Barcode element between canvas and API', async ({ page }) => {
         await elementsPanel.addBarcodeElement();
         await elementsPanel.selectElementByIndex(0);

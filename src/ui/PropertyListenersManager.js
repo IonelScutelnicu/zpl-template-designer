@@ -20,7 +20,12 @@ export class PropertyListenersManager {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-        element[field] = parser(e.target.value);
+        const parsed = parser(e.target.value);
+        element[field] = parsed;
+        // Reflect clamped/parsed value back to the input
+        if (String(parsed) !== e.target.value) {
+          e.target.value = parsed;
+        }
         this.callbacks.onPropertyChange(element);
       });
     };

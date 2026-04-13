@@ -121,6 +121,30 @@ test.describe('Visual Regression Tests', () => {
 
             expect(result.diffPercentage).toBeLessThan(5);
         });
+
+        test('should render Box element with max rounding consistently', async ({ page }) => {
+            await elementsPanel.addBoxElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-x').fill('60');
+            await page.locator('#prop-x').dispatchEvent('input');
+            await page.locator('#prop-y').fill('60');
+            await page.locator('#prop-y').dispatchEvent('input');
+            await page.locator('#prop-width').fill('150');
+            await page.locator('#prop-width').dispatchEvent('input');
+            await page.locator('#prop-height').fill('100');
+            await page.locator('#prop-height').dispatchEvent('input');
+            await page.locator('#prop-thickness').fill('3');
+            await page.locator('#prop-thickness').dispatchEvent('input');
+            await page.locator('#prop-rounding').fill('8');
+            await page.locator('#prop-rounding').dispatchEvent('input');
+
+            await canvas.waitForReady();
+            const screenshot = await canvas.takeScreenshot();
+            const result = await compareWithBaseline(screenshot, 'canvas-box-rounded', { threshold: 0.1 });
+
+            expect(result.diffPercentage).toBeLessThan(5);
+        });
     });
 
     // ============== ELEMENT POSITIONING ACCURACY ==============

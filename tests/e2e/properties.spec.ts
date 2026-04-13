@@ -314,6 +314,32 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toContain(',4');
         });
 
+        test('should clamp rounding to max value of 8', async () => {
+            await propertiesPanel.setProperty('prop-rounding', 15);
+            await propertiesPanel.verifyPropertyValue('prop-rounding', 8);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain(',8');
+        });
+
+        test('should clamp rounding to min value of 0', async () => {
+            await propertiesPanel.setProperty('prop-rounding', -3);
+            await propertiesPanel.verifyPropertyValue('prop-rounding', 0);
+            const zpl = await zplOutput.getZPLCode();
+            // Rounding 0 omits the parameter
+            expect(zpl).not.toMatch(/,\d+\^FS/);
+        });
+
+        test('should accept max rounding value 8 and reflect in ZPL', async () => {
+            await propertiesPanel.setProperty('prop-rounding', 8);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain(',8^FS');
+        });
+
+        test('should have rounding input with max attribute of 8', async ({ page }) => {
+            const max = await page.locator('#prop-rounding').getAttribute('max');
+            expect(max).toBe('8');
+        });
+
         test('should update color and reflect in ^GB command', async ({ page }) => {
             await page.locator('[data-color="W"]').click();
             await zplOutput.verifyZPLContains(',W');
@@ -369,6 +395,23 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await propertiesPanel.setProperty('prop-rounding', 4);
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain(',4');
+        });
+
+        test('should clamp rounding to max value of 8', async () => {
+            await propertiesPanel.setProperty('prop-rounding', 12);
+            await propertiesPanel.verifyPropertyValue('prop-rounding', 8);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain(',8');
+        });
+
+        test('should clamp rounding to min value of 0', async () => {
+            await propertiesPanel.setProperty('prop-rounding', -5);
+            await propertiesPanel.verifyPropertyValue('prop-rounding', 0);
+        });
+
+        test('should have rounding input with max attribute of 8', async ({ page }) => {
+            const max = await page.locator('#prop-rounding').getAttribute('max');
+            expect(max).toBe('8');
         });
     });
 
