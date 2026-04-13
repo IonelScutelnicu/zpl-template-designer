@@ -9,7 +9,7 @@ export class LineElement extends ZPLElement {
         this.thickness = thickness;
         this.orientation = orientation; // 'H' or 'V'
         this.color = color;
-        this.rounding = rounding;
+        this.rounding = Math.max(0, Math.min(8, rounding));
     }
 
     render() {

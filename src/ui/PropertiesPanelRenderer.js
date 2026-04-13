@@ -342,7 +342,7 @@ export class PropertiesPanelRenderer {
             </button>
           </div>
         </div>
-        ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
+        ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 8 })}
       `, { open: true, elementType: element.type })}
     `;
   }
@@ -382,7 +382,7 @@ export class PropertiesPanelRenderer {
             </button>
           </div>
         </div>
-        ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 32000 })}
+        ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 8 })}
       `, { open: true, elementType: element.type })}
     `;
   }

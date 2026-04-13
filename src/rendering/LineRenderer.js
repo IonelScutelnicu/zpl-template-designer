@@ -28,9 +28,9 @@ export class LineRenderer {
 
     const width = w * scale;
     const height = h * scale;
-    // Clamp rounding so it never exceeds half the shorter side, preventing self-intersecting paths
-    const rawRounding = (element.rounding || 0) * scale;
-    const rounding = Math.max(0, Math.min(rawRounding, Math.floor(Math.min(width, height) / 2)));
+    // ZPL formula: rounding-radius = (rounding-index / 8) * (shorter_side / 2)
+    const shorterSide = Math.min(width, height);
+    const rounding = Math.round(((element.rounding || 0) / 8) * (shorterSide / 2));
 
     const isWhite = element.color !== 'B';
     ctx.fillStyle = isWhite ? '#FFFFFF' : '#000000';

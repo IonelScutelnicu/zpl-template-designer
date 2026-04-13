@@ -608,7 +608,7 @@ export class ZPLParser {
     const gbHeight = parseInt(parts[1]) || 0;
     const gbThickness = parseInt(parts[2]) || 0;
     const color = (parts[3] || 'B').trim();
-    const rounding = parseInt(parts[4]) || 0;
+    const rounding = Math.max(0, Math.min(8, parseInt(parts[4]) || 0));
 
     // LINE detection: the app generates ^GB{w},{h},{min(w,h)},{color} for lines
     // BOX generates ^GB{w},{h},{thickness},{color} where thickness < min(w,h)

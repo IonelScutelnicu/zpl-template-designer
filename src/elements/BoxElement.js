@@ -9,7 +9,7 @@ export class BoxElement extends ZPLElement {
         this.height = height;
         this.thickness = thickness;
         this.color = color;
-        this.rounding = rounding;
+        this.rounding = Math.max(0, Math.min(8, rounding));
     }
 
     render() {

@@ -19,8 +19,9 @@ export class BoxRenderer {
     const width = element.width * scale;
     const height = element.height * scale;
     const thickness = element.thickness * scale;
-    const rawRounding = element.rounding * scale;
-    const rounding = Math.max(0, Math.min(rawRounding, Math.floor(Math.min(width, height) / 2)));
+    // ZPL formula: rounding-radius = (rounding-index / 8) * (shorter_side / 2)
+    const shorterSide = Math.min(width, height);
+    const rounding = Math.round((element.rounding / 8) * (shorterSide / 2));
 
     const isWhite = element.color !== 'B';
     ctx.strokeStyle = isWhite ? '#FFFFFF' : '#000000';

@@ -172,7 +172,7 @@ export class PropertyListenersManager {
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     this._attachColorToggle(element);
-    attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+    attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
   }
 
   /**
@@ -193,7 +193,7 @@ export class PropertyListenersManager {
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     attach("prop-orientation", "orientation");
     this._attachColorToggle(element);
-    attach("prop-rounding", "rounding", (v) => parseInt(v) || 0);
+    attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
   }
 
   /**
