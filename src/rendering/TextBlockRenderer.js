@@ -46,21 +46,46 @@ export class TextBlockRenderer {
 
     const text = element.previewText || '';
 
-    // Simple text wrapping - account for horizontal scaling when measuring
+    // Hard-break a word that exceeds maxWidth into character-level chunks
+    const breakWord = (word, maxWidth) => {
+      const chunks = [];
+      let chunk = '';
+      for (const char of word) {
+        const test = chunk + char;
+        if (chunk && ctx.measureText(test).width * scaleX > maxWidth) {
+          chunks.push(chunk);
+          chunk = char;
+        } else {
+          chunk = test;
+        }
+      }
+      if (chunk) chunks.push(chunk);
+      return chunks;
+    };
+
+    // Text wrapping with hard-break for long words
     const words = text.split(' ');
     const lines = [];
     let currentLine = '';
 
     words.forEach(word => {
       const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      const metrics = ctx.measureText(testLine);
-      const scaledWidth = metrics.width * scaleX;
+      const scaledWidth = ctx.measureText(testLine).width * scaleX;
 
       if (scaledWidth > blockWidth && currentLine) {
         lines.push(currentLine);
         currentLine = word;
       } else {
         currentLine = testLine;
+      }
+
+      // Hard-break current line if the single word still exceeds blockWidth
+      if (ctx.measureText(currentLine).width * scaleX > blockWidth) {
+        const chunks = breakWord(currentLine, blockWidth);
+        for (let i = 0; i < chunks.length - 1; i++) {
+          lines.push(chunks[i]);
+        }
+        currentLine = chunks[chunks.length - 1] || '';
       }
     });
 

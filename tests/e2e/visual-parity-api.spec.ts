@@ -203,6 +203,64 @@ test.describe('Visual Parity - Canvas vs API', () => {
         expect(result.diffPercentage).toBeLessThan(60);
     });
 
+    test('should have similar rendering for TextBlock with long word between canvas and API', async ({ page }) => {
+        await elementsPanel.addTextBlockElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await page.locator('#prop-x').fill('50');
+        await page.locator('#prop-x').dispatchEvent('input');
+        await page.locator('#prop-y').fill('50');
+        await page.locator('#prop-y').dispatchEvent('input');
+        await page.locator('#prop-block-width').fill('200');
+        await page.locator('#prop-block-width').dispatchEvent('input');
+        await page.locator('#prop-block-height').fill('200');
+        await page.locator('#prop-block-height').dispatchEvent('input');
+        // Long word without spaces — must be hard-split
+        await page.locator('#prop-preview-text').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+        await page.locator('#prop-preview-text').dispatchEvent('input');
+
+        const canvasImage = await canvas.takeScreenshot();
+
+        await previewPanel.switchToAPIMode();
+        await previewPanel.refreshPreview();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.previewImage.screenshot();
+
+        const result = await compareImages(canvasImage, apiImage, 'parity-textblock-long-word', { threshold: 0.3 });
+
+        console.log(`TextBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        expect(result.diffPercentage).toBeLessThan(50);
+    });
+
+    test('should have similar rendering for FieldBlock with long word between canvas and API', async ({ page }) => {
+        await elementsPanel.addFieldBlockElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await page.locator('#prop-x').fill('50');
+        await page.locator('#prop-x').dispatchEvent('input');
+        await page.locator('#prop-y').fill('50');
+        await page.locator('#prop-y').dispatchEvent('input');
+        await page.locator('#prop-block-width').fill('200');
+        await page.locator('#prop-block-width').dispatchEvent('input');
+        await page.locator('#prop-max-lines').fill('5');
+        await page.locator('#prop-max-lines').dispatchEvent('input');
+        // Long word without spaces — must be hard-split
+        await page.locator('#prop-preview-text').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+        await page.locator('#prop-preview-text').dispatchEvent('input');
+
+        const canvasImage = await canvas.takeScreenshot();
+
+        await previewPanel.switchToAPIMode();
+        await previewPanel.refreshPreview();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.previewImage.screenshot();
+
+        const result = await compareImages(canvasImage, apiImage, 'parity-fieldblock-long-word', { threshold: 0.3 });
+
+        console.log(`FieldBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        expect(result.diffPercentage).toBeLessThan(50);
+    });
+
     test('should have matching QR code bounding box between canvas and API', async ({ page }) => {
         // Label is 100mm x 50mm at 8dpmm = 800 x 400 dots
         const labelWidthDots = 800;

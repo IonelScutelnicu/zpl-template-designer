@@ -48,7 +48,24 @@ export class FieldBlockRenderer {
 
     const hangingIndentPx = (element.hangingIndent || 0) * scale;
 
-    // Simple text wrapping - account for horizontal scaling when measuring
+    // Hard-break a word that exceeds maxWidth into character-level chunks
+    const breakWord = (word, maxWidth) => {
+      const chunks = [];
+      let chunk = '';
+      for (const char of word) {
+        const test = chunk + char;
+        if (chunk && ctx.measureText(test).width * scaleX > maxWidth) {
+          chunks.push(chunk);
+          chunk = char;
+        } else {
+          chunk = test;
+        }
+      }
+      if (chunk) chunks.push(chunk);
+      return chunks;
+    };
+
+    // Text wrapping with hard-break for long words
     const words = text.split(' ');
     const lines = [];
     let currentLine = '';
@@ -69,6 +86,18 @@ export class FieldBlockRenderer {
         currentLine = word;
       } else {
         currentLine = testLine;
+      }
+
+      // Hard-break current line if the single word still exceeds maxWidth
+      const curMaxWidth = lines.length === 0
+        ? blockWidth
+        : Math.max(0, blockWidth - hangingIndentPx);
+      if (ctx.measureText(currentLine).width * scaleX > curMaxWidth) {
+        const chunks = breakWord(currentLine, curMaxWidth);
+        for (let i = 0; i < chunks.length - 1; i++) {
+          lines.push(chunks[i]);
+        }
+        currentLine = chunks[chunks.length - 1] || '';
       }
     });
 
