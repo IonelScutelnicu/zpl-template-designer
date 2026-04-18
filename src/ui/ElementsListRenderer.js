@@ -49,7 +49,7 @@ export class ElementsListRenderer {
             </span>
             ${warningIcon}
           </div>
-          <div class="text-xs text-slate-600 mt-1 truncate font-medium">${this.escapeHtml(element.getDisplayName())}</div>
+          <div class="text-xs mt-1 truncate font-medium">${this.renderDisplayLabel(element)}</div>
         </div>
         <div class="flex items-center gap-1">
           <button class="lock-btn p-0.5 rounded transition-colors ${element.locked ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity'}" data-tooltip="${element.locked ? 'Unlock' : 'Lock'}" data-id="${element.id}">
@@ -79,6 +79,14 @@ export class ElementsListRenderer {
         </div>
       </div>
     `;
+  }
+
+  renderDisplayLabel(element) {
+    if (element.placeholder) {
+      const truncated = element.placeholder.substring(0, 20) + (element.placeholder.length > 20 ? '...' : '');
+      return `<span class="text-amber-600 font-mono">{{${this.escapeHtml(truncated)}}}</span>`;
+    }
+    return `<span class="text-slate-600">${this.escapeHtml(element.getDisplayName())}</span>`;
   }
 
   /**

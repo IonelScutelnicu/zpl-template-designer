@@ -45,7 +45,7 @@ export class TextElement extends ZPLElement {
 
     getDisplayName() {
         const displayText = this.placeholder || this.previewText;
-        return `Text: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     getBounds() {

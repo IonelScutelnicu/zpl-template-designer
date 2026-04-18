@@ -33,7 +33,7 @@ export class LineElement extends ZPLElement {
     }
 
     getDisplayName() {
-        return `Line: ${this.width}px (${this.orientation === 'H' ? 'Horiz' : 'Vert'})`;
+        return `${this.width}px (${this.orientation === 'H' ? 'Horiz' : 'Vert'})`;
     }
 
     getBounds() {

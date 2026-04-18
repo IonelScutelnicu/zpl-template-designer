@@ -36,7 +36,7 @@ export class BarcodeElement extends ZPLElement {
 
     getDisplayName() {
         const displayText = this.placeholder || this.previewData;
-        return `Barcode: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     getBounds() {

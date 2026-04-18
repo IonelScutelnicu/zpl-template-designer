@@ -34,7 +34,7 @@ export class BoxElement extends ZPLElement {
     }
 
     getDisplayName() {
-        return `Box: ${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
+        return `${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
     }
 
     getBounds() {

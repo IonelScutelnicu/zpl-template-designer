@@ -28,7 +28,7 @@ export class CircleElement extends ZPLElement {
 
     getDisplayName() {
         const shape = this.width === this.height ? 'Circle' : 'Ellipse';
-        return `${shape}: ${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
+        return `${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
     }
 
     getBounds() {

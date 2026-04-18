@@ -57,7 +57,7 @@ export class FieldBlockElement extends ZPLElement {
 
     getDisplayName() {
         const displayText = this.placeholder || this.previewText;
-        return `Field Block: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     getBounds() {

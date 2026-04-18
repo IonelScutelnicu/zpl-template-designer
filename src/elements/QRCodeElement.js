@@ -96,7 +96,7 @@ export class QRCodeElement extends ZPLElement {
 
     getDisplayName() {
         const displayText = this.placeholder || this.previewData;
-        return `QR Code: "${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     getBounds() {
