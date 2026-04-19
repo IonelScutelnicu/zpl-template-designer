@@ -444,8 +444,8 @@ export class CanvasRenderer {
       drawHandle(x + width, y + height / 2); // Right
       drawHandle(x + width / 2, y + height); // Bottom
       drawHandle(x, y + height / 2); // Left
-    } else if (element.type === 'FIELDBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT') {
-      // For FIELDBLOCK, QRCODE, and TEXT, only show bottom-right handle
+    } else if (element.type === 'FIELDBLOCK' || element.type === 'QRCODE' || element.type === 'TEXT' || element.type === 'TEXTBLOCK') {
+      // For FIELDBLOCK, QRCODE, TEXT, and TEXTBLOCK, only show bottom-right handle
       drawHandle(x + width, y + height);
     } else {
       // For other elements, show 4 corner handles
