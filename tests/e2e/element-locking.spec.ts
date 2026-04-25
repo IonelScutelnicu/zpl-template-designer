@@ -176,12 +176,17 @@ test.describe('Element Locking', () => {
         // Verify locked property in exported JSON
         expect(json.elements[0].locked).toBe(true);
 
-        // Import the file back
-        const fileChooserPromise = page.waitForEvent('filechooser');
-        page.once('dialog', dialog => dialog.accept());
+        // Import the file back — canvas already has an element so the in-app
+        // confirm modal will appear; race the filechooser listener with the
+        // Replace click to avoid a deadlock.
         await zplOutput.openMoreActions();
         await page.locator('#import-btn').click();
-        const fileChooser = await fileChooserPromise;
+        await expect(page.locator('#confirm-modal')).toBeVisible();
+
+        const [fileChooser] = await Promise.all([
+            page.waitForEvent('filechooser'),
+            page.locator('#confirm-ok-btn').click(),
+        ]);
         await fileChooser.setFiles(tempPath);
 
         await canvas.waitForReady();

@@ -442,6 +442,81 @@ test.describe('Import/Export - Template Persistence', () => {
         });
     });
 
+    // ============== CONFIRM MODAL ==============
+    test.describe('Confirm Modal (destructive-import guard)', () => {
+        test('should show in-app confirm modal (not window.confirm) when canvas has elements', async ({ page }) => {
+            await elementsPanel.addTextElement();
+
+            // Intercept window.confirm to detect if it fires (it must NOT)
+            let nativeConfirmCalled = false;
+            await page.exposeFunction('__onNativeConfirm', () => { nativeConfirmCalled = true; return true; });
+            await page.evaluate(() => { window.confirm = (window as any).__onNativeConfirm; });
+
+            await zplOutput.openMoreActions();
+            await page.locator('#import-btn').click();
+
+            // In-app modal must be visible
+            await expect(page.locator('#confirm-modal')).toBeVisible();
+            expect(nativeConfirmCalled).toBe(false);
+        });
+
+        test('should keep canvas unchanged when Cancel is clicked', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            const countBefore = await elementsPanel.getElementCount();
+
+            await zplOutput.openMoreActions();
+            await page.locator('#import-btn').click();
+            await expect(page.locator('#confirm-modal')).toBeVisible();
+
+            await page.locator('#confirm-cancel-btn').click();
+
+            await expect(page.locator('#confirm-modal')).toBeHidden();
+            expect(await elementsPanel.getElementCount()).toBe(countBefore);
+        });
+
+        test('should dismiss confirm modal on backdrop click', async ({ page }) => {
+            await elementsPanel.addTextElement();
+
+            await zplOutput.openMoreActions();
+            await page.locator('#import-btn').click();
+            await expect(page.locator('#confirm-modal')).toBeVisible();
+
+            // The backdrop fills the viewport but its centre is covered by the
+            // modal card — click a corner that is guaranteed to be uncovered.
+            await page.locator('#confirm-backdrop').click({ position: { x: 10, y: 10 } });
+            await expect(page.locator('#confirm-modal')).toBeHidden();
+        });
+
+        test('should proceed with import when Replace is clicked', async ({ page }) => {
+            await elementsPanel.addTextElement();
+
+            const template = {
+                labelSettings: { width: 100, height: 50, dpmm: 8 },
+                elements: [
+                    { type: 'TEXT', x: 50, y: 50, previewText: 'REPLACED', placeholder: '', fontSize: 20, fontWidth: 0, fontId: '', orientation: 'N', reverse: false }
+                ]
+            };
+
+            // Open the confirm modal
+            await zplOutput.openMoreActions();
+            await page.locator('#import-btn').click();
+            await expect(page.locator('#confirm-modal')).toBeVisible();
+
+            // Race the file-chooser listener with the Replace click — clicking
+            // Replace calls importFile.click() synchronously, so the listener
+            // must already be registered to avoid a deadlock.
+            const buffer = Buffer.from(JSON.stringify(template));
+            const [fileChooser] = await Promise.all([
+                page.waitForEvent('filechooser'),
+                page.locator('#confirm-ok-btn').click(),
+            ]);
+            await fileChooser.setFiles({ name: 'replace.json', mimeType: 'application/json', buffer });
+
+            await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+            await zplOutput.verifyZPLContains('^FDREPLACED');
+        });
+    });
+
     // ============== ROUND-TRIP ==============
     test.describe('Round-Trip', () => {
         test('should preserve all data through export then import cycle', async ({ page }) => {

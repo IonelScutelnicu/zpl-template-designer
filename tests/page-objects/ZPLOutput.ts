@@ -132,16 +132,35 @@ export class ZPLOutput {
     }
 
     /**
-     * Import JSON content directly (creates a temporary file)
+     * Import JSON content directly (creates a temporary file).
+     * When elements are already on the canvas the in-app ConfirmModal is shown
+     * before the file chooser; this helper handles both cases automatically.
      */
     async importTemplateFromJSON(jsonContent: string): Promise<void> {
-        // Create a file chooser promise before clicking import
-        const fileChooserPromise = this.page.waitForEvent('filechooser');
         await this.openMoreActions();
-        await this.importBtn.click();
-        const fileChooser = await fileChooserPromise;
 
-        // Create a temporary buffer with the JSON content
+        // If elements are already on canvas the ConfirmModal appears before
+        // the file chooser.  Dismiss it first, then race the file-chooser
+        // listener with the click that opens the dialog.
+        const confirmModal = this.page.locator('#confirm-modal');
+        await this.importBtn.click();
+
+        const isConfirmVisible = await confirmModal.isVisible().catch(() => false);
+        if (isConfirmVisible) {
+            // Replace click triggers importFile.click() synchronously — race to
+            // avoid a deadlock where the dialog opens before we start listening.
+            const [fileChooser] = await Promise.all([
+                this.page.waitForEvent('filechooser'),
+                this.page.locator('#confirm-ok-btn').click(),
+            ]);
+            const buffer = Buffer.from(jsonContent);
+            await fileChooser.setFiles({ name: 'template.json', mimeType: 'application/json', buffer });
+            return;
+        }
+
+        // Empty canvas: file chooser opens directly from importBtn click.
+        // We already clicked importBtn above, so just wait for the dialog.
+        const fileChooser = await this.page.waitForEvent('filechooser');
         const buffer = Buffer.from(jsonContent);
         await fileChooser.setFiles({
             name: 'template.json',

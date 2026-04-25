@@ -995,6 +995,29 @@
     </div>
   </div>
 
+  <!-- Confirmation modal (replaces window.confirm for destructive actions) -->
+  <div id="confirm-modal" class="fixed inset-0 z-[60] hidden">
+    <div id="confirm-backdrop" class="absolute inset-0 bg-black/50"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+      <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm pointer-events-auto">
+        <div class="px-6 pt-6 pb-4 flex items-start gap-3">
+          <span class="material-icons-round text-amber-500 text-2xl mt-0.5 shrink-0">warning_amber</span>
+          <p id="confirm-message" class="text-sm text-slate-700 leading-relaxed"></p>
+        </div>
+        <div class="border-t border-slate-100 px-6 py-4 flex justify-end gap-3 rounded-b-xl">
+          <button id="confirm-cancel-btn"
+            class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Cancel
+          </button>
+          <button id="confirm-ok-btn"
+            class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm">
+            Replace
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="src/main.js"></script>
 </body>
 

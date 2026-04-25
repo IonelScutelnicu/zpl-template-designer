@@ -22,6 +22,7 @@ import { UrlShareService } from './services/UrlShareService.js';
 import { SmartGuideService } from './services/SmartGuideService.js';
 import { ContextMenu } from './ui/ContextMenu.js';
 import { OnboardingWalkthrough } from './ui/OnboardingWalkthrough.js';
+import { ConfirmModal } from './ui/ConfirmModal.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -193,6 +194,9 @@ let previewMode = 'canvas'; // 'canvas' or 'api'
 export function initApp() {
   // Initialize tooltip manager
   new TooltipManager().init();
+
+  // Initialize confirmation modal
+  const confirmModal = new ConfirmModal();
 
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
@@ -453,9 +457,11 @@ export function initApp() {
   importBtn.addEventListener("click", () => {
     closeZPLMoreMenu();
     if (state.elements.length > 0) {
-      if (!window.confirm("Importing a template will replace your current work. Continue?")) {
-        return;
-      }
+      confirmModal.show(
+        "Importing a template will replace your current work. Continue?",
+        () => importFile.click()
+      );
+      return;
     }
     importFile.click();
   });
@@ -463,9 +469,11 @@ export function initApp() {
   importZPLBtn.addEventListener("click", () => {
     closeZPLMoreMenu();
     if (state.elements.length > 0) {
-      if (!window.confirm("Importing a ZPL template will replace your current work. Continue?")) {
-        return;
-      }
+      confirmModal.show(
+        "Importing a ZPL template will replace your current work. Continue?",
+        () => openZPLImportModal()
+      );
+      return;
     }
     openZPLImportModal();
   });
