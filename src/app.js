@@ -821,7 +821,7 @@ function closeZPLMoreMenu() {
 }
 
 // Render Canvas Preview
-function renderCanvasPreview() {
+export function renderCanvasPreview() {
   if (!canvasRenderer) return;
   canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.selectedElement);
 }
