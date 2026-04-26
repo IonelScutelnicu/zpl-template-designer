@@ -340,6 +340,12 @@ export class AppState {
     this.notify('warningsChanged', this.warnings);
   }
 
+  removeWarningsForElement(id) {
+    const idStr = String(id);
+    this.warnings = this.warnings.filter(w => w.elementId === null || String(w.elementId) !== idStr);
+    this.notify('warningsChanged', this.warnings);
+  }
+
   /**
    * Get warnings for a specific element
    * @param {string|number} elementId - Element ID

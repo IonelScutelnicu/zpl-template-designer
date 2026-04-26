@@ -163,6 +163,7 @@ export class ElementService {
 
     // Remove from state
     this.state.removeElement(idStr);
+    this.state.removeWarningsForElement(idStr);
 
     // Clear selection if deleted element was selected
     if (this.state.selectedElement && String(this.state.selectedElement.id) === idStr) {
