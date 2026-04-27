@@ -130,6 +130,24 @@ export class PreviewPanel {
     }
 
     /**
+     * Read the API preview image at full label resolution (1px = 1 dot).
+     * Draws the already-loaded <img> onto an offscreen canvas and calls toDataURL(),
+     * bypassing CSS scaling without needing a second network fetch.
+     */
+    async getAPIPreviewFullResolution(): Promise<Buffer> {
+        const dataUrl = await this.page.evaluate(() => {
+            const img = document.getElementById('preview-image') as HTMLImageElement;
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0);
+            return canvas.toDataURL('image/png');
+        });
+        return Buffer.from(dataUrl.split(',')[1], 'base64');
+    }
+
+    /**
      * Compare canvas preview with API preview
      * Returns true if images are similar within threshold
      */

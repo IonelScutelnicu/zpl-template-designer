@@ -13,8 +13,10 @@ import { CircleRenderer } from './rendering/CircleRenderer.js';
 import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
 
 export class CanvasRenderer {
-  constructor(canvasId) {
-    this.canvas = document.getElementById(canvasId);
+  constructor(canvasOrId) {
+    this.canvas = typeof canvasOrId === 'string'
+      ? document.getElementById(canvasOrId)
+      : canvasOrId;
     this.ctx = this.canvas.getContext('2d');
 
     // Disable smoothing for more bitmap-like rendering

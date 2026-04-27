@@ -36,6 +36,7 @@ const zplParser = new ZPLParser();
 const urlShareService = new UrlShareService(serializationService);
 const smartGuideService = new SmartGuideService();
 let elementService; // Initialized after pushHistory is defined
+let currentTemplateMetadata = null;
 
 // Initialize UI renderers (getSectionState will be available later)
 let propertiesPanelRenderer;
@@ -115,6 +116,11 @@ const zplOutputRaw = document.getElementById("zpl-output-raw");
 const copyBtn = document.getElementById("copy-btn");
 const copyBtnLabel = document.getElementById("copy-btn-label");
 const exportBtn = document.getElementById("export-btn");
+const exportGalleryBtn = document.getElementById("export-gallery-btn");
+const exportGalleryModal = document.getElementById("export-gallery-modal");
+const exportGalleryCloseBtn = document.getElementById("export-gallery-close-btn");
+const exportGalleryCancelBtn = document.getElementById("export-gallery-cancel-btn");
+const exportGalleryConfirmBtn = document.getElementById("export-gallery-confirm-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
 const shareBtn = document.getElementById("share-btn");
@@ -453,6 +459,16 @@ export function initApp() {
     exportTemplate();
     closeZPLMoreMenu();
   });
+  exportGalleryBtn.addEventListener("click", () => {
+    openExportGalleryModal();
+    closeZPLMoreMenu();
+  });
+  exportGalleryCloseBtn.addEventListener("click", closeExportGalleryModal);
+  exportGalleryCancelBtn.addEventListener("click", closeExportGalleryModal);
+  exportGalleryConfirmBtn.addEventListener("click", doExportForGallery);
+  exportGalleryModal.addEventListener("click", (e) => {
+    if (e.target === exportGalleryModal) closeExportGalleryModal();
+  });
   shareBtn.addEventListener("click", shareTemplate);
   importBtn.addEventListener("click", () => {
     closeZPLMoreMenu();
@@ -770,6 +786,20 @@ export function initApp() {
   resetHistory("Initial state", { kind: "init" });
   updateCopyExportUI();
 
+  // Check for template loaded from the gallery
+  const galleryTemplateJson = sessionStorage.getItem('gallery_template');
+  if (galleryTemplateJson) {
+    sessionStorage.removeItem('gallery_template');
+    try {
+      const galleryTemplate = JSON.parse(galleryTemplateJson);
+      if (galleryTemplate.elements && galleryTemplate.labelSettings) {
+        importTemplate(galleryTemplate);
+      }
+    } catch (err) {
+      console.warn('Failed to load gallery template:', err);
+    }
+  }
+
   // Check for shared template in URL hash
   const sharedEncoded = urlShareService.getTemplateFromUrl();
   if (sharedEncoded) {
@@ -1024,6 +1054,10 @@ function updateCopyExportUI() {
   exportBtn.disabled = !hasElements;
   exportBtn.classList.toggle('opacity-50', !hasElements);
   exportBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
+  exportGalleryBtn.disabled = !hasElements;
+  exportGalleryBtn.classList.toggle('opacity-50', !hasElements);
+  exportGalleryBtn.classList.toggle('cursor-not-allowed', !hasElements);
 
   shareBtn.disabled = !hasElements;
   shareBtn.classList.toggle('opacity-50', !hasElements);
@@ -1475,6 +1509,72 @@ function exportTemplate() {
   templateManager.exportToFile(state.elements, state.labelSettings);
 }
 
+// Export for Gallery
+function openExportGalleryModal() {
+  const meta = currentTemplateMetadata || {};
+  document.getElementById('gallery-name').value = meta.name || '';
+  document.getElementById('gallery-use').value = meta.use || 'shipping';
+  document.getElementById('gallery-desc').value = meta.desc || '';
+  document.getElementById('gallery-tags').value = (meta.tags || []).join(', ');
+  exportGalleryModal.classList.remove('hidden');
+  document.getElementById('gallery-name').focus();
+}
+
+function deriveMediaString(labelSettings) {
+  const w = labelSettings.width;
+  const h = labelSettings.height;
+  return `${w}×${h} mm`;
+}
+
+function closeExportGalleryModal() {
+  exportGalleryModal.classList.add('hidden');
+}
+
+function doExportForGallery() {
+  const name = document.getElementById('gallery-name').value.trim();
+  const use = document.getElementById('gallery-use').value;
+  const desc = document.getElementById('gallery-desc').value.trim();
+  const tagsRaw = document.getElementById('gallery-tags').value.trim();
+
+  if (!name || !desc) {
+    alert('Name and description are required.');
+    return;
+  }
+
+  const tags = tagsRaw
+    ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const serialized = JSON.parse(serializationService.exportTemplate(state.elements, state.labelSettings));
+
+  const metadata = {
+    name,
+    use,
+    media: deriveMediaString(serialized.labelSettings),
+    tags,
+    desc,
+  };
+
+  const galleryExport = {
+    metadata,
+    elements: serialized.elements,
+    labelSettings: serialized.labelSettings,
+  };
+
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const blob = new Blob([JSON.stringify(galleryExport, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (slug || 'gallery-template') + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  closeExportGalleryModal();
+}
+
 // Share Template via URL
 async function shareTemplate() {
   try {
@@ -1581,6 +1681,8 @@ function importTemplate(template) {
   // Clear current elements
   state.setElements([]);
   state.setSelectedElement(null);
+
+  currentTemplateMetadata = template.metadata || null;
 
   // Import label settings
   state.updateLabelSettings(template.labelSettings);

@@ -88,16 +88,48 @@ export class Canvas {
     }
 
     /**
-     * Take a screenshot of the canvas only
+     * Clear any active canvas selection so screenshots don't include
+     * the selection indicator. Requires window.appState and window.canvasRenderer
+     * (exposed in tests via window.__E2E__).
+     */
+    async deselect(): Promise<void> {
+        await this.page.evaluate(() => {
+            const w = window as unknown as {
+                appState?: { selectedElement: unknown; setSelectedElement: (v: null) => void; elements: unknown[]; labelSettings: unknown };
+                canvasRenderer?: { renderCanvas: (els: unknown[], ls: unknown, sel: unknown) => void };
+            };
+            if (!w.appState || !w.canvasRenderer) return;
+            if (w.appState.selectedElement) w.appState.setSelectedElement(null);
+            w.canvasRenderer.renderCanvas(w.appState.elements, w.appState.labelSettings, null);
+        });
+    }
+
+    /**
+     * Take a screenshot of the canvas only (CSS display size — scaled to fit editor)
      */
     async takeScreenshot(): Promise<Buffer> {
+        await this.deselect();
         return await this.canvas.screenshot();
+    }
+
+    /**
+     * Read the canvas pixel data at full label resolution (1px = 1 dot).
+     * Uses canvas.toDataURL() so the result is not affected by CSS scaling.
+     */
+    async takeFullResolutionScreenshot(): Promise<Buffer> {
+        await this.deselect();
+        const dataUrl = await this.page.evaluate(() => {
+            const canvas = document.getElementById('label-canvas') as HTMLCanvasElement;
+            return canvas.toDataURL('image/png');
+        });
+        return Buffer.from(dataUrl.split(',')[1], 'base64');
     }
 
     /**
      * Take a screenshot and save to a file
      */
     async takeScreenshotToFile(path: string): Promise<void> {
+        await this.deselect();
         await this.canvas.screenshot({ path });
     }
 

@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "name": "Retail Price Tag",
+    "use": "retail",
+    "media": "50×25 mm",
+    "tags": [
+      "Code 128",
+      "QR Code"
+    ],
+    "desc": "Compact swing tag with brand mark, SKU, price, and QR for product page.",
+    "addedAt": "2026-05-01"
+  },
+  "elements": [
+    {
+      "x": 293,
+      "y": 0,
+      "id": 1777582363450.0762,
+      "locked": false,
+      "type": "QRCODE",
+      "previewData": "https://example.com/example",
+      "placeholder": "product_url",
+      "model": 2,
+      "magnification": 3,
+      "errorCorrection": "Q"
+    },
+    {
+      "x": 15,
+      "y": 12,
+      "id": 1777582363450.892,
+      "locked": false,
+      "type": "TEXT",
+      "previewText": "SOMA",
+      "placeholder": "brand",
+      "fontId": "",
+      "fontSize": 35,
+      "fontWidth": 35,
+      "orientation": "N",
+      "reverse": false
+    },
+    {
+      "x": 15,
+      "y": 47,
+      "id": 1777582363450.347,
+      "locked": false,
+      "type": "TEXT",
+      "previewText": "SS26 / TEE",
+      "placeholder": "season_product_category",
+      "fontId": "",
+      "fontSize": 14,
+      "fontWidth": 14,
+      "orientation": "N",
+      "reverse": false
+    },
+    {
+      "x": 15,
+      "y": 75,
+      "id": 1777582363450.7527,
+      "locked": false,
+      "type": "TEXT",
+      "previewText": "$24.05",
+      "placeholder": "price",
+      "fontId": "",
+      "fontSize": 50,
+      "fontWidth": 50,
+      "orientation": "N",
+      "reverse": false
+    },
+    {
+      "x": 15,
+      "y": 135,
+      "id": 1777582363450.1694,
+      "locked": false,
+      "type": "TEXT",
+      "previewText": "SKU KX-2219-B / M / NAVY",
+      "placeholder": "description",
+      "fontId": "",
+      "fontSize": 14,
+      "fontWidth": 14,
+      "orientation": "N",
+      "reverse": false
+    },
+    {
+      "x": 15,
+      "y": 154,
+      "id": 1777582363450.1406,
+      "locked": false,
+      "type": "BARCODE",
+      "previewData": "1234567890",
+      "placeholder": "sku",
+      "height": 32,
+      "width": 2,
+      "ratio": 2,
+      "showText": false
+    }
+  ],
+  "labelSettings": {
+    "width": 50,
+    "height": 25,
+    "dpmm": 8,
+    "printOrientation": "N",
+    "printMirror": "N",
+    "mediaDarkness": 25,
+    "printSpeed": 4,
+    "slewSpeed": 4,
+    "backfeedSpeed": 4,
+    "printQuantity": 1,
+    "pauseCount": 0,
+    "replicates": 0,
+    "printQuantityPlaceholder": "",
+    "fontId": "0",
+    "customFonts": [],
+    "defaultFontHeight": 20,
+    "defaultFontWidth": 0,
+    "homeX": 0,
+    "homeY": 0,
+    "labelTop": 0
+  }
+}

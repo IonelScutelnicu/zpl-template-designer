@@ -1,0 +1,89 @@
+{
+  "metadata": {
+    "name": "Warehouse Shelf Location",
+    "use": "asset",
+    "media": "101.6×50.8 mm",
+    "tags": [
+      "Code 128"
+    ],
+    "desc": "Shelf or Bin Location Label with Barcode and Large Easy-to-Read Location Code.",
+    "addedAt": "2026-05-01"
+  },
+  "elements": [
+    {
+      "x": 13,
+      "y": 218,
+      "id": 1777491265285.2607,
+      "locked": false,
+      "type": "BARCODE",
+      "previewData": "A-14-014-08G",
+      "placeholder": "",
+      "height": 150,
+      "width": 3,
+      "ratio": 3,
+      "showText": true
+    },
+    {
+      "x": 29,
+      "y": 49,
+      "id": 1777491443753.5642,
+      "locked": false,
+      "type": "TEXT",
+      "previewText": "A-14-014-08G",
+      "placeholder": "",
+      "fontId": "0",
+      "fontSize": 140,
+      "fontWidth": 110,
+      "orientation": "N",
+      "reverse": false
+    },
+    {
+      "x": 609,
+      "y": 216,
+      "id": 1777491542321.9717,
+      "locked": false,
+      "type": "LINE",
+      "width": 158,
+      "thickness": 150,
+      "orientation": "H",
+      "color": "B",
+      "rounding": 0
+    },
+    {
+      "x": 638,
+      "y": 250,
+      "id": 1777491581301.6138,
+      "locked": false,
+      "type": "TEXT",
+      "previewText": "17",
+      "placeholder": "",
+      "fontId": "",
+      "fontSize": 100,
+      "fontWidth": 100,
+      "orientation": "N",
+      "reverse": true
+    }
+  ],
+  "labelSettings": {
+    "width": 101.6,
+    "height": 50.8,
+    "dpmm": 8,
+    "printOrientation": "N",
+    "printMirror": "N",
+    "mediaDarkness": 25,
+    "printSpeed": 4,
+    "slewSpeed": 4,
+    "backfeedSpeed": 4,
+    "printQuantity": 1,
+    "pauseCount": 0,
+    "replicates": 0,
+    "printQuantityPlaceholder": "",
+    "fontId": "0",
+    "customFonts": [],
+    "defaultFontHeight": 30,
+    "defaultFontWidth": 20,
+    "homeX": 0,
+    "homeY": 0,
+    "labelTop": 0
+  }
+}

@@ -31,15 +31,15 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-preview-text').fill('Parity');
         await page.locator('#prop-preview-text').dispatchEvent('input');
 
-        // Get canvas screenshot
+        // Get canvas at full dot resolution (unaffected by CSS scaling)
         await canvas.waitForReady();
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
-        // Get API preview
+        // Get API preview at full dot resolution
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         // Compare - allow higher threshold due to rendering differences
         const result = await compareImages(canvasImage, apiImage, 'parity-text', { threshold: 0.3 });
@@ -64,12 +64,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-height').fill('100');
         await page.locator('#prop-height').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-box', { threshold: 0.3 });
 
@@ -92,12 +92,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-rounding').fill('4');
         await page.locator('#prop-rounding').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-box-rounded-4', { threshold: 0.3 });
 
@@ -120,12 +120,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-rounding').fill('8');
         await page.locator('#prop-rounding').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-box-rounded-8', { threshold: 0.3 });
 
@@ -148,12 +148,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-rounding').fill('4');
         await page.locator('#prop-rounding').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-line-rounded-4', { threshold: 0.3 });
 
@@ -170,12 +170,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-y').fill('100');
         await page.locator('#prop-y').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-barcode', { threshold: 0.3 });
 
@@ -190,12 +190,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await elementsPanel.addBarcodeElement();
 
         await canvas.waitForReady();
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-multiple', { threshold: 0.3 });
 
@@ -219,12 +219,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-preview-text').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
         await page.locator('#prop-preview-text').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-textblock-long-word', { threshold: 0.3 });
 
@@ -248,12 +248,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-preview-text').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
         await page.locator('#prop-preview-text').dispatchEvent('input');
 
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         const result = await compareImages(canvasImage, apiImage, 'parity-fieldblock-long-word', { threshold: 0.3 });
 
@@ -275,12 +275,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-y').dispatchEvent('input');
 
         await canvas.waitForReady();
-        const canvasImage = await canvas.takeScreenshot();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
         await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.previewImage.screenshot();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
         // Find dark pixels only (QR code modules), ignoring label border/background
         const canvasBounds = findContentBounds(canvasImage);

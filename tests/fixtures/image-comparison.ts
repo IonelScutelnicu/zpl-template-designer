@@ -137,17 +137,21 @@ export async function compareWithBaseline(
     const baselineDir = path.join(__dirname, '../fixtures/baselines');
     const baselinePath = path.join(baselineDir, `${baselineName}.png`);
 
-    // If baseline doesn't exist, create it
-    if (!fs.existsSync(baselinePath)) {
+    if (process.env.GENERATE_BASELINES === '1') {
         if (!fs.existsSync(baselineDir)) {
             fs.mkdirSync(baselineDir, { recursive: true });
         }
         fs.writeFileSync(baselinePath, actualImage);
-        console.log(`Created new baseline: ${baselinePath}`);
+        console.log(`Saved baseline: ${baselinePath}`);
+        return { match: true, diffPixels: 0, diffPercentage: 0 };
+    }
+
+    if (!fs.existsSync(baselinePath)) {
         return {
-            match: true,
-            diffPixels: 0,
-            diffPercentage: 0,
+            match: false,
+            diffPixels: -1,
+            diffPercentage: 100,
+            diffImagePath: undefined,
         };
     }
 

@@ -1,0 +1,93 @@
+{
+  "metadata": {
+    "name": "Amazon FBA · FNSKU",
+    "use": "shipping",
+    "media": "50×25 mm",
+    "tags": [
+      "Code 128"
+    ],
+    "desc": "Amazon FBA, condition note.",
+    "addedAt": "2026-05-01"
+  },
+  "elements": [
+    {
+      "x": 55,
+      "y": 13,
+      "id": 1777485103694.2844,
+      "locked": false,
+      "type": "BARCODE",
+      "previewData": "X001NP49XJ",
+      "placeholder": "barcode",
+      "height": 50,
+      "width": 2,
+      "ratio": 2,
+      "showText": true
+    },
+    {
+      "x": 5,
+      "y": 90,
+      "id": 1777485113870.7256,
+      "locked": false,
+      "type": "LINE",
+      "width": 390,
+      "thickness": 1,
+      "orientation": "H",
+      "color": "B",
+      "rounding": 0
+    },
+    {
+      "x": 5,
+      "y": 96,
+      "id": 1777485276074.506,
+      "locked": false,
+      "type": "TEXTBLOCK",
+      "previewText": "Field Notes 3-pack — Memo Books Graph paper, 48 pages",
+      "placeholder": "product_description",
+      "fontId": "0",
+      "fontSize": 0,
+      "fontWidth": 0,
+      "blockWidth": 390,
+      "blockHeight": 76,
+      "reverse": false,
+      "orientation": "N"
+    },
+    {
+      "x": 5,
+      "y": 180,
+      "id": 1777485354643.715,
+      "locked": false,
+      "type": "TEXTBLOCK",
+      "previewText": "New",
+      "placeholder": "product_condition",
+      "fontId": "0",
+      "fontSize": 16,
+      "fontWidth": 16,
+      "blockWidth": 390,
+      "blockHeight": 20,
+      "reverse": false,
+      "orientation": "N"
+    }
+  ],
+  "labelSettings": {
+    "width": 50,
+    "height": 25,
+    "dpmm": 8,
+    "printOrientation": "N",
+    "printMirror": "N",
+    "mediaDarkness": 25,
+    "printSpeed": 4,
+    "slewSpeed": 4,
+    "backfeedSpeed": 4,
+    "printQuantity": 1,
+    "pauseCount": 0,
+    "replicates": 0,
+    "printQuantityPlaceholder": "",
+    "fontId": "0",
+    "customFonts": [],
+    "defaultFontHeight": 20,
+    "defaultFontWidth": 0,
+    "homeX": 0,
+    "homeY": 0,
+    "labelTop": 0
+  }
+}

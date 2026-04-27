@@ -9,7 +9,8 @@
     "test:api": "playwright test --project=api-integration",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "baselines": "npx ts-node --project tests/fixtures/tsconfig.manage-baselines.json tests/fixtures/manage-baselines.ts"
   },
   "repository": {
     "type": "git",
