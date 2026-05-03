@@ -61,7 +61,7 @@ export class ContextMenu {
       const elements = this.callbacks.getElements();
       const index = elements.findIndex(el => String(el.id) === String(targetElement.id));
       const isLocked = targetElement.locked;
-      const disableMatchSize = targetElement.type === 'TEXT' || targetElement.type === 'QRCODE';
+      const disableMatchSize = !targetElement.canMatchLabelSize();
       const hasClipboard = Boolean(this.callbacks.getClipboardData());
 
       this._addItem('content_copy', 'Copy', 'Ctrl+C', () => this.callbacks.onCopy(targetElement));

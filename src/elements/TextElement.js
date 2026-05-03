@@ -66,4 +66,6 @@ export class TextElement extends ZPLElement {
 
         return { x: this.x, y: this.y, width, height };
     }
+
+    canMatchLabelSize() { return false; }
 }

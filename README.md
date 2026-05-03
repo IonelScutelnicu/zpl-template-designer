@@ -4,7 +4,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 
 ## Features
 
-- **7 element types** — Text, Text Block, Barcode (Code 128), QR Code, Box, Line, Circle
+- **8 element types** — Text, Text Block, Barcode (Code 128), QR Code, Box, Line, Circle, Image
 - **Dual preview** — real-time Canvas rendering + Labelary API preview with ZPL syntax highlighting
 - **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge
 - **Element locking** — lock elements to prevent accidental move, resize, or delete
@@ -49,6 +49,9 @@ Position (X, Y), length, thickness, orientation (horizontal/vertical), color (B/
 
 ### Circle
 Position (X, Y), diameter, thickness, color (B/W).
+
+### Image (Graphic Field)
+Position (X, Y), width, height, threshold, orientation, encoding format (ASCII hex / Base64), aspect ratio lock.
 
 ## ZPL Output Format
 
@@ -118,6 +121,7 @@ The application uses a modular architecture for maintainability and testability:
 - `elements/LineElement.js` — Horizontal/vertical line element
 - `elements/CircleElement.js` — Circle element with diameter and thickness
 - `elements/FieldBlockElement.js` — Multi-line text with wrapping and justification
+- `elements/GraphicFieldElement.js` — Image/graphic field element (`^GF`/`^GFA`)
 
 ### State Management
 - `state/AppState.js` — Centralized observable state store
@@ -148,11 +152,13 @@ The application uses a modular architecture for maintainability and testability:
 - `rendering/BoxRenderer.js` — Box/rectangle with rounded corners
 - `rendering/LineRenderer.js` — Line rendering (horizontal/vertical)
 - `rendering/CircleRenderer.js` — Circle rendering
+- `rendering/GraphicFieldRenderer.js` — Image/graphic field rendering
 
 ### Utilities
 - `config/constants.js` — ZPL fonts, barcode patterns, configuration
 - `utils/geometry.js` — Geometry helper functions
 - `utils/barcode-encoding.js` — Code 128 encoding logic
+- `utils/graphicField.js` — Bitmap encoding, rotation, and image conversion utilities
 
 ### Design Principles
 

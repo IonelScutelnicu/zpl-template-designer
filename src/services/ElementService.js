@@ -9,6 +9,7 @@ import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
+import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
 import { getElementBoundsResolved } from '../utils/geometry.js';
 
 /**
@@ -133,6 +134,21 @@ export class ElementService {
         );
         break;
 
+      case 'GRAPHIC':
+        element = new GraphicFieldElement(x, y, {
+          sourceDataUrl: props.sourceDataUrl || null,
+          widthDots: props.widthDots || 0,
+          heightDots: props.heightDots || 0,
+          bytesPerRow: props.bytesPerRow || 0,
+          threshold: props.threshold ?? 128,
+          encodingFormat: props.encodingFormat || 'A',
+          bytes: props.bytes || null,
+          imageData: props.imageData || null,
+          opaqueRaw: props.opaqueRaw || null,
+          crcWarning: props.crcWarning || false,
+        });
+        break;
+
       default:
         throw new Error(`Unknown element type: ${type}`);
     }
@@ -144,7 +160,7 @@ export class ElementService {
     // Notify callbacks
     this.callbacks.onElementsChanged();
     this.callbacks.onPushHistory(
-      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type === 'TEXTBLOCK' ? 'Text Block' : type.charAt(0) + type.slice(1).toLowerCase()}`,
+      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type === 'TEXTBLOCK' ? 'Text Block' : type === 'GRAPHIC' ? 'Graphic Field' : type.charAt(0) + type.slice(1).toLowerCase()}`,
       { kind: 'add', detail: element.getDisplayName() }
     );
 

@@ -11,6 +11,7 @@ import { BoxRenderer } from './rendering/BoxRenderer.js';
 import { LineRenderer } from './rendering/LineRenderer.js';
 import { CircleRenderer } from './rendering/CircleRenderer.js';
 import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
+import { GraphicFieldRenderer } from './rendering/GraphicFieldRenderer.js';
 
 export class CanvasRenderer {
   constructor(canvasOrId) {
@@ -37,7 +38,8 @@ export class CanvasRenderer {
       QRCODE: new QRCodeRenderer(),
       BOX: new BoxRenderer(),
       LINE: new LineRenderer(),
-      CIRCLE: new CircleRenderer()
+      CIRCLE: new CircleRenderer(),
+      GRAPHIC: new GraphicFieldRenderer()
     };
   }
 

@@ -107,4 +107,6 @@ export class QRCodeElement extends ZPLElement {
         const size = modules * this.magnification;
         return { x: this.x, y: this.y, width: size, height: size + 11 };
     }
+
+    canMatchLabelSize() { return false; }
 }

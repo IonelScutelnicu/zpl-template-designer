@@ -9,6 +9,7 @@ import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
+import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
 
 /**
  * Service for serializing and deserializing elements and application state
@@ -161,6 +162,39 @@ export class SerializationService {
         );
         break;
 
+      case 'GRAPHIC': {
+        let bytes = null;
+        if (data.bytes instanceof Uint8Array) {
+          bytes = data.bytes;
+        } else if (data.bytesB64) {
+          try {
+            const bin = atob(data.bytesB64);
+            bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          } catch {
+            bytes = null;
+          }
+        }
+        // Reject anything that isn't a data: image URL — guards against a
+        // malicious save file slipping in javascript: or external http(s)
+        // URLs that the renderer would later embed in <img>.
+        const safeSourceDataUrl = (typeof data.sourceDataUrl === 'string' && data.sourceDataUrl.startsWith('data:image/'))
+          ? data.sourceDataUrl
+          : null;
+        element = new GraphicFieldElement(data.x, data.y, {
+          sourceDataUrl: safeSourceDataUrl,
+          widthDots: data.widthDots || 0,
+          heightDots: data.heightDots || 0,
+          bytesPerRow: data.bytesPerRow || 0,
+          threshold: data.threshold ?? 128,
+          encodingFormat: data.encodingFormat || 'A',
+          bytes,
+          opaqueRaw: data.opaqueRaw || null,
+          crcWarning: data.crcWarning || false,
+        });
+        break;
+      }
+
       default:
         console.warn(`Unknown element type: ${data.type}`);
         return null;
@@ -170,6 +204,11 @@ export class SerializationService {
 
     // Copy only own properties from data to element (prevents prototype pollution)
     for (const key of Object.keys(data)) {
+      // Don't clobber the typed Uint8Array (`bytes`) we set in the GRAPHIC
+      // constructor; bytesB64 is the JSON-only form. sourceDataUrl is also
+      // sanitized in the constructor — skip it here so the unsanitized raw
+      // value can't slip back in.
+      if (data.type === 'GRAPHIC' && (key === 'bytesB64' || key === 'bytes' || key === 'sourceDataUrl')) continue;
       element[key] = data[key];
     }
 
@@ -226,7 +265,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'CIRCLE'];
+    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {

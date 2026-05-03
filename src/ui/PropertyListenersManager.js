@@ -74,6 +74,9 @@ export class PropertyListenersManager {
       case "TEXTBLOCK":
         this.attachTextBlockProperties(element, attach);
         break;
+      case "GRAPHIC":
+        this.attachGraphicProperties(element);
+        break;
     }
 
     // Attach section toggle listeners for state persistence
@@ -199,6 +202,127 @@ export class PropertyListenersManager {
     attach("prop-orientation", "orientation");
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
+  }
+
+  /**
+   * Attach GRAPHIC element property listeners. Width and threshold changes
+   * are debounced and dispatched as a re-encode request; the replace button
+   * delegates to the host so it can re-open the file picker.
+   */
+  attachGraphicProperties(element) {
+    const replaceBtn = document.getElementById('prop-graphic-replace');
+    if (replaceBtn) {
+      replaceBtn.addEventListener('click', () => {
+        if (this.callbacks.onGraphicReplace) this.callbacks.onGraphicReplace(element);
+      });
+    }
+
+    // Orientation toggle buttons (scoped to element panel via [data-tooltip])
+    const orientationButtons = document.querySelectorAll('[data-orientation][data-tooltip]');
+    const setOrientationActive = (value) => {
+      orientationButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-orientation') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('text-slate-400', !isActive);
+        button.classList.toggle('hover:bg-white', !isActive);
+        button.classList.toggle('hover:text-slate-600', !isActive);
+        button.classList.toggle('hover:shadow-sm', !isActive);
+      });
+    };
+    setOrientationActive(element.orientation || "N");
+    orientationButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-orientation');
+        if (!value) return;
+        element.orientation = value;
+        setOrientationActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
+
+    if (!element.isEditable || !element.isEditable()) return;
+
+    const widthInput = document.getElementById('prop-graphic-width');
+    const heightInput = document.getElementById('prop-graphic-height');
+    const thresholdInput = document.getElementById('prop-graphic-threshold');
+    const thresholdValue = document.getElementById('prop-graphic-threshold-value');
+    const lockBtn = document.getElementById('prop-graphic-aspect-lock');
+
+    let timer = null;
+    const schedule = (opts) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        if (this.callbacks.onGraphicReencode) this.callbacks.onGraphicReencode(element, opts);
+      }, 150);
+    };
+
+    if (widthInput) {
+      widthInput.addEventListener('input', (e) => {
+        const v = Math.max(8, Math.min(32000, parseInt(e.target.value) || 8));
+        schedule({ widthDots: v });
+      });
+    }
+    if (heightInput) {
+      heightInput.addEventListener('input', (e) => {
+        if (element.aspectLocked) return;
+        const v = Math.max(8, Math.min(32000, parseInt(e.target.value) || 8));
+        schedule({ heightDots: v });
+      });
+    }
+    if (thresholdInput) {
+      thresholdInput.addEventListener('input', (e) => {
+        const v = Math.max(1, Math.min(255, parseInt(e.target.value) || 128));
+        if (thresholdValue) thresholdValue.textContent = String(v);
+        schedule({ threshold: v });
+      });
+    }
+    if (lockBtn) {
+      const heightLabel = document.getElementById('prop-graphic-height-label');
+      const lockedInputClasses = ['bg-slate-50', 'text-slate-400', 'cursor-not-allowed'];
+      const unlockedInputClasses = ['text-slate-700', 'focus:ring-1', 'focus:ring-blue-500', 'focus:border-blue-500'];
+
+      const applyLockUI = (locked) => {
+        const iconSpan = lockBtn.querySelector('.material-icons-round');
+        if (iconSpan) iconSpan.textContent = locked ? 'link' : 'link_off';
+        const title = locked ? 'Aspect ratio locked — click to unlock' : 'Aspect ratio unlocked — click to relock';
+        lockBtn.title = title;
+        lockBtn.dataset.tooltip = title;
+        lockBtn.classList.toggle('bg-white', locked);
+        lockBtn.classList.toggle('text-blue-600', locked);
+        lockBtn.classList.toggle('shadow-sm', locked);
+        lockBtn.classList.toggle('bg-slate-100', !locked);
+        lockBtn.classList.toggle('text-slate-400', !locked);
+        lockBtn.classList.toggle('hover:text-blue-600', !locked);
+
+        if (heightInput) {
+          heightInput.disabled = locked;
+          for (const c of lockedInputClasses) heightInput.classList.toggle(c, locked);
+          for (const c of unlockedInputClasses) heightInput.classList.toggle(c, !locked);
+        }
+        if (heightLabel) {
+          heightLabel.classList.toggle('text-slate-400', locked);
+          heightLabel.classList.toggle('text-slate-700', !locked);
+        }
+      };
+
+      lockBtn.addEventListener('click', () => {
+        element.aspectLocked = !element.aspectLocked;
+        applyLockUI(element.aspectLocked);
+        if (element.aspectLocked) {
+          // Re-lock: snap height to width × natural aspect ratio. If we don't
+          // have a cached natural ratio (legacy element), fall back to the
+          // current ratio so behavior is at least stable.
+          const ratio = element.naturalAspectRatio || (element.widthDots > 0 ? element.heightDots / element.widthDots : 1);
+          const snappedHeight = Math.max(1, Math.round(element.widthDots * ratio));
+          schedule({ widthDots: element.widthDots, heightDots: snappedHeight });
+        } else if (this.callbacks.onPropertyChange) {
+          this.callbacks.onPropertyChange(element);
+        }
+      });
+    }
   }
 
   /**

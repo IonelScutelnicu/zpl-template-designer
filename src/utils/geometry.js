@@ -76,6 +76,14 @@ export function getElementBoundsResolved(element, labelSettings) {
     }
     return { x: element.x, y: element.y, width: w, height: h };
   }
+  if (element.type === 'GRAPHIC') {
+    const w = element.widthDots || 0;
+    const h = element.heightDots || 0;
+    if (element.orientation === 'R' || element.orientation === 'B') {
+      return { x: element.x, y: element.y, width: h, height: w };
+    }
+    return { x: element.x, y: element.y, width: w, height: h };
+  }
   return element.getBounds();
 }
 

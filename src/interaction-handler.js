@@ -110,7 +110,7 @@ export class InteractionHandler {
 
     // Check for resize handle click first (if element is selected)
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
+    if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         if (selectedElement.locked) return;
@@ -133,6 +133,10 @@ export class InteractionHandler {
         } else if (selectedElement.type === 'CIRCLE') {
           this.resizeStartWidth = selectedElement.width;
           this.resizeStartHeight = selectedElement.height;
+        } else if (selectedElement.type === 'GRAPHIC') {
+          const graphicRotated90 = selectedElement.orientation === 'R' || selectedElement.orientation === 'B';
+          this.resizeStartWidth = graphicRotated90 ? selectedElement.heightDots : selectedElement.widthDots;
+          this.resizeStartHeight = graphicRotated90 ? selectedElement.widthDots : selectedElement.heightDots;
         } else if (selectedElement.type === 'TEXT') {
           this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 20;
           this.resizeStartFontWidth = selectedElement.fontWidth || this.labelSettings?.defaultFontWidth || 20;
@@ -272,7 +276,7 @@ export class InteractionHandler {
         this.dragElement.fontWidth = Math.max(8, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE') {
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'GRAPHIC') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -387,6 +391,38 @@ export class InteractionHandler {
           }
         }
 
+        // GRAPHIC: Shift only has an effect when aspect is currently locked —
+        // it breaks the lock for this resize. When already unlocked, Shift is a no-op.
+        const isAspectLocked = this.dragElement.aspectLocked ?? true;
+        const wantAspect = isAspectLocked && !e.shiftKey;
+        if (this.dragElement.type === 'GRAPHIC' && e.shiftKey && isAspectLocked) {
+          this._aspectLockBrokenByShift = true;
+        }
+        if (this.dragElement.type === 'GRAPHIC' && wantAspect && this.resizeStartHeight > 0) {
+          const aspect = this.resizeStartHeight / this.resizeStartWidth;
+          const widthDelta = newWidth - this.resizeStartWidth;
+          const heightDelta = newHeight - this.resizeStartHeight;
+          const isCorner = this.resizeHandle.length === 2;
+          if (isCorner) {
+            const t = (widthDelta + aspect * heightDelta) / (1 + aspect * aspect);
+            newWidth = Math.max(1, this.resizeStartWidth + t);
+            newHeight = newWidth * aspect;
+          } else {
+            if (Math.abs(widthDelta) >= Math.abs(heightDelta)) {
+              newHeight = Math.max(1, this.resizeStartWidth + widthDelta) * aspect;
+            } else {
+              newWidth = Math.max(1, this.resizeStartHeight + heightDelta) / aspect;
+            }
+          }
+          // Re-apply position adjustments for top/left handles after recompute
+          if (this.resizeHandle.includes('t')) {
+            newY = this.resizeStartY + this.resizeStartHeight - newHeight;
+          }
+          if (this.resizeHandle.includes('l')) {
+            newX = this.resizeStartX + this.resizeStartWidth - newWidth;
+          }
+        }
+
         // Update element
         this.dragElement.x = Math.round(newX);
         this.dragElement.y = Math.round(newY);
@@ -402,6 +438,17 @@ export class InteractionHandler {
             this.dragElement.width = Math.round(newHeight);
             this.dragElement.thickness = Math.round(newWidth);
           }
+        } else if (this.dragElement.type === 'GRAPHIC') {
+          // Live preview: bump widthDots/heightDots; the renderer scales the
+          // existing ImageData to match. Re-rasterization happens once on
+          // mouseup via the onElementDragEnd hook (look for _needsReencode).
+          // For R/B orientations the bitmap is rendered rotated 90°, so the
+          // visual width maps to heightDots and visual height maps to widthDots.
+          const graphicRotated90 = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+          this.dragElement.widthDots = Math.max(8, Math.round(graphicRotated90 ? newHeight : newWidth));
+          this.dragElement.heightDots = Math.max(8, Math.round(graphicRotated90 ? newWidth : newHeight));
+          this.dragElement.bytesPerRow = Math.ceil(this.dragElement.widthDots / 8);
+          this.dragElement._needsReencode = true;
         } else if (this.dragElement.type === 'BARCODE') {
           const dataLength = (this.dragElement.previewData || '').length;
           const totalModules = 35 + (11 * dataLength);
@@ -484,7 +531,7 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT')) {
+      if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -515,6 +562,10 @@ export class InteractionHandler {
       this.isResizing = false;
       this.resizeHandle = null;
       this.renderer.clearSmartGuides();
+      if (this._aspectLockBrokenByShift && this.dragElement && this.dragElement.type === 'GRAPHIC') {
+        this.dragElement.aspectLocked = false;
+        this._aspectLockBrokenByShift = false;
+      }
       this.callbacks.onElementDragEnd(this.dragElement); // Reuse drag end callback for resize end
     }
 
@@ -535,6 +586,10 @@ export class InteractionHandler {
     if (this.isDragging || this.isResizing) {
       // Finalize drag if mouse leaves canvas
       this.renderer.clearSmartGuides();
+      if (this._aspectLockBrokenByShift && this.dragElement && this.dragElement.type === 'GRAPHIC') {
+        this.dragElement.aspectLocked = false;
+        this._aspectLockBrokenByShift = false;
+      }
       this.callbacks.onElementDragEnd(this.dragElement);
       this.isDragging = false;
       this.isResizing = false;
@@ -581,6 +636,7 @@ export class InteractionHandler {
       this.isResizing = false;
       this.resizeHandle = null;
       this.dragElement = null;
+      this._aspectLockBrokenByShift = false;
       this.canvas.style.cursor = 'default';
       this.hasNotifiedDragStart = false;
       return;
@@ -915,8 +971,14 @@ export class InteractionHandler {
     const bw = bounds.width;
     const bh = bounds.height;
 
-    // For BOX, LINE, BARCODE, and CIRCLE elements, check all 8 handles
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE') {
+    // GRAPHIC supports resize handles only when editable (has a source image
+    // we can re-rasterize). Parsed/opaque graphics show no handles.
+    if (element.type === 'GRAPHIC' && (!element.isEditable || !element.isEditable())) {
+      return null;
+    }
+
+    // For BOX, LINE, BARCODE, CIRCLE, and editable GRAPHIC elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'GRAPHIC') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {

@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
+import { ElementsPanel, PropertiesPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
 test.describe('Properties Panel - Comprehensive Property Testing', () => {
     let elementsPanel: ElementsPanel;
@@ -459,6 +459,76 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await propertiesPanel.verifyPropertyValue('prop-width', 80);
             await propertiesPanel.verifyPropertyValue('prop-height', 80);
             await propertiesPanel.verifyPropertyValue('prop-thickness', 3);
+        });
+    });
+
+    // ============== GRAPHIC ELEMENT PROPERTIES ==============
+    test.describe('Graphic Element Properties', () => {
+        test.beforeEach(async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            await elementsPanel.selectElementByIndex(0);
+        });
+
+        test('should update X position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-x', 120);
+            await zplOutput.verifyZPLContains('^FO120,');
+        });
+
+        test('should update Y position and reflect in ZPL output', async () => {
+            await propertiesPanel.setProperty('prop-y', 85);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^FO\d+,85/);
+        });
+
+        test('should show orientation toggle buttons for editable graphic', async ({ page }) => {
+            const orientationBtns = page.locator('#properties-panel [data-orientation][data-tooltip]');
+            await expect(orientationBtns).toHaveCount(4);
+        });
+
+        test('should update orientation to I and change bitmap payload', async ({ page }) => {
+            const beforeZpl = await zplOutput.getZPLCode();
+            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+            expect(beforeMatch).not.toBeNull();
+            const baselinePayload = beforeMatch![1];
+
+            await page.locator('#properties-panel button[data-orientation="I"][data-tooltip]').click();
+            await page.waitForFunction(
+                (baseline) => {
+                    const el = document.getElementById('zpl-output-raw') as HTMLTextAreaElement | null;
+                    if (!el) return false;
+                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+                    return m !== null && m[1] !== baseline;
+                },
+                baselinePayload,
+                { timeout: 2000 }
+            );
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('^FW');
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+        });
+
+        test('should update orientation to B and change bitmap payload', async ({ page }) => {
+            const beforeZpl = await zplOutput.getZPLCode();
+            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+            expect(beforeMatch).not.toBeNull();
+            const baselinePayload = beforeMatch![1];
+
+            await page.locator('#properties-panel button[data-orientation="B"][data-tooltip]').click();
+            await page.waitForFunction(
+                (baseline) => {
+                    const el = document.getElementById('zpl-output-raw') as HTMLTextAreaElement | null;
+                    if (!el) return false;
+                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+                    return m !== null && m[1] !== baseline;
+                },
+                baselinePayload,
+                { timeout: 2000 }
+            );
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('^FW');
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
         });
     });
 

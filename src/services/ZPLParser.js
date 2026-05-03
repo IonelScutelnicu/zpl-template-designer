@@ -1,13 +1,15 @@
 // ZPL Parser Service
 // Parses ZPL template strings into app element objects and label settings
 
+import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
+
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
  */
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
-  'BQ', 'GB', 'GE'
+  'BQ', 'GB', 'GE', 'GF'
 ]);
 
 /**
@@ -344,6 +346,10 @@ export class ZPLParser {
     const getCommand = (cmd) => commands.find(c => c.command === cmd);
 
     // Determine element type based on commands present
+    if (hasCommand('GF')) {
+      return this._parseGraphicField(group, getCommand('GF'), getCommand('FD'), state);
+    }
+
     if (hasCommand('GE')) {
       return this._parseCircle(group, getCommand('GE'));
     }
@@ -666,6 +672,110 @@ export class ZPLParser {
       thickness: parseInt(parts[2]) || 3,
       color: (parts[3] || 'B').trim()
     };
+  }
+
+  /**
+   * Parse GRAPHIC from ^GF command (^GFa,b,c,d,DATA).
+   *
+   * Supported encodings:
+   *   - 'A' compression with plain ASCII hex payload
+   *   - ':B64:' inline base64 payload (with optional CRC suffix)
+   * Anything else (':Z64:', raw binary 'B', compressed 'C', or ASCII-hex
+   * payloads containing ACS run-length characters) is preserved as opaque
+   * — the original ^FO/^GF/^FD/^FS bytes are stashed and re-emitted
+   * verbatim so the user doesn't lose them on round-trip.
+   */
+  _parseGraphicField(group, gfToken, fdToken, state) {
+    const params = (gfToken.params || '').split(',');
+    const compression = (params[0] || 'A').trim().toUpperCase();
+    const totalBytes = parseInt(params[1]) || 0;
+    const bytesPerRow = parseInt(params[3]) || 0;
+    // ^GF data lives either in the params past the 4th comma (^GFA,n,n,w,DATA)
+    // or in a separate ^FD field (^GFA,n,n,w^FDDATA^FS).
+    const inlineData = params.length > 4 ? params.slice(4).join(',') : '';
+    const payload = inlineData || ((fdToken && fdToken.params) ? fdToken.params : '');
+    const heightDots = bytesPerRow > 0 ? Math.floor(totalBytes / bytesPerRow) : 0;
+    const widthDots = bytesPerRow * 8;
+
+    // Note: ^FW is ignored for ^GF (real Zebra firmware doesn't honor it),
+    // so an imported graphic always lands as orientation N. The user can
+    // re-rotate via the panel; rotation is baked into the bitmap on export.
+    const opaqueData = (encodingFormat) => ({
+      type: 'GRAPHIC',
+      x: group.x,
+      y: group.y,
+      widthDots,
+      heightDots,
+      bytesPerRow,
+      encodingFormat,
+      opaqueRaw: this._reconstructGraphicSource(group, gfToken, fdToken),
+    });
+
+    if (compression === 'A') {
+      const trimmed = payload.replace(/\s+/g, '');
+      // Plain hex only — anything outside [0-9A-F] (notably ACS run-length
+      // letters G–Z) is unsupported. Preserve verbatim.
+      const bytes = hexToBytes(trimmed);
+      if (bytes) {
+        const decodedHeight = bytesPerRow > 0 ? Math.floor(bytes.length / bytesPerRow) : 0;
+        return {
+          type: 'GRAPHIC',
+          x: group.x,
+          y: group.y,
+          widthDots,
+          heightDots: decodedHeight || heightDots,
+          bytesPerRow,
+          encodingFormat: 'A',
+          bytes,
+          threshold: 128,
+        };
+      }
+      if (payload.startsWith(':B64:')) {
+        const decoded = b64WithCrcToBytes(payload);
+        if (decoded) {
+          if (!decoded.crcOk) {
+            state.warnings.push({
+              command: '^GF',
+              message: '^GF :B64: CRC mismatch — graphic decoded anyway, data may be corrupt',
+            });
+          }
+          const decodedHeight = bytesPerRow > 0 ? Math.floor(decoded.bytes.length / bytesPerRow) : 0;
+          return {
+            type: 'GRAPHIC',
+            x: group.x,
+            y: group.y,
+            widthDots,
+            heightDots: decodedHeight || heightDots,
+            bytesPerRow,
+            encodingFormat: 'B64',
+            bytes: decoded.bytes,
+            threshold: 128,
+            crcWarning: !decoded.crcOk,
+          };
+        }
+      }
+      const reason = payload.startsWith(':Z64:')
+        ? ':Z64: (zlib-compressed base64) not supported'
+        : 'ACS run-length or non-hex characters not supported';
+      state.warnings.push({
+        command: '^GF',
+        message: `^GF graphic preserved as opaque — ${reason}`,
+      });
+      return opaqueData('OPAQUE');
+    }
+
+    state.warnings.push({
+      command: '^GF',
+      message: `^GF graphic preserved as opaque — compression "${compression}" not supported by this editor`,
+    });
+    return opaqueData('OPAQUE');
+  }
+
+  _reconstructGraphicSource(group, gfToken, fdToken) {
+    const fo = `^FO${group.x},${group.y}`;
+    const gf = `^GF${gfToken.params || ''}`;
+    const fd = fdToken ? `^FD${fdToken.params || ''}` : '';
+    return `${fo}${gf}${fd}^FS`;
   }
 
   /**

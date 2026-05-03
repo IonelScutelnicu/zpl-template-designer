@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
+import { ElementsPanel, PropertiesPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
 test.describe('Elements - Add, Select, Delete', () => {
     let elementsPanel: ElementsPanel;
@@ -270,6 +270,40 @@ test.describe('Elements - Add, Select, Delete', () => {
         test('should generate ZPL containing ^GE command for Circle element', async () => {
             await elementsPanel.addCircleElement();
             await zplOutput.verifyZPLContains('^GE');
+        });
+    });
+
+    // ============== GRAPHIC ELEMENT ==============
+    test.describe('Graphic Element', () => {
+        test('should add a Graphic element when uploading an image', async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            expect(await elementsPanel.getElementCount()).toBe(1);
+        });
+
+        test('should select Graphic element and show properties panel', async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            await elementsPanel.selectElementByIndex(0);
+            expect(await propertiesPanel.hasNoElementSelected()).toBe(false);
+        });
+
+        test('should delete Graphic element via UI delete button', async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            expect(await elementsPanel.getElementCount()).toBe(1);
+            await elementsPanel.deleteElementByIndex(0);
+            expect(await elementsPanel.getElementCount()).toBe(0);
+        });
+
+        test('should delete Graphic element via Delete key when element is selected', async ({ page }) => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            await elementsPanel.selectElementByIndex(0);
+            expect(await elementsPanel.getElementCount()).toBe(1);
+            await page.keyboard.press('Delete');
+            expect(await elementsPanel.getElementCount()).toBe(0);
+        });
+
+        test('should generate ZPL containing ^GFA command for Graphic element', async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            await zplOutput.verifyZPLContains('^GFA');
         });
     });
 

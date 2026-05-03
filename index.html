@@ -326,6 +326,15 @@
                   class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">radio_button_unchecked</span>
                 <span class="font-medium">Circle</span>
               </button>
+              <button id="add-graphic-btn" data-tooltip="Add Graphic Field (image, ^GF)"
+                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                <span
+                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors group-hover:hidden">image</span>
+                <span
+                  class="material-icons-round hidden group-hover:block text-blue-500 mb-1 transition-colors">file_upload</span>
+                <span class="font-medium">Image</span>
+              </button>
+              <input id="add-graphic-file-input" type="file" accept="image/*" class="hidden" />
             </div>
 
             <!-- Elements List -->
@@ -674,7 +683,7 @@
                 <div class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px]"
                   id="preview-container">
                   <!-- Canvas Preview (default) -->
-                  <canvas id="label-canvas"
+                  <canvas id="label-canvas" width="799" height="399"
                     class="shadow-lg border border-slate-200 rounded-sm bg-white cursor-default max-w-full max-h-[450px] object-contain absolute"></canvas>
 
                   <!-- API Preview (hidden by default) -->

@@ -23,6 +23,7 @@ import { SmartGuideService } from './services/SmartGuideService.js';
 import { ContextMenu } from './ui/ContextMenu.js';
 import { OnboardingWalkthrough } from './ui/OnboardingWalkthrough.js';
 import { ConfirmModal } from './ui/ConfirmModal.js';
+import { imageToBitmap } from './utils/graphicField.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -101,6 +102,8 @@ const addBoxBtn = document.getElementById("add-box-btn");
 const addFieldBlockBtn = document.getElementById("add-fieldblock-btn");
 const addLineBtn = document.getElementById("add-line-btn");
 const addCircleBtn = document.getElementById("add-circle-btn");
+const addGraphicBtn = document.getElementById("add-graphic-btn");
+const addGraphicFileInput = document.getElementById("add-graphic-file-input");
 const undoBtn = document.getElementById("undo-btn");
 const redoBtn = document.getElementById("redo-btn");
 const historyToggleBtn = document.getElementById("history-toggle-btn");
@@ -259,6 +262,13 @@ export function initApp() {
     },
     onSectionToggle: (elementType, sectionTitle, isOpen) => {
       setSectionState(elementType, sectionTitle, isOpen);
+    },
+    onGraphicReencode: (element, opts) => {
+      reencodeGraphicElement(element, opts);
+    },
+    onGraphicReplace: (element) => {
+      pendingGraphicReplaceId = String(element.id);
+      addGraphicFileInput.click();
     }
   });
 
@@ -323,6 +333,12 @@ export function initApp() {
       renderCanvasPreview();
       renderPropertiesPanel();
       finalizeTransformSession(element);
+      // GRAPHIC needs an async re-rasterize after corner-handle resize so the
+      // emitted bitmap matches the new dot dimensions.
+      if (element && element.type === 'GRAPHIC' && element.isEditable && element.isEditable() && element._needsReencode) {
+        element._needsReencode = false;
+        reencodeGraphicElement(element, { widthDots: element.widthDots, heightDots: element.heightDots });
+      }
     },
     onElementMoved: (element) => {
       // Keyboard nudge - update everything
@@ -446,6 +462,8 @@ export function initApp() {
   addFieldBlockBtn.addEventListener("click", addFieldBlockElement);
   addLineBtn.addEventListener("click", addLineElement);
   addCircleBtn.addEventListener("click", addCircleElement);
+  addGraphicBtn.addEventListener("click", () => addGraphicFileInput.click());
+  addGraphicFileInput.addEventListener("change", handleGraphicFileSelected);
   copyBtn.addEventListener("click", copyZPL);
   refreshPreviewBtn.addEventListener("click", updatePreview);
   // Mode switching
@@ -1249,6 +1267,134 @@ function addCircleElement() {
   elementService.createElement('CIRCLE', { width: 80, height: 80, thickness: 3, color: 'B' });
 }
 
+let pendingGraphicReplaceId = null;
+
+async function handleGraphicFileSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  const replaceId = pendingGraphicReplaceId;
+  pendingGraphicReplaceId = null;
+  if (!file) return;
+
+  const dataUrl = await readFileAsDataUrl(file).catch(() => null);
+  if (!dataUrl) return;
+
+  const dpmm = state.labelSettings?.dpmm || 8;
+  const labelWidthDots = Math.round((state.labelSettings?.width || 50) * dpmm);
+  const labelHeightDots = Math.round((state.labelSettings?.height || 50) * dpmm);
+  const maxDots = Math.max(8, Math.floor(Math.min(labelWidthDots, labelHeightDots) * 0.8));
+
+  if (replaceId) {
+    const target = state.elements.find(el => String(el.id) === replaceId);
+    if (!target) return;
+    let result;
+    try {
+      const probe = await loadImageNaturalSize(dataUrl);
+      const desired = target.widthDots && target.isEditable && target.isEditable()
+        ? target.widthDots
+        : Math.max(8, Math.min(probe.width, maxDots));
+      result = await imageToBitmap(dataUrl, desired, target.threshold ?? 128);
+    } catch (err) {
+      console.error('Failed to rasterize replacement graphic:', err);
+      return;
+    }
+    target.opaqueRaw = null;
+    target.sourceDataUrl = dataUrl;
+    target.encodingFormat = 'A';
+    target.crcWarning = false;
+    target.threshold = target.threshold ?? 128;
+    target.setBitmap(result);
+    onGraphicElementUpdated(target, { rerenderPanel: true });
+    return;
+  }
+
+  let result;
+  try {
+    const probe = await loadImageNaturalSize(dataUrl);
+    const targetWidth = Math.max(8, Math.min(probe.width, maxDots));
+    result = await imageToBitmap(dataUrl, targetWidth, 128);
+  } catch (err) {
+    console.error('Failed to rasterize graphic image:', err);
+    return;
+  }
+
+  elementService.createElement('GRAPHIC', {
+    sourceDataUrl: dataUrl,
+    widthDots: result.widthDots,
+    heightDots: result.heightDots,
+    bytesPerRow: result.bytesPerRow,
+    threshold: 128,
+    encodingFormat: 'A',
+    bytes: result.bytes,
+    imageData: result.imageData,
+    naturalAspectRatio: result.naturalAspectRatio,
+  });
+}
+
+async function reencodeGraphicElement(element, opts = {}) {
+  if (!element || !element.sourceDataUrl) return;
+  const widthDots = Math.max(8, Math.min(32000, opts.widthDots ?? element.widthDots));
+  const threshold = Math.max(1, Math.min(255, opts.threshold ?? element.threshold ?? 128));
+  // When unlocked, preserve the user's current heightDots on a width-only
+  // change so it doesn't auto-derive from the source aspect.
+  const heightOpt = opts.heightDots ?? (element.aspectLocked === false ? element.heightDots : null);
+  const heightDots = heightOpt ? Math.max(1, Math.round(heightOpt)) : null;
+  // Monotonic token: if a newer reencode starts before this one resolves,
+  // drop the stale result instead of overwriting the latest dimensions.
+  element._reencodeSeq = (element._reencodeSeq || 0) + 1;
+  const seq = element._reencodeSeq;
+  let result;
+  try {
+    result = await imageToBitmap(element.sourceDataUrl, widthDots, threshold, heightDots);
+  } catch (err) {
+    console.error('Failed to re-encode graphic:', err);
+    return;
+  }
+  if (element._reencodeSeq !== seq) return;
+  element.threshold = threshold;
+  element.setBitmap(result);
+  // Width change auto-derives a new height — patch the readonly height field
+  // so the panel doesn't show a stale value. Full re-render would steal focus
+  // from the input the user is still interacting with.
+  // Only patch when locked: when unlocked, the user owns the value.
+  const widthChanged = 'widthDots' in opts;
+  onGraphicElementUpdated(element, { patchHeightDisplay: widthChanged && element.aspectLocked !== false });
+}
+
+function onGraphicElementUpdated(element, options = {}) {
+  updateZPLOutput();
+  updateElementsList();
+  renderCanvasPreview();
+  scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
+    kind: 'edit',
+    detail: element.getDisplayName(),
+  });
+  if (options.rerenderPanel) {
+    renderPropertiesPanel();
+  } else if (options.patchHeightDisplay) {
+    const heightField = document.getElementById('prop-graphic-height');
+    if (heightField) heightField.value = element.heightDots;
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageNaturalSize(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = dataUrl;
+  });
+}
+
 // Serialization functions (delegated to SerializationService)
 function serializeElement(element) {
   return serializationService.serializeElement(element);
@@ -1276,6 +1422,7 @@ const ZPL_DOC_MAP = {
   BOX: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
   LINE: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
   CIRCLE: { command: '^GE', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html' },
+  GRAPHIC: { command: '^GF', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gf.html' },
 };
 
 function renderPropertiesPanel() {

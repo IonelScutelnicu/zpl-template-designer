@@ -1,4 +1,24 @@
 import { Page, Locator } from '@playwright/test';
+import { PNG } from 'pngjs';
+
+/**
+ * Build a 16x16 PNG buffer with a black square in the upper-left quadrant —
+ * deterministic test fixture for ^GF tests.
+ */
+export function buildSquarePngBuffer(): Buffer {
+    const png = new PNG({ width: 16, height: 16 });
+    for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+            const idx = (y * 16 + x) * 4;
+            const black = x < 8 && y < 8;
+            png.data[idx] = black ? 0 : 255;
+            png.data[idx + 1] = black ? 0 : 255;
+            png.data[idx + 2] = black ? 0 : 255;
+            png.data[idx + 3] = 255;
+        }
+    }
+    return PNG.sync.write(png);
+}
 
 /**
  * Page Object Model for the Elements Panel.
@@ -55,6 +75,24 @@ export class ElementsPanel {
 
     async addCircleElement(): Promise<void> {
         await this.page.locator('#add-circle-btn').click();
+    }
+
+    /**
+     * Add a Graphic Field (^GF) element by feeding a PNG buffer through the
+     * hidden file input, bypassing the OS file picker.
+     *
+     * Pass a small PNG buffer; the app will rasterize it to a 1-bit bitmap
+     * and create a GRAPHIC element. Use buildSquarePngBuffer() below for a
+     * 16x16 test image.
+     */
+    async addGraphicElement(buffer: Buffer, name = 'test.png'): Promise<void> {
+        const input = this.page.locator('#add-graphic-file-input');
+        await input.setInputFiles({ name, mimeType: 'image/png', buffer });
+        // Wait until the new element appears in the list (rasterization is async).
+        await this.page.waitForFunction(() => {
+            const items = document.querySelectorAll('#elements-list .element-item');
+            return items.length > 0;
+        }, { timeout: 5000 });
     }
 
     async getElementCount(): Promise<number> {

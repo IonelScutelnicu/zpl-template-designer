@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, ZPLOutput } from '../page-objects';
+import { ElementsPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
 test.describe('ZPL Output - Generation and Validation', () => {
     let elementsPanel: ElementsPanel;
@@ -100,6 +100,94 @@ test.describe('ZPL Output - Generation and Validation', () => {
             const zpl = await zplOutput.getZPLCode();
             // ^GE format: ^GEwidth,height,thickness,color
             expect(zpl).toMatch(/\^GE\d+,\d+,\d+,[BW]/);
+        });
+
+        test('should generate ^GFA command for uploaded Graphic Field element', async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            const zpl = await zplOutput.getZPLCode();
+            // ^GFA format: ^GFA,totalBytes,totalBytes,bytesPerRow,<hex>
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+        });
+    });
+
+    // ============== GRAPHIC FIELD ROUND-TRIP ==============
+    test.describe('Graphic Field round-trip', () => {
+        test('should round-trip a plain ASCII-hex ^GFA block (parse → re-emit)', async ({ page }) => {
+            // Hand-crafted 4-dot-wide × 8-row alternating-stripe bitmap.
+            const hex = 'F00FF00FF00FF00F';
+            const original = `^XA^FO20,30^GFA,8,8,1,${hex}^FS^XZ`;
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+            await page.locator('#zpl-import-confirm-btn').click();
+
+            // Wait for the element to appear from the parsed import.
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^FO20,30');
+            expect(zpl).toMatch(new RegExp(`\\^GFA,8,8,1,${hex}\\^FS`));
+        });
+
+        test('should pre-rotate the bitmap and emit a vanilla ^GFA when orientation is R', async ({ page }) => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+
+            // Capture the unrotated baseline payload (the test fixture has a
+            // black square in the upper-left, asymmetric across rotation).
+            const beforeZpl = await zplOutput.getZPLCode();
+            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+            expect(beforeMatch).not.toBeNull();
+            const baselinePayload = beforeMatch![1];
+
+            // Click the R orientation button in the properties panel.
+            await page.locator('button[data-orientation="R"]').click();
+            await page.waitForFunction(
+                (baseline) => {
+                    const el = document.getElementById('zpl-output-raw') as HTMLTextAreaElement | null;
+                    if (!el) return false;
+                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+                    return m !== null && m[1] !== baseline;
+                },
+                baselinePayload,
+                { timeout: 2000 }
+            );
+
+            const zpl = await zplOutput.getZPLCode();
+            // No ^FW emitted — real Zebra firmware ignores it for ^GF.
+            expect(zpl).not.toContain('^FW');
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+        });
+
+        test('should not emit ^FW at default orientation N', async () => {
+            await elementsPanel.addGraphicElement(buildSquarePngBuffer());
+            const zpl = await zplOutput.getZPLCode();
+            // Backwards-compatible: an un-rotated graphic must not gain a ^FW token.
+            expect(zpl).not.toContain('^FW');
+        });
+
+        test('should preserve unsupported ^GF (Z64) verbatim with a parser warning', async ({ page }) => {
+            const original = '^XA^FO0,0^GFA,16,16,1,:Z64:somebase64stuff:1234^FS^XZ';
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+
+            // First click parses and shows warnings; second click confirms import.
+            await page.locator('#zpl-import-confirm-btn').click();
+            await expect(page.locator('#zpl-import-warnings')).toBeVisible();
+            await expect(page.locator('#zpl-import-warnings-list')).toContainText('Z64');
+            await page.locator('#zpl-import-confirm-btn').click();
+
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            const zpl = await zplOutput.getZPLCode();
+            // Re-export must contain the verbatim opaque payload.
+            expect(zpl).toContain(':Z64:somebase64stuff:1234');
         });
     });
 
