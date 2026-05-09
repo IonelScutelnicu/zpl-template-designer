@@ -31,34 +31,35 @@ export class QRCodeRenderer {
     const moduleSize = size / modules;
     const seed = this.hashString(`${element.previewData}|${element.errorCorrection}|${element.model}|${element.magnification}`);
 
-    // Paint only the "ink" portions of the QR code in `color`. The main
-    // pass uses '#000000' on top of a white bg; the reverse-overlay pass
-    // uses '#FFFFFF' to flip those ink pixels where they overlap previous
-    // dark areas.
     const drawInk = (targetCtx, color, ox = 0, oy = 0) => {
       const sx = x + ox;
       const sy = y + oy;
       targetCtx.save();
       targetCtx.fillStyle = color;
       const rng = this.createRng(seed);
+
+      // Draw deterministic QR-like pattern, skipping positioning marker zones
       for (let row = 0; row < modules; row++) {
         for (let col = 0; col < modules; col++) {
-          if (rng() > 0.5) {
+          const val = rng();
+          const inMarker = (row < 8 && col < 8) ||
+                           (row < 8 && col >= modules - 8) ||
+                           (row >= modules - 8 && col < 8);
+          if (!inMarker && val > 0.5) {
             targetCtx.fillRect(sx + col * moduleSize, sy + row * moduleSize, moduleSize, moduleSize);
           }
         }
       }
+
+      // Draw positioning markers (7 modules each) — only ink, no white fill
       const markerSize = moduleSize * 7;
-      // Outer ring + inner square are ink; the gap between them is not.
+      const m = moduleSize;
       const drawMarkerInk = (mx, my) => {
-        // Outer ring as 4 strips around the gap
-        const gap = markerSize * 0.2;
-        targetCtx.fillRect(mx, my, markerSize, gap); // top
-        targetCtx.fillRect(mx, my + markerSize - gap, markerSize, gap); // bottom
-        targetCtx.fillRect(mx, my + gap, gap, markerSize - 2 * gap); // left
-        targetCtx.fillRect(mx + markerSize - gap, my + gap, gap, markerSize - 2 * gap); // right
-        // Inner solid square
-        targetCtx.fillRect(mx + markerSize * 0.35, my + markerSize * 0.35, markerSize * 0.3, markerSize * 0.3);
+        targetCtx.fillRect(mx, my, markerSize, m);
+        targetCtx.fillRect(mx, my + markerSize - m, markerSize, m);
+        targetCtx.fillRect(mx, my + m, m, markerSize - 2 * m);
+        targetCtx.fillRect(mx + markerSize - m, my + m, m, markerSize - 2 * m);
+        targetCtx.fillRect(mx + 2 * m, my + 2 * m, 3 * m, 3 * m);
       };
       drawMarkerInk(sx, sy);
       drawMarkerInk(sx + size - markerSize, sy);
@@ -67,16 +68,6 @@ export class QRCodeRenderer {
     };
 
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      // Main pass without ^FR draws a white background to "punch" the QR
-      // out from anything behind it (matches Zebra preview behavior).
-      // Reversed QRs skip the bg so the overlap-flip semantics apply only
-      // to the modules — same as TEXT.
-      if (color === '#000000' && !element.reverse) {
-        targetCtx.save();
-        targetCtx.fillStyle = '#FFFFFF';
-        targetCtx.fillRect(x + ox, y + oy, size, size);
-        targetCtx.restore();
-      }
       drawInk(targetCtx, color, ox, oy);
     };
 
@@ -90,7 +81,6 @@ export class QRCodeRenderer {
       applyReverseOverlay(ctx, captured, drawShape);
     }
   }
-
 
   /**
    * Simple deterministic hash for stable QR preview patterns
