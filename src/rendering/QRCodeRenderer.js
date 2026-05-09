@@ -26,21 +26,21 @@ export class QRCodeRenderer {
     const modules = qrVersionToModules(version);
     const size = modules * element.magnification * scale;
 
-    // Draw white background first (no border)
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x, y, size, size);
-
-    // Draw simplified QR pattern
+    // Draw simplified QR pattern (no background — white space is transparent)
     ctx.fillStyle = '#000000';
     const moduleSize = size / modules;
 
     const seed = this.hashString(`${element.previewData}|${element.errorCorrection}|${element.model}|${element.magnification}`);
     const rng = this.createRng(seed);
 
-    // Draw deterministic QR-like pattern
+    // Draw deterministic QR-like pattern, skipping positioning marker zones
     for (let row = 0; row < modules; row++) {
       for (let col = 0; col < modules; col++) {
-        if (rng() > 0.5) {
+        const val = rng();
+        const inMarker = (row < 8 && col < 8) ||
+                         (row < 8 && col >= modules - 8) ||
+                         (row >= modules - 8 && col < 8);
+        if (!inMarker && val > 0.5) {
           ctx.fillRect(
             x + col * moduleSize,
             y + row * moduleSize,
@@ -62,14 +62,17 @@ export class QRCodeRenderer {
    * Draw QR code positioning marker (corner squares)
    */
   drawPositioningMarker(ctx, x, y, size) {
+    const m = size / 7;
     ctx.fillStyle = '#000000';
-    ctx.fillRect(x, y, size, size);
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(x + size * 0.2, y + size * 0.2, size * 0.6, size * 0.6);
+    // Outer border frame (4 rects, no fill behind)
+    ctx.fillRect(x, y, size, m);
+    ctx.fillRect(x, y + size - m, size, m);
+    ctx.fillRect(x, y + m, m, size - 2 * m);
+    ctx.fillRect(x + size - m, y + m, m, size - 2 * m);
 
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(x + size * 0.35, y + size * 0.35, size * 0.3, size * 0.3);
+    // Inner 3×3 square
+    ctx.fillRect(x + 2 * m, y + 2 * m, 3 * m, 3 * m);
   }
 
   /**
