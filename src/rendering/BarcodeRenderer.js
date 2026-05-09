@@ -2,6 +2,7 @@
 // Renders BARCODE elements on canvas
 
 import { encodeCode128B, calculateCode128Width } from '../utils/barcode-encoding.js';
+import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
  * Renderer for BARCODE elements
@@ -10,10 +11,12 @@ export class BarcodeRenderer {
   /**
    * Render a BARCODE element on canvas
    * @param {CanvasRenderingContext2D} ctx - Canvas context
+   * @param {HTMLCanvasElement} canvas - Main canvas (for reverse overlay)
    * @param {Object} element - BARCODE element
+   * @param {Object} _labelSettings - Label settings (unused, kept for uniform signature)
    * @param {Object} transform - Transform parameters {scale, homeX, homeY, labelTop}
    */
-  render(ctx, element, transform) {
+  render(ctx, canvas, element, _labelSettings, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
     const x = (element.x + homeX) * scale;
@@ -30,44 +33,47 @@ export class BarcodeRenderer {
     // Calculate total barcode width (bars only, no quiet zones)
     const totalWidth = calculateCode128Width(data, element.width) * scale;
 
-    // Start drawing bars at x (quiet zones are implicit white space)
-    let currentX = x;
+    const fontPx = 18 * scale;
+    const textPadY = 4 + (2 * scale);
+    const totalHeight = element.showText ? height + textPadY + fontPx : height;
 
-    // Draw encoded patterns
-    ctx.fillStyle = '#000000';
-    let isBar = true; // Start with a bar
-
-    for (let i = 0; i < patterns.length; i++) {
-      const pattern = patterns[i];
-
-      // Draw each element in the pattern
-      for (let j = 0; j < pattern.length; j++) {
-        const elementWidth = pattern[j] * moduleWidth;
-
-        if (isBar) {
-          // Draw bar (black)
-          ctx.fillRect(currentX, y, elementWidth, height);
+    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+      targetCtx.save();
+      targetCtx.fillStyle = color;
+      let currentX = x + ox;
+      let isBar = true;
+      for (let i = 0; i < patterns.length; i++) {
+        const pattern = patterns[i];
+        for (let j = 0; j < pattern.length; j++) {
+          const elementWidth = pattern[j] * moduleWidth;
+          if (isBar) {
+            targetCtx.fillRect(currentX, y + oy, elementWidth, height);
+          }
+          currentX += elementWidth;
+          isBar = !isBar;
         }
-        // Space (white) - don't draw, just advance position
-
-        currentX += elementWidth;
-        isBar = !isBar;
       }
+      // Final termination bar
+      targetCtx.fillRect(currentX, y + oy, 2 * moduleWidth, height);
 
-      // Don't reset isBar - patterns flow together continuously
-    }
+      if (element.showText) {
+        targetCtx.font = `${fontPx}px Arial, sans-serif`;
+        targetCtx.textAlign = 'center';
+        targetCtx.textBaseline = 'top';
+        const barcodeYOffset = fontPx * -0.05;
+        targetCtx.fillText(data, x + ox + totalWidth / 2, y + oy + height + textPadY + barcodeYOffset);
+      }
+      targetCtx.restore();
+    };
 
-    // Add final termination bar (2 modules) for stop code
-    ctx.fillRect(currentX, y, 2 * moduleWidth, height);
+    const captured = element.reverse
+      ? captureReverseBg(ctx, canvas, { x, y, width: totalWidth + 2 * moduleWidth, height: totalHeight })
+      : null;
 
-    // Draw barcode text below centered at actual width (if enabled)
-    if (element.showText) {
-      ctx.fillStyle = '#000000';
-      ctx.font = `${18 * scale}px Arial, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      const barcodeYOffset = (18 * scale) * -0.05;
-      ctx.fillText(data, x + totalWidth / 2, y + height + 4 + (2 * scale) + barcodeYOffset);
+    drawShape(ctx, '#000000');
+
+    if (captured) {
+      applyReverseOverlay(ctx, captured, drawShape);
     }
   }
 }

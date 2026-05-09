@@ -151,6 +151,33 @@ export class PropertiesPanelRenderer {
   }
 
   /**
+   * Render the Reverse Print toggle row. Used by every element type so the
+   * UI is identical across BARCODE/QRCODE/BOX/LINE/CIRCLE/GRAPHIC and the
+   * three text-shaped types.
+   */
+  renderReversePrintRow(element) {
+    return `
+      <div class="flex items-center justify-between">
+        <label class="text-xs text-slate-700">
+          Reverse Print
+          <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
+            target="_blank" class="text-blue-500 hover:underline">^FR</a>
+        </label>
+        <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+          <button type="button" data-reverse="N"
+            class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
+            Normal
+          </button>
+          <button type="button" data-reverse="Y"
+            class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
+            Reverse
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
    * Render font selection dropdown
    */
   renderFontSelect(element) {
@@ -214,25 +241,7 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
         </div>
       `, { elementType: element.type })}
-      ${this.renderSection("Appearance", `
-        <div class="flex items-center justify-between">
-          <label class="text-xs text-slate-700">
-            Reverse Print
-            <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
-              target="_blank" class="text-blue-500 hover:underline">^FR</a>
-          </label>
-          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-            <button type="button" data-reverse="N"
-              class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
-              Normal
-            </button>
-            <button type="button" data-reverse="Y"
-              class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
-              Reverse
-            </button>
-          </div>
-        </div>
-      `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 
@@ -266,6 +275,7 @@ export class PropertiesPanelRenderer {
           </label>
         </div>
       `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 
@@ -311,6 +321,7 @@ export class PropertiesPanelRenderer {
           </select>
         </div>
       `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 
@@ -344,6 +355,9 @@ export class PropertiesPanelRenderer {
           </div>
         </div>
         ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 8 })}
+        <div class="mt-3">
+          ${this.renderReversePrintRow(element)}
+        </div>
       `, { open: true, elementType: element.type })}
     `;
   }
@@ -384,6 +398,9 @@ export class PropertiesPanelRenderer {
           </div>
         </div>
         ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 8 })}
+        <div class="mt-3">
+          ${this.renderReversePrintRow(element)}
+        </div>
       `, { open: true, elementType: element.type })}
     `;
   }
@@ -416,6 +433,9 @@ export class PropertiesPanelRenderer {
               White
             </button>
           </div>
+        </div>
+        <div class="mt-3">
+          ${this.renderReversePrintRow(element)}
         </div>
       `, { open: true, elementType: element.type })}
     `;
@@ -479,25 +499,7 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("Block Height (dots)", "prop-block-height", element.blockHeight, "number", { min: 0, max: 32000 })}
         </div>
       `, { open: true, elementType: element.type })}
-      ${this.renderSection("Appearance", `
-        <div class="flex items-center justify-between">
-          <label class="text-xs text-slate-700">
-            Reverse Print
-            <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
-              target="_blank" class="text-blue-500 hover:underline">^FR</a>
-          </label>
-          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-            <button type="button" data-reverse="N"
-              class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
-              Normal
-            </button>
-            <button type="button" data-reverse="Y"
-              class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
-              Reverse
-            </button>
-          </div>
-        </div>
-      `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 
@@ -588,25 +590,7 @@ export class PropertiesPanelRenderer {
           </div>
         </div>
       `, { open: true, elementType: element.type })}
-      ${this.renderSection("Appearance", `
-        <div class="flex items-center justify-between">
-          <label class="text-xs text-slate-700">
-            Reverse Print
-            <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fr.html"
-              target="_blank" class="text-blue-500 hover:underline">^FR</a>
-          </label>
-          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-            <button type="button" data-reverse="N"
-              class="px-3 py-1 text-xs rounded ${element.reverse ? "text-slate-500 hover:bg-slate-200" : "bg-white text-blue-600 shadow"} transition-colors">
-              Normal
-            </button>
-            <button type="button" data-reverse="Y"
-              class="px-3 py-1 text-xs rounded ${element.reverse ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
-              Reverse
-            </button>
-          </div>
-        </div>
-      `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 
@@ -767,6 +751,7 @@ export class PropertiesPanelRenderer {
         ${sizeRow}
         ${thresholdControl}
       `, { open: true, elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 }

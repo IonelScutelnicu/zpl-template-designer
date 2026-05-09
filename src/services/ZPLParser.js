@@ -347,23 +347,23 @@ export class ZPLParser {
 
     // Determine element type based on commands present
     if (hasCommand('GF')) {
-      return this._parseGraphicField(group, getCommand('GF'), getCommand('FD'), state);
+      return this._parseGraphicField(group, getCommand('GF'), getCommand('FD'), hasCommand('FR'), state);
     }
 
     if (hasCommand('GE')) {
-      return this._parseCircle(group, getCommand('GE'));
+      return this._parseCircle(group, getCommand('GE'), hasCommand('FR'));
     }
 
     if (hasCommand('GB')) {
-      return this._parseGraphicBox(group, getCommand('GB'));
+      return this._parseGraphicBox(group, getCommand('GB'), hasCommand('FR'));
     }
 
     if (hasCommand('BQ')) {
-      return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), state);
+      return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), hasCommand('FR'), state);
     }
 
     if (hasCommand('BC')) {
-      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), state);
+      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state);
     }
 
     if (hasCommand('A') && hasCommand('TB')) {
@@ -531,7 +531,7 @@ export class ZPLParser {
   /**
    * Parse BARCODE element from ^BC + ^FD (with optional ^BY)
    */
-  _parseBarcode(group, bcToken, byToken, fdToken, state) {
+  _parseBarcode(group, bcToken, byToken, fdToken, hasReverse, state) {
     // ^BC params: orientation,height,interpretation
     const bcParts = bcToken.params.split(',');
     const height = parseInt(bcParts[1]) || 50;
@@ -560,14 +560,15 @@ export class ZPLParser {
       height,
       width,
       ratio,
-      showText
+      showText,
+      reverse: hasReverse
     };
   }
 
   /**
    * Parse QRCODE element from ^BQ + ^FD
    */
-  _parseQRCode(group, bqToken, fdToken, state) {
+  _parseQRCode(group, bqToken, fdToken, hasReverse, state) {
     // ^BQ params: orientation,model,magnification
     const bqParts = bqToken.params.split(',');
     const model = parseInt(bqParts[1]) || 2;
@@ -601,14 +602,15 @@ export class ZPLParser {
       placeholder,
       model,
       magnification,
-      errorCorrection
+      errorCorrection,
+      reverse: hasReverse
     };
   }
 
   /**
    * Parse BOX or LINE from ^GB command
    */
-  _parseGraphicBox(group, gbToken) {
+  _parseGraphicBox(group, gbToken, hasReverse) {
     const parts = gbToken.params.split(',');
     const gbWidth = parseInt(parts[0]) || 0;
     const gbHeight = parseInt(parts[1]) || 0;
@@ -641,7 +643,8 @@ export class ZPLParser {
         thickness: lineThickness,
         orientation,
         color,
-        rounding
+        rounding,
+        reverse: hasReverse
       };
     }
 
@@ -654,14 +657,15 @@ export class ZPLParser {
       height: gbHeight,
       thickness: gbThickness,
       color,
-      rounding
+      rounding,
+      reverse: hasReverse
     };
   }
 
   /**
    * Parse CIRCLE from ^GE command
    */
-  _parseCircle(group, geToken) {
+  _parseCircle(group, geToken, hasReverse) {
     const parts = geToken.params.split(',');
     return {
       type: 'CIRCLE',
@@ -670,7 +674,8 @@ export class ZPLParser {
       width: parseInt(parts[0]) || 80,
       height: parseInt(parts[1]) || 80,
       thickness: parseInt(parts[2]) || 3,
-      color: (parts[3] || 'B').trim()
+      color: (parts[3] || 'B').trim(),
+      reverse: hasReverse
     };
   }
 
@@ -685,7 +690,7 @@ export class ZPLParser {
    * — the original ^FO/^GF/^FD/^FS bytes are stashed and re-emitted
    * verbatim so the user doesn't lose them on round-trip.
    */
-  _parseGraphicField(group, gfToken, fdToken, state) {
+  _parseGraphicField(group, gfToken, fdToken, hasReverse, state) {
     const params = (gfToken.params || '').split(',');
     const compression = (params[0] || 'A').trim().toUpperCase();
     const totalBytes = parseInt(params[1]) || 0;
@@ -708,7 +713,8 @@ export class ZPLParser {
       heightDots,
       bytesPerRow,
       encodingFormat,
-      opaqueRaw: this._reconstructGraphicSource(group, gfToken, fdToken),
+      opaqueRaw: this._reconstructGraphicSource(group, gfToken, fdToken, hasReverse),
+      reverse: hasReverse,
     });
 
     if (compression === 'A') {
@@ -728,6 +734,7 @@ export class ZPLParser {
           encodingFormat: 'A',
           bytes,
           threshold: 128,
+          reverse: hasReverse,
         };
       }
       if (payload.startsWith(':B64:')) {
@@ -751,6 +758,7 @@ export class ZPLParser {
             bytes: decoded.bytes,
             threshold: 128,
             crcWarning: !decoded.crcOk,
+            reverse: hasReverse,
           };
         }
       }
@@ -771,11 +779,12 @@ export class ZPLParser {
     return opaqueData('OPAQUE');
   }
 
-  _reconstructGraphicSource(group, gfToken, fdToken) {
+  _reconstructGraphicSource(group, gfToken, fdToken, hasReverse = false) {
     const fo = `^FO${group.x},${group.y}`;
+    const fr = hasReverse ? '^FR' : '';
     const gf = `^GF${gfToken.params || ''}`;
     const fd = fdToken ? `^FD${fdToken.params || ''}` : '';
-    return `${fo}${gf}${fd}^FS`;
+    return `${fo}${fr}${gf}${fd}^FS`;
   }
 
   /**

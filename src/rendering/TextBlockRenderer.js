@@ -3,6 +3,7 @@
 
 import { ZPL_FONTS } from '../config/constants.js';
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
+import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
  * Renderer for TEXTBLOCK elements (^TB command)
@@ -140,52 +141,9 @@ export class TextBlockRenderer {
       }
     };
 
-    const createReverseOverlay = () => {
-      const left = Math.max(0, Math.floor(x));
-      const top = Math.max(0, Math.floor(y));
-      const right = Math.min(canvas.width, Math.ceil(x + bboxW));
-      const bottom = Math.min(canvas.height, Math.ceil(y + bboxH));
-      const width = Math.max(0, right - left);
-      const height = Math.max(0, bottom - top);
-      if (width === 0 || height === 0) return null;
-
-      const imageData = ctx.getImageData(left, top, width, height);
-      const maskCanvas = document.createElement('canvas');
-      maskCanvas.width = width;
-      maskCanvas.height = height;
-      const maskCtx = maskCanvas.getContext('2d');
-      const maskData = maskCtx.createImageData(width, height);
-      const src = imageData.data;
-      const dst = maskData.data;
-      const threshold = 40 * 3;
-
-      for (let i = 0; i < src.length; i += 4) {
-        const brightness = src[i] + src[i + 1] + src[i + 2];
-        if (brightness < threshold) {
-          dst[i + 3] = 255;
-        }
-      }
-
-      maskCtx.putImageData(maskData, 0, 0);
-
-      const textCanvas = document.createElement('canvas');
-      textCanvas.width = width;
-      textCanvas.height = height;
-      const textCtx = textCanvas.getContext('2d');
-
-      // Draw white text with same rotation on temp canvas
-      textCtx.save();
-      applyRotation(textCtx, x - left, y - top);
-      drawLines(textCtx, 0, 0, '#FFFFFF');
-      textCtx.restore();
-
-      textCtx.globalCompositeOperation = 'destination-in';
-      textCtx.drawImage(maskCanvas, 0, 0);
-
-      return { canvas: textCanvas, x: left, y: top };
-    };
-
-    const overlay = element.reverse ? createReverseOverlay() : null;
+    const captured = element.reverse
+      ? captureReverseBg(ctx, canvas, { x, y, width: bboxW, height: bboxH })
+      : null;
 
     // Main drawing with rotation
     ctx.save();
@@ -193,8 +151,13 @@ export class TextBlockRenderer {
     drawLines(ctx, 0, 0, '#000000');
     ctx.restore();
 
-    if (overlay) {
-      ctx.drawImage(overlay.canvas, overlay.x, overlay.y);
+    if (captured) {
+      applyReverseOverlay(ctx, captured, (tempCtx, color, ox, oy) => {
+        tempCtx.save();
+        applyRotation(tempCtx, x + ox, y + oy);
+        drawLines(tempCtx, 0, 0, color);
+        tempCtx.restore();
+      });
     }
   }
 }

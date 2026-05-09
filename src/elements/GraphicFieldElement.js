@@ -25,6 +25,7 @@ export class GraphicFieldElement extends ZPLElement {
             this.bytesPerRow = options.bytesPerRow || 0;
             this.encodingFormat = options.encodingFormat || 'OPAQUE';
             this.orientation = orientation;
+            this.reverse = options.reverse || false; // ^FR (reverse print)
             return;
         }
 
@@ -37,6 +38,7 @@ export class GraphicFieldElement extends ZPLElement {
         this.bytes = options.bytes || null; // Uint8Array
         this.crcWarning = options.crcWarning || false;
         this.orientation = orientation;
+        this.reverse = options.reverse || false; // ^FR (reverse print)
 
         // ImageData isn't always passed in (e.g. after deserialization). Build it
         // lazily from bytes when first needed via ensureImageData().
@@ -81,7 +83,11 @@ export class GraphicFieldElement extends ZPLElement {
             // Re-emit verbatim. Opaque graphics can't be rotated (we don't
             // have the decoded bitmap); the orientation control is hidden
             // for them in the properties panel.
-            return this.opaqueRaw.replace(/^\^FO\d+,\d+/, `^FO${this.x},${this.y}`);
+            // Strip any existing ^FR from the original payload so we control
+            // it via the toggle; then re-inject if reverse is enabled.
+            const stripped = this.opaqueRaw.replace(/\^FR/g, '');
+            const reverseCmd = this.reverse ? '^FR' : '';
+            return stripped.replace(/^\^FO\d+,\d+/, `^FO${this.x},${this.y}${reverseCmd}`);
         }
         if (!this.bytes || !this.bytesPerRow || !this.heightDots) {
             return '';
@@ -90,7 +96,8 @@ export class GraphicFieldElement extends ZPLElement {
         // into the bitmap bytes before emitting ^GFA.
         const rotated = rotateBitmap(this.bytes, this.widthDots, this.heightDots, this.bytesPerRow, this.orientation);
         const total = rotated.bytesPerRow * rotated.heightDots;
-        const fo = `^FO${this.x},${this.y}`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        const fo = `^FO${this.x},${this.y}${reverseCmd}`;
         const payload = this.encodingFormat === 'B64'
             ? bytesToB64WithCrc(rotated.bytes)
             : bytesToHex(rotated.bytes);

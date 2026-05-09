@@ -117,28 +117,7 @@ export class PropertyListenersManager {
       });
     });
 
-    // Reverse toggle buttons
-    const reverseButtons = document.querySelectorAll('[data-reverse]');
-    const setReverseActive = (value) => {
-      reverseButtons.forEach((button) => {
-        const isActive = button.getAttribute('data-reverse') === value;
-        button.classList.toggle('bg-white', isActive);
-        button.classList.toggle('text-blue-600', isActive);
-        button.classList.toggle('shadow', isActive);
-        button.classList.toggle('text-slate-500', !isActive);
-        button.classList.toggle('hover:bg-slate-200', !isActive);
-      });
-    };
-    setReverseActive(element.reverse ? "Y" : "N");
-    reverseButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const value = button.getAttribute('data-reverse');
-        if (!value) return;
-        element.reverse = value === "Y";
-        setReverseActive(value);
-        this.callbacks.onPropertyChange(element);
-      });
-    });
+    this._attachReverseToggle(element);
   }
 
   /**
@@ -159,6 +138,8 @@ export class PropertyListenersManager {
         this.callbacks.onPropertyChange(element);
       });
     }
+
+    this._attachReverseToggle(element);
   }
 
   /**
@@ -170,6 +151,8 @@ export class PropertyListenersManager {
     attach("prop-model", "model", (v) => parseInt(v) || 2);
     attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
     attach("prop-error-correction", "errorCorrection");
+
+    this._attachReverseToggle(element);
   }
 
   /**
@@ -181,6 +164,7 @@ export class PropertyListenersManager {
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
+    this._attachReverseToggle(element);
   }
 
   /**
@@ -191,6 +175,7 @@ export class PropertyListenersManager {
     attach("prop-height", "height", (v) => parseInt(v) || 80);
     attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
     this._attachColorToggle(element);
+    this._attachReverseToggle(element);
   }
 
   /**
@@ -202,6 +187,7 @@ export class PropertyListenersManager {
     attach("prop-orientation", "orientation");
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
+    this._attachReverseToggle(element);
   }
 
   /**
@@ -241,6 +227,8 @@ export class PropertyListenersManager {
         this.callbacks.onPropertyChange(element);
       });
     });
+
+    this._attachReverseToggle(element);
 
     if (!element.isEditable || !element.isEditable()) return;
 
@@ -326,6 +314,34 @@ export class PropertyListenersManager {
   }
 
   /**
+   * Attach reverse-print toggle listeners. Used by every element type.
+   */
+  _attachReverseToggle(element) {
+    const reverseButtons = document.querySelectorAll('[data-reverse]');
+    if (reverseButtons.length === 0) return;
+    const setReverseActive = (value) => {
+      reverseButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-reverse') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setReverseActive(element.reverse ? 'Y' : 'N');
+    reverseButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-reverse');
+        if (!value) return;
+        element.reverse = value === 'Y';
+        setReverseActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
+  }
+
+  /**
    * Attach color toggle button listeners for Box/Line elements
    */
   _attachColorToggle(element) {
@@ -391,28 +407,7 @@ export class PropertyListenersManager {
       });
     });
 
-    // Reverse toggle buttons
-    const reverseButtons = document.querySelectorAll('[data-reverse]');
-    const setReverseActive = (value) => {
-      reverseButtons.forEach((button) => {
-        const isActive = button.getAttribute('data-reverse') === value;
-        button.classList.toggle('bg-white', isActive);
-        button.classList.toggle('text-blue-600', isActive);
-        button.classList.toggle('shadow', isActive);
-        button.classList.toggle('text-slate-500', !isActive);
-        button.classList.toggle('hover:bg-slate-200', !isActive);
-      });
-    };
-    setReverseActive(element.reverse ? "Y" : "N");
-    reverseButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const value = button.getAttribute('data-reverse');
-        if (!value) return;
-        element.reverse = value === "Y";
-        setReverseActive(value);
-        this.callbacks.onPropertyChange(element);
-      });
-    });
+    this._attachReverseToggle(element);
 
     // Justification toggle buttons
     const justificationButtons = document.querySelectorAll('[data-justification]');
@@ -475,28 +470,7 @@ export class PropertyListenersManager {
       });
     });
 
-    // Reverse toggle buttons
-    const reverseButtons = document.querySelectorAll('[data-reverse]');
-    const setReverseActive = (value) => {
-      reverseButtons.forEach((button) => {
-        const isActive = button.getAttribute('data-reverse') === value;
-        button.classList.toggle('bg-white', isActive);
-        button.classList.toggle('text-blue-600', isActive);
-        button.classList.toggle('shadow', isActive);
-        button.classList.toggle('text-slate-500', !isActive);
-        button.classList.toggle('hover:bg-slate-200', !isActive);
-      });
-    };
-    setReverseActive(element.reverse ? "Y" : "N");
-    reverseButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const value = button.getAttribute('data-reverse');
-        if (!value) return;
-        element.reverse = value === "Y";
-        setReverseActive(value);
-        this.callbacks.onPropertyChange(element);
-      });
-    });
+    this._attachReverseToggle(element);
   }
 
   /**
