@@ -24,6 +24,10 @@ import { ContextMenu } from './ui/ContextMenu.js';
 import { OnboardingWalkthrough } from './ui/OnboardingWalkthrough.js';
 import { ConfirmModal } from './ui/ConfirmModal.js';
 import { imageToBitmap } from './utils/graphicField.js';
+import { escapeHtml, escapeAttr } from './utils/dom-helpers.js';
+import { DriveTemplateService } from './services/DriveTemplateService.js';
+import * as driveAuth from '../gallery/drive-auth.js';
+import { isConfigured as isDriveConfigured } from '../gallery/drive-config.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -36,8 +40,37 @@ const templateManager = new TemplateManager(serializationService);
 const zplParser = new ZPLParser();
 const urlShareService = new UrlShareService(serializationService);
 const smartGuideService = new SmartGuideService();
+const driveTemplateService = new DriveTemplateService();
 let elementService; // Initialized after pushHistory is defined
 let currentTemplateMetadata = null;
+
+// Drive document state — tracks the editor's relationship with Drive.
+const driveDoc = {
+  fileId: null,        // null = unsaved
+  folderId: null,
+  dirty: false,
+  saving: false,
+  lastSavedAt: null,
+  driveMode: false, // 'create' = Save As, 'update' = Rename/edit existing, false = Export JSON
+};
+
+// Single-slot registry for outside-click listeners attached to `document`.
+// Re-renders bind to a slot via bindOutsideClick(slot, fn); the previous
+// listener under that slot is removed first so handlers never stack up.
+const outsideClickHandlers = {};
+function bindOutsideClick(slot, handler) {
+  if (outsideClickHandlers[slot]) {
+    document.removeEventListener('click', outsideClickHandlers[slot]);
+  }
+  outsideClickHandlers[slot] = handler;
+  document.addEventListener('click', handler);
+}
+function unbindOutsideClick(slot) {
+  if (outsideClickHandlers[slot]) {
+    document.removeEventListener('click', outsideClickHandlers[slot]);
+    delete outsideClickHandlers[slot];
+  }
+}
 
 // Initialize UI renderers (getSectionState will be available later)
 let propertiesPanelRenderer;
@@ -813,8 +846,37 @@ export function initApp() {
       if (galleryTemplate.elements && galleryTemplate.labelSettings) {
         importTemplate(galleryTemplate);
       }
+      // Capture Drive identity if it came through with the handoff.
+      if (galleryTemplate.driveFileId) {
+        driveDoc.fileId = galleryTemplate.driveFileId;
+        driveDoc.folderId = galleryTemplate.driveFolderId || null;
+        markClean();
+        syncEditorUrlForDrive();
+        updateDriveSaveBtnState();
+      }
     } catch (err) {
       console.warn('Failed to load gallery template:', err);
+    }
+  } else {
+    // No sessionStorage payload — fall back to URL ?drive=<id> for refreshed editor.
+    const urlParams = new URLSearchParams(window.location.search);
+    const driveId = urlParams.get('drive');
+    if (driveId && driveAuth.isConnected()) {
+      driveTemplateService.load(driveId).then(({ json, meta }) => {
+        const template = {
+          metadata: json.metadata || { name: (meta.name || '').replace(/\.json$/i, '') },
+          elements: json.elements || [],
+          labelSettings: json.labelSettings || {},
+        };
+        importTemplate(template);
+        driveDoc.fileId = meta.id;
+        driveDoc.folderId = (meta.parents && meta.parents[0]) || null;
+        markClean();
+        updateDriveSaveBtnState();
+      }).catch((err) => {
+        console.warn('Failed to load Drive template by URL:', err);
+        showToast('Couldn\'t load template from Drive: ' + (err.message || ''), 'error');
+      });
     }
   }
 
@@ -1021,7 +1083,64 @@ function pushHistory(label, options = {}) {
   state.addHistoryEntry(entry);
   updateUndoRedoUI();
   renderHistoryList();
+
+  // Skip init/import/load so loading a doc doesn't show as "Unsaved changes".
+  if (options.kind !== 'init' && options.kind !== 'import') {
+    markDirty();
+  }
 }
+
+// ============================================================
+// Drive save lifecycle
+// ============================================================
+
+function markDirty() {
+  if (!driveDoc.dirty) {
+    driveDoc.dirty = true;
+    updateSaveStatusUI();
+  }
+}
+
+function markClean() {
+  driveDoc.dirty = false;
+  driveDoc.lastSavedAt = new Date();
+  updateSaveStatusUI();
+}
+
+function setSaving(saving) {
+  driveDoc.saving = saving;
+  updateSaveStatusUI();
+}
+
+function formatRelativeTime(date) {
+  if (!date) return '';
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return date.toLocaleDateString();
+}
+
+function updateSaveStatusUI() {
+  const el = document.getElementById('drive-chip-status');
+  if (!el) return;
+  if (driveDoc.saving) {
+    el.textContent = '· Saving';
+    el.className = 'font-normal text-blue-500';
+  } else if (driveDoc.dirty) {
+    el.textContent = '· Unsaved';
+    el.className = 'font-normal text-amber-500';
+  } else {
+    el.textContent = '';
+    el.className = 'font-normal';
+  }
+}
+
+// Re-render the relative timestamp every 30s so "just now" → "30s ago" etc.
+setInterval(() => { if (driveDoc.lastSavedAt && !driveDoc.dirty && !driveDoc.saving) updateSaveStatusUI(); }, 30000);
 
 function resetHistory(label, options = {}) {
   state.resetHistory();
@@ -1656,13 +1775,27 @@ function exportTemplate() {
   templateManager.exportToFile(state.elements, state.labelSettings);
 }
 
-// Export for Gallery
-function openExportGalleryModal() {
+// Export for Gallery (also reused for Save to Drive via driveMode)
+function openExportGalleryModal(driveMode = false) {
   const meta = currentTemplateMetadata || {};
   document.getElementById('gallery-name').value = meta.name || '';
   document.getElementById('gallery-use').value = meta.use || 'shipping';
   document.getElementById('gallery-desc').value = meta.desc || '';
   document.getElementById('gallery-tags').value = (meta.tags || []).join(', ');
+
+  driveDoc.driveMode = driveMode;
+  const titleEl = exportGalleryModal.querySelector('h2');
+  if (titleEl) titleEl.textContent =
+    driveMode === 'update' ? 'Edit Template' :
+    driveMode === 'create' ? 'Save to Google Drive' :
+    'Export for Gallery';
+  if (exportGalleryConfirmBtn) {
+    exportGalleryConfirmBtn.textContent =
+      driveMode === 'update' ? 'Save' :
+      driveMode === 'create' ? 'Save to Drive' :
+      'Export JSON';
+  }
+
   exportGalleryModal.classList.remove('hidden');
   document.getElementById('gallery-name').focus();
 }
@@ -1677,7 +1810,7 @@ function closeExportGalleryModal() {
   exportGalleryModal.classList.add('hidden');
 }
 
-function doExportForGallery() {
+async function doExportForGallery() {
   const name = document.getElementById('gallery-name').value.trim();
   const use = document.getElementById('gallery-use').value;
   const desc = document.getElementById('gallery-desc').value.trim();
@@ -1708,6 +1841,36 @@ function doExportForGallery() {
     labelSettings: serialized.labelSettings,
   };
 
+  // Drive-save branch.
+  if (driveDoc.driveMode) {
+    closeExportGalleryModal();
+    try {
+      setSaving(true);
+      if (driveDoc.driveMode === 'update') {
+        // Rename / edit existing file in place.
+        await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: galleryExport });
+        showToast('Saved', 'success');
+      } else {
+        // 'create' — Save As or first save.
+        const created = await driveTemplateService.create({ name, json: galleryExport });
+        driveDoc.fileId = created.id;
+        syncEditorUrlForDrive();
+        showToast('Saved to Drive', 'success');
+      }
+      currentTemplateMetadata = metadata;
+      updateDriveChipLabel();
+      document.title = metadata.name + ' — Zebra ZPL Editor';
+      setSaving(false);
+      markClean();
+    } catch (err) {
+      setSaving(false);
+      console.warn('Drive save failed:', err);
+      showToast('Couldn\'t save to Drive: ' + (err.message || ''), 'error');
+    }
+    return;
+  }
+
+  // Default download path (unchanged).
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const blob = new Blob([JSON.stringify(galleryExport, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -1830,6 +1993,7 @@ function importTemplate(template) {
   state.setSelectedElement(null);
 
   currentTemplateMetadata = template.metadata || null;
+  updateDriveChipLabel();
 
   // Import label settings
   state.updateLabelSettings(template.labelSettings);
@@ -1868,4 +2032,274 @@ function openHistoryPanel() {
 
 function closeHistoryPanel() {
   historyPanelUI.close();
+}
+
+// ============================================================
+// Drive: editor-side wiring (Save button, Ctrl+S, name input,
+// header chip, beforeunload, toasts).
+// ============================================================
+
+function updateDriveSaveBtnState() {
+  const btn = document.getElementById('drive-chip-btn');
+  if (!btn) return;
+  const connected = isDriveConfigured() && driveAuth.isConnected();
+  btn.disabled = !connected;
+  btn.dataset.tooltip = connected ? 'Save to Google Drive' : 'Connect Google Drive to save';
+  const wrap = document.getElementById('drive-save-wrap');
+  if (wrap) wrap.classList.toggle('hidden', !connected);
+  const renameBtn = document.getElementById('drive-menu-rename');
+  if (renameBtn) renameBtn.disabled = !driveDoc.fileId;
+}
+
+function updateDriveChipLabel() {
+  const el = document.getElementById('drive-chip-name');
+  if (!el) return;
+  if (!isDriveConfigured() || !driveAuth.isConnected()) return;
+  el.textContent = (currentTemplateMetadata && currentTemplateMetadata.name) || 'Untitled template';
+}
+
+function syncEditorUrlForDrive() {
+  if (!driveDoc.fileId) return;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('drive') !== driveDoc.fileId) {
+      url.searchParams.set('drive', driveDoc.fileId);
+      window.history.replaceState({}, '', url.toString());
+    }
+  } catch {
+    // best-effort
+  }
+}
+
+async function saveToDrive() {
+  if (!isDriveConfigured()) {
+    showToast('Google Drive is not configured. See gallery/drive-config.js.', 'error');
+    return;
+  }
+  if (!driveAuth.isConnected()) {
+    showToast('Connect Google Drive first.', 'error');
+    return;
+  }
+  if (state.elements.length === 0) {
+    showToast('Add at least one element before saving.', 'error');
+    return;
+  }
+
+  // First save → reuse Export-for-Gallery modal to collect metadata.
+  if (!driveDoc.fileId) {
+    openExportGalleryModal('create');
+    return;
+  }
+
+  // Subsequent save → silent PATCH.
+  const name = (currentTemplateMetadata && currentTemplateMetadata.name) || 'Untitled template';
+  const serialized = JSON.parse(serializationService.exportTemplate(state.elements, state.labelSettings));
+  const meta = currentTemplateMetadata || {};
+  const payload = {
+    metadata: {
+      name,
+      use: meta.use || 'shipping',
+      media: deriveMediaString(serialized.labelSettings),
+      tags: meta.tags || [],
+      desc: meta.desc || '',
+    },
+    elements: serialized.elements,
+    labelSettings: serialized.labelSettings,
+  };
+  try {
+    setSaving(true);
+    await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: payload });
+    currentTemplateMetadata = payload.metadata;
+    setSaving(false);
+    markClean();
+    updateDriveChipLabel();
+    showToast('Saved', 'success');
+  } catch (err) {
+    setSaving(false);
+    console.warn('Drive update failed:', err);
+    showToast('Couldn\'t save: ' + (err.message || ''), 'error');
+  }
+}
+
+function wireDriveEditorBindings() {
+  // Save to Drive dropdown (ZPL panel)
+  const chipBtn = document.getElementById('drive-chip-btn');
+  if (chipBtn) {
+    chipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('drive-chip-menu').classList.toggle('hidden');
+    });
+  }
+  const menuSave = document.getElementById('drive-menu-save');
+  if (menuSave) menuSave.addEventListener('click', () => {
+    document.getElementById('drive-chip-menu').classList.add('hidden');
+    saveToDrive();
+  });
+  const menuSaveAs = document.getElementById('drive-menu-save-as');
+  if (menuSaveAs) menuSaveAs.addEventListener('click', () => {
+    document.getElementById('drive-chip-menu').classList.add('hidden');
+    openExportGalleryModal('create');
+  });
+  const menuRename = document.getElementById('drive-menu-rename');
+  if (menuRename) menuRename.addEventListener('click', () => {
+    document.getElementById('drive-chip-menu').classList.add('hidden');
+    openExportGalleryModal('update');
+  });
+
+  // Ctrl/Cmd+S → Save to Drive (suppress browser save-page default).
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      saveToDrive();
+    }
+  });
+
+  // Close drive dropdown when clicking outside it.
+  document.addEventListener('click', () => {
+    const menu = document.getElementById('drive-chip-menu');
+    if (menu) menu.classList.add('hidden');
+  });
+
+  // Confirm-on-close if dirty.
+  window.addEventListener('beforeunload', (e) => {
+    if (driveDoc.dirty) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Initial UI sync
+  updateSaveStatusUI();
+  updateDriveSaveBtnState();
+
+  // Mount header chip and listen for auth state changes.
+  renderEditorHeaderChip();
+  driveAuth.subscribe(renderEditorHeaderChip);
+  driveAuth.subscribe(updateDriveSaveBtnState);
+  driveAuth.refreshProfileIfMissing();
+}
+
+async function connectDriveFromEditor() {
+  try {
+    await driveAuth.signIn();
+    if (!driveAuth.getFolder()) {
+      const folder = await driveAuth.pickFolder();
+      driveAuth.setFolder(folder.id, folder.name);
+    }
+    showToast('Connected to Google Drive', 'success');
+  } catch (err) {
+    if (err && /cancelled/i.test(err.message || '')) return;
+    console.warn('Drive connect failed:', err);
+    showToast(err.message || 'Failed to connect', 'error');
+  }
+}
+
+function renderEditorHeaderChip() {
+  const host = document.getElementById('drive-auth-chip');
+  if (!host) return;
+
+  if (!isDriveConfigured()) {
+    host.innerHTML = '';
+    unbindOutsideClick('editor-drive-profile');
+    return;
+  }
+
+  const authState = driveAuth.getState();
+  if (!authState.connected) {
+    host.innerHTML = `<button id="editor-drive-connect-btn"
+      class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+      <svg width="16" height="16" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="shrink-0">
+        <path fill="#0066da" d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0a7.3 7.3 0 0 0 1.05 3.55z"/>
+        <path fill="#00ac47" d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.05 48.5A7.3 7.3 0 0 0 0 52h27.5z"/>
+        <path fill="#ea4335" d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.7-1.2 1.05-2.5 1.05-3.8H59.8L73.55 76.8z"/>
+        <path fill="#00832d" d="M43.65 25L57.4 1.2C56.05.45 54.55 0 52.9 0H34.4c-1.65 0-3.15.45-4.5 1.2z"/>
+        <path fill="#2684fc" d="M59.8 52H27.5L13.75 75.8c1.35.75 2.85 1.2 4.5 1.2h50.3c1.65 0 3.15-.45 4.5-1.2z"/>
+        <path fill="#ffba00" d="M73.4 26.5l-12.75-22.1c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 52h27.45a7.3 7.3 0 0 0-1.05-3.8z"/>
+      </svg>
+      <span>Connect Drive</span>
+    </button>`;
+    unbindOutsideClick('editor-drive-profile');
+    document.getElementById('editor-drive-connect-btn').addEventListener('click', connectDriveFromEditor);
+    return;
+  }
+
+  const profile = authState.profile || {};
+  const initial = (profile.name || '?').charAt(0).toUpperCase();
+  const avatarHtml = profile.picture
+    ? `<img src="${escapeAttr(profile.picture)}" class="w-6 h-6 rounded-full object-cover flex-shrink-0" alt="">`
+    : `<span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold inline-flex items-center justify-center flex-shrink-0">${escapeHtml(initial)}</span>`;
+
+  host.innerHTML = `<div class="relative inline-flex items-center">
+    <button id="editor-drive-profile-btn"
+      class="inline-flex items-center gap-1.5 border border-slate-200 rounded-full py-[3px] pr-2.5 pl-[3px] text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent"
+      aria-haspopup="true" aria-expanded="false">
+      ${avatarHtml}
+      <span class="truncate max-w-[120px]">${escapeHtml(profile.name || 'Connected')}</span>
+      <span class="material-icons-round text-[14px] text-slate-400">expand_more</span>
+    </button>
+    <div id="editor-drive-dropdown"
+      class="hidden absolute top-[calc(100%+6px)] right-0 min-w-[220px] bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-30">
+      <button id="editor-drive-disconnect"
+        class="flex items-center gap-2 w-full text-left text-[12.5px] font-medium text-red-500 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+        <span class="material-icons-round text-[16px]">logout</span> Disconnect
+      </button>
+    </div>
+  </div>`;
+
+  const profileBtn = document.getElementById('editor-drive-profile-btn');
+  const dropdown = document.getElementById('editor-drive-dropdown');
+
+  profileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = !dropdown.classList.contains('hidden');
+    dropdown.classList.toggle('hidden', open);
+    profileBtn.setAttribute('aria-expanded', String(!open));
+  });
+
+  // Slot-bound: each chip re-render (auth state change) replaces this handler.
+  // Look up the nodes inside the handler — captured refs go stale across renders.
+  bindOutsideClick('editor-drive-profile', () => {
+    const dd = document.getElementById('editor-drive-dropdown');
+    const btn = document.getElementById('editor-drive-profile-btn');
+    if (dd) dd.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+
+  document.getElementById('editor-drive-disconnect').addEventListener('click', async () => {
+    dropdown.classList.add('hidden');
+    const ok = window.confirm('Disconnect Google Drive?\n\nYour templates remain in your Drive folder.');
+    if (!ok) return;
+    await driveAuth.disconnect();
+  });
+}
+
+
+function showToast(message, kind) {
+  const host = document.getElementById('toast-host');
+  if (!host) {
+    if (kind === 'error') console.warn(message); else console.log(message);
+    return;
+  }
+  const el = document.createElement('div');
+  const bg = kind === 'error' ? 'bg-red-600' : kind === 'success' ? 'bg-green-600' : 'bg-slate-800';
+  el.className = `${bg} text-white text-xs font-medium px-3 py-2 rounded-lg shadow-lg pointer-events-auto flex items-center gap-2 max-w-sm`;
+  el.style.animation = 'fadeIn 180ms ease-out';
+  const icon = kind === 'error' ? 'error_outline' : kind === 'success' ? 'check_circle' : 'info';
+  el.innerHTML = `<span class="material-icons-round text-[16px]">${icon}</span><span></span>`;
+  el.querySelector('span:last-child').textContent = message;
+  host.appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity 200ms';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 220);
+  }, 3200);
+}
+
+// Wire up on DOM ready. main.js will call this via the existing init path,
+// but we also defer to a microtask to make sure all the DOM nodes exist.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', wireDriveEditorBindings);
+} else {
+  queueMicrotask(wireDriveEditorBindings);
 }

@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data: https://api.labelary.com; connect-src 'self' https://api.labelary.com;" />
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data: https://api.labelary.com; connect-src 'self' https://api.labelary.com https://www.googleapis.com https://accounts.google.com https://oauth2.googleapis.com https://content.googleapis.com; frame-src https://accounts.google.com https://content.googleapis.com https://docs.google.com;" />
   <title>ZPL Template Creator</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link
@@ -171,8 +171,15 @@
     }
 
     @keyframes walkthrough-fade-in {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .walkthrough-backdrop {
@@ -186,7 +193,8 @@
       white-space: pre;
     }
 
-    .zpl-output.is-empty {
+    .zpl-output.is-empty::before {
+      content: "Generated ZPL will appear here...";
       color: #94a3b8;
       font-style: italic;
     }
@@ -239,6 +247,7 @@
 
         <!-- Right Section: Links & Actions -->
         <div class="flex shrink-0 items-center justify-end gap-5">
+          <div id="drive-auth-chip"></div>
           <!-- Right Section removed Canvas + ZPL -->
           <a href="gallery.html"
             class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors">
@@ -258,7 +267,8 @@
           <a href="https://github.com/IonelScutelnicu/zpl-template-designer" target="_blank" rel="noopener noreferrer"
             class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors">
             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              <path
+                d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
             </svg>
             GitHub
           </a>
@@ -647,7 +657,7 @@
                       </button>
                     </div>
 
-                    <button id="refresh-preview-btn" data-tooltip="Refresh Labelary API preview"
+                    <button id="refresh-preview-btn" disabled data-tooltip="Refresh Labelary API preview"
                       class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -659,7 +669,7 @@
                   </div>
                   <div class="flex items-center justify-end gap-3">
                     <div class="flex items-center rounded border border-blue-100 bg-blue-50 overflow-hidden">
-                      <button id="undo-btn"
+                      <button id="undo-btn" disabled
                         class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
                         data-tooltip="Undo (Ctrl+Z)">
                         <span class="material-icons-round text-sm">undo</span>
@@ -883,6 +893,41 @@
                       <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">share</span>
                       <span id="share-btn-label">Share</span>
                     </button>
+                    <div class="relative hidden" id="drive-save-wrap">
+                      <button id="drive-chip-btn" disabled data-tooltip="Connect Google Drive to save"
+                        class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+                        <span class="material-icons-round text-[14px] leading-none"
+                          aria-hidden="true">cloud_upload</span>
+                        <span id="drive-chip-name" class="truncate max-w-[160px]">Save to Drive</span>
+                        <span id="drive-chip-status" class="font-normal"></span>
+                        <span class="material-icons-round text-[14px] leading-none -mr-0.5"
+                          aria-hidden="true">expand_more</span>
+                      </button>
+                      <div id="drive-chip-menu"
+                        class="hidden absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
+                        <button id="drive-menu-save"
+                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                          <span class="material-icons-round text-[14px] leading-none text-slate-400"
+                            aria-hidden="true">save</span>
+                          Save
+                          <kbd
+                            class="ml-auto text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Ctrl+S</kbd>
+                        </button>
+                        <button id="drive-menu-save-as"
+                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                          <span class="material-icons-round text-[14px] leading-none text-slate-400"
+                            aria-hidden="true">save_as</span>
+                          Save as…
+                        </button>
+                        <div class="border-t border-slate-100 my-1"></div>
+                        <button id="drive-menu-rename" disabled
+                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+                          <span class="material-icons-round text-[14px] leading-none text-slate-400"
+                            aria-hidden="true">drive_file_rename_outline</span>
+                          Edit details
+                        </button>
+                      </div>
+                    </div>
                     <div class="relative">
                       <button id="zpl-more-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="zpl-more-menu"
                         data-tooltip="More ZPL actions"
@@ -899,9 +944,11 @@
                           <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">download</span>
                           <span>Export JSON</span>
                         </button>
-                        <button id="export-gallery-btn" role="menuitem" disabled data-tooltip="Export template for the gallery"
+                        <button id="export-gallery-btn" role="menuitem" disabled
+                          data-tooltip="Export template for the gallery"
                           class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
-                          <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">collections</span>
+                          <span class="material-icons-round text-[14px] leading-none"
+                            aria-hidden="true">collections</span>
                           <span>Export for Gallery</span>
                         </button>
                         <button id="import-btn" role="menuitem" data-tooltip="Import template from JSON file"
@@ -922,7 +969,7 @@
                 </div>
                 <div class="relative">
                   <pre id="zpl-output-highlight"
-                    class="zpl-output w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-none leading-relaxed overflow-auto"></pre>
+                    class="zpl-output is-empty w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-none leading-relaxed overflow-auto"></pre>
                   <textarea id="zpl-output-raw" readonly
                     class="absolute inset-0 w-full h-full opacity-0 pointer-events-none"></textarea>
                 </div>
@@ -1051,7 +1098,8 @@
       <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col">
         <div class="border-b border-slate-100 bg-slate-50 px-6 py-4 flex justify-between items-center rounded-t-xl">
           <h2 class="font-semibold text-slate-700 text-base">Export for Gallery</h2>
-          <button id="export-gallery-close-btn" class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors">
+          <button id="export-gallery-close-btn"
+            class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors">
             <span class="material-icons-round text-xl">close</span>
           </button>
         </div>
@@ -1098,6 +1146,24 @@
       </div>
     </div>
   </div>
+
+  <!-- Confirm dialog (shared scrim used by editor + Drive flows) -->
+  <div id="confirm-scrim" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md p-6" role="alertdialog"
+      aria-modal="true" aria-labelledby="confirm-title">
+      <h3 id="confirm-title" class="font-semibold text-slate-800 text-base mb-2"></h3>
+      <p id="confirm-body" class="text-sm text-slate-600 mb-5 leading-relaxed"></p>
+      <div class="flex justify-end gap-2">
+        <button id="confirm-cancel"
+          class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">Cancel</button>
+        <button id="confirm-ok"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast host -->
+  <div id="toast-host" class="fixed bottom-6 right-6 z-50 flex flex-col-reverse gap-2 pointer-events-none"></div>
 
   <script type="module" src="src/main.js"></script>
 </body>

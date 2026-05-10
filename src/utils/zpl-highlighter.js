@@ -1,15 +1,8 @@
-function escapeHtml(value) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml } from './dom-helpers.js';
 
 export function highlightZPL(zpl) {
   if (!zpl) {
-    return "Generated ZPL will appear here...";
+    return '';
   }
 
   const parts = [];

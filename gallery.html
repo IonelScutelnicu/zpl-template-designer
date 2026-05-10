@@ -50,6 +50,7 @@
 
       <!-- Right Section: Links & Actions -->
       <div class="flex shrink-0 items-center justify-end gap-5">
+        <div id="drive-auth-chip"></div>
         <a href="index.html"
           class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors">
           <span class="material-icons-round text-[16px]" aria-hidden="true">design_services</span>
@@ -127,6 +128,21 @@
   <div class="modal-scrim" id="modal-scrim" style="display:none">
     <div class="modal" id="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title"></div>
   </div>
+
+  <!-- Confirm dialog -->
+  <div class="modal-scrim" id="confirm-scrim" style="display:none">
+    <div class="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h3 id="confirm-title"></h3>
+      <p id="confirm-body"></p>
+      <div class="confirm-actions">
+        <button class="btn-ghost" id="confirm-cancel">Cancel</button>
+        <button class="btn-primary danger" id="confirm-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast host -->
+  <div id="toast-host" class="toast-host"></div>
 
   <script src="gallery/templates/index.js"></script>
   <script type="module" src="gallery/app.js"></script>

@@ -715,10 +715,33 @@ body {
   gap: 4px;
   flex-wrap: wrap;
 }
+.modal-body .actions .actions-break {
+  flex-basis: 100%;
+  height: 0;
+}
 .modal-body .actions .btn-primary {
   padding: 8px 14px;
   font-size: 13px;
   margin-right: 4px;
+  flex: 1;
+  justify-content: center;
+}
+.modal-body .actions #delete-template-btn {
+  display: flex;
+}
+.modal-body .actions #delete-template-btn:hover {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: #fca5a5;
+}
+.modal-body .actions #delete-template-btn:hover .material-icons-round {
+  color: var(--warn);
+}
+.modal-body .actions #duplicate-to-drive-btn,
+.modal-body .actions #delete-template-btn {
+  flex: 1;
+  justify-content: center;
+  border-color: var(--line);
 }
 .modal-body .actions .btn-ghost {
   font: inherit;
@@ -776,4 +799,351 @@ body {
   display: block;
   font-size: 14px;
   margin-bottom: 4px;
+}
+
+/* ============ DRIVE AUTH CHIP ============ */
+.drive-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.drive-connect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.drive-connect-btn:hover {
+  background: var(--accent-soft-2);
+  color: var(--accent-ink);
+  border-color: var(--accent-soft);
+}
+.drive-connect-btn .material-icons-round {
+  font-size: 16px;
+}
+.drive-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px 3px 3px;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 120ms ease;
+}
+.drive-profile-btn:hover {
+  background: var(--btn-ghost);
+}
+.drive-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.drive-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.drive-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  z-index: 30;
+}
+.drive-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.drive-dropdown-item:hover {
+  background: var(--btn-ghost);
+  color: var(--ink);
+}
+.drive-dropdown-item .material-icons-round {
+  font-size: 16px;
+  color: var(--ink-4);
+}
+.drive-dropdown-item.danger {
+  color: var(--warn);
+}
+.drive-dropdown-item.danger:hover {
+  background: var(--warn-soft);
+}
+.drive-dropdown-item.danger .material-icons-round {
+  color: var(--warn);
+}
+
+/* ============ MY TEMPLATES SECTION HEAD ============ */
+.folder-chip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px 4px 8px;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.folder-chip:hover {
+  background: var(--btn-ghost);
+  border-color: var(--line);
+}
+.folder-chip .material-icons-round {
+  font-size: 14px;
+  color: var(--ink-4);
+}
+.folder-chip-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+  z-index: 30;
+}
+
+/* ============ DRIVE EMPTY / CONNECT CTA ============ */
+.drive-cta {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 28px 32px;
+  color: var(--ink-2);
+}
+.drive-cta-icon {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.drive-cta-body {
+  flex: 1;
+  min-width: 0;
+}
+.drive-cta h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.drive-cta p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.drive-cta p code {
+  background: var(--line-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.drive-cta-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.drive-cta-features li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.drive-cta-features li .material-icons-round {
+  font-size: 16px;
+  color: var(--ink-4);
+}
+.drive-cta-features li code {
+  background: var(--line-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.drive-cta-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+.drive-cta .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 10px 20px;
+  white-space: nowrap;
+}
+.drive-cta .btn-primary svg {
+  width: 16px;
+  height: 16px;
+}
+.drive-cta.error {
+  background: var(--warn-soft);
+  border-color: var(--warn);
+}
+.drive-cta.error h3 {
+  color: var(--warn);
+}
+
+/* ============ CONFIRM MODAL ============ */
+.confirm-modal {
+  position: relative;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.2);
+}
+.confirm-modal h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.confirm-modal p {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-actions .btn-ghost {
+  font-size: 13px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-weight: 500;
+  cursor: pointer;
+}
+.confirm-actions .btn-ghost:hover {
+  background: var(--btn-ghost);
+}
+.confirm-actions .btn-primary.danger {
+  background: var(--warn);
+  color: white;
+  font-size: 13px;
+  padding: 8px 14px;
+}
+.confirm-actions .btn-primary.danger:hover {
+  background: #b91c1c;
+}
+
+/* ============ TOASTS ============ */
+.toast-host {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--ink);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.24);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+  max-width: 380px;
+  pointer-events: auto;
+  animation: toastIn 180ms ease-out;
+}
+.toast.error {
+  background: var(--warn);
+}
+.toast.success {
+  background: var(--good);
+}
+.toast .material-icons-round {
+  font-size: 16px;
+}
+.toast.fade-out {
+  animation: toastOut 180ms ease-in forwards;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastOut {
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+/* ============ MY TEMPLATE CARD MARKER ============ */
+.tcard.private .badge.mine {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent-soft);
 }

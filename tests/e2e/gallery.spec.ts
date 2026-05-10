@@ -1,15 +1,25 @@
 import { test, expect } from '../fixtures';
+import { readdirSync } from 'fs';
+import { join } from 'path';
+
+const TEMPLATE_COUNT = readdirSync(join(__dirname, '../../gallery/templates')).filter(f => f.endsWith('.json')).length;
 
 test.describe('Gallery', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/gallery.html');
-        await expect(page.locator('.tcard')).toHaveCount(5, { timeout: 15000 });
+        await expect(page.locator('.tcard')).toHaveCount(TEMPLATE_COUNT, { timeout: 15000 });
     });
 
     test('page loads and shows all template cards', async ({ page }) => {
-        await expect(page.locator('.tcard')).toHaveCount(5);
+        await expect(page.locator('.tcard')).toHaveCount(TEMPLATE_COUNT);
         await expect(page.locator('.grid')).toBeVisible();
-        await expect(page.locator('#stat-templates')).toHaveText('5');
+        await expect(page.locator('#stat-templates')).toHaveText(String(TEMPLATE_COUNT));
+    });
+
+    test('shows a Connect Drive button in the header when disconnected', async ({ page }) => {
+        await expect(page.locator('#drive-connect-btn')).toBeVisible();
+        await expect(page.locator('#drive-connect-btn')).toHaveText('Connect Drive');
+        await expect(page.locator('#drive-profile-btn')).toHaveCount(0);
     });
 
     test('search filters the grid', async ({ page }) => {
@@ -18,14 +28,14 @@ test.describe('Gallery', () => {
         await expect(page.locator('.tcard .name')).toHaveText('Amazon FBA · FNSKU');
 
         await page.locator('#search-input').fill('');
-        await expect(page.locator('.tcard')).toHaveCount(5);
+        await expect(page.locator('.tcard')).toHaveCount(TEMPLATE_COUNT);
     });
 
     test('filter checkbox reduces results', async ({ page }) => {
         await page.locator('[data-filter="use"][data-val="shipping"]').check();
         const filteredCount = await page.locator('.tcard').count();
         expect(filteredCount).toBeGreaterThan(0);
-        expect(filteredCount).toBeLessThan(5);
+        expect(filteredCount).toBeLessThan(TEMPLATE_COUNT);
     });
 
     test('clicking a card opens the modal with correct template name', async ({ page }) => {

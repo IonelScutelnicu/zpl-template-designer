@@ -1,13 +1,11 @@
 import { test, expect } from '../fixtures';
 import { compareWithBaseline } from '../fixtures/image-comparison';
+import { readdirSync } from 'fs';
+import { join } from 'path';
 
-const TEMPLATES = [
-    'labelary-example',
-    'amazon-fba-fnsku',
-    'warehouse-shelf-location',
-    'retail-price-tag',
-    'blood-bag-isbt-128',
-];
+const TEMPLATES = readdirSync(join(__dirname, '../../gallery/templates'))
+    .filter(f => f.endsWith('.json'))
+    .map(f => f.replace('.json', ''));
 
 test.describe('Gallery template rendering regression', () => {
     test.beforeEach(async ({ page }) => {
