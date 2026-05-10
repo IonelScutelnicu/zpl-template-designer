@@ -1,6 +1,8 @@
 // Box Renderer
 // Renders BOX elements on canvas
 
+import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+
 /**
  * Renderer for BOX elements
  */
@@ -8,10 +10,12 @@ export class BoxRenderer {
   /**
    * Render a BOX element on canvas
    * @param {CanvasRenderingContext2D} ctx - Canvas context
+   * @param {HTMLCanvasElement} canvas - Main canvas (for reverse overlay)
    * @param {Object} element - BOX element
+   * @param {Object} _labelSettings - Label settings (unused, kept for uniform signature)
    * @param {Object} transform - Transform parameters {scale, homeX, homeY, labelTop}
    */
-  render(ctx, element, transform) {
+  render(ctx, canvas, element, _labelSettings, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
     const x = (element.x + homeX) * scale;
@@ -24,33 +28,43 @@ export class BoxRenderer {
     const rounding = Math.round((element.rounding / 8) * (shorterSide / 2));
 
     const isWhite = element.color !== 'B';
-    ctx.strokeStyle = isWhite ? '#FFFFFF' : '#000000';
-    ctx.fillStyle = isWhite ? '#FFFFFF' : '#000000';
 
-    if (thickness >= width || thickness >= height) {
-      // Filled box (thickness fills entire box)
-      if (rounding > 0) {
-        this.roundRect(ctx, x, y, width, height, rounding, true, false);
+    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+      targetCtx.save();
+      targetCtx.strokeStyle = color;
+      targetCtx.fillStyle = color;
+      const sx = x + ox;
+      const sy = y + oy;
+      if (thickness >= width || thickness >= height) {
+        if (rounding > 0) {
+          this.roundRect(targetCtx, sx, sy, width, height, rounding, true, false);
+        } else {
+          targetCtx.fillRect(sx, sy, width, height);
+        }
       } else {
-        ctx.fillRect(x, y, width, height);
+        const insetX = sx + thickness / 2;
+        const insetY = sy + thickness / 2;
+        const insetWidth = width - thickness;
+        const insetHeight = height - thickness;
+        targetCtx.lineWidth = thickness;
+        if (rounding > 0) {
+          const insetRounding = Math.max(0, Math.min(rounding - thickness / 2, Math.floor(Math.min(insetWidth, insetHeight) / 2)));
+          this.roundRect(targetCtx, insetX, insetY, insetWidth, insetHeight, insetRounding, false, true);
+        } else {
+          targetCtx.strokeRect(insetX, insetY, insetWidth, insetHeight);
+        }
       }
-    } else {
-      // Outlined box with inset stroke
-      // Adjust the stroke path so the thickness stays inside the element bounds
-      const insetX = x + thickness / 2;
-      const insetY = y + thickness / 2;
-      const insetWidth = width - thickness;
-      const insetHeight = height - thickness;
+      targetCtx.restore();
+    };
 
-      ctx.lineWidth = thickness;
+    const captured = element.reverse
+      ? captureReverseBg(ctx, canvas, { x, y, width, height })
+      : null;
 
-      if (rounding > 0) {
-        // Adjust rounding to be relative to inset dimensions
-        const insetRounding = Math.max(0, Math.min(rounding - thickness / 2, Math.floor(Math.min(insetWidth, insetHeight) / 2)));
-        this.roundRect(ctx, insetX, insetY, insetWidth, insetHeight, insetRounding, false, true);
-      } else {
-        ctx.strokeRect(insetX, insetY, insetWidth, insetHeight);
-      }
+    drawShape(ctx, isWhite ? '#FFFFFF' : '#000000');
+
+    if (captured) {
+      applyReverseOverlay(ctx, captured, drawShape);
     }
 
     if (isWhite) {

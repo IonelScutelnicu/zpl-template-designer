@@ -2,6 +2,7 @@
 // Renders TEXT elements on canvas
 
 import { ZPL_FONTS } from '../config/constants.js';
+import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
  * Renderer for TEXT elements
@@ -79,59 +80,27 @@ export class TextRenderer {
       context.restore();
     };
 
-    const createReverseOverlay = (bboxX, bboxY, bboxW, bboxH) => {
-      const left = Math.max(0, Math.floor(bboxX));
-      const top = Math.max(0, Math.floor(bboxY));
-      const right = Math.min(canvas.width, Math.ceil(bboxX + bboxW));
-      const bottom = Math.min(canvas.height, Math.ceil(bboxY + bboxH));
-      const width = Math.max(0, right - left);
-      const height = Math.max(0, bottom - top);
-
-      if (width === 0 || height === 0) return null;
-
-      const imageData = ctx.getImageData(left, top, width, height);
-      const maskCanvas = document.createElement('canvas');
-      maskCanvas.width = width;
-      maskCanvas.height = height;
-      const maskCtx = maskCanvas.getContext('2d');
-      const maskData = maskCtx.createImageData(width, height);
-      const src = imageData.data;
-      const dst = maskData.data;
-      const threshold = 40 * 3;
-
-      for (let i = 0; i < src.length; i += 4) {
-        const brightness = src[i] + src[i + 1] + src[i + 2];
-        if (brightness < threshold) {
-          dst[i + 3] = 255;
-        }
-      }
-
-      maskCtx.putImageData(maskData, 0, 0);
-
-      const textCanvas = document.createElement('canvas');
-      textCanvas.width = width;
-      textCanvas.height = height;
-      const textCtx = textCanvas.getContext('2d');
-      drawTransformedText(textCtx, '#FFFFFF', -left, -top);
-      textCtx.globalCompositeOperation = 'destination-in';
-      textCtx.drawImage(maskCanvas, 0, 0);
-
-      return { canvas: textCanvas, x: left, y: top };
-    };
-
-    let overlay = null;
+    // ^FR: snapshot the bg BEFORE drawing so the mask only sees pixels
+    // that were already there. Sampling after the draw would treat the
+    // element's own ink as "previously dark" and flip its whole shape.
+    let captured = null;
     if (element.reverse) {
-      if (element.orientation === 'R' || element.orientation === 'B') {
-        overlay = createReverseOverlay(x, y, textHeight, textWidth);
-      } else {
-        overlay = createReverseOverlay(x, y, textWidth, textHeight);
-      }
+      const rotated = element.orientation === 'R' || element.orientation === 'B';
+      captured = captureReverseBg(ctx, canvas, {
+        x,
+        y,
+        width: rotated ? textHeight : textWidth,
+        height: rotated ? textWidth : textHeight,
+      });
     }
 
     // Apply rotation based on orientation (ZPL: N=0°, R=90° CW, I=180°, B=270° CW)
     drawTransformedText(ctx, '#000000');
-    if (overlay) {
-      ctx.drawImage(overlay.canvas, overlay.x, overlay.y);
+
+    if (captured) {
+      applyReverseOverlay(ctx, captured, (tempCtx, color, ox, oy) => {
+        drawTransformedText(tempCtx, color, ox, oy);
+      });
     }
 
     ctx.restore();

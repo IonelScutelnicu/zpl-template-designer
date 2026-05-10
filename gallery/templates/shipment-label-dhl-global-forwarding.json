@@ -121,7 +121,7 @@
       "locked": false,
       "type": "BARCODE",
       "previewData": "H8FE7018+Y0001+",
-      "placeholder": "",
+      "placeholder": "barcode",
       "height": 204,
       "width": 3,
       "ratio": 2,

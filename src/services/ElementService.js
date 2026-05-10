@@ -60,7 +60,8 @@ export class ElementService {
           props.width || 2,
           props.ratio || 2.0,
           props.placeholder || '',
-          props.showText !== undefined ? props.showText : true
+          props.showText !== undefined ? props.showText : true,
+          props.reverse || false
         );
         break;
 
@@ -71,7 +72,8 @@ export class ElementService {
           props.model || 2,
           props.magnification || 5,
           props.errorCorrection || 'Q',
-          props.placeholder || ''
+          props.placeholder || '',
+          props.reverse || false
         );
         break;
 
@@ -82,7 +84,8 @@ export class ElementService {
           props.height || 50,
           props.thickness || 3,
           props.color || 'B',
-          props.rounding || 0
+          props.rounding || 0,
+          props.reverse || false
         );
         break;
 
@@ -91,7 +94,10 @@ export class ElementService {
           x, y,
           props.width || 200,
           props.thickness || 3,
-          props.orientation || 'H'
+          props.orientation || 'H',
+          props.color || 'B',
+          props.rounding || 0,
+          props.reverse || false
         );
         break;
 
@@ -101,7 +107,8 @@ export class ElementService {
           props.width || 80,
           props.height || 80,
           props.thickness || 3,
-          props.color || 'B'
+          props.color || 'B',
+          props.reverse || false
         );
         break;
 
@@ -146,6 +153,8 @@ export class ElementService {
           imageData: props.imageData || null,
           opaqueRaw: props.opaqueRaw || null,
           crcWarning: props.crcWarning || false,
+          orientation: props.orientation,
+          reverse: props.reverse || false,
         });
         break;
 

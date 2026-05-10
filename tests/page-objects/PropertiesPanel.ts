@@ -72,6 +72,14 @@ export class PropertiesPanel {
         await select.selectOption(value);
     }
 
+    /**
+     * Toggle the Reverse Print (^FR) buttons.
+     * 'Y' selects Reverse, 'N' selects Normal.
+     */
+    async setReverse(value: 'Y' | 'N'): Promise<void> {
+        await this.panel.locator(`[data-reverse="${value}"]`).click();
+    }
+
     // Common property accessors for Text elements
     async getTextX(): Promise<string> { return this.getProperty('prop-x'); }
     async setTextX(value: number): Promise<void> { await this.setProperty('prop-x', value); }

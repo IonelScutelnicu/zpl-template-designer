@@ -76,7 +76,8 @@ export class SerializationService {
           data.width,
           data.ratio,
           data.placeholder,
-          data.showText
+          data.showText,
+          data.reverse
         );
         break;
 
@@ -88,7 +89,8 @@ export class SerializationService {
           data.model,
           data.magnification,
           data.errorCorrection,
-          data.placeholder
+          data.placeholder,
+          data.reverse
         );
         break;
 
@@ -100,7 +102,8 @@ export class SerializationService {
           data.height,
           data.thickness,
           data.color,
-          data.rounding
+          data.rounding,
+          data.reverse
         );
         break;
 
@@ -147,7 +150,8 @@ export class SerializationService {
           data.thickness,
           data.orientation,
           data.color,
-          data.rounding
+          data.rounding,
+          data.reverse
         );
         break;
 
@@ -158,7 +162,8 @@ export class SerializationService {
           data.width,
           data.height,
           data.thickness,
-          data.color
+          data.color,
+          data.reverse
         );
         break;
 
@@ -191,6 +196,8 @@ export class SerializationService {
           bytes,
           opaqueRaw: data.opaqueRaw || null,
           crcWarning: data.crcWarning || false,
+          orientation: data.orientation,
+          reverse: data.reverse || false,
         });
         break;
       }

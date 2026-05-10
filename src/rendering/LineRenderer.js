@@ -1,6 +1,8 @@
 // Line Renderer
 // Renders LINE elements on canvas
 
+import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+
 /**
  * Renderer for LINE elements
  */
@@ -8,10 +10,12 @@ export class LineRenderer {
   /**
    * Render a LINE element on canvas
    * @param {CanvasRenderingContext2D} ctx - Canvas context
+   * @param {HTMLCanvasElement} canvas - Main canvas (for reverse overlay)
    * @param {Object} element - LINE element
+   * @param {Object} _labelSettings - Label settings (unused, kept for uniform signature)
    * @param {Object} transform - Transform parameters {scale, homeX, homeY, labelTop}
    */
-  render(ctx, element, transform) {
+  render(ctx, canvas, element, _labelSettings, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
     const x = (element.x + homeX) * scale;
@@ -33,12 +37,28 @@ export class LineRenderer {
     const rounding = Math.round(((element.rounding || 0) / 8) * (shorterSide / 2));
 
     const isWhite = element.color !== 'B';
-    ctx.fillStyle = isWhite ? '#FFFFFF' : '#000000';
 
-    if (rounding > 0) {
-      this.roundRect(ctx, x, y, width, height, rounding, true, false);
-    } else {
-      ctx.fillRect(x, y, width, height);
+    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+      targetCtx.save();
+      targetCtx.fillStyle = color;
+      const sx = x + ox;
+      const sy = y + oy;
+      if (rounding > 0) {
+        this.roundRect(targetCtx, sx, sy, width, height, rounding, true, false);
+      } else {
+        targetCtx.fillRect(sx, sy, width, height);
+      }
+      targetCtx.restore();
+    };
+
+    const captured = element.reverse
+      ? captureReverseBg(ctx, canvas, { x, y, width, height })
+      : null;
+
+    drawShape(ctx, isWhite ? '#FFFFFF' : '#000000');
+
+    if (captured) {
+      applyReverseOverlay(ctx, captured, drawShape);
     }
 
     // White elements are invisible on the white canvas background; draw a faint dashed

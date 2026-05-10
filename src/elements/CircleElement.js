@@ -2,24 +2,21 @@ import { ZPLElement } from './ZPLElement.js';
 
 // Circle/Ellipse Element Class
 export class CircleElement extends ZPLElement {
-    constructor(x = 0, y = 0, width = 80, height = 80, thickness = 3, color = 'B') {
+    constructor(x = 0, y = 0, width = 80, height = 80, thickness = 3, color = 'B', reverse = false) {
         super(x, y);
         this.type = 'CIRCLE';
         this.width = width;
         this.height = height;
         this.thickness = thickness;
         this.color = color;
+        this.reverse = reverse; // ^FR (reverse print)
     }
 
     render() {
-        // ZPL format: ^FOx,y^GEwidth,height,thickness,color^FS
-        // ^FO - Field Origin (position)
-        // ^GE - Graphic Ellipse
-        // width, height - ellipse dimensions
-        // thickness - border thickness
-        // color - B (black) or W (white)
-        // ^FS - Field Separator
-        return `^FO${this.x},${this.y}^GE${this.width},${this.height},${this.thickness},${this.color}^FS`;
+        // ZPL format: ^FOx,y^FR^GEwidth,height,thickness,color^FS
+        // ^FR - Reverse print (optional)
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^GE${this.width},${this.height},${this.thickness},${this.color}^FS`;
     }
 
     renderPreview() {

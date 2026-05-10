@@ -63,7 +63,7 @@ export function qrVersionToModules(version) {
 
 // QR Code Element Class
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '') {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false) {
         super(x, y);
         this.type = 'QRCODE';
         this.previewData = previewData;
@@ -71,27 +71,21 @@ export class QRCodeElement extends ZPLElement {
         this.model = model;              // 1 = original, 2 = enhanced (recommended)
         this.magnification = magnification; // 1-10 (scaling factor)
         this.errorCorrection = errorCorrection; // H, Q, M, L (high to low)
+        this.reverse = reverse; // ^FR (reverse print)
     }
 
     render() {
-        // ZPL format: ^FOx,y^BQN,model,magnification^FDerrorCorrection,data^FS
-        // ^FO - Field Origin (position)
-        // ^BQ - QR Code barcode
-        //   N - orientation (normal)
-        //   model - 1 or 2 (2 = enhanced, recommended)
-        //   magnification - 1-10 (scaling factor, affects size)
-        // ^FD - Field Data
-        //   errorCorrection - H/Q/M/L (error correction level)
-        //   A - automatic mode
-        //   data - actual content (uses placeholder for template)
-        // ^FS - Field Separator
+        // ZPL format: ^FOx,y^FR^BQN,model,magnification^FDerrorCorrection,data^FS
+        // ^FR - Reverse print (optional)
         const content = this.placeholder ? `%${this.placeholder}%` : this.previewData;
-        return `^FO${this.x},${this.y}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${content}^FS`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${content}^FS`;
     }
 
     renderPreview() {
         // Uses preview data for Labelary API visualization
-        return `^FO${this.x},${this.y}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${this.previewData}^FS`;
+        const reverseCmd = this.reverse ? '^FR' : '';
+        return `^FO${this.x},${this.y}${reverseCmd}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${this.previewData}^FS`;
     }
 
     getDisplayName() {

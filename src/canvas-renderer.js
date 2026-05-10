@@ -291,11 +291,7 @@ export class CanvasRenderer {
     // Draw element using specialized renderer
     const renderer = this.renderers[element.type];
     if (renderer) {
-      if (element.type === 'TEXT' || element.type === 'FIELDBLOCK' || element.type === 'TEXTBLOCK') {
-        renderer.render(this.ctx, this.canvas, element, labelSettings, transform);
-      } else {
-        renderer.render(this.ctx, element, transform);
-      }
+      renderer.render(this.ctx, this.canvas, element, labelSettings, transform);
     }
 
     // Draw selection indicator
