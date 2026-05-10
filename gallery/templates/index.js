@@ -3,6 +3,7 @@
    Add one entry per template file in gallery/templates/.
    ============================================================ */
 window.TEMPLATE_INDEX = [
+  { file: "gallery/templates/shipment-label-dhl-global-forwarding.json" },
   { file: "gallery/templates/labelary-example.json" },
   { file: "gallery/templates/amazon-fba-fnsku.json" },
   { file: "gallery/templates/warehouse-shelf-location.json" },
