@@ -26,8 +26,9 @@ import { ConfirmModal } from './ui/ConfirmModal.js';
 import { imageToBitmap } from './utils/graphicField.js';
 import { escapeHtml, escapeAttr } from './utils/dom-helpers.js';
 import { DriveTemplateService } from './services/DriveTemplateService.js';
-import * as driveAuth from '../gallery/drive-auth.js';
-import { isConfigured as isDriveConfigured } from '../gallery/drive-config.js';
+import * as driveAuth from './services/DriveAuth.js';
+import { isConfigured as isDriveConfigured } from './config/drive-config.js';
+import { getCurrentView } from './router.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -53,6 +54,56 @@ const driveDoc = {
   lastSavedAt: null,
   driveMode: false, // 'create' = Save As, 'update' = Rename/edit existing, false = Export JSON
 };
+
+// Guards against repeat Drive fetches when the user re-enters the editor view
+// with the same ?drive=<id> still in the URL.
+let lastLoadedDriveId = null;
+
+function rehydrateFromHandoff() {
+  const galleryTemplateJson = sessionStorage.getItem('gallery_template');
+  if (galleryTemplateJson) {
+    sessionStorage.removeItem('gallery_template');
+    try {
+      const galleryTemplate = JSON.parse(galleryTemplateJson);
+      if (galleryTemplate.elements && galleryTemplate.labelSettings) {
+        importTemplate(galleryTemplate);
+      }
+      if (galleryTemplate.driveFileId) {
+        driveDoc.fileId = galleryTemplate.driveFileId;
+        driveDoc.folderId = galleryTemplate.driveFolderId || null;
+        lastLoadedDriveId = galleryTemplate.driveFileId;
+        markClean();
+        syncEditorUrlForDrive();
+        updateDriveSaveBtnState();
+      }
+    } catch (err) {
+      console.warn('Failed to load gallery template:', err);
+    }
+    return;
+  }
+
+  // No sessionStorage payload — fall back to URL ?drive=<id>.
+  const urlParams = new URLSearchParams(window.location.search);
+  const driveId = urlParams.get('drive');
+  if (driveId && driveId !== lastLoadedDriveId && driveAuth.isConnected()) {
+    lastLoadedDriveId = driveId;
+    driveTemplateService.load(driveId).then(({ json, meta }) => {
+      const template = {
+        metadata: json.metadata || { name: (meta.name || '').replace(/\.json$/i, '') },
+        elements: json.elements || [],
+        labelSettings: json.labelSettings || {},
+      };
+      importTemplate(template);
+      driveDoc.fileId = meta.id;
+      driveDoc.folderId = (meta.parents && meta.parents[0]) || null;
+      markClean();
+      updateDriveSaveBtnState();
+    }).catch((err) => {
+      console.warn('Failed to load Drive template by URL:', err);
+      showToast('Couldn\'t load template from Drive: ' + (err.message || ''), 'error');
+    });
+  }
+}
 
 // Single-slot registry for outside-click listeners attached to `document`.
 // Re-renders bind to a slot via bindOutsideClick(slot, fn); the previous
@@ -165,7 +216,6 @@ const zplMoreBtn = document.getElementById("zpl-more-btn");
 const zplMoreMenu = document.getElementById("zpl-more-menu");
 const importZPLBtn = document.getElementById("import-zpl-btn");
 const zplImportModal = document.getElementById("zpl-import-modal");
-const zplImportBackdrop = document.getElementById("zpl-import-backdrop");
 const zplImportInput = document.getElementById("zpl-import-input");
 const zplImportWarnings = document.getElementById("zpl-import-warnings");
 const zplImportWarningsList = document.getElementById("zpl-import-warnings-list");
@@ -517,29 +567,30 @@ export function initApp() {
   exportGalleryCloseBtn.addEventListener("click", closeExportGalleryModal);
   exportGalleryCancelBtn.addEventListener("click", closeExportGalleryModal);
   exportGalleryConfirmBtn.addEventListener("click", doExportForGallery);
-  exportGalleryModal.addEventListener("click", (e) => {
-    if (e.target === exportGalleryModal) closeExportGalleryModal();
+  // Light-dismiss: clicking the ::backdrop area targets the <dialog> itself.
+  const dismissOnBackdrop = (dialog) => dialog.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
   });
+  dismissOnBackdrop(exportGalleryModal);
+  dismissOnBackdrop(zplImportModal);
   shareBtn.addEventListener("click", shareTemplate);
-  importBtn.addEventListener("click", () => {
+  importBtn.addEventListener("click", async () => {
     closeZPLMoreMenu();
     if (state.elements.length > 0) {
-      confirmModal.show(
-        "Importing a template will replace your current work. Continue?",
-        () => importFile.click()
-      );
+      if (await confirmModal.show(
+        "Importing a template will replace your current work. Continue?"
+      )) importFile.click();
       return;
     }
     importFile.click();
   });
   importFile.addEventListener("change", handleFileImport);
-  importZPLBtn.addEventListener("click", () => {
+  importZPLBtn.addEventListener("click", async () => {
     closeZPLMoreMenu();
     if (state.elements.length > 0) {
-      confirmModal.show(
-        "Importing a ZPL template will replace your current work. Continue?",
-        () => openZPLImportModal()
-      );
+      if (await confirmModal.show(
+        "Importing a ZPL template will replace your current work. Continue?"
+      )) openZPLImportModal();
       return;
     }
     openZPLImportModal();
@@ -549,7 +600,6 @@ export function initApp() {
     if (zplMoreMenu.contains(event.target) || zplMoreBtn.contains(event.target)) return;
     closeZPLMoreMenu();
   });
-  zplImportBackdrop.addEventListener("click", closeZPLImportModal);
   zplImportCloseBtn.addEventListener("click", closeZPLImportModal);
   zplImportCancelBtn.addEventListener("click", closeZPLImportModal);
   zplImportConfirmBtn.addEventListener("click", handleZPLImport);
@@ -599,9 +649,7 @@ export function initApp() {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !e.defaultPrevented) {
-      if (!zplImportModal.classList.contains('hidden')) {
-        closeZPLImportModal();
-      } else if (!zplMoreMenu.classList.contains('hidden')) {
+      if (!zplMoreMenu.classList.contains('hidden')) {
         closeZPLMoreMenu();
       } else {
         closeHistoryPanel();
@@ -837,47 +885,18 @@ export function initApp() {
   resetHistory("Initial state", { kind: "init" });
   updateCopyExportUI();
 
-  // Check for template loaded from the gallery
-  const galleryTemplateJson = sessionStorage.getItem('gallery_template');
-  if (galleryTemplateJson) {
-    sessionStorage.removeItem('gallery_template');
-    try {
-      const galleryTemplate = JSON.parse(galleryTemplateJson);
-      if (galleryTemplate.elements && galleryTemplate.labelSettings) {
-        importTemplate(galleryTemplate);
-      }
-      // Capture Drive identity if it came through with the handoff.
-      if (galleryTemplate.driveFileId) {
-        driveDoc.fileId = galleryTemplate.driveFileId;
-        driveDoc.folderId = galleryTemplate.driveFolderId || null;
-        markClean();
-        syncEditorUrlForDrive();
-        updateDriveSaveBtnState();
-      }
-    } catch (err) {
-      console.warn('Failed to load gallery template:', err);
-    }
-  } else {
-    // No sessionStorage payload — fall back to URL ?drive=<id> for refreshed editor.
-    const urlParams = new URLSearchParams(window.location.search);
-    const driveId = urlParams.get('drive');
-    if (driveId && driveAuth.isConnected()) {
-      driveTemplateService.load(driveId).then(({ json, meta }) => {
-        const template = {
-          metadata: json.metadata || { name: (meta.name || '').replace(/\.json$/i, '') },
-          elements: json.elements || [],
-          labelSettings: json.labelSettings || {},
-        };
-        importTemplate(template);
-        driveDoc.fileId = meta.id;
-        driveDoc.folderId = (meta.parents && meta.parents[0]) || null;
-        markClean();
-        updateDriveSaveBtnState();
-      }).catch((err) => {
-        console.warn('Failed to load Drive template by URL:', err);
-        showToast('Couldn\'t load template from Drive: ' + (err.message || ''), 'error');
-      });
-    }
+  // Hydrate from sessionStorage (gallery handoff) or ?drive=<id> URL param.
+  rehydrateFromHandoff();
+
+  // Re-run on every editor view entry so navigating gallery→editor without
+  // a full reload still imports the chosen template. Also repaint the
+  // shared header chip since the gallery may have overwritten it.
+  const editorViewContainer = document.getElementById('view-editor');
+  if (editorViewContainer) {
+    editorViewContainer.addEventListener('view:enter', () => {
+      rehydrateFromHandoff();
+      renderEditorHeaderChip();
+    });
   }
 
   // Check for shared template in URL hash
@@ -1796,7 +1815,7 @@ function openExportGalleryModal(driveMode = false) {
       'Export JSON';
   }
 
-  exportGalleryModal.classList.remove('hidden');
+  exportGalleryModal.showModal();
   document.getElementById('gallery-name').focus();
 }
 
@@ -1807,7 +1826,7 @@ function deriveMediaString(labelSettings) {
 }
 
 function closeExportGalleryModal() {
-  exportGalleryModal.classList.add('hidden');
+  exportGalleryModal.close();
 }
 
 async function doExportForGallery() {
@@ -1848,12 +1867,18 @@ async function doExportForGallery() {
       setSaving(true);
       if (driveDoc.driveMode === 'update') {
         // Rename / edit existing file in place.
-        await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: galleryExport });
+        const updated = await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: galleryExport });
+        document.dispatchEvent(new CustomEvent('drive:template-saved', {
+          detail: { json: galleryExport, fileMeta: { id: driveDoc.fileId, name: updated.name, modifiedTime: updated.modifiedTime } }
+        }));
         showToast('Saved', 'success');
       } else {
         // 'create' — Save As or first save.
         const created = await driveTemplateService.create({ name, json: galleryExport });
         driveDoc.fileId = created.id;
+        document.dispatchEvent(new CustomEvent('drive:template-saved', {
+          detail: { json: galleryExport, fileMeta: { id: created.id, name: created.name, modifiedTime: created.modifiedTime, createdTime: created.createdTime } }
+        }));
         syncEditorUrlForDrive();
         showToast('Saved to Drive', 'success');
       }
@@ -1929,12 +1954,12 @@ function openZPLImportModal() {
   zplImportWarningsList.innerHTML = '';
   zplImportConfirmBtn.textContent = 'Import';
   pendingZPLResult = null;
-  zplImportModal.classList.remove('hidden');
+  zplImportModal.showModal();
   zplImportInput.focus();
 }
 
 function closeZPLImportModal() {
-  zplImportModal.classList.add('hidden');
+  zplImportModal.close();
   pendingZPLResult = null;
 }
 
@@ -1991,6 +2016,8 @@ function importTemplate(template) {
   // Clear current elements
   state.setElements([]);
   state.setSelectedElement(null);
+  state.clearWarnings();
+  warningsPanelDismissed = false;
 
   currentTemplateMetadata = template.metadata || null;
   updateDriveChipLabel();
@@ -2073,7 +2100,7 @@ function syncEditorUrlForDrive() {
 
 async function saveToDrive() {
   if (!isDriveConfigured()) {
-    showToast('Google Drive is not configured. See gallery/drive-config.js.', 'error');
+    showToast('Google Drive is not configured. See src/config/drive-config.js.', 'error');
     return;
   }
   if (!driveAuth.isConnected()) {
@@ -2108,7 +2135,10 @@ async function saveToDrive() {
   };
   try {
     setSaving(true);
-    await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: payload });
+    const updated = await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: payload });
+    document.dispatchEvent(new CustomEvent('drive:template-saved', {
+      detail: { json: payload, fileMeta: { id: driveDoc.fileId, name: updated.name, modifiedTime: updated.modifiedTime } }
+    }));
     currentTemplateMetadata = payload.metadata;
     setSaving(false);
     markClean();
@@ -2196,6 +2226,9 @@ async function connectDriveFromEditor() {
 }
 
 function renderEditorHeaderChip() {
+  // Only the active view owns the shared #drive-auth-chip slot — bail when
+  // the gallery is showing so we don't clobber its rendering.
+  if (getCurrentView() !== 'editor') return;
   const host = document.getElementById('drive-auth-chip');
   if (!host) return;
 

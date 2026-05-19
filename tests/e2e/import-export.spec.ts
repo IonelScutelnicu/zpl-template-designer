@@ -481,9 +481,12 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#import-btn').click();
             await expect(page.locator('#confirm-modal')).toBeVisible();
 
-            // The backdrop fills the viewport but its centre is covered by the
-            // modal card — click a corner that is guaranteed to be uncovered.
-            await page.locator('#confirm-backdrop').click({ position: { x: 10, y: 10 } });
+            // <dialog>'s ::backdrop forwards clicks to the dialog itself —
+            // simulate that with a dispatched event whose target is the dialog.
+            await page.evaluate(() => {
+                document.getElementById('confirm-modal')
+                    .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            });
             await expect(page.locator('#confirm-modal')).toBeHidden();
         });
 

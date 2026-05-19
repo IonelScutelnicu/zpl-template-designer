@@ -1,8 +1,8 @@
 /* ============================================================
-   gallery/drive-auth.js — Google Drive auth + Picker
+   src/services/DriveAuth.js — Google Drive auth + Picker
 
    Wraps Google Identity Services (GIS) and the Picker API.
-   Module-level singleton — both gallery and editor pages
+   Module-level singleton — both gallery and editor views
    share the same token via localStorage.
    ============================================================ */
 
@@ -12,7 +12,7 @@ import {
   DRIVE_SCOPE,
   STORAGE_KEYS,
   isConfigured,
-} from './drive-config.js';
+} from '../config/drive-config.js';
 
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 const GAPI_SRC = 'https://apis.google.com/js/api.js';
@@ -40,7 +40,7 @@ function loadScript(src) {
 
 async function ensureGis() {
   if (gisLoaded) return;
-  if (!isConfigured()) throw new Error('Drive not configured. Edit gallery/drive-config.js.');
+  if (!isConfigured()) throw new Error('Drive not configured. Edit src/config/drive-config.js.');
   await loadScript(GSI_SRC);
   gisLoaded = true;
 }

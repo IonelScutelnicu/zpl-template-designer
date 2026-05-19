@@ -1,14 +1,15 @@
 ﻿/* ============================================================
-   gallery/app.js — Template Gallery home screen (vanilla JS)
+   src/gallery.js — Template Gallery home screen (vanilla JS)
    ============================================================ */
 
-import { renderTemplateThumb } from './gallery-renderer.js';
-import { ZPLGenerator } from '../src/services/ZPLGenerator.js';
-import { SerializationService } from '../src/services/SerializationService.js';
-import { escapeHtml, escapeAttr, formatDate } from '../src/utils/dom-helpers.js';
-import * as driveAuth from './drive-auth.js';
-import * as drive from './drive-templates.js';
-import { isConfigured } from './drive-config.js';
+import { renderTemplateThumb } from './rendering/GalleryThumbnailRenderer.js';
+import { ZPLGenerator } from './services/ZPLGenerator.js';
+import { SerializationService } from './services/SerializationService.js';
+import { escapeHtml, escapeAttr, formatDate } from './utils/dom-helpers.js';
+import * as driveAuth from './services/DriveAuth.js';
+import * as drive from './services/DriveFiles.js';
+import { isConfigured } from './config/drive-config.js';
+import { navigate, getCurrentView } from './router.js';
 
 const zplGenerator = new ZPLGenerator();
 const serializationService = new SerializationService();
@@ -311,9 +312,7 @@ function openInEditor(t, opts) {
       console.warn('Failed to store template in sessionStorage:', e);
     }
   }
-  var url = 'index.html';
-  if (opts.driveFileId) url += '?drive=' + encodeURIComponent(opts.driveFileId);
-  window.location.href = url;
+  navigate('editor', { drive: opts.driveFileId || null });
 }
 
 function openPrivateInEditor(t) {
@@ -335,7 +334,7 @@ function newBlankTemplate() {
   // Simply navigate to the editor with no template payload.
   // Editor opens a fresh canvas; first Save-to-Drive creates the file.
   sessionStorage.removeItem('gallery_template');
-  window.location.href = 'index.html';
+  navigate('editor', { drive: null });
 }
 
 // ---- Export JSON ----
@@ -591,7 +590,9 @@ function openModal(t, triggerEl) {
   } else {
     content.innerHTML = buildExampleModal(t);
   }
-  scrim.style.display = 'flex';
+  scrim.showModal();
+  // UA close (Escape) also triggers cleanup via the close event.
+  scrim.addEventListener('close', onModalClose, { once: true });
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.getElementById('export-json-btn').addEventListener('click', function () { exportJson(t); });
   document.getElementById('copy-zpl-btn').addEventListener('click', function () { copyZPL(t); });
@@ -610,35 +611,20 @@ function openModal(t, triggerEl) {
     });
   }
   document.getElementById('modal-close').focus();
-  state.trapListener = function (e) {
-    if (e.key !== 'Tab') return;
-    var focusable = Array.from(content.querySelectorAll(
-      'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    ));
-    if (!focusable.length) return;
-    var first = focusable[0];
-    var last = focusable[focusable.length - 1];
-    if (e.shiftKey) {
-      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-    } else {
-      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  };
-  document.addEventListener('keydown', state.trapListener);
+}
+
+function onModalClose() {
+  state.open = null;
+  var opener = state.opener;
+  state.opener = null;
+  document.getElementById('modal-content').innerHTML = '';
+  if (opener) opener.focus();
 }
 
 function closeModal() {
-  state.open = null;
-  if (state.trapListener) {
-    document.removeEventListener('keydown', state.trapListener);
-    state.trapListener = null;
-  }
-  var opener = state.opener;
-  state.opener = null;
   var scrim = document.getElementById('modal-scrim');
-  scrim.style.display = 'none';
-  document.getElementById('modal-content').innerHTML = '';
-  if (opener) opener.focus();
+  if (scrim.open) scrim.close();
+  else onModalClose();
 }
 
 // ---- Render ----
@@ -681,7 +667,7 @@ function render() {
     if (!isConfigured()) {
       html += '<div class="drive-cta error">' +
         '<h3>Google Drive not configured</h3>' +
-        '<p>Edit <code>gallery/drive-config.js</code> and add your OAuth Client ID and API Key. Setup steps are in the file\'s comments.</p>' +
+        '<p>Edit <code>src/config/drive-config.js</code> and add your OAuth Client ID and API Key. Setup steps are in the file\'s comments.</p>' +
         '</div>';
     } else if (!driveAuth.isConnected()) {
       html += '<div class="drive-cta">' +
@@ -926,6 +912,9 @@ function resetFilters() {
 // ---- Header chip ----
 
 function renderHeaderChip() {
+  // Only the active view owns the shared #drive-auth-chip slot — bail when
+  // the editor is showing so we don't clobber its rendering.
+  if (getCurrentView() !== 'gallery') return;
   var host = document.getElementById('drive-auth-chip');
   if (!host) return;
 
@@ -1024,36 +1013,22 @@ function confirmDialog(opts) {
     document.getElementById('confirm-title').textContent = opts.title || 'Confirm';
     document.getElementById('confirm-body').textContent = opts.body || '';
     var okBtn = document.getElementById('confirm-ok');
-    var cancelBtn = document.getElementById('confirm-cancel');
     okBtn.textContent = opts.confirmLabel || 'OK';
-    scrim.style.display = 'flex';
-
-    function cleanup(result) {
-      scrim.style.display = 'none';
-      okBtn.removeEventListener('click', onOk);
-      cancelBtn.removeEventListener('click', onCancel);
-      scrim.removeEventListener('click', onBackdrop);
-      document.removeEventListener('keydown', onKey);
-      resolve(result);
-    }
-    function onOk() { cleanup(true); }
-    function onCancel() { cleanup(false); }
-    function onBackdrop(e) { if (e.target === scrim) cleanup(false); }
-    function onKey(e) {
-      if (e.key === 'Escape') cleanup(false);
-      if (e.key === 'Enter') cleanup(true);
-    }
-    okBtn.addEventListener('click', onOk);
-    cancelBtn.addEventListener('click', onCancel);
+    scrim.returnValue = '';
+    scrim.showModal();
+    function onBackdrop(e) { if (e.target === scrim) scrim.close(); }
     scrim.addEventListener('click', onBackdrop);
-    document.addEventListener('keydown', onKey);
-    cancelBtn.focus();
+    scrim.addEventListener('close', function () {
+      scrim.removeEventListener('click', onBackdrop);
+      resolve(scrim.returnValue === 'ok');
+    }, { once: true });
+    document.getElementById('confirm-cancel').focus();
   });
 }
 
 // ---- Init ----
 
-document.addEventListener('DOMContentLoaded', function () {
+export function initGallery() {
   var searchInput = document.getElementById('search-input');
   var sortSelect = document.getElementById('sort-select');
   var modalScrim = document.getElementById('modal-scrim');
@@ -1069,11 +1044,13 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   modalScrim.addEventListener('click', function (e) {
-    if (e.target === e.currentTarget) closeModal();
+    if (e.target === modalScrim) closeModal();
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && state.open) closeModal();
+    // Skip when the gallery is hidden — the shortcut shouldn't fire while
+    // the user is in the editor view.
+    if (getCurrentView() !== 'gallery') return;
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
       searchInput.focus();
@@ -1084,8 +1061,36 @@ document.addEventListener('DOMContentLoaded', function () {
     renderHeaderChip();
   });
 
+  // Clean up modal + scroll lock when leaving the gallery view so the
+  // editor doesn't inherit a stranded `body { position: fixed }`.
+  var galleryContainer = document.getElementById('view-gallery');
+  if (galleryContainer) {
+    galleryContainer.addEventListener('view:leave', function () {
+      if (state.open) closeModal();
+      unlockScroll();
+    });
+    galleryContainer.addEventListener('view:enter', function () {
+      renderHeaderChip();
+    });
+  }
+
+  document.addEventListener('drive:template-saved', function (e) {
+    var detail = e.detail;
+    var entry = normalizeDriveTemplate(detail.json, detail.fileMeta);
+    entry.thumb = renderTemplateThumb(entry.elements, entry.labelSettings);
+    var idx = MY_TEMPLATES.findIndex(function (t) { return t.driveFileId === detail.fileMeta.id; });
+    if (idx >= 0) {
+      MY_TEMPLATES[idx] = entry;
+    } else {
+      MY_TEMPLATES.unshift(entry);
+    }
+    buildCounts();
+    updateHeroStats();
+    render();
+  });
+
   renderHeaderChip();
   driveAuth.refreshProfileIfMissing();
   loadTemplates();
   if (driveAuth.isConnected()) loadMyTemplates();
-});
+}

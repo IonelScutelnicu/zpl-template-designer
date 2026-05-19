@@ -1,38 +1,32 @@
 // ConfirmModal
 // Reusable in-app confirmation dialog — replaces window.confirm() for
-// destructive actions. Wire it up once; call show() wherever needed.
+// destructive actions. The buttons live inside <form method="dialog">,
+// so the UA closes the dialog and writes the submitter's value into
+// returnValue. show() resolves to true on OK, false otherwise.
 
 export class ConfirmModal {
   constructor() {
-    this._modal    = document.getElementById('confirm-modal');
-    this._backdrop = document.getElementById('confirm-backdrop');
-    this._message  = document.getElementById('confirm-message');
-    this._cancelBtn = document.getElementById('confirm-cancel-btn');
-    this._okBtn    = document.getElementById('confirm-ok-btn');
-    this._callback = null;
-
-    this._backdrop.addEventListener('click', () => this._hide());
-    this._cancelBtn.addEventListener('click', () => this._hide());
-    this._okBtn.addEventListener('click', () => {
-      const cb = this._callback;
-      this._hide();
-      if (cb) cb();
+    this._dialog  = document.getElementById('confirm-modal');
+    this._message = document.getElementById('confirm-message');
+    // Light-dismiss: clicks on the ::backdrop area target the dialog itself.
+    this._dialog.addEventListener('click', (e) => {
+      if (e.target === this._dialog) this._dialog.close();
     });
   }
 
   /**
    * Display the modal with a custom message.
-   * @param {string}   message   - Prompt shown to the user.
-   * @param {Function} onConfirm - Called only when the user clicks Replace.
+   * @param {string} message - Prompt shown to the user.
+   * @returns {Promise<boolean>} Resolves true if the user confirmed.
    */
-  show(message, onConfirm) {
+  show(message) {
     this._message.textContent = message;
-    this._callback = onConfirm;
-    this._modal.classList.remove('hidden');
-  }
-
-  _hide() {
-    this._modal.classList.add('hidden');
-    this._callback = null;
+    this._dialog.returnValue = '';
+    this._dialog.showModal();
+    return new Promise((resolve) => {
+      this._dialog.addEventListener('close', () => {
+        resolve(this._dialog.returnValue === 'ok');
+      }, { once: true });
+    });
   }
 }

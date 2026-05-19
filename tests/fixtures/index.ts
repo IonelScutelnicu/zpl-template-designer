@@ -10,6 +10,19 @@ export const test = base.extend<{}>({
             localStorage.setItem('zebra-walkthrough-complete', '1');
             (window as unknown as { __E2E__: boolean }).__E2E__ = true;
         });
+
+        const originalGoto = page.goto.bind(page);
+        page.goto = async (url, options?) => {
+            const response = await originalGoto(url, options);
+            if (url && !url.startsWith('about:')) {
+                await page.waitForFunction(
+                    () => document.documentElement.dataset.viewReady !== undefined,
+                    { timeout: 15000 }
+                );
+            }
+            return response;
+        };
+
         await use(page);
     },
 });

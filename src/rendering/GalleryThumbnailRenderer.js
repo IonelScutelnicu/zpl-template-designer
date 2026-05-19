@@ -1,5 +1,5 @@
-import { CanvasRenderer } from '../src/canvas-renderer.js';
-import { SerializationService } from '../src/services/SerializationService.js';
+import { CanvasRenderer } from '../canvas-renderer.js';
+import { SerializationService } from '../services/SerializationService.js';
 
 const serializationService = new SerializationService();
 

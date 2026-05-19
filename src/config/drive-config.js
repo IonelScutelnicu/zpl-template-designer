@@ -1,5 +1,5 @@
 /* ============================================================
-   gallery/drive-config.js — Google Cloud credentials
+   src/config/drive-config.js — Google Cloud credentials
 
    SETUP REQUIRED before this feature works:
 

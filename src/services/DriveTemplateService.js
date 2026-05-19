@@ -1,10 +1,10 @@
 /* ============================================================
    src/services/DriveTemplateService.js
-   Editor-facing wrapper over gallery/drive-* modules.
+   Editor-facing wrapper over DriveAuth + DriveFiles.
    ============================================================ */
 
-import * as driveAuth from '../../gallery/drive-auth.js';
-import * as drive from '../../gallery/drive-templates.js';
+import * as driveAuth from './DriveAuth.js';
+import * as drive from './DriveFiles.js';
 
 export class DriveTemplateService {
   isConnected() {

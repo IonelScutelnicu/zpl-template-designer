@@ -3,14 +3,14 @@ import { compareWithBaseline } from '../fixtures/image-comparison';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
-const TEMPLATES = readdirSync(join(__dirname, '../../gallery/templates'))
+const TEMPLATES = readdirSync(join(__dirname, '../../templates'))
     .filter(f => f.endsWith('.json'))
     .map(f => f.replace('.json', ''));
 
 test.describe('Gallery template rendering regression', () => {
     test.beforeEach(async ({ page }) => {
         // Any served page gives us same-origin access for dynamic imports
-        await page.goto('/gallery.html');
+        await page.goto('/?view=gallery');
     });
 
     for (const templateId of TEMPLATES) {
@@ -19,7 +19,7 @@ test.describe('Gallery template rendering regression', () => {
                 const [{ CanvasRenderer }, { SerializationService }, json] = await Promise.all([
                     import('/src/canvas-renderer.js'),
                     import('/src/services/SerializationService.js'),
-                    fetch(`/gallery/templates/${id}.json`).then(r => r.json()),
+                    fetch(`/templates/${id}.json`).then(r => r.json()),
                 ]);
 
                 const svc = new SerializationService();

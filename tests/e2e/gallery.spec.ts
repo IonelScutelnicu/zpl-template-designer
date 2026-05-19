@@ -2,17 +2,17 @@ import { test, expect } from '../fixtures';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
-const TEMPLATE_COUNT = readdirSync(join(__dirname, '../../gallery/templates')).filter(f => f.endsWith('.json')).length;
+const TEMPLATE_COUNT = readdirSync(join(__dirname, '../../templates')).filter(f => f.endsWith('.json')).length;
 
 test.describe('Gallery', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/gallery.html');
+        await page.goto('/?view=gallery');
         await expect(page.locator('.tcard')).toHaveCount(TEMPLATE_COUNT, { timeout: 15000 });
     });
 
     test('page loads and shows all template cards', async ({ page }) => {
         await expect(page.locator('.tcard')).toHaveCount(TEMPLATE_COUNT);
-        await expect(page.locator('.grid')).toBeVisible();
+        await expect(page.locator('#view-gallery .gallery')).toBeVisible();
         await expect(page.locator('#stat-templates')).toHaveText(String(TEMPLATE_COUNT));
     });
 

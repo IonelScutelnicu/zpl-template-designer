@@ -32,16 +32,9 @@
 * {
   box-sizing: border-box;
 }
-html {
-  overflow-y: scroll;
-}
-html,
-body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-}
-body {
+/* Scoped to the gallery view so editor styles aren't affected when both
+   views coexist in a single document. */
+#view-gallery {
   background: var(--bg);
   color: var(--ink);
   font-family:
@@ -57,14 +50,14 @@ body {
   font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
-.material-icons-round {
+#view-gallery .material-icons-round {
   font-size: 20px;
   user-select: none;
   vertical-align: middle;
   line-height: 1;
   visibility: hidden;
 }
-.fonts-loaded .material-icons-round {
+.fonts-loaded #view-gallery .material-icons-round {
   visibility: visible;
 }
 
@@ -562,15 +555,15 @@ body {
 
 /* ============ MODAL ============ */
 .modal-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: calc(100vw - 80px);
+  max-height: calc(100vh - 80px);
   animation: fade 180ms ease;
+}
+.modal-scrim::backdrop {
+  background: rgba(15, 23, 42, 0.45);
 }
 @keyframes fade {
   from {
