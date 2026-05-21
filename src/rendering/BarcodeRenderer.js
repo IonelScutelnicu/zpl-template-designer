@@ -33,7 +33,7 @@ export class BarcodeRenderer {
     // Calculate total barcode width (bars only, no quiet zones)
     const totalWidth = calculateCode128Width(data, element.width) * scale;
 
-    const fontPx = 18 * scale;
+    const fontPx = element.width * 9 * scale;
     const textPadY = 4 + (2 * scale);
     const totalHeight = element.showText ? height + textPadY + fontPx : height;
 
@@ -58,6 +58,7 @@ export class BarcodeRenderer {
 
       if (element.showText) {
         targetCtx.font = `${fontPx}px Arial, sans-serif`;
+        targetCtx.letterSpacing = `${(fontPx * 0.12).toFixed(1)}px`;
         targetCtx.textAlign = 'center';
         targetCtx.textBaseline = 'top';
         const barcodeYOffset = fontPx * -0.05;

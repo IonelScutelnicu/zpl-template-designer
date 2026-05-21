@@ -184,12 +184,86 @@ test.describe('Labelary API - Error Scenarios', () => {
             await expect(previewPanel.previewPlaceholder).toBeVisible();
             expect(await previewPanel.hasError()).toBe(false);
         });
+
+        test('should keep the editor canvas visible when overlay mode preview fails', async ({ page }) => {
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({ status: 500, contentType: 'text/plain', body: 'Error' });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
+
+            expect(await previewPanel.isOverlayMode()).toBe(true);
+            expect(await previewPanel.hasError()).toBe(true);
+            await expect(previewPanel.canvas).toBeVisible();
+        });
+
+        test('should hide a stale preview image when a later refresh fails', async ({ page }) => {
+            let shouldFail = false;
+
+            await page.route(LABELARY_URL, async (route) => {
+                if (shouldFail) {
+                    await route.fulfill({ status: 500, contentType: 'text/plain', body: 'Error' });
+                    return;
+                }
+
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
+
+            shouldFail = true;
+            await page.locator('#prop-preview-text').fill('Failure case');
+            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await previewPanel.refreshBtn.click();
+            await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
+
+            await expect(previewPanel.previewImage).toBeHidden();
+        });
     });
 
     // =============================================
     // ERROR RECOVERY
     // =============================================
     test.describe('Error Recovery', () => {
+
+        test('should automatically recover from a transient 429 rate limit response', async ({ page }) => {
+            test.setTimeout(15000);
+            let requestCount = 0;
+
+            await page.route(LABELARY_URL, async (route) => {
+                requestCount += 1;
+
+                if (requestCount === 1) {
+                    await route.fulfill({
+                        status: 429,
+                        contentType: 'text/plain',
+                        body: 'Too Many Requests',
+                    });
+                    return;
+                }
+
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
+
+            expect(requestCount).toBe(2);
+            expect(await previewPanel.hasError()).toBe(false);
+        });
 
         test('should recover after a transient error when API succeeds on retry', async ({ page }) => {
             let shouldFail = true;

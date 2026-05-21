@@ -45,7 +45,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const result = await compareImages(canvasImage, apiImage, 'parity-text', { threshold: 0.3 });
 
         // Log result for debugging
-        console.log(`Text parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Text parity: ${result.diffPercentage.toFixed(2)}% difference`);
 
         // We expect some difference due to font rendering, but should be similar
         expect(result.diffPercentage).toBeLessThan(50);
@@ -73,7 +73,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-box', { threshold: 0.3 });
 
-        console.log(`Box parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Box parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
@@ -101,7 +101,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-box-rounded-4', { threshold: 0.3 });
 
-        console.log(`Box rounding=4 parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Box rounding=4 parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
@@ -129,7 +129,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-box-rounded-8', { threshold: 0.3 });
 
-        console.log(`Box rounding=8 parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Box rounding=8 parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
@@ -157,7 +157,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-line-rounded-4', { threshold: 0.3 });
 
-        console.log(`Line rounding=4 parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Line rounding=4 parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
@@ -179,7 +179,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-barcode', { threshold: 0.3 });
 
-        console.log(`Barcode parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Barcode parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
@@ -199,7 +199,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-multiple', { threshold: 0.3 });
 
-        console.log(`Multiple elements parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`Multiple elements parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(60);
     });
 
@@ -228,7 +228,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-textblock-long-word', { threshold: 0.3 });
 
-        console.log(`TextBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`TextBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
@@ -257,7 +257,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         const result = await compareImages(canvasImage, apiImage, 'parity-fieldblock-long-word', { threshold: 0.3 });
 
-        console.log(`FieldBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
+        if (result.diffPercentage >= 0.005) console.log(`FieldBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
 

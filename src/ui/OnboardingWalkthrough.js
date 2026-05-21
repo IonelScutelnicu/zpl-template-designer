@@ -49,9 +49,9 @@ const STEPS = [
   },
   {
     target: "#mode-canvas-btn",
-    area: "#mode-canvas-btn, #mode-api-btn",
+    area: "#mode-canvas-btn, #mode-overlay-btn, #mode-api-btn",
     title: "Edit & Preview Modes",
-    body: "Switch between Edit mode for designing and Preview mode to see the rendered label via Labelary.",
+    body: "Edit on a blank canvas, Overlay your edits onto the Labelary render, or see the Preview alone.",
     icon: "visibility",
     position: "bottom",
   },

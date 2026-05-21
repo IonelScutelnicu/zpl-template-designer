@@ -26,6 +26,7 @@ export class CanvasRenderer {
     this.scale = 1;
     this.offsetX = 0;
     this.offsetY = 0;
+    this.transparentBackground = false;
     this.showGrid = false; // Hide grid to match API preview look
     this.smartGuides = []; // Active smart guide lines during drag
 
@@ -41,6 +42,10 @@ export class CanvasRenderer {
       CIRCLE: new CircleRenderer(),
       GRAPHIC: new GraphicFieldRenderer()
     };
+  }
+
+  setTransparentBackground(enabled) {
+    this.transparentBackground = Boolean(enabled);
   }
 
   /**
@@ -81,17 +86,21 @@ export class CanvasRenderer {
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Draw white label background
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.fillRect(0, 0, labelWidthDots, labelHeightDots);
+    if (!this.transparentBackground) {
+      // Draw white label background
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.fillRect(0, 0, labelWidthDots, labelHeightDots);
+    }
 
     // Draw grid if enabled
     if (this.showGrid) {
       this.drawGrid(labelWidthDots, labelHeightDots, dpmm);
     }
 
-    // Draw offset zones with horizontal stripe pattern
-    this.drawOffsetZones(labelWidthDots, labelHeightDots);
+    if (!this.transparentBackground) {
+      // Draw offset zones with horizontal stripe pattern
+      this.drawOffsetZones(labelWidthDots, labelHeightDots);
+    }
 
     // Apply orientation transformation for elements
     // For inverted (I) orientation, flip the entire canvas 180°

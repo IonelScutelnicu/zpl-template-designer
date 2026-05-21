@@ -87,17 +87,31 @@ async function showView(view) {
   const prevContainer = document.getElementById(VIEWS[previous].containerId);
   const nextContainer = document.getElementById(VIEWS[view].containerId);
 
+  // Update current view immediately to prevent re-entrant navigation
+  currentView = view;
+
+  // Fire view:leave before the snapshot so modals close / scroll unlocks first
   if (prevContainer && previous !== view) {
     scrollByView.set(previous, window.scrollY);
     prevContainer.dispatchEvent(new CustomEvent('view:leave', { detail: { view: previous } }));
-    prevContainer.hidden = true;
   }
 
-  if (nextContainer) nextContainer.hidden = false;
+  const doSwap = () => {
+    if (prevContainer && previous !== view) prevContainer.hidden = true;
+    if (nextContainer) nextContainer.hidden = false;
+    document.title = VIEWS[view].title;
+    updateHeaderToggle(view);
+    const savedScroll = scrollByView.get(view);
+    window.scrollTo(0, typeof savedScroll === 'number' ? savedScroll : 0);
+  };
 
-  currentView = view;
-  document.title = VIEWS[view].title;
-  updateHeaderToggle(view);
+  if ('startViewTransition' in document) {
+    // Await updateCallbackDone so doSwap has run before we initialize the view.
+    // The crossfade animation plays concurrently in the background.
+    await document.startViewTransition(doSwap).updateCallbackDone;
+  } else {
+    doSwap();
+  }
 
   await ensureInitialized(view);
 
@@ -106,9 +120,6 @@ async function showView(view) {
   if (nextContainer) {
     nextContainer.dispatchEvent(new CustomEvent('view:enter', { detail: { view, previous } }));
   }
-
-  const savedScroll = scrollByView.get(view);
-  window.scrollTo(0, typeof savedScroll === 'number' ? savedScroll : 0);
 }
 
 export function getCurrentView() {

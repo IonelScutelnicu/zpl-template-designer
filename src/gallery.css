@@ -3,6 +3,11 @@
    Design system: Inter + JetBrains Mono, slate palette, blue accent.
    ============================================================ */
 
+#preview-container {
+  background-image: radial-gradient(circle, #94a3b8 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
 :root {
   --bg: #f1f5f9;
   --card: #ffffff;

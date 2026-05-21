@@ -34,6 +34,24 @@
       scrollbar-gutter: stable;
     }
 
+    /* Give the header its own transition slot so it isn't frozen in the
+       root crossfade — tab switch stays instant while content fades. */
+    header {
+      view-transition-name: header;
+    }
+
+    ::view-transition-old(header),
+    ::view-transition-new(header) {
+      animation-duration: 0s;
+    }
+
+    /* Root crossfade: 200 ms. */
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 200ms;
+      animation-timing-function: ease-in-out;
+    }
+
     /* Custom scrollbar for better look */
     ::-webkit-scrollbar {
       width: 6px;
@@ -288,8 +306,6 @@
           <div class="flex flex-col min-w-0">
             <div class="flex items-center gap-2">
               <h1 class="text-[17px] font-bold tracking-tight text-slate-900 truncate">Zebra ZPL Editor</h1>
-              <span
-                class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 ring-1 ring-inset ring-blue-600/20">Beta</span>
             </div>
             <p class="text-[12px] font-medium text-slate-500 truncate mt-0.5">Visual workspace for creating
               Zebra labels</p>
@@ -334,724 +350,750 @@
     </header>
 
     <div id="view-editor">
-    <main class="flex-grow max-w-[1920px] mx-auto w-full p-6">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main class="flex-grow max-w-[1920px] mx-auto w-full p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        <!-- Sidebar: Settings & Elements -->
-        <aside class="lg:col-span-2 lg:col-start-1 space-y-4 h-fit sticky top-6">
+          <!-- Sidebar: Settings & Elements -->
+          <aside class="lg:col-span-2 lg:col-start-1 space-y-4 h-fit sticky top-6">
 
-          <!-- Add Elements -->
-          <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-            <div class="bg-slate-50 border-b border-slate-100 px-4 py-3">
-              <h2 class="font-semibold text-slate-700 text-sm">Elements</h2>
-            </div>
-            <div class="p-3 grid grid-cols-2 gap-2">
-              <button id="add-textblock-btn" data-tooltip="Add Text Block element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">article</span>
-                <span class="font-medium">Text Block</span>
-              </button>
-              <button id="add-fieldblock-btn" data-tooltip="Add Field Block element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">text_fields</span>
-                <span class="font-medium">Field Block</span>
-              </button>
-              <button id="add-text-btn" data-tooltip="Add Text element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">title</span>
-                <span class="font-medium">Text</span>
-              </button>
-              <button id="add-barcode-btn" data-tooltip="Add Barcode element (Code 128)"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">view_week</span>
-                <span class="font-medium">Barcode</span>
-              </button>
-              <button id="add-qrcode-btn" data-tooltip="Add QR Code element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">qr_code_2</span>
-                <span class="font-medium">QR Code</span>
-              </button>
-              <button id="add-box-btn" data-tooltip="Add Box / Rectangle element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">check_box_outline_blank</span>
-                <span class="font-medium">Box</span>
-              </button>
-              <button id="add-line-btn" data-tooltip="Add Line element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">horizontal_rule</span>
-                <span class="font-medium">Line</span>
-              </button>
-              <button id="add-circle-btn" data-tooltip="Add Circle element"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">radio_button_unchecked</span>
-                <span class="font-medium">Circle</span>
-              </button>
-              <button id="add-graphic-btn" data-tooltip="Add Graphic Field (image, ^GF)"
-                class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
-                <span
-                  class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors group-hover:hidden">image</span>
-                <span
-                  class="material-icons-round hidden group-hover:block text-blue-500 mb-1 transition-colors">file_upload</span>
-                <span class="font-medium">Image</span>
-              </button>
-              <input id="add-graphic-file-input" type="file" accept="image/*" class="hidden" />
-            </div>
+            <!-- Add Elements -->
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+              <div class="bg-slate-50 border-b border-slate-100 px-4 py-3">
+                <h2 class="font-semibold text-slate-700 text-sm">Elements</h2>
+              </div>
+              <div class="p-3 grid grid-cols-2 gap-2">
+                <button id="add-textblock-btn" data-tooltip="Add Text Block element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">article</span>
+                  <span class="font-medium">Text Block</span>
+                </button>
+                <button id="add-fieldblock-btn" data-tooltip="Add Field Block element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">text_fields</span>
+                  <span class="font-medium">Field Block</span>
+                </button>
+                <button id="add-text-btn" data-tooltip="Add Text element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">title</span>
+                  <span class="font-medium">Text</span>
+                </button>
+                <button id="add-barcode-btn" data-tooltip="Add Barcode element (Code 128)"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">view_week</span>
+                  <span class="font-medium">Barcode</span>
+                </button>
+                <button id="add-qrcode-btn" data-tooltip="Add QR Code element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">qr_code_2</span>
+                  <span class="font-medium">QR Code</span>
+                </button>
+                <button id="add-box-btn" data-tooltip="Add Box / Rectangle element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">check_box_outline_blank</span>
+                  <span class="font-medium">Box</span>
+                </button>
+                <button id="add-line-btn" data-tooltip="Add Line element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">horizontal_rule</span>
+                  <span class="font-medium">Line</span>
+                </button>
+                <button id="add-circle-btn" data-tooltip="Add Circle element"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors">radio_button_unchecked</span>
+                  <span class="font-medium">Circle</span>
+                </button>
+                <button id="add-graphic-btn" data-tooltip="Add Graphic Field (image, ^GF)"
+                  class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
+                  <span
+                    class="material-icons-round text-slate-400 group-hover:text-blue-500 mb-1 transition-colors group-hover:hidden">image</span>
+                  <span
+                    class="material-icons-round hidden group-hover:block text-blue-500 mb-1 transition-colors">file_upload</span>
+                  <span class="font-medium">Image</span>
+                </button>
+                <input id="add-graphic-file-input" type="file" accept="image/*" class="hidden" />
+              </div>
 
-            <!-- Elements List -->
-            <div class="border-t border-slate-100">
-              <div id="elements-list" class="p-3 space-y-1.5 max-h-[300px] overflow-y-auto bg-slate-50/50">
-                <p class="text-center text-slate-400 py-4 italic text-xs">No elements added</p>
+              <!-- Elements List -->
+              <div class="border-t border-slate-100">
+                <div id="elements-list" class="p-3 space-y-1.5 max-h-[300px] overflow-y-auto bg-slate-50/50">
+                  <p class="text-center text-slate-400 py-4 italic text-xs">No elements added</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Configuration Accordion -->
-          <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-            <!-- Label Settings -->
-            <details class="group border-b border-slate-100" open>
-              <summary
-                class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                <span>Label Setup</span>
-                <span class="transition group-open:rotate-180">
-                  <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
-                    stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
-                    <path d="M6 9l6 6 6-6"></path>
-                  </svg>
-                </span>
-              </summary>
-              <div class="p-4 text-slate-500 text-xs space-y-3">
-                <div class="grid grid-cols-2 gap-3">
+            <!-- Configuration Accordion -->
+            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+              <!-- Label Settings -->
+              <details class="group border-b border-slate-100" open>
+                <summary
+                  class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
+                  <span>Label Setup</span>
+                  <span class="transition group-open:rotate-180">
+                    <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
+                      stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
+                      <path d="M6 9l6 6 6-6"></path>
+                    </svg>
+                  </span>
+                </summary>
+                <div class="p-4 text-slate-500 text-xs space-y-3">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block font-medium text-slate-700 mb-1">Width (mm)</label>
+                      <input type="number" id="label-width" value="100" min="10" max="381" step="0.1"
+                        class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                    </div>
+                    <div>
+                      <label class="block font-medium text-slate-700 mb-1">Height (mm)</label>
+                      <input type="number" id="label-height" value="50" min="10" max="381" step="0.1"
+                        class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                    </div>
+                  </div>
                   <div>
-                    <label class="block font-medium text-slate-700 mb-1">Width (mm)</label>
-                    <input type="number" id="label-width" value="100" min="10" max="381" step="0.1"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                  </div>
-                  <div>
-                    <label class="block font-medium text-slate-700 mb-1">Height (mm)</label>
-                    <input type="number" id="label-height" value="50" min="10" max="381" step="0.1"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                  </div>
-                </div>
-                <div>
-                  <label class="block font-medium text-slate-700 mb-1">Print Density</label>
-                  <select id="label-dpmm"
-                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white bg-white">
-                    <option value="6">6 dpmm (152 dpi)</option>
-                    <option value="8" selected>8 dpmm (203 dpi)</option>
-                    <option value="12">12 dpmm (300 dpi)</option>
-                    <option value="24">24 dpmm (600 dpi)</option>
-                  </select>
-                </div>
-              </div>
-            </details>
-
-            <!-- Printer Configuration -->
-            <details class="group border-b border-slate-100">
-              <summary
-                class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                <span>Print Configuration</span>
-                <span class="transition group-open:rotate-180">
-                  <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
-                    stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
-                    <path d="M6 9l6 6 6-6"></path>
-                  </svg>
-                </span>
-              </summary>
-              <div class="p-4 text-slate-500 text-xs space-y-3">
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-medium text-slate-700">
-                    Orientation
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-po.html"
-                      target="_blank" class="text-blue-500 hover:underline">^PO</a>
-                  </label>
-                  <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-                    <button type="button" data-orientation="N"
-                      class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
-                      Normal
-                    </button>
-                    <button type="button" data-orientation="I"
-                      class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
-                      Inverted
-                    </button>
+                    <label class="block font-medium text-slate-700 mb-1">Print Density</label>
+                    <select id="label-dpmm"
+                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white bg-white">
+                      <option value="6">6 dpmm (152 dpi)</option>
+                      <option value="8" selected>8 dpmm (203 dpi)</option>
+                      <option value="12">12 dpmm (300 dpi)</option>
+                      <option value="24">24 dpmm (600 dpi)</option>
+                    </select>
                   </div>
                 </div>
+              </details>
 
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-medium text-slate-700">
-                    Mirror
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pm-printing-mirror.html"
-                      target="_blank" class="text-blue-500 hover:underline">^PM</a>
-                  </label>
-                  <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-                    <button type="button" data-mirror="N"
-                      class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
-                      Normal
-                    </button>
-                    <button type="button" data-mirror="Y"
-                      class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
-                      Mirrored
-                    </button>
-                  </div>
-                </div>
-
-
-                <div>
-                  <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                    Intensity
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-sd.html"
-                      target="_blank" class="text-blue-500 hover:underline">~SD</a>
-                  </label>
-                  <input type="number" id="media-darkness" value="25" min="0" max="30"
-                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                </div>
-
-
-                <div class="pt-2 border-t border-slate-100">
-                  <label class="block font-medium text-slate-700 mb-2 flex justify-between">
-                    Print Speed (ips)
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pr-print-rate.html"
-                      target="_blank" class="text-blue-500 hover:underline">^PR</a>
-                  </label>
-                  <div class="grid grid-cols-3 gap-2">
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Print</span>
-                      <input type="number" id="print-speed" value="4" min="2" max="14"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
-                    </div>
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Slew</span>
-                      <input type="number" id="slew-speed" value="4" min="2" max="14"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
-                    </div>
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Back</span>
-                      <input type="number" id="backfeed-speed" value="4" min="2" max="14"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+              <!-- Printer Configuration -->
+              <details class="group border-b border-slate-100">
+                <summary
+                  class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
+                  <span>Print Configuration</span>
+                  <span class="transition group-open:rotate-180">
+                    <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
+                      stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
+                      <path d="M6 9l6 6 6-6"></path>
+                    </svg>
+                  </span>
+                </summary>
+                <div class="p-4 text-slate-500 text-xs space-y-3">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-medium text-slate-700">
+                      Orientation
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-po.html"
+                        target="_blank" class="text-blue-500 hover:underline">^PO</a>
+                    </label>
+                    <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+                      <button type="button" data-orientation="N"
+                        class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
+                        Normal
+                      </button>
+                      <button type="button" data-orientation="I"
+                        class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
+                        Inverted
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                <div class="pt-2 border-t border-slate-100">
-                  <label class="block font-medium text-slate-700 mb-2 flex justify-between">
-                    Print Quantity
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pq.html"
-                      target="_blank" class="text-blue-500 hover:underline">^PQ</a>
-                  </label>
-                  <div class="grid grid-cols-3 gap-2">
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Qty</span>
-                      <input type="number" id="print-quantity" value="1" min="1" max="99999999"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
-                    </div>
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Pause</span>
-                      <input type="number" id="pause-count" value="0" min="0" max="99999999"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
-                    </div>
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Replicates</span>
-                      <input type="number" id="replicates" value="0" min="0" max="99999999"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-medium text-slate-700">
+                      Mirror
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pm-printing-mirror.html"
+                        target="_blank" class="text-blue-500 hover:underline">^PM</a>
+                    </label>
+                    <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+                      <button type="button" data-mirror="N"
+                        class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
+                        Normal
+                      </button>
+                      <button type="button" data-mirror="Y"
+                        class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
+                        Mirrored
+                      </button>
                     </div>
                   </div>
-                  <div class="mt-2">
-                    <span class="text-[10px] text-slate-400 uppercase tracking-wider">Qty Placeholder</span>
-                    <input type="text" id="print-quantity-placeholder" value="" placeholder="e.g. qty"
-                      class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
-                  </div>
-                </div>
-              </div>
-            </details>
 
-            <!-- Position & Offsets -->
-            <details class="group border-b border-slate-100">
-              <summary
-                class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                <span>Offsets</span>
-                <span class="transition group-open:rotate-180">
-                  <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
-                    stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
-                    <path d="M6 9l6 6 6-6"></path>
-                  </svg>
-                </span>
-              </summary>
-              <div class="p-4 text-slate-500 text-xs space-y-3">
-                <div class="grid grid-cols-2 gap-3">
+
                   <div>
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      Home X <a
-                        href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-lh.html"
-                        target="_blank" class="text-blue-500 hover:underline">^LH</a>
+                      Intensity
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-sd.html"
+                        target="_blank" class="text-blue-500 hover:underline">~SD</a>
                     </label>
-                    <input type="number" id="home-x" value="0"
+                    <input type="number" id="media-darkness" value="25" min="0" max="30"
                       class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
                   </div>
-                  <div>
-                    <label class="block font-medium text-slate-700 mb-1">Home Y</label>
-                    <input type="number" id="home-y" value="0"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                  </div>
-                </div>
-                <div>
-                  <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                    Label Top Shift <a
-                      href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-lt.html"
-                      target="_blank" class="text-blue-500 hover:underline">^LT</a>
-                  </label>
-                  <input type="number" id="label-top" value="0"
-                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                </div>
-              </div>
-            </details>
 
-            <!-- Font Settings -->
-            <details class="group">
-              <summary
-                class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                <span>Default Font</span>
-                <span class="transition group-open:rotate-180">
-                  <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
-                    stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
-                    <path d="M6 9l6 6 6-6"></path>
-                  </svg>
-                </span>
-              </summary>
-              <div class="p-4 text-slate-500 text-xs space-y-3">
-                <div>
-                  <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                    ID <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-cf.html"
-                      target="_blank" class="text-blue-500 hover:underline">^CF</a>
-                  </label>
-                  <select id="font-id"
-                    class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option value="0" selected>0 - Default</option>
-                    <option value="A">A - 9×5</option>
-                    <option value="B">B - 11×7</option>
-                    <option value="C">C - 18×10</option>
-                    <option value="D">D - 18×10</option>
-                    <option value="E">E - 28×15</option>
-                    <option value="F">F - 26×15</option>
-                    <option value="G">G - 60×40</option>
-                    <option value="H">H - 21×13</option>
-                  </select>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="block font-medium text-slate-700 mb-1">Height</label>
-                    <input type="number" id="default-font-height" value="20" min="1"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                  </div>
-                  <div>
-                    <label class="block font-medium text-slate-700 mb-1">Width</label>
-                    <input type="number" id="default-font-width" value="" min="0"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                  </div>
-                </div>
-                <!-- Custom Fonts Sub-section -->
-                <div class="pt-2 border-t border-slate-100">
-                  <label class="block font-medium text-slate-700 mb-2 flex justify-between">
-                    Custom Fonts
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-cw.html"
-                      target="_blank" class="text-blue-500 hover:underline">^CW</a>
-                  </label>
-                  <div id="custom-fonts-list" class="space-y-2 mb-2">
-                    <!-- Custom fonts will be rendered here -->
-                  </div>
-                  <div class="grid grid-cols-[1fr_2fr_auto] gap-2 items-end">
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">ID</span>
-                      <input type="text" id="new-font-id" maxlength="1" placeholder="M"
-                        class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white uppercase" />
+
+                  <div class="pt-2 border-t border-slate-100">
+                    <label class="block font-medium text-slate-700 mb-2 flex justify-between">
+                      Print Speed (ips)
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pr-print-rate.html"
+                        target="_blank" class="text-blue-500 hover:underline">^PR</a>
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Print</span>
+                        <input type="number" id="print-speed" value="4" min="2" max="14"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Slew</span>
+                        <input type="number" id="slew-speed" value="4" min="2" max="14"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Back</span>
+                        <input type="number" id="backfeed-speed" value="4" min="2" max="14"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
                     </div>
-                    <div>
-                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Font File</span>
-                      <input type="text" id="new-font-file" placeholder="E:font_name.TTF"
+                  </div>
+
+                  <div class="pt-2 border-t border-slate-100">
+                    <label class="block font-medium text-slate-700 mb-2 flex justify-between">
+                      Print Quantity
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-pq.html"
+                        target="_blank" class="text-blue-500 hover:underline">^PQ</a>
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Qty</span>
+                        <input type="number" id="print-quantity" value="1" min="1" max="99999999"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Pause</span>
+                        <input type="number" id="pause-count" value="0" min="0" max="99999999"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Replicates</span>
+                        <input type="number" id="replicates" value="0" min="0" max="99999999"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
+                    </div>
+                    <div class="mt-2">
+                      <span class="text-[10px] text-slate-400 uppercase tracking-wider">Qty Placeholder</span>
+                      <input type="text" id="print-quantity-placeholder" value="" placeholder="e.g. qty"
                         class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
                     </div>
-                    <button id="add-custom-font-btn"
-                      class="flex items-center justify-center p-1.5 rounded-md border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
-                      title="Add Custom Font">
-                      <span class="material-icons-round text-sm">add</span>
-                    </button>
                   </div>
-                  <p id="custom-font-error" class="text-red-500 text-[10px] mt-1 hidden"></p>
                 </div>
-              </div>
-            </details>
-          </div>
-        </aside>
+              </details>
 
-        <!-- Main Area -->
-        <div class="lg:col-span-10 lg:col-start-3">
+              <!-- Position & Offsets -->
+              <details class="group border-b border-slate-100">
+                <summary
+                  class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
+                  <span>Offsets</span>
+                  <span class="transition group-open:rotate-180">
+                    <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
+                      stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
+                      <path d="M6 9l6 6 6-6"></path>
+                    </svg>
+                  </span>
+                </summary>
+                <div class="p-4 text-slate-500 text-xs space-y-3">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block font-medium text-slate-700 mb-1 flex justify-between">
+                        Home X <a
+                          href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-lh.html"
+                          target="_blank" class="text-blue-500 hover:underline">^LH</a>
+                      </label>
+                      <input type="number" id="home-x" value="0"
+                        class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                    </div>
+                    <div>
+                      <label class="block font-medium text-slate-700 mb-1">Home Y</label>
+                      <input type="number" id="home-y" value="0"
+                        class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block font-medium text-slate-700 mb-1 flex justify-between">
+                      Label Top Shift <a
+                        href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-lt.html"
+                        target="_blank" class="text-blue-500 hover:underline">^LT</a>
+                    </label>
+                    <input type="number" id="label-top" value="0"
+                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                  </div>
+                </div>
+              </details>
 
-          <!-- Center Column: Preview + ZPL, Right Column: Properties -->
-          <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+              <!-- Font Settings -->
+              <details class="group">
+                <summary
+                  class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
+                  <span>Default Font</span>
+                  <span class="transition group-open:rotate-180">
+                    <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
+                      stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
+                      <path d="M6 9l6 6 6-6"></path>
+                    </svg>
+                  </span>
+                </summary>
+                <div class="p-4 text-slate-500 text-xs space-y-3">
+                  <div>
+                    <label class="block font-medium text-slate-700 mb-1 flex justify-between">
+                      ID <a
+                        href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-cf.html"
+                        target="_blank" class="text-blue-500 hover:underline">^CF</a>
+                    </label>
+                    <select id="font-id"
+                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                      <option value="0" selected>0 - Default</option>
+                      <option value="A">A - 9×5</option>
+                      <option value="B">B - 11×7</option>
+                      <option value="C">C - 18×10</option>
+                      <option value="D">D - 18×10</option>
+                      <option value="E">E - 28×15</option>
+                      <option value="F">F - 26×15</option>
+                      <option value="G">G - 60×40</option>
+                      <option value="H">H - 21×13</option>
+                    </select>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="block font-medium text-slate-700 mb-1">Height</label>
+                      <input type="number" id="default-font-height" value="20" min="1"
+                        class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                    </div>
+                    <div>
+                      <label class="block font-medium text-slate-700 mb-1">Width</label>
+                      <input type="number" id="default-font-width" value="" min="0"
+                        class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white" />
+                    </div>
+                  </div>
+                  <!-- Custom Fonts Sub-section -->
+                  <div class="pt-2 border-t border-slate-100">
+                    <label class="block font-medium text-slate-700 mb-2 flex justify-between">
+                      Custom Fonts
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-cw.html"
+                        target="_blank" class="text-blue-500 hover:underline">^CW</a>
+                    </label>
+                    <div id="custom-fonts-list" class="space-y-2 mb-2">
+                      <!-- Custom fonts will be rendered here -->
+                    </div>
+                    <div class="grid grid-cols-[1fr_2fr_auto] gap-2 items-end">
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">ID</span>
+                        <input type="text" id="new-font-id" maxlength="1" placeholder="M"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white uppercase" />
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider">Font File</span>
+                        <input type="text" id="new-font-file" placeholder="E:font_name.TTF"
+                          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+                      </div>
+                      <button id="add-custom-font-btn"
+                        class="flex items-center justify-center p-1.5 rounded-md border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                        title="Add Custom Font">
+                        <span class="material-icons-round text-sm">add</span>
+                      </button>
+                    </div>
+                    <p id="custom-font-error" class="text-red-500 text-[10px] mt-1 hidden"></p>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </aside>
 
-            <div class="space-y-6">
-              <!-- Preview Panel -->
-              <div
-                class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
+          <!-- Main Area -->
+          <div class="lg:col-span-10 lg:col-start-3">
+
+            <!-- Center Column: Preview + ZPL, Right Column: Properties -->
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+
+              <div class="space-y-6">
+                <!-- Preview Panel -->
                 <div
-                  class="border-b border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                  <h2 class="font-semibold text-slate-700 text-sm">Live Preview</h2>
-                  <div class="flex items-center justify-center gap-4">
-                    <!-- Mode Switcher -->
-                    <div class="flex gap-1 p-1 bg-slate-200/60 rounded-lg">
-                      <button id="mode-canvas-btn" data-tooltip="Edit mode — drag &amp; resize on canvas"
-                        class="px-3 py-1 text-xs font-semibold rounded-md bg-white text-slate-700 shadow-sm transition-all focus:outline-none">
-                        Edit
+                  class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
+                  <div
+                    class="border-b border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <h2 class="font-semibold text-slate-700 text-sm">Live Preview</h2>
+                    <div class="flex flex-col items-center gap-1.5">
+                      <div class="flex items-center gap-4">
+                        <!-- Mode Switcher -->
+                        <div class="flex gap-1 p-1 bg-slate-200/60 rounded-lg" role="group" aria-label="Preview mode">
+                          <button id="mode-canvas-btn" aria-pressed="true"
+                            data-tooltip="Edit mode — drag &amp; resize on canvas"
+                            class="px-3 py-1 text-xs font-semibold rounded-md bg-white text-slate-700 shadow-sm transition focus:outline-none">
+                            Edit
+                          </button>
+                          <div id="mode-overlay-btn" aria-pressed="false" role="button" tabindex="0"
+                            data-tooltip="Overlay mode — edit on canvas over the Labelary preview"
+                            class="px-3 py-1 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 transition focus:outline-none flex items-center gap-2 cursor-pointer select-none">
+                            Overlay
+                            <span id="overlay-opacity-control" class="hidden flex items-center gap-2">
+                              <span class="w-px h-3.5 bg-slate-300"></span>
+                              <input id="overlay-opacity-slider" type="range" min="10" max="80" value="40" step="5"
+                                class="w-24 accent-blue-500 cursor-pointer" aria-label="Preview image opacity">
+                              <span id="overlay-opacity-value"
+                                class="text-[10px] font-bold tabular-nums">40%</span>
+                            </span>
+                          </div>
+                          <button id="mode-api-btn" aria-pressed="false"
+                            data-tooltip="Preview mode — render via Labelary API"
+                            class="px-3 py-1 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 transition focus:outline-none">
+                            Preview
+                          </button>
+                        </div>
+
+                        <button id="refresh-preview-btn" disabled data-tooltip="Refresh Labelary API preview"
+                          class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                          <svg id="refresh-preview-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                          </svg>
+                          Refresh
+                        </button>
+                      </div>
+
+                    </div>
+                    <div class="flex items-center justify-end gap-3">
+                      <div class="flex items-center rounded border border-blue-100 bg-blue-50 overflow-hidden">
+                        <button id="undo-btn" disabled
+                          class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          data-tooltip="Undo (Ctrl+Z)">
+                          <span class="material-icons-round text-sm">undo</span>
+                          Undo
+                        </button>
+                        <div class="w-px h-5 bg-blue-100"></div>
+                        <button id="redo-btn"
+                          class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          data-tooltip="Redo (Ctrl+Shift+Z)" disabled>
+                          <span class="material-icons-round text-sm">redo</span>
+                          Redo
+                        </button>
+                      </div>
+                      <button id="history-toggle-btn" data-tooltip="Toggle edit history panel"
+                        class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
+                        <span class="material-icons-round text-sm">history</span>
+                        History
                       </button>
-                      <button id="mode-api-btn" data-tooltip="Preview mode — render via Labelary API"
-                        class="px-3 py-1 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 transition-all focus:outline-none">
-                        Preview
-                      </button>
+                    </div>
+                  </div>
+                  <div
+                    class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px]"
+                    id="preview-container" data-mode="canvas">
+                    <!-- Canvas Preview (default) -->
+                    <canvas id="label-canvas" width="799" height="399"
+                      class="shadow-lg border border-slate-200 bg-white cursor-default max-w-full max-h-[450px] object-contain absolute z-10"></canvas>
+
+                    <!-- API Preview (hidden by default) -->
+                    <div id="api-preview-container"
+                      class="hidden absolute inset-0 z-0 flex items-center justify-center p-6 pointer-events-none">
+                      <div class="absolute inset-0 z-0 opacity-[0.03]"
+                        style="background-image: radial-gradient(#000 1px, transparent 1px); background-size: 20px 20px;">
+                      </div>
+
+                      <div id="preview-backing"
+                        class="hidden absolute inset-0 m-auto z-0 border border-slate-200 bg-white box-content">
+                      </div>
+
+                      <div id="preview-error"
+                        class="hidden bg-red-50 text-red-600 p-3 rounded border border-red-100 max-w-sm text-center text-xs z-0">
+                      </div>
+                      <img id="preview-image"
+                        class="hidden max-w-full max-h-[450px] shadow-lg border border-slate-200 bg-white object-contain z-10"
+                        alt="Label preview" />
+                      <div id="preview-placeholder" class="text-slate-400 text-sm italic z-10">
+                        Click refresh to render
+                      </div>
                     </div>
 
-                    <button id="refresh-preview-btn" disabled data-tooltip="Refresh Labelary API preview"
-                      class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                        </path>
-                      </svg>
-                      Refresh
-                    </button>
-                  </div>
-                  <div class="flex items-center justify-end gap-3">
-                    <div class="flex items-center rounded border border-blue-100 bg-blue-50 overflow-hidden">
-                      <button id="undo-btn" disabled
-                        class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                        data-tooltip="Undo (Ctrl+Z)">
-                        <span class="material-icons-round text-sm">undo</span>
-                        Undo
-                      </button>
-                      <div class="w-px h-5 bg-blue-100"></div>
-                      <button id="redo-btn"
-                        class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                        data-tooltip="Redo (Ctrl+Shift+Z)" disabled>
-                        <span class="material-icons-round text-sm">redo</span>
-                        Redo
-                      </button>
-                    </div>
-                    <button id="history-toggle-btn" data-tooltip="Toggle edit history panel"
-                      class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
-                      <span class="material-icons-round text-sm">history</span>
-                      History
-                    </button>
                   </div>
                 </div>
-                <div class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px]"
-                  id="preview-container">
-                  <!-- Canvas Preview (default) -->
-                  <canvas id="label-canvas" width="799" height="399"
-                    class="shadow-lg border border-slate-200 rounded-sm bg-white cursor-default max-w-full max-h-[450px] object-contain absolute"></canvas>
 
-                  <!-- API Preview (hidden by default) -->
-                  <div id="api-preview-container" class="hidden absolute inset-0 flex items-center justify-center p-6">
-                    <div class="absolute inset-0 opacity-[0.03]"
-                      style="background-image: radial-gradient(#000 1px, transparent 1px); background-size: 20px 20px;">
+                <div class="fixed bottom-6 right-6 z-40 group">
+                  <button data-tooltip="Keyboard &amp; mouse shortcuts"
+                    class="flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg hover:bg-white transition-all text-slate-500 hover:text-blue-600">
+                    <span class="material-icons-round text-lg">keyboard</span>
+                    <span class="text-xs font-medium pr-1">Shortcuts</span>
+                  </button>
+                  <div
+                    class="absolute bottom-full right-0 mb-3 w-72 max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-lg border border-slate-200 shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-bottom-right scale-95 group-hover:scale-100">
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+                      <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                        Keyboard &amp; Mouse</h4>
+                      <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Hints</span>
                     </div>
-
-                    <div id="preview-loading" class="hidden text-blue-600 font-medium animate-pulse text-sm z-10">
-                      Rendering label...
-                    </div>
-                    <div id="preview-error"
-                      class="hidden bg-red-50 text-red-600 p-3 rounded border border-red-100 max-w-sm text-center text-xs z-10">
-                    </div>
-                    <img id="preview-image"
-                      class="hidden max-w-full max-h-[450px] shadow-lg border border-slate-200 rounded-sm bg-white object-contain z-10"
-                      alt="Label preview" />
-                    <div id="preview-placeholder" class="text-slate-400 text-sm italic z-10">
-                      Click refresh to render
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="fixed bottom-6 right-6 z-40 group">
-                <button data-tooltip="Keyboard &amp; mouse shortcuts"
-                  class="flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg hover:bg-white transition-all text-slate-500 hover:text-blue-600">
-                  <span class="material-icons-round text-lg">keyboard</span>
-                  <span class="text-xs font-medium pr-1">Shortcuts</span>
-                </button>
-                <div
-                  class="absolute bottom-full right-0 mb-3 w-72 max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-lg border border-slate-200 shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-bottom-right scale-95 group-hover:scale-100">
-                  <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
-                    <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                      Keyboard &amp; Mouse</h4>
-                    <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Hints</span>
-                  </div>
-                  <div class="space-y-2 text-xs">
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Cycle elements</span>
-                      <code
-                        class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Cycle reverse</span>
-                      <div class="flex gap-1">
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
+                    <div class="space-y-2 text-xs">
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Cycle elements</span>
                         <code
                           class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
                       </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Nudge 1px</span>
-                      <code
-                        class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Nudge 10px</span>
-                      <div class="flex gap-1">
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Cycle reverse</span>
+                        <div class="flex gap-1">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Nudge 1px</span>
                         <code
                           class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
                       </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Delete</span>
-                      <code
-                        class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Del</code>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Copy / Paste</span>
-                      <div class="flex gap-1">
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">C / V</code>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Nudge 10px</span>
+                        <div class="flex gap-1">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
+                        </div>
                       </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Duplicate</span>
-                      <div class="flex gap-1">
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Delete</span>
                         <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">D</code>
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Del</code>
                       </div>
-                    </div>
-                    <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
-                      <span class="text-slate-500">Undo</span>
-                      <div class="flex gap-1">
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Z</code>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Copy / Paste</span>
+                        <div class="flex gap-1">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">C / V</code>
+                        </div>
                       </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Redo</span>
-                      <div class="flex gap-1">
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift Z / Y</code>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Duplicate</span>
+                        <div class="flex gap-1">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">D</code>
+                        </div>
                       </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Show guides</span>
-                      <span class="text-[10px] text-slate-500">Hold Ctrl + drag / resize</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Cancel drag / resize</span>
-                      <code
-                        class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Close history panel (idle)</span>
-                      <code
-                        class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
-                    </div>
-                    <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
-                      <span class="text-slate-500">Select</span>
-                      <span class="text-[10px] text-slate-500">Click element</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Open context menu</span>
-                      <span class="text-[10px] text-slate-500">Right-click canvas</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Deselect</span>
-                      <span class="text-[10px] text-slate-500">Click empty area</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Move</span>
-                      <span class="text-[10px] text-slate-500">Drag element</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Resize</span>
-                      <span class="text-[10px] text-slate-500">Drag handles</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-slate-500">Cycle layers</span>
-                      <div class="flex gap-1 items-center">
+                      <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
+                        <span class="text-slate-500">Undo</span>
+                        <div class="flex gap-1">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Z</code>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Redo</span>
+                        <div class="flex gap-1">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift Z / Y</code>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Show guides</span>
+                        <span class="text-[10px] text-slate-500">Hold Ctrl + drag / resize</span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Cancel drag / resize</span>
                         <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Alt</code>
-                        <span class="text-[10px] text-slate-500">+ Click</span>
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Close history panel (idle)</span>
+                        <code
+                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
+                      </div>
+                      <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
+                        <span class="text-slate-500">Select</span>
+                        <span class="text-[10px] text-slate-500">Click element</span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Open context menu</span>
+                        <span class="text-[10px] text-slate-500">Right-click canvas</span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Deselect</span>
+                        <span class="text-[10px] text-slate-500">Click empty area</span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Move</span>
+                        <span class="text-[10px] text-slate-500">Drag element</span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Resize</span>
+                        <span class="text-[10px] text-slate-500">Drag handles</span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Cycle layers</span>
+                        <div class="flex gap-1 items-center">
+                          <code
+                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Alt</code>
+                          <span class="text-[10px] text-slate-500">+ Click</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- ZPL Warnings Panel -->
-              <div id="warnings-panel"
-                class="bg-amber-50 rounded-lg shadow-sm border border-amber-300 overflow-hidden hidden">
-                <div class="border-b border-amber-200 bg-amber-100 px-4 py-2.5 flex justify-between items-center">
-                  <div class="flex items-center gap-2">
-                    <span class="material-icons-round text-amber-600 text-base">warning</span>
-                    <h2 class="font-semibold text-amber-800 text-sm">ZPL Warnings</h2>
-                    <span id="warnings-count"
-                      class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white min-w-[18px]">0</span>
+                <!-- ZPL Warnings Panel -->
+                <div id="warnings-panel"
+                  class="bg-amber-50 rounded-lg shadow-sm border border-amber-300 overflow-hidden hidden">
+                  <div class="border-b border-amber-200 bg-amber-100 px-4 py-2.5 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                      <span class="material-icons-round text-amber-600 text-base">warning</span>
+                      <h2 class="font-semibold text-amber-800 text-sm">ZPL Warnings</h2>
+                      <span id="warnings-count"
+                        class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white min-w-[18px]">0</span>
+                    </div>
+                    <button id="warnings-dismiss-btn"
+                      class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-200 rounded transition-colors"
+                      data-tooltip="Dismiss warnings">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                  <button id="warnings-dismiss-btn"
-                    class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-200 rounded transition-colors"
-                    data-tooltip="Dismiss warnings">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                      stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  <div id="warnings-list" class="overflow-y-auto max-h-48 p-2 space-y-1">
+                  </div>
                 </div>
-                <div id="warnings-list" class="overflow-y-auto max-h-48 p-2 space-y-1">
-                </div>
-              </div>
 
-              <!-- ZPL Output Section -->
-              <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                <div
-                  class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-                  <div class="flex items-center gap-2">
-                    <h2 class="font-semibold text-slate-700 text-sm">ZPL Output</h2>
-                    <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands.html"
-                      target="_blank"
-                      class="text-blue-500 hover:text-blue-700 text-[10px] font-bold uppercase tracking-wider">
-                      Reference
-                    </a>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button id="copy-btn" disabled data-tooltip="Copy ZPL code to clipboard"
-                      class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
-                      <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">content_copy</span>
-                      <span id="copy-btn-label">Copy</span>
-                    </button>
-                    <button id="share-btn" disabled data-tooltip="Copy shareable link to clipboard"
-                      class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
-                      <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">share</span>
-                      <span id="share-btn-label">Share</span>
-                    </button>
-                    <div class="relative hidden" id="drive-save-wrap">
-                      <button id="drive-chip-btn" disabled data-tooltip="Connect Google Drive to save"
-                        class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+                <!-- ZPL Output Section -->
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                  <div
+                    class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+                    <div class="flex items-center gap-2">
+                      <h2 class="font-semibold text-slate-700 text-sm">ZPL Output</h2>
+                      <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands.html"
+                        target="_blank"
+                        class="text-blue-500 hover:text-blue-700 text-[10px] font-bold uppercase tracking-wider">
+                        Reference
+                      </a>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <button id="copy-btn" disabled data-tooltip="Copy ZPL code to clipboard"
+                        class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
                         <span class="material-icons-round text-[14px] leading-none"
-                          aria-hidden="true">cloud_upload</span>
-                        <span id="drive-chip-name" class="truncate max-w-[160px]">Save to Drive</span>
-                        <span id="drive-chip-status" class="font-normal"></span>
-                        <span class="material-icons-round text-[14px] leading-none -mr-0.5"
-                          aria-hidden="true">expand_more</span>
+                          aria-hidden="true">content_copy</span>
+                        <span id="copy-btn-label">Copy</span>
                       </button>
-                      <div id="drive-chip-menu"
-                        class="hidden absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
-                        <button id="drive-menu-save"
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
-                          <span class="material-icons-round text-[14px] leading-none text-slate-400"
-                            aria-hidden="true">save</span>
-                          Save
-                          <kbd
-                            class="ml-auto text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Ctrl+S</kbd>
-                        </button>
-                        <button id="drive-menu-save-as"
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
-                          <span class="material-icons-round text-[14px] leading-none text-slate-400"
-                            aria-hidden="true">save_as</span>
-                          Save as…
-                        </button>
-                        <div class="border-t border-slate-100 my-1"></div>
-                        <button id="drive-menu-rename" disabled
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
-                          <span class="material-icons-round text-[14px] leading-none text-slate-400"
-                            aria-hidden="true">drive_file_rename_outline</span>
-                          Edit details
-                        </button>
-                      </div>
-                    </div>
-                    <div class="relative">
-                      <button id="zpl-more-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="zpl-more-menu"
-                        data-tooltip="More ZPL actions"
-                        class="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
-                        <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">more_horiz</span>
-                        <span>More</span>
-                        <span class="material-icons-round text-[14px] leading-none -mr-0.5"
-                          aria-hidden="true">expand_more</span>
+                      <button id="share-btn" disabled data-tooltip="Copy shareable link to clipboard"
+                        class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm opacity-50 cursor-not-allowed">
+                        <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">share</span>
+                        <span id="share-btn-label">Share</span>
                       </button>
-                      <div id="zpl-more-menu" role="menu"
-                        class="hidden absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
-                        <button id="export-btn" role="menuitem" disabled data-tooltip="Export template as JSON file"
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
-                          <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">download</span>
-                          <span>Export JSON</span>
-                        </button>
-                        <button id="export-gallery-btn" role="menuitem" disabled
-                          data-tooltip="Export template for the gallery"
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
+                      <div class="relative hidden" id="drive-save-wrap">
+                        <button id="drive-chip-btn" disabled data-tooltip="Connect Google Drive to save"
+                          class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
                           <span class="material-icons-round text-[14px] leading-none"
-                            aria-hidden="true">collections</span>
-                          <span>Export for Gallery</span>
+                            aria-hidden="true">cloud_upload</span>
+                          <span id="drive-chip-name" class="truncate max-w-[160px]">Save to Drive</span>
+                          <span id="drive-chip-status" class="font-normal"></span>
+                          <span class="material-icons-round text-[14px] leading-none -mr-0.5"
+                            aria-hidden="true">expand_more</span>
                         </button>
-                        <button id="import-btn" role="menuitem" data-tooltip="Import template from JSON file"
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
-                          <span class="material-icons-round text-[14px] leading-none"
-                            aria-hidden="true">upload_file</span>
-                          <span>Import JSON</span>
-                        </button>
-                        <button id="import-zpl-btn" role="menuitem" data-tooltip="Import template from ZPL code"
-                          class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
-                          <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">code</span>
-                          <span>Import ZPL</span>
-                        </button>
+                        <div id="drive-chip-menu"
+                          class="hidden absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
+                          <button id="drive-menu-save"
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                            <span class="material-icons-round text-[14px] leading-none text-slate-400"
+                              aria-hidden="true">save</span>
+                            Save
+                            <kbd
+                              class="ml-auto text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Ctrl+S</kbd>
+                          </button>
+                          <button id="drive-menu-save-as"
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                            <span class="material-icons-round text-[14px] leading-none text-slate-400"
+                              aria-hidden="true">save_as</span>
+                            Save as…
+                          </button>
+                          <div class="border-t border-slate-100 my-1"></div>
+                          <button id="drive-menu-rename" disabled
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+                            <span class="material-icons-round text-[14px] leading-none text-slate-400"
+                              aria-hidden="true">drive_file_rename_outline</span>
+                            Edit details
+                          </button>
+                        </div>
                       </div>
+                      <div class="relative">
+                        <button id="zpl-more-btn" aria-haspopup="menu" aria-expanded="false"
+                          aria-controls="zpl-more-menu" data-tooltip="More ZPL actions"
+                          class="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+                          <span class="material-icons-round text-[14px] leading-none"
+                            aria-hidden="true">more_horiz</span>
+                          <span>More</span>
+                          <span class="material-icons-round text-[14px] leading-none -mr-0.5"
+                            aria-hidden="true">expand_more</span>
+                        </button>
+                        <div id="zpl-more-menu" role="menu"
+                          class="hidden absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
+                          <button id="export-btn" role="menuitem" disabled data-tooltip="Export template as JSON file"
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
+                            <span class="material-icons-round text-[14px] leading-none"
+                              aria-hidden="true">download</span>
+                            <span>Export JSON</span>
+                          </button>
+                          <button id="export-gallery-btn" role="menuitem" disabled
+                            data-tooltip="Export template for the gallery"
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
+                            <span class="material-icons-round text-[14px] leading-none"
+                              aria-hidden="true">collections</span>
+                            <span>Export for Gallery</span>
+                          </button>
+                          <button id="import-btn" role="menuitem" data-tooltip="Import template from JSON file"
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                            <span class="material-icons-round text-[14px] leading-none"
+                              aria-hidden="true">upload_file</span>
+                            <span>Import JSON</span>
+                          </button>
+                          <button id="import-zpl-btn" role="menuitem" data-tooltip="Import template from ZPL code"
+                            class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                            <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">code</span>
+                            <span>Import ZPL</span>
+                          </button>
+                        </div>
+                      </div>
+                      <input type="file" id="import-file" accept=".json" style="display: none" />
                     </div>
-                    <input type="file" id="import-file" accept=".json" style="display: none" />
+                  </div>
+                  <div class="relative">
+                    <pre id="zpl-output-highlight"
+                      class="zpl-output is-empty w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-none leading-relaxed overflow-auto"></pre>
+                    <textarea id="zpl-output-raw" readonly
+                      class="absolute inset-0 w-full h-full opacity-0 pointer-events-none"></textarea>
                   </div>
                 </div>
-                <div class="relative">
-                  <pre id="zpl-output-highlight"
-                    class="zpl-output is-empty w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-none leading-relaxed overflow-auto"></pre>
-                  <textarea id="zpl-output-raw" readonly
-                    class="absolute inset-0 w-full h-full opacity-0 pointer-events-none"></textarea>
+              </div>
+
+              <!-- Properties Panel -->
+              <div
+                class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-10rem)] w-full">
+                <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center">
+                  <h2 class="font-semibold text-slate-700 text-sm">Element Properties</h2>
+                  <a id="zpl-doc-link" target="_blank" rel="noopener noreferrer" hidden
+                    class="text-xs text-blue-500 hover:text-blue-700 hover:underline"></a>
+                </div>
+                <div id="properties-panel" class="p-5 flex-grow font-sans overflow-y-auto [scrollbar-gutter:stable]">
+                  <p class="text-center text-slate-400 py-12 italic text-sm">Select an element to edit properties</p>
                 </div>
               </div>
-            </div>
 
-            <!-- Properties Panel -->
-            <div
-              class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-10rem)] w-full">
-              <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center">
-                <h2 class="font-semibold text-slate-700 text-sm">Element Properties</h2>
-                <a id="zpl-doc-link" target="_blank" rel="noopener noreferrer" hidden
-                  class="text-xs text-blue-500 hover:text-blue-700 hover:underline"></a>
-              </div>
-              <div id="properties-panel" class="p-5 flex-grow font-sans overflow-y-auto [scrollbar-gutter:stable]">
-                <p class="text-center text-slate-400 py-12 italic text-sm">Select an element to edit properties</p>
-              </div>
             </div>
 
           </div>
-
         </div>
-      </div>
-    </main>
+      </main>
     </div>
 
     <div id="view-gallery" hidden>
@@ -1209,8 +1251,7 @@
     <div class="flex flex-col">
       <div class="border-b border-slate-100 bg-slate-50 px-6 py-4 flex justify-between items-center rounded-t-xl">
         <h2 class="font-semibold text-slate-700 text-base">Export for Gallery</h2>
-        <button id="export-gallery-close-btn"
-          class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors">
+        <button id="export-gallery-close-btn" class="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors">
           <span class="material-icons-round text-xl">close</span>
         </button>
       </div>

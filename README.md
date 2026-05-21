@@ -4,17 +4,20 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 
 ## Features
 
-- **8 element types** — Text, Text Block, Barcode (Code 128), QR Code, Box, Line, Circle, Image
-- **Dual preview** — real-time Canvas rendering + Labelary API preview with ZPL syntax highlighting
-- **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge
-- **Element locking** — lock elements to prevent accidental move, resize, or delete
-- **Alignment tools** — center horizontally/vertically, match to label dimensions
+- **9 element types** — Text, Text Block (`^TB`), Field Block (`^FB`), Barcode (Code 128), QR Code, Box, Line, Circle, Image / Graphic Field (`^GF`)
+- **Editor + template gallery** — switch between the visual editor and a curated templates gallery
+- **Three preview modes** — Edit canvas, Overlay mode on top of Labelary output, and Labelary Preview mode
+- **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge, and layer cycling
+- **Smart guides** — hold `Ctrl` while dragging or resizing to snap to label edges, centers, and nearby elements
+- **Canvas context menu** — right-click for copy, paste, duplicate, reorder, align, lock, and delete actions
 - **Undo/redo history** — full history panel with named entries
-- **Import/export** — save and load templates as JSON files
+- **Import/export** — import/export templates as JSON, plus experimental import from raw ZPL
+- **Shareable links** — compress the current template into a URL hash for quick sharing
+- **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
 - **Custom fonts** — register custom ZPL fonts via `^CW` commands
-- **Print settings** — orientation, mirror, darkness, speed, home position, label top
+- **Print settings** — orientation, mirror, darkness, speed, home position, label top, and print quantity controls (`^PQ`)
 - **ZPL warnings** — Labelary API linter warnings with element-level attribution
-- **Keyboard shortcuts** — Tab cycling, Ctrl+Z/Y undo/redo, Delete, Ctrl+C/V copy/paste, arrow nudge
+- **Onboarding tour** — built-in guided walkthrough for first-time users
 
 ## Getting Started
 
@@ -27,31 +30,53 @@ npx serve . -l 3000
 
 Open http://localhost:3000 — no build step required (vanilla JS + Tailwind CDN).
 
+### Optional Google Drive setup
+
+Google Drive features require Google API credentials. See `src/config/drive-config.js` for the required setup and scopes.
+
 ## Element Properties
 
 ### Text
-Position (X, Y), text content, font size (height), font width, font family, orientation.
+Position (X, Y), preview text, placeholder token, font size, font width, font override, orientation, reverse print.
 
 ### Text Block
-Position (X, Y), text content (multi-line), font size, font width, block width, max lines, line spacing, justification (L/C/R/J), hanging indent.
+Position (X, Y), preview text, placeholder token, font size, font width, block width, block height, font override, orientation, reverse print.
+
+### Field Block
+Position (X, Y), preview text, placeholder token, font size, font width, block width, max lines, line spacing, justification (L/C/R/J), hanging indent, font override, orientation, reverse print.
 
 ### Barcode (Code 128)
-Position (X, Y), barcode data, height, width multiplier, ratio, show interpretation line.
+Position (X, Y), barcode data, placeholder token, height, width multiplier, ratio, show interpretation line, reverse print.
 
 ### QR Code
-Position (X, Y), data, magnification factor, error correction level (H/Q/M/L), model.
+Position (X, Y), data, placeholder token, magnification factor, error correction level (H/Q/M/L), model, reverse print.
 
 ### Box
-Position (X, Y), width, height, thickness, color (B/W), corner rounding (0–8).
+Position (X, Y), width, height, thickness, color (B/W), corner rounding (0–8), reverse print.
 
 ### Line
-Position (X, Y), length, thickness, orientation (horizontal/vertical), color (B/W).
+Position (X, Y), length, thickness, orientation (horizontal/vertical), color (B/W), reverse print.
 
 ### Circle
-Position (X, Y), diameter, thickness, color (B/W).
+Position (X, Y), diameter, thickness, color (B/W), reverse print.
 
 ### Image (Graphic Field)
-Position (X, Y), width, height, threshold, orientation, encoding format (ASCII hex / Base64), aspect ratio lock.
+Position (X, Y), width, height, threshold, orientation, encoding format (ASCII hex / Base64), aspect ratio lock, reverse print.
+
+## Views
+
+### Editor
+
+The editor is the main workspace for building templates, previewing generated ZPL, importing/exporting files, and editing label or element properties.
+
+### Templates gallery
+
+The gallery provides:
+
+- curated example templates from `templates/`
+- search, sorting, and filters by source, use case, barcode tags, density, and width
+- "My templates" integration for private templates stored in Google Drive
+- one-click handoff from gallery into the editor
 
 ## ZPL Output Format
 
@@ -59,8 +84,9 @@ The application generates ZPL code in the following format:
 ```
 ^XA
 ^PW[width]
-^PR[speed]
+^PR[printSpeed],[slewSpeed],[backfeedSpeed]
 ^PO[orientation]
+^PM[mirror]
 ~SD[darkness]
 ^LH[homeX],[homeY]
 ^LT[labelTop]
@@ -69,17 +95,20 @@ The application generates ZPL code in the following format:
 ^CW[fontId],[fontFile]
 ^CF[fontId],[defaultHeight]
 [element commands]
+^PQ[quantity],[pauseCount],[replicates]
 ^XZ
 ```
 
 Where:
 - `^XA`/`^XZ` — Start/End of label format
 - `^PW` — Print Width
-- `^PR` — Print Speed
+- `^PR` — Print / Slew / Backfeed speeds
 - `^PO` — Print Orientation
+- `^PM` — Print Mirror
 - `~SD` — Media Darkness
 - `^LH`/`^LT` — Label Home / Top
 - `^CW`/`^CF` — Font Configuration
+- `^PQ` — Print Quantity, Pause Count, Replicates
 - Element commands are generated by each element's `render()` method
 
 ## Keyboard & Mouse Shortcuts
@@ -92,11 +121,15 @@ Where:
 | Nudge 10px | `Shift` + `Arrow keys` |
 | Delete element | `Del` |
 | Copy / Paste | `Ctrl` + `C` / `V` |
+| Duplicate element | `Ctrl` + `D` |
 | Undo | `Ctrl` + `Z` |
 | Redo | `Ctrl` + `Shift+Z` / `Y` |
+| Save to Drive | `Ctrl` + `S` |
+| Show smart guides | Hold `Ctrl` while dragging / resizing |
 | Cancel drag / resize | `Esc` |
 | Close history panel (idle) | `Esc` |
 | Select element | Click element |
+| Open context menu | Right-click canvas |
 | Deselect | Click empty area |
 | Move element | Drag element |
 | Resize element | Drag handles |
@@ -108,57 +141,71 @@ The application uses a modular architecture for maintainability and testability:
 
 ### Core Files
 - `index.html` — Main HTML structure and UI layout
-- `main.js` — Application entry point
-- `app.js` — Application orchestration and initialization
-- `canvas-renderer.js` — Canvas rendering orchestration
-- `interaction-handler.js` — Canvas interaction and drag/drop logic
+- `src/main.js` — Application entry point
+- `src/router.js` — View routing between the editor and gallery
+- `src/app.js` — Editor orchestration and initialization
+- `src/gallery.js` — Gallery view logic and Drive-backed template browsing
+- `src/canvas-renderer.js` — Canvas rendering orchestration
+- `src/interaction-handler.js` — Canvas interaction and drag/drop logic
 
 ### Element Definitions
-- `elements/TextElement.js` — Text element with font and orientation support
-- `elements/BarcodeElement.js` — Code 128 barcode element
-- `elements/QRCodeElement.js` — QR code element with error correction
-- `elements/BoxElement.js` — Rectangular box/border element
-- `elements/LineElement.js` — Horizontal/vertical line element
-- `elements/CircleElement.js` — Circle element with diameter and thickness
-- `elements/FieldBlockElement.js` — Multi-line text with wrapping and justification
-- `elements/GraphicFieldElement.js` — Image/graphic field element (`^GF`/`^GFA`)
+- `src/elements/TextElement.js` — Text element with font overrides, placeholders, and orientation support
+- `src/elements/TextBlockElement.js` — `^TB` text block element
+- `src/elements/FieldBlockElement.js` — `^FB` multi-line text with wrapping and justification
+- `src/elements/BarcodeElement.js` — Code 128 barcode element
+- `src/elements/QRCodeElement.js` — QR code element with error correction
+- `src/elements/BoxElement.js` — Rectangular box/border element
+- `src/elements/LineElement.js` — Horizontal/vertical line element
+- `src/elements/CircleElement.js` — Circle element with diameter and thickness
+- `src/elements/GraphicFieldElement.js` — Image/graphic field element (`^GF`/`^GFA`)
 
 ### State Management
-- `state/AppState.js` — Centralized observable state store
+- `src/state/AppState.js` — Centralized observable state store
   - Elements collection and selection
   - Label settings configuration
   - History management (undo/redo)
   - Event subscription system
 
 ### Services (Business Logic)
-- `services/ElementService.js` — Element CRUD operations
-- `services/AlignmentService.js` — Element alignment calculations
-- `services/SerializationService.js` — JSON serialization/deserialization
-- `services/ZPLGenerator.js` — ZPL code generation
-- `services/TemplateManager.js` — Template import/export file operations
+- `src/services/ElementService.js` — Element CRUD operations
+- `src/services/AlignmentService.js` — Element alignment calculations
+- `src/services/SerializationService.js` — JSON serialization/deserialization
+- `src/services/ZPLGenerator.js` — ZPL code generation
+- `src/services/ZPLParser.js` — Experimental import from raw ZPL into editable app state
+- `src/services/TemplateManager.js` — JSON import/export file operations
+- `src/services/UrlShareService.js` — Shareable URL generation and decoding
+- `src/services/SmartGuideService.js` — Alignment guide detection and snapping
+- `src/services/DriveTemplateService.js` — Drive-backed create/load/update/trash operations
 
 ### UI Components
-- `ui/PropertiesPanelRenderer.js` — Property form rendering for all element types
-- `ui/ElementsListRenderer.js` — Elements list sidebar rendering
-- `ui/PropertyListenersManager.js` — Property change event handling
-- `ui/HistoryPanel.js` — History panel UI and navigation
-- `ui/CustomFontsManager.js` — Custom font management UI
+- `src/ui/PropertiesPanelRenderer.js` — Property form rendering for all element types
+- `src/ui/ElementsListRenderer.js` — Elements list sidebar rendering
+- `src/ui/PropertyListenersManager.js` — Property change event handling
+- `src/ui/HistoryPanel.js` — History panel UI and navigation
+- `src/ui/CustomFontsManager.js` — Custom font management UI
+- `src/ui/ContextMenu.js` — Canvas context menu actions
+- `src/ui/WarningsPanelRenderer.js` — ZPL warning rendering and attribution
+- `src/ui/OnboardingWalkthrough.js` — Guided first-run tour
 
 ### Specialized Renderers
-- `rendering/TextRenderer.js` — Text element canvas rendering
-- `rendering/FieldBlockRenderer.js` — Field block with text wrapping
-- `rendering/BarcodeRenderer.js` — Code 128 barcode rendering
-- `rendering/QRCodeRenderer.js` — QR code pattern generation
-- `rendering/BoxRenderer.js` — Box/rectangle with rounded corners
-- `rendering/LineRenderer.js` — Line rendering (horizontal/vertical)
-- `rendering/CircleRenderer.js` — Circle rendering
-- `rendering/GraphicFieldRenderer.js` — Image/graphic field rendering
+- `src/rendering/TextRenderer.js` — Text element canvas rendering
+- `src/rendering/TextBlockRenderer.js` — `^TB` text block rendering
+- `src/rendering/FieldBlockRenderer.js` — `^FB` field block rendering
+- `src/rendering/BarcodeRenderer.js` — Code 128 barcode rendering
+- `src/rendering/QRCodeRenderer.js` — QR code pattern generation
+- `src/rendering/BoxRenderer.js` — Box/rectangle with rounded corners
+- `src/rendering/LineRenderer.js` — Line rendering (horizontal/vertical)
+- `src/rendering/CircleRenderer.js` — Circle rendering
+- `src/rendering/GraphicFieldRenderer.js` — Image/graphic field rendering
+- `src/rendering/GalleryThumbnailRenderer.js` — Thumbnail generation for the gallery
 
 ### Utilities
-- `config/constants.js` — ZPL fonts, barcode patterns, configuration
-- `utils/geometry.js` — Geometry helper functions
-- `utils/barcode-encoding.js` — Code 128 encoding logic
-- `utils/graphicField.js` — Bitmap encoding, rotation, and image conversion utilities
+- `src/config/constants.js` — ZPL fonts, barcode patterns, configuration
+- `src/config/drive-config.js` — Drive feature configuration
+- `src/utils/geometry.js` — Geometry helper functions
+- `src/utils/barcode-encoding.js` — Code 128 encoding logic
+- `src/utils/graphicField.js` — Bitmap encoding, rotation, and image conversion utilities
+- `templates/index.js` — Registry for curated gallery templates
 
 ### Design Principles
 

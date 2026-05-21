@@ -59,6 +59,8 @@ export function applyReverseOverlay(ctx, captured, drawShape) {
   const dst = maskData.data;
 
   for (let i = 0; i < src.length; i += 4) {
+    const alpha = src[i + 3];
+    if (alpha < 128) continue;
     const brightness = src[i] + src[i + 1] + src[i + 2];
     if (brightness < DARK_PIXEL_THRESHOLD) {
       dst[i + 3] = 255;

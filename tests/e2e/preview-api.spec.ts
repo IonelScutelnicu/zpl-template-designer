@@ -1,6 +1,8 @@
 import { test, expect } from '../fixtures';
 import { ElementsPanel, PreviewPanel, Canvas } from '../page-objects';
 
+const LABELARY_URL = '**/api.labelary.com/**';
+
 test.describe('Preview - Canvas and API Preview Modes', () => {
     let elementsPanel: ElementsPanel;
     let previewPanel: PreviewPanel;
@@ -163,6 +165,142 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             const apiBtnClass = await apiBtn.getAttribute('class');
             expect(apiBtnClass).toContain('bg-white');
         });
+
+        test('should show canvas and Labelary preview together in overlay mode', async ({ page }) => {
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            expect(await previewPanel.isOverlayMode()).toBe(true);
+            await expect(previewPanel.previewImage).toBeVisible();
+
+            const canvasClass = await previewPanel.canvas.getAttribute('class');
+            expect(canvasClass).toContain('bg-transparent');
+        });
+
+        test('should show a white backing rectangle matching the canvas size in overlay mode', async ({ page }) => {
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            const sizes = await page.evaluate(() => {
+                const canvas = document.getElementById('label-canvas');
+                const backing = document.getElementById('preview-backing');
+                const canvasRect = canvas?.getBoundingClientRect();
+                const backingRect = backing?.getBoundingClientRect();
+
+                return {
+                    backingHidden: backing?.classList.contains('hidden') ?? true,
+                    canvasWidth: canvasRect?.width ?? 0,
+                    canvasHeight: canvasRect?.height ?? 0,
+                    backingWidth: backingRect?.width ?? 0,
+                    backingHeight: backingRect?.height ?? 0,
+                };
+            });
+
+            expect(sizes.backingHidden).toBe(false);
+            expect(Math.abs(sizes.backingWidth - sizes.canvasWidth)).toBeLessThanOrEqual(2);
+            expect(Math.abs(sizes.backingHeight - sizes.canvasHeight)).toBeLessThanOrEqual(2);
+        });
+
+        test('should keep the canvas on top of the preview image in overlay mode', async ({ page }) => {
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            const topElementId = await page.evaluate(() => {
+                const canvas = document.getElementById('label-canvas');
+                const rect = canvas?.getBoundingClientRect();
+                if (!rect) return null;
+
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                return document.elementFromPoint(x, y)?.id ?? null;
+            });
+
+            expect(topElementId).toBe('label-canvas');
+        });
+
+        test('should dim the Labelary preview image in overlay mode', async ({ page }) => {
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            const overlayOpacity = await previewPanel.previewImage.evaluate(
+                el => (el as HTMLElement).style.opacity
+            );
+            expect(parseFloat(overlayOpacity)).toBeLessThan(1);
+
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+
+            const previewClass = await previewPanel.previewImage.getAttribute('class');
+            expect(previewClass).toContain('opacity-100');
+        });
+
+        test('should debounce overlay refreshes to a single Labelary request after rapid edits', async ({ page }) => {
+            let requestCount = 0;
+
+            await page.route(LABELARY_URL, route => {
+                requestCount += 1;
+                route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            requestCount = 0;
+
+            const previewText = page.locator('#prop-preview-text');
+            await previewText.fill('Overlay 1');
+            await previewText.dispatchEvent('change');
+            await previewText.fill('Overlay 2');
+            await previewText.dispatchEvent('change');
+            await previewText.fill('Overlay 3');
+            await previewText.dispatchEvent('change');
+
+            await page.waitForTimeout(1300);
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            expect(requestCount).toBe(1);
+        });
     });
 
     // ============== PREVIEW PARITY (CRITICAL) ==============
@@ -259,13 +397,11 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
 
-            // Start refresh and check if loading appears
+            // Start refresh and check that the refresh icon spins during the fetch
             const refreshPromise = previewPanel.refreshPreview();
 
-            // Loading should appear briefly (may be too fast to catch)
-            // Just verify the elements exist
-            const loadingElement = previewPanel.previewLoading;
-            expect(loadingElement).toBeDefined();
+            // The spinner may appear briefly. Just verify the locator is present.
+            await expect(previewPanel.refreshIcon).toBeAttached();
 
             await refreshPromise;
         });
@@ -286,3 +422,11 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
         });
     });
 });
+
+function createMinimalPNG(): Buffer {
+    return Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAB' +
+        'Nl7BcQAAAABJRU5ErkJggg==',
+        'base64'
+    );
+}

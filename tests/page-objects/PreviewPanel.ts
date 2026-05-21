@@ -9,12 +9,13 @@ export class PreviewPanel {
     readonly page: Page;
     readonly previewContainer: Locator;
     readonly canvasBtn: Locator;
+    readonly overlayBtn: Locator;
     readonly apiBtn: Locator;
     readonly refreshBtn: Locator;
     readonly canvas: Locator;
     readonly apiPreviewContainer: Locator;
     readonly previewImage: Locator;
-    readonly previewLoading: Locator;
+    readonly refreshIcon: Locator;
     readonly previewError: Locator;
     readonly previewPlaceholder: Locator;
 
@@ -22,12 +23,13 @@ export class PreviewPanel {
         this.page = page;
         this.previewContainer = page.locator('#preview-container');
         this.canvasBtn = page.locator('#mode-canvas-btn');
+        this.overlayBtn = page.locator('#mode-overlay-btn');
         this.apiBtn = page.locator('#mode-api-btn');
         this.refreshBtn = page.locator('#refresh-preview-btn');
         this.canvas = page.locator('#label-canvas');
         this.apiPreviewContainer = page.locator('#api-preview-container');
         this.previewImage = page.locator('#preview-image');
-        this.previewLoading = page.locator('#preview-loading');
+        this.refreshIcon = page.locator('#refresh-preview-icon');
         this.previewError = page.locator('#preview-error');
         this.previewPlaceholder = page.locator('#preview-placeholder');
     }
@@ -37,6 +39,13 @@ export class PreviewPanel {
      */
     async switchToCanvasMode(): Promise<void> {
         await this.canvasBtn.click();
+    }
+
+    /**
+     * Switch to Overlay preview mode
+     */
+    async switchToOverlayMode(): Promise<void> {
+        await this.overlayBtn.click();
     }
 
     /**
@@ -59,31 +68,60 @@ export class PreviewPanel {
      */
     async waitForAPIPreviewLoaded(): Promise<void> {
         await waitForRateLimit();
-        // Wait for loading to disappear and image to appear
-        // Increased timeout for Labelary API which can be slow
-        await this.previewLoading.waitFor({ state: 'hidden', timeout: 60000 });
+        // Wait for the refresh spinner to stop and the image to appear.
+        // Increased timeout for Labelary API which can be slow.
+        await this.refreshIcon.waitFor({ state: 'attached', timeout: 60000 });
+        await this.page.waitForFunction(
+            () => !document.getElementById('refresh-preview-icon')?.classList.contains('animate-spin'),
+            null,
+            { timeout: 60000 }
+        );
         await this.previewImage.waitFor({ state: 'visible', timeout: 60000 });
+    }
+
+    /**
+     * Wait for overlay mode to finish its automatic preview refresh.
+     */
+    async waitForOverlayPreviewLoaded(): Promise<void> {
+        await this.page.waitForFunction(
+            () => !document.getElementById('refresh-preview-icon')?.classList.contains('animate-spin'),
+            null,
+            { timeout: 60000 }
+        );
+        await this.previewImage.waitFor({ state: 'visible', timeout: 60000 });
+    }
+
+    async getMode(): Promise<string | null> {
+        return await this.previewContainer.getAttribute('data-mode');
     }
 
     /**
      * Check if currently in Canvas mode
      */
     async isCanvasMode(): Promise<boolean> {
-        return await this.canvas.isVisible();
+        return (await this.getMode()) === 'canvas';
+    }
+
+    /**
+     * Check if currently in Overlay mode
+     */
+    async isOverlayMode(): Promise<boolean> {
+        return (await this.getMode()) === 'overlay';
     }
 
     /**
      * Check if currently in API mode
      */
     async isAPIMode(): Promise<boolean> {
-        return await this.apiPreviewContainer.isVisible();
+        return (await this.getMode()) === 'api';
     }
 
     /**
-     * Check if API preview is loading
+     * Check if API preview is loading (refresh icon spinning).
      */
     async isLoading(): Promise<boolean> {
-        return await this.previewLoading.isVisible();
+        const classes = (await this.refreshIcon.getAttribute('class')) || '';
+        return classes.split(/\s+/).includes('animate-spin');
     }
 
     /**

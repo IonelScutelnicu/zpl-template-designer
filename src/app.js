@@ -261,9 +261,10 @@ const addCustomFontBtn = document.getElementById("add-custom-font-btn");
 const customFontsList = document.getElementById("custom-fonts-list");
 const customFontError = document.getElementById("custom-font-error");
 const previewImage = document.getElementById("preview-image");
-const previewLoading = document.getElementById("preview-loading");
+const previewBacking = document.getElementById("preview-backing");
 const previewError = document.getElementById("preview-error");
 const previewPlaceholder = document.getElementById("preview-placeholder");
+const refreshPreviewIcon = document.getElementById("refresh-preview-icon");
 const warningsPanel = document.getElementById("warnings-panel");
 const warningsList = document.getElementById("warnings-list");
 const warningsCount = document.getElementById("warnings-count");
@@ -271,16 +272,21 @@ const warningsDismissBtn = document.getElementById("warnings-dismiss-btn");
 const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
 const togglePreviewModeBtn = null; // Deprecated
 const modeCanvasBtn = document.getElementById("mode-canvas-btn");
+const modeOverlayBtn = document.getElementById("mode-overlay-btn");
 const modeApiBtn = document.getElementById("mode-api-btn");
+const overlayOpacityControl = document.getElementById("overlay-opacity-control");
+const overlayOpacitySlider = document.getElementById("overlay-opacity-slider");
+const overlayOpacityValueLabel = document.getElementById("overlay-opacity-value");
 const labelCanvas = document.getElementById("label-canvas");
 const apiPreviewContainer = document.getElementById("api-preview-container");
+const previewContainer = document.getElementById("preview-container");
 
 // Canvas and interaction state
 let canvasRenderer = null;
 let interactionHandler = null;
 let contextMenu = null;
 let lastContextMenuLabelPosition = null;
-let previewMode = 'canvas'; // 'canvas' or 'api'
+let previewMode = 'canvas'; // 'canvas', 'overlay', or 'api'
 
 // Initialize function
 export function initApp() {
@@ -431,7 +437,7 @@ export function initApp() {
     },
     onElementDeleted: (element) => {
       if (element.locked) return;
-      if (previewMode === 'canvas') {
+      if (previewMode !== 'api') {
         const idStr = String(element.id);
         deleteElement(idStr);
       }
@@ -454,7 +460,7 @@ export function initApp() {
     serializeElement: (element) => serializeElement(element),
     pasteElement: (data) => pasteElementFromData(data),
     onContextMenu: (clientX, clientY, labelPosition, element) => {
-      if (previewMode === 'canvas') {
+      if (previewMode !== 'api') {
         lastContextMenuLabelPosition = labelPosition;
         contextMenu.show(clientX, clientY, element);
       }
@@ -551,7 +557,16 @@ export function initApp() {
   refreshPreviewBtn.addEventListener("click", updatePreview);
   // Mode switching
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
+  modeOverlayBtn.addEventListener("click", () => setPreviewMode('overlay'));
   modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
+  window.addEventListener('resize', syncPreviewBackingSize);
+  // Overlay opacity slider — stop click from bubbling to the parent div (which would re-trigger mode switch)
+  overlayOpacitySlider.addEventListener("click", (e) => e.stopPropagation());
+  overlayOpacitySlider.addEventListener("input", () => {
+    const pct = overlayOpacitySlider.value;
+    overlayOpacityValueLabel.textContent = `${pct}%`;
+    previewImage.style.opacity = pct / 100;
+  });
   zplMoreBtn.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleZPLMoreMenu();
@@ -667,6 +682,7 @@ export function initApp() {
 
   labelHeight.addEventListener("input", (e) => {
     state.updateLabelSettings({ height: parseFloat(e.target.value) || 50 });
+    updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
@@ -952,48 +968,151 @@ function closeZPLMoreMenu() {
 // Render Canvas Preview
 export function renderCanvasPreview() {
   if (!canvasRenderer) return;
+  canvasRenderer.setTransparentBackground(previewMode === 'overlay');
   canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.selectedElement);
+  syncPreviewBackingSize();
+}
+
+const OVERLAY_PREVIEW_DEBOUNCE_MS = 400;
+const PREVIEW_REQUEST_MIN_INTERVAL_MS = 1000;
+let overlayPreviewTimer = null;
+let nextPreviewRequestAt = 0;
+let previewRequestGate = Promise.resolve();
+
+function clearOverlayPreviewRefresh() {
+  if (!overlayPreviewTimer) return;
+  clearTimeout(overlayPreviewTimer);
+  overlayPreviewTimer = null;
+}
+
+function scheduleOverlayPreviewRefresh() {
+  if (previewMode !== 'overlay') return;
+
+  clearOverlayPreviewRefresh();
+  overlayPreviewTimer = setTimeout(() => {
+    overlayPreviewTimer = null;
+    void updatePreview();
+  }, OVERLAY_PREVIEW_DEBOUNCE_MS);
+}
+
+function waitForPreviewRequestWindow() {
+  const scheduled = previewRequestGate.then(async () => {
+    const delay = Math.max(0, nextPreviewRequestAt - Date.now());
+    if (delay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    nextPreviewRequestAt = Date.now() + PREVIEW_REQUEST_MIN_INTERVAL_MS;
+  });
+
+  previewRequestGate = scheduled.catch(() => {});
+  return scheduled;
+}
+
+function syncPreviewBackingSize() {
+  if (!previewBacking) return;
+
+  // Mirror the canvas's CSS display size so Preview/Overlay images match Edit.
+  // When the canvas is visible use its real rect; when it's hidden (api mode)
+  // recompute using the same max-w-full / max-h-[450px] logic CSS would apply.
+  let width, height;
+  const rect = labelCanvas.getBoundingClientRect();
+  if (rect.width && rect.height) {
+    width = Math.round(rect.width);
+    height = Math.round(rect.height);
+  } else {
+    const srcW = labelCanvas.width;
+    const srcH = labelCanvas.height;
+    if (!srcW || !srcH) return;
+    const availW = previewContainer.clientWidth;
+    const availH = Math.min(previewContainer.clientHeight, 450);
+    const scale = Math.min(availW / srcW, availH / srcH, 1);
+    width = Math.round(srcW * scale);
+    height = Math.round(srcH * scale);
+  }
+
+  const w = `${width}px`;
+  const h = `${height}px`;
+  previewBacking.style.width = w;
+  previewBacking.style.height = h;
+  // Override max-w-full so the image matches the canvas width exactly
+  previewImage.style.width = w;
+  previewImage.style.maxWidth = w;
+  previewImage.style.height = h;
+  previewImage.style.maxHeight = h;
 }
 
 // Set Preview Mode
 function setPreviewMode(mode) {
+  const prevMode = previewMode;
   previewMode = mode;
+  if (mode !== 'overlay') {
+    clearOverlayPreviewRefresh();
+  }
 
   // Reset button styles
   const activeClass = ["bg-white", "text-slate-700", "shadow-sm"];
   const inactiveClass = ["text-slate-500", "hover:text-slate-700"];
+  const buttonModes = [
+    [modeCanvasBtn, 'canvas'],
+    [modeOverlayBtn, 'overlay'],
+    [modeApiBtn, 'api']
+  ];
+
+  buttonModes.forEach(([button, buttonMode]) => {
+    const isActive = buttonMode === mode;
+    button.classList.toggle(activeClass[0], isActive);
+    button.classList.toggle(activeClass[1], isActive);
+    button.classList.toggle(activeClass[2], isActive);
+    button.classList.toggle(inactiveClass[0], !isActive);
+    button.classList.toggle(inactiveClass[1], !isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  previewContainer.dataset.mode = mode;
+
+  const isOverlay = mode === 'overlay';
+  overlayOpacityControl.classList.toggle('hidden', !isOverlay);
 
   if (mode === 'canvas') {
-    // UI Logic
     labelCanvas.classList.remove('hidden');
     apiPreviewContainer.classList.add('hidden');
-
-    // Update buttons
-    modeCanvasBtn.classList.add(...activeClass);
-    modeCanvasBtn.classList.remove(...inactiveClass);
-    modeApiBtn.classList.remove(...activeClass);
-    modeApiBtn.classList.add(...inactiveClass);
-
-    // Disable refresh
+    previewBacking.classList.add('hidden');
+    labelCanvas.classList.add('bg-white');
+    labelCanvas.classList.remove('bg-transparent');
+    previewImage.style.opacity = '';
+    previewImage.classList.add('opacity-100');
     refreshPreviewBtn.disabled = true;
 
     renderCanvasPreview();
-  } else {
-    // API Mode
-    labelCanvas.classList.add('hidden');
-    apiPreviewContainer.classList.remove('hidden');
-
-    // Update buttons
-    modeApiBtn.classList.add(...activeClass);
-    modeApiBtn.classList.remove(...inactiveClass);
-    modeCanvasBtn.classList.remove(...activeClass);
-    modeCanvasBtn.classList.add(...inactiveClass);
-
-    // Enable refresh
-    refreshPreviewBtn.disabled = false;
-
-    updatePreview(); // Auto-refresh API preview
+    return;
   }
+
+  labelCanvas.classList.toggle('hidden', mode === 'api');
+  apiPreviewContainer.classList.remove('hidden');
+  previewBacking.classList.remove('hidden');
+  labelCanvas.classList.toggle('bg-white', !isOverlay);
+  labelCanvas.classList.toggle('bg-transparent', isOverlay);
+  previewBacking.classList.toggle('shadow-lg', mode === 'api');
+  previewBacking.classList.toggle('shadow-none', isOverlay);
+  // In overlay mode drive opacity from the slider; otherwise restore full opacity via class.
+  previewImage.classList.remove('opacity-20');
+  if (isOverlay) {
+    previewImage.classList.remove('opacity-100');
+    previewImage.style.opacity = overlayOpacitySlider.value / 100;
+  } else {
+    previewImage.style.opacity = '';
+    previewImage.classList.add('opacity-100');
+  }
+  refreshPreviewBtn.disabled = isOverlay;
+  syncPreviewBackingSize();
+  if (isOverlay) renderCanvasPreview();
+  // When returning to overlay from the editor (canvas), discard the cached
+  // preview image so the stale frame isn't shown while the new one loads.
+  if (isOverlay && prevMode === 'canvas') {
+    lastPreviewImageUrl = null;
+    previewImage.classList.add('hidden');
+  }
+  void updatePreview();
 }
 
 function serializeAppState() {
@@ -1661,22 +1780,56 @@ function updateZPLOutput() {
   zplOutputRaw.value = zpl;
   zplOutputHighlight.innerHTML = highlightZPL(zpl);
   zplOutputHighlight.classList.toggle("is-empty", zpl.trim().length === 0);
+  scheduleOverlayPreviewRefresh();
 }
 
 // Cache for API preview
 let lastPreviewZpl = null;
 let lastPreviewImageUrl = null;
 let warningsPanelDismissed = false;
+let previewRequestId = 0;
+let pendingPreviewFetches = 0;
+
+function setRefreshSpinning(active) {
+  if (active) pendingPreviewFetches++;
+  else pendingPreviewFetches = Math.max(0, pendingPreviewFetches - 1);
+  refreshPreviewIcon.classList.toggle('animate-spin', pendingPreviewFetches > 0);
+}
+
+async function fetchPreviewResponse(url, previewZpl, requestId, retriesRemaining = 1) {
+  await waitForPreviewRequestWindow();
+
+  if (requestId !== previewRequestId) {
+    return null;
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Linter": "On",
+    },
+    body: previewZpl,
+  });
+
+  if (response.status === 429 && retriesRemaining > 0) {
+    return fetchPreviewResponse(url, previewZpl, requestId, retriesRemaining - 1);
+  }
+
+  return response;
+}
 
 // Update Preview using Labelary API
 async function updatePreview() {
-  // Reset states
-  previewImage.classList.add('hidden');
-  previewError.classList.add('hidden');
-  previewPlaceholder.classList.add('hidden');
+  const requestId = ++previewRequestId;
+  const shouldPaintPreview = () => previewMode === 'api' || previewMode === 'overlay';
 
   if (state.elements.length === 0) {
-    previewPlaceholder.classList.remove('hidden');
+    if (shouldPaintPreview()) {
+      previewImage.classList.add('hidden');
+      previewError.classList.add('hidden');
+      previewPlaceholder.classList.remove('hidden');
+    }
     state.clearWarnings();
     return;
   }
@@ -1687,31 +1840,47 @@ async function updatePreview() {
 
   // Check cache - if ZPL hasn't changed, reuse the existing image
   if (previewZpl === lastPreviewZpl && lastPreviewImageUrl) {
-    previewImage.src = lastPreviewImageUrl;
-    previewImage.classList.remove('hidden');
+    if (shouldPaintPreview()) {
+      previewError.classList.add('hidden');
+      previewPlaceholder.classList.add('hidden');
+      previewImage.src = lastPreviewImageUrl;
+      previewImage.classList.remove('hidden');
+    }
     return;
   }
 
-  // Show loading indicator
-  previewLoading.classList.remove('hidden');
+  // Keep the previous render visible while the new one is fetched.
+  // The refresh button icon spins to indicate the in-flight request.
+  if (shouldPaintPreview()) {
+    previewError.classList.add('hidden');
+    previewPlaceholder.classList.add('hidden');
+    if (lastPreviewImageUrl) {
+      previewImage.src = lastPreviewImageUrl;
+      previewImage.classList.remove('hidden');
+    } else {
+      previewImage.classList.add('hidden');
+    }
+  }
 
+  setRefreshSpinning(true);
   try {
     // Convert mm to inches for the API (1 inch = 25.4 mm)
     const widthInches = width / 25.4;
     const heightInches = height / 25.4;
     const url = `https://api.labelary.com/v1/printers/${dpmm}dpmm/labels/${widthInches}x${heightInches}/0/`;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-Linter": "On",
-      },
-      body: previewZpl,
-    });
+    const response = await fetchPreviewResponse(url, previewZpl, requestId);
+
+    if (!response) {
+      return;
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    if (requestId !== previewRequestId) {
+      return;
     }
 
     // Parse linter warnings from response header
@@ -1728,6 +1897,11 @@ async function updatePreview() {
     const blob = await response.blob();
     const imageUrl = URL.createObjectURL(blob);
 
+    if (requestId !== previewRequestId) {
+      URL.revokeObjectURL(imageUrl);
+      return;
+    }
+
     // Clean up old cached image URL
     if (lastPreviewImageUrl) {
       URL.revokeObjectURL(lastPreviewImageUrl);
@@ -1737,16 +1911,24 @@ async function updatePreview() {
     lastPreviewZpl = previewZpl;
     lastPreviewImageUrl = imageUrl;
 
-    previewImage.src = imageUrl;
-    previewImage.classList.remove('hidden');
+    if (shouldPaintPreview()) {
+      previewImage.src = imageUrl;
+      previewImage.classList.remove('hidden');
+    }
 
   } catch (error) {
+    if (requestId !== previewRequestId) {
+      return;
+    }
     console.error("Preview error:", error);
-    previewError.textContent = `Error loading preview: ${error.message}`;
-    previewError.classList.remove('hidden');
+    if (shouldPaintPreview()) {
+      previewImage.classList.add('hidden');
+      previewError.textContent = `Error loading preview: ${error.message}`;
+      previewError.classList.remove('hidden');
+    }
     state.clearWarnings();
   } finally {
-    previewLoading.classList.add('hidden');
+    setRefreshSpinning(false);
   }
 }
 
@@ -2013,6 +2195,14 @@ function escapeHtmlForZPLImport(text) {
 
 // Import Template from JSON
 function importTemplate(template) {
+  // Clear stale Labelary preview so the old template doesn't flash in overlay mode
+  if (lastPreviewImageUrl) {
+    URL.revokeObjectURL(lastPreviewImageUrl);
+    lastPreviewImageUrl = null;
+  }
+  lastPreviewZpl = null;
+  previewImage.classList.add('hidden');
+
   // Clear current elements
   state.setElements([]);
   state.setSelectedElement(null);

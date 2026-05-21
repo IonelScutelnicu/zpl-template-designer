@@ -917,6 +917,9 @@ export class InteractionHandler {
    * Get resize handle at position
    */
   getSelectionBounds(element) {
+    if (element.type === 'TEXT' && this.labelSettings && this.renderer) {
+      return this.renderer.measureTextBounds(element, this.labelSettings);
+    }
     if (element.type === 'TEXTBLOCK') {
       const blockW = element.blockWidth || 200;
       const blockH = element.blockHeight || 50;

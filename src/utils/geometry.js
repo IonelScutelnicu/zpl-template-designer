@@ -1,12 +1,19 @@
 // Geometry and Math Utilities for ZPL Template Creator
 
 /**
- * Line height multiplier for FieldBlock/TextBlock rendering.
+ * Line height multiplier for FieldBlock rendering.
  * Each line of text occupies fontSize * LINE_HEIGHT_RATIO dots vertically.
  * In ZPL, the line height equals the font height (no extra leading),
  * so this is 1.0 to match actual printer/Labelary output.
  */
 export const LINE_HEIGHT_RATIO = 1.0;
+
+/**
+ * Line height multiplier for TextBlock (^TB) rendering.
+ * Labelary renders ^TB lines with ~1.25x the font height between baselines,
+ * slightly more than the FieldBlock ratio.
+ */
+export const TEXT_BLOCK_LINE_HEIGHT_RATIO = 1.25;
 
 /**
  * Clamp a number between min and max values
