@@ -103,6 +103,10 @@ export class InteractionHandler {
   }
 
   handleMouseDown(e) {
+    // Only left-button starts an element interaction; middle/right are reserved
+    // for viewport pan and context menu.
+    if (e.button !== 0) return;
+
     const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
     this.mouseDownTime = Date.now();
     this.mouseDownX = coords.x;

@@ -34,7 +34,7 @@ export class BarcodeRenderer {
     const totalWidth = calculateCode128Width(data, element.width) * scale;
 
     const fontPx = element.width * 9 * scale;
-    const textPadY = 4 + (2 * scale);
+    const textPadY = 5 + (3 * scale);
     const totalHeight = element.showText ? height + textPadY + fontPx : height;
 
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {

@@ -234,7 +234,7 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#label-width').dispatchEvent('change');
 
             // Expand Print Configuration section
-            await page.getByText('Print Configuration', { exact: true }).click();
+            await page.locator('details[data-fs-tab="print-config"] summary').click();
 
             await page.locator('#media-darkness').fill('20');
             await page.locator('#media-darkness').dispatchEvent('change');

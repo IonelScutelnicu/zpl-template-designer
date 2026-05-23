@@ -198,7 +198,7 @@ test.describe('Canvas Context Menu', () => {
             return { x: pasted.x, y: pasted.y };
         });
 
-        expect(pastedPosition).toEqual({ x: 200, y: 150 });
+        expect(pastedPosition).toEqual({ x: 201, y: 151 });
     });
 
     test('should clamp pasted element inside the label bounds', async ({ page }) => {

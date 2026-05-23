@@ -255,7 +255,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await elementsPanel.addTextElement();
 
             // Expand Print Configuration section which is closed by default
-            await page.getByText('Print Configuration', { exact: true }).click();
+            await page.locator('details[data-fs-tab="print-config"] summary').click();
         });
 
         test('should update ^PW when label width is changed', async ({ page }) => {
@@ -297,7 +297,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
 
         test('should update ^LH value when homeX is changed', async ({ page }) => {
             // Expand the Offsets section (collapsed by default)
-            await page.getByText('Offsets', { exact: true }).click();
+            await page.locator('details[data-fs-tab="offsets"] summary').click();
             await page.locator('#home-x').fill('20');
             await page.locator('#home-x').dispatchEvent('input');
             const zpl = await zplOutput.getZPLCode();
@@ -306,7 +306,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
 
         test('should update ^LH value when homeY is changed', async ({ page }) => {
             // Expand the Offsets section (collapsed by default)
-            await page.getByText('Offsets', { exact: true }).click();
+            await page.locator('details[data-fs-tab="offsets"] summary').click();
             await page.locator('#home-y').fill('30');
             await page.locator('#home-y').dispatchEvent('input');
             const zpl = await zplOutput.getZPLCode();

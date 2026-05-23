@@ -48,7 +48,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should clamp negative font height to 0', async ({ page }) => {
-            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('details[data-fs-tab="font"] summary').click();
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -63,7 +63,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should clamp negative font width to 0', async ({ page }) => {
-            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('details[data-fs-tab="font"] summary').click();
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -172,7 +172,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should clamp negative font height to 0', async ({ page }) => {
-            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('details[data-fs-tab="font"] summary').click();
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -187,7 +187,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should clamp negative font width to 0', async ({ page }) => {
-            await page.getByText('Default Font', { exact: true }).click();
+            await page.locator('details[data-fs-tab="font"] summary').click();
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');

@@ -57,21 +57,21 @@ test.describe('Tooltips', () => {
 
     test('should show Esc shortcut for cancel drag / resize in shortcuts panel', async ({ page }) => {
         const shortcutsButton = page.locator('button:has-text("Shortcuts")');
-        await shortcutsButton.hover();
-        await page.waitForTimeout(250);
+        await shortcutsButton.click();
+        await expect(page.locator('#shortcuts-modal')).not.toHaveClass(/hidden/);
 
-        const cancelRow = page.locator('div.flex.justify-between.items-center').filter({
+        const cancelRow = page.locator('li.flex.justify-between.items-center').filter({
             hasText: 'Cancel drag / resize'
         });
         await expect(cancelRow).toBeVisible();
-        await expect(cancelRow.locator('code')).toHaveText('Esc');
+        await expect(cancelRow.locator('kbd')).toHaveText('Esc');
     });
     test('should show context-menu hint in the shortcuts panel', async ({ page }) => {
         const shortcutsButton = page.locator('button:has-text("Shortcuts")');
-        await shortcutsButton.hover();
-        await page.waitForTimeout(250);
+        await shortcutsButton.click();
+        await expect(page.locator('#shortcuts-modal')).not.toHaveClass(/hidden/);
 
-        const contextMenuRow = page.locator('div.flex.justify-between.items-center').filter({
+        const contextMenuRow = page.locator('li.flex.justify-between.items-center').filter({
             hasText: 'Open context menu'
         });
         await expect(contextMenuRow).toBeVisible();

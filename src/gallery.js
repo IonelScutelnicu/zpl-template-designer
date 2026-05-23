@@ -53,6 +53,17 @@ var state = {
 var allCounts = { use: {}, tags: {}, dpi: {}, width: {} };
 var allWidths = [];
 
+// Drive connection signature — when this changes (connect / disconnect /
+// folder switch), the gallery reloads "My templates". A separate state slot
+// from the listeners above so cross-view drive changes from the editor
+// reach us via the subscribe callback.
+var lastDriveSig = null;
+function computeDriveSig() {
+  if (!driveAuth.isConnected()) return 'disconnected';
+  var folder = driveAuth.getFolder();
+  return 'connected:' + (folder ? folder.id : '');
+}
+
 // Single-slot registry for outside-click listeners attached to `document`.
 // Re-renders bind to a slot via bindOutsideClick(slot, fn); the previous
 // listener under that slot is removed first so handlers never stack up
@@ -827,7 +838,6 @@ function attachMyTemplatesListeners() {
         toast('Folder updated', 'success');
         renderHeaderChip();
         render();
-        loadMyTemplates();
       } catch (err) {
         if (!/cancelled/i.test(err.message || '')) toast(err.message || 'Failed', 'error');
       } finally {
@@ -845,7 +855,6 @@ async function handleConnectClick() {
     await chooseInitialFolder();
     toast('Connected to Google Drive', 'success');
     renderHeaderChip();
-    loadMyTemplates();
   } catch (err) {
     if (err && /cancelled/i.test(err.message)) return; // user dismissed Picker
     toast(err.message || 'Failed to connect', 'error');
@@ -1059,6 +1068,11 @@ export function initGallery() {
 
   driveAuth.subscribe(function () {
     renderHeaderChip();
+    var sig = computeDriveSig();
+    if (sig !== lastDriveSig) {
+      lastDriveSig = sig;
+      loadMyTemplates();
+    }
   });
 
   // Clean up modal + scroll lock when leaving the gallery view so the
@@ -1092,5 +1106,6 @@ export function initGallery() {
   renderHeaderChip();
   driveAuth.refreshProfileIfMissing();
   loadTemplates();
+  lastDriveSig = computeDriveSig();
   if (driveAuth.isConnected()) loadMyTemplates();
 }

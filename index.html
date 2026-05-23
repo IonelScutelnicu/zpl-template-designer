@@ -11,7 +11,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Condensed:wght@700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round|Material+Icons+Outlined" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <script defer src="templates/index.js"></script>
   <script>
@@ -283,6 +283,711 @@
     .app-tabs button:not(.active):hover {
       color: #0f172a;
     }
+
+    /* ============================================================
+       Fullscreen mode — workspace layout state
+       Toggled by the .is-fullscreen class on #view-editor.
+       ============================================================ */
+
+    /* fs-only elements are hidden in normal view, shown in fullscreen.
+       Use !important to win over later rules that set display (like .fs-panel-header). */
+    .fs-only {
+      display: none !important;
+    }
+
+    #view-editor.is-fullscreen .fs-only {
+      display: flex !important;
+    }
+
+    #view-editor.is-fullscreen #zpl-output-inline.fs-only {
+      display: inline-block !important;
+    }
+
+    /* When the ZPL output is expanded in fullscreen, the full body is
+       visible — the truncated inline preview becomes redundant noise. */
+    #view-editor.is-fullscreen:not(.zpl-collapsed) #zpl-output-inline.fs-only {
+      display: none !important;
+    }
+
+    /* Floating-pill aesthetic shared by the chrome clusters */
+    #view-editor.is-fullscreen #elements-card,
+    #view-editor.is-fullscreen #settings-card,
+    #view-editor.is-fullscreen #properties-card,
+    #view-editor.is-fullscreen #zpl-card {
+      position: fixed;
+      z-index: 35;
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.25), 0 2px 6px -2px rgba(15, 23, 42, 0.1);
+      transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+    }
+
+    /* Hide the original sidebar block and collapse the inner grid */
+    #view-editor.is-fullscreen main {
+      display: block;
+      padding: 0;
+      max-width: none;
+    }
+
+    #view-editor.is-fullscreen main>.grid {
+      display: block;
+    }
+
+    #view-editor.is-fullscreen main>.grid>div {
+      display: block;
+    }
+
+    #view-editor.is-fullscreen main>.grid>div>.grid {
+      display: block;
+    }
+
+    #view-editor.is-fullscreen main>.grid>div>.grid>.space-y-6 {
+      display: block;
+    }
+
+    #view-editor.is-fullscreen aside {
+      position: static;
+      space-y-4: 0;
+    }
+
+    #view-editor.is-fullscreen aside>*+* {
+      margin-top: 0;
+    }
+
+    /* Preview card fills the editor area below the header */
+    #view-editor.is-fullscreen #preview-card {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: var(--hdr, 64px);
+      bottom: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      min-height: 0;
+    }
+
+    #view-editor.is-fullscreen #preview-card>.border-b {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      background: transparent;
+      border: 0;
+      pointer-events: none;
+      z-index: 30;
+      grid-template-columns: 1fr auto 1fr;
+    }
+
+    #view-editor.is-fullscreen #preview-card>.border-b>* {
+      pointer-events: auto;
+    }
+
+    /* Drop the "Live Preview" h2 title in fullscreen */
+    #view-editor.is-fullscreen #preview-card>.border-b>h2 {
+      visibility: hidden;
+    }
+
+    /* Float the center pill on a white card */
+    #view-editor.is-fullscreen #preview-card>.border-b>div:nth-child(2) {
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(8px);
+      border: 1px solid #e2e8f0;
+      border-radius: 9999px;
+      padding: 6px 14px;
+      box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.15);
+    }
+
+    /* Float the right cluster on a white card. The parent grid uses
+       1fr/auto/1fr so the right column would naturally span the full 1fr —
+       override by making this cell size to its content and push it to the
+       right edge via justify-self. */
+    #view-editor.is-fullscreen #preview-card>.border-b>div:nth-child(3) {
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(8px);
+      border: 1px solid #e2e8f0;
+      border-radius: 9999px;
+      padding: 4px 6px;
+      gap: 2px;
+      box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.15);
+      margin-right: 12px;
+      width: -moz-fit-content;
+      width: fit-content;
+      justify-self: end;
+    }
+
+    /* Floating Fullscreen toggle inside the canvas (normal view).
+       In fullscreen mode it is teleported into #header-controls and the
+       .fullscreen-btn-floating class is removed so the cluster styling wins. */
+    #fullscreen-toggle-btn.fullscreen-btn-floating {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 25;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      gap: 0;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(6px);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      color: #475569;
+      box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.12);
+      letter-spacing: normal;
+      font-weight: normal;
+      text-transform: none;
+    }
+
+    #fullscreen-toggle-btn.fullscreen-btn-floating:hover {
+      background: #ffffff;
+      color: #2563eb;
+    }
+
+    #fullscreen-toggle-btn.fullscreen-btn-floating .btn-label {
+      display: none;
+    }
+
+    #fullscreen-toggle-btn.fullscreen-btn-floating .material-icons-round {
+      font-size: 18px;
+    }
+
+    /* History count chip — surfaced only in fullscreen via the rules below */
+    .history-count-chip {
+      display: none;
+      min-width: 22px;
+      padding: 1px 7px;
+      border-radius: 9999px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.5;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Fullscreen: collapse Undo/Redo/Exit labels; show the history count chip. */
+    #view-editor.is-fullscreen #undo-btn .btn-label,
+    #view-editor.is-fullscreen #redo-btn .btn-label,
+    #view-editor.is-fullscreen #fullscreen-toggle-label {
+      display: none;
+    }
+
+    #view-editor.is-fullscreen #history-count-chip {
+      display: inline-block;
+    }
+
+    /* Undo/Redo pair: drop the blue chrome; sit flush inside the pill,
+       with a slate divider between them. */
+    #view-editor.is-fullscreen #undo-redo-group {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      gap: 0;
+    }
+
+    #view-editor.is-fullscreen #undo-redo-group>.w-px {
+      background: #e2e8f0;
+      margin: 0 2px;
+    }
+
+    #view-editor.is-fullscreen #undo-btn,
+    #view-editor.is-fullscreen #redo-btn {
+      padding: 6px 8px;
+      color: #334155;
+      background: transparent;
+      border-radius: 6px;
+    }
+
+    #view-editor.is-fullscreen #undo-btn:not(:disabled):hover,
+    #view-editor.is-fullscreen #redo-btn:not(:disabled):hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* History: keep label, append count chip, separated from Undo/Redo by a divider */
+    #view-editor.is-fullscreen #history-toggle-btn {
+      padding: 6px 10px 6px 12px;
+      margin-left: 4px;
+      color: #334155;
+      background: transparent;
+      border-radius: 6px;
+      border-left: 1px solid #e2e8f0;
+    }
+
+    #view-editor.is-fullscreen #history-toggle-btn:hover {
+      color: #0f172a;
+      background: #f8fafc;
+    }
+
+    #view-editor.is-fullscreen #history-toggle-btn:hover .history-count-chip {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    /* Exit (×): icon-only round button at the right of the pill, separated */
+    #view-editor.is-fullscreen #fullscreen-toggle-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      justify-content: center;
+      color: #64748b;
+      background: transparent;
+      border-radius: 9999px;
+      margin-left: 4px;
+    }
+
+    #view-editor.is-fullscreen #fullscreen-toggle-btn:hover {
+      color: #0f172a;
+      background: #f1f5f9;
+    }
+
+    #view-editor.is-fullscreen #fullscreen-toggle-icon {
+      font-size: 18px;
+    }
+
+    /* Inner preview container fills */
+    #view-editor.is-fullscreen #preview-container {
+      min-height: 0;
+      height: 100%;
+    }
+
+    /* Elements panel — left edge, top.
+       Width matches normal-view sidebar (lg:col-span-2 of 12 cols with gap-6
+       inside main's max-w-1920 px-6): 2*col + 1*gap = (V-312)/6 + 24. */
+    #view-editor.is-fullscreen #elements-card {
+      left: 16px;
+      top: calc(var(--hdr, 64px) + 16px);
+      width: calc((min(100vw, 1920px) - 312px) / 6 + 24px);
+      max-height: calc(100vh - var(--hdr, 64px) - 32px);
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+    }
+
+    /* Label Setup panel — left edge, stacked below Elements.
+       Width matches normal-view sidebar (same formula as Elements). */
+    #view-editor.is-fullscreen #settings-card {
+      left: 16px;
+      top: auto;
+      bottom: 76px;
+      width: calc((min(100vw, 1920px) - 312px) / 6 + 24px);
+      max-height: 50vh;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+    }
+
+    /* When collapsed (default in fullscreen), only the header shows */
+    #view-editor.is-fullscreen #settings-card.fs-collapsed>details {
+      display: none;
+    }
+
+    /* Elements panel collapse */
+    #view-editor.is-fullscreen #elements-card.fs-collapsed>div:not(.fs-panel-header) {
+      display: none;
+    }
+
+    /* Properties panel — right edge.
+       Top offset clears the floating top-right cluster (Undo/Redo/History/Exit
+       pill sits ~50px tall starting at hdr+12). Bottom offset clears the
+       Shortcuts button (bottom: 24, ~40 tall) and the zoom controls
+       (bottom: 80, ~36 tall). */
+    #view-editor.is-fullscreen #properties-card {
+      right: 16px;
+      top: calc(var(--hdr, 64px) + 80px);
+      width: 320px;
+      max-height: calc(100vh - var(--hdr, 64px) - 200px);
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+    }
+
+    /* When the warnings chip is visible (bottom: 130, ~40 tall → top at ~170
+       from viewport bottom), shrink the Properties panel further so its
+       bottom edge clears the chip's top. */
+    #view-editor.is-fullscreen:has(#warnings-panel:not(.hidden)) #properties-card {
+      max-height: calc(100vh - var(--hdr, 64px) - 280px);
+    }
+
+    #view-editor.is-fullscreen #properties-card.fs-collapsed>#properties-panel {
+      display: none;
+    }
+
+    /* ZPL Output strip — bottom edge, narrow centered pill. Capped to a
+       comfortable reading width so the truncated ZPL preview doesn't
+       stretch across the canvas. */
+    #view-editor.is-fullscreen #zpl-card {
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      width: min(720px, calc(100vw - 700px));
+      bottom: 16px;
+      top: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+    }
+
+    /* Collapsed (default): hide the body */
+    #view-editor.is-fullscreen.zpl-collapsed #zpl-output-body {
+      display: none;
+    }
+
+    /* Expanded: show body capped to 40vh */
+    #view-editor.is-fullscreen:not(.zpl-collapsed) #zpl-card #zpl-output-highlight {
+      height: 40vh;
+    }
+
+    /* Warnings panel becomes a chip when in fullscreen.
+       Sits above the zoom controls (bottom: 80, ~36 tall) with a 14px gap. */
+    #view-editor.is-fullscreen #warnings-panel {
+      position: fixed;
+      right: 16px;
+      bottom: 130px;
+      z-index: 36;
+      width: auto;
+      max-width: 320px;
+      background: rgba(255, 251, 235, 0.97);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px -10px rgba(180, 83, 9, 0.3);
+      border-radius: 9999px;
+    }
+
+    #view-editor.is-fullscreen #warnings-panel.fs-chip-expanded {
+      border-radius: 0.5rem;
+    }
+
+    #view-editor.is-fullscreen #warnings-panel #warnings-list {
+      display: none;
+    }
+
+    #view-editor.is-fullscreen #warnings-panel.fs-chip-expanded #warnings-list {
+      display: block;
+    }
+
+    #view-editor.is-fullscreen #warnings-panel>.border-b {
+      cursor: pointer;
+      border: 0;
+      background: transparent;
+      padding: 6px 12px;
+    }
+
+    /* Fullscreen panel header (for Elements + Settings) */
+    .fs-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .fs-chevron-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      color: #64748b;
+      transition: background-color 0.15s, color 0.15s;
+    }
+
+    .fs-chevron-btn:hover {
+      background: rgba(15, 23, 42, 0.06);
+      color: #0f172a;
+    }
+
+    #view-editor.is-fullscreen .fs-chevron-btn {
+      display: inline-flex;
+    }
+
+    #view-editor.is-fullscreen #settings-card .fs-panel-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      background: #f8fafc;
+    }
+
+    #view-editor.is-fullscreen #settings-card.fs-collapsed .fs-panel-header {
+      border-bottom: 0;
+    }
+
+    /* In fullscreen, hide the original Reference link (clutter on the strip) */
+    /* (Keeping it visible per user's "keep all buttons" instruction.) */
+
+    /* Smooth canvas size transition (the preview-card already transitions).
+       Lift zoom controls above the Shortcuts floating button (which is fixed
+       at bottom-6 right-6, ~40px tall) so they don't overlap in fullscreen.
+       z-index sits above the floating panels (35) and warnings chip (36) so
+       the zoom presets dropdown opens on top of them. */
+    /* In fullscreen, zoom-controls is teleported to <body> by FullscreenController
+       so it lives in the root stacking context above all floating panels. */
+    #zoom-controls.fs-zoom-detached {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      z-index: 45;
+    }
+
+    /* Keyboard key chip used in the Shortcuts modal */
+    .kbd {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 500;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      padding: 2px 7px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      min-width: 22px;
+      justify-content: center;
+    }
+
+    .kbd-hint {
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    /* Shortcuts modal: enter/leave animation */
+    #shortcuts-modal {
+      transition: opacity 0.18s ease;
+    }
+
+    #shortcuts-modal.hidden {
+      display: none;
+    }
+
+    #shortcuts-modal>.modal-card {
+      transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+
+    #shortcuts-modal[data-state="closed"] {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #shortcuts-modal[data-state="closed"]>.modal-card {
+      transform: translateY(8px) scale(0.98);
+      opacity: 0;
+    }
+
+    /* ZPL card is anchored at the bottom of the screen in fullscreen, so its
+       dropdowns must open upward and must not be clipped by overflow:hidden.
+       With overflow:visible the child corners need their own rounding to
+       match the parent's pill shape. */
+    #view-editor.is-fullscreen #zpl-card {
+      overflow: visible;
+    }
+
+    #view-editor.is-fullscreen #zpl-card > div:first-child {
+      border-top-left-radius: 0.5rem;
+      border-top-right-radius: 0.5rem;
+    }
+
+    #view-editor.is-fullscreen.zpl-collapsed #zpl-card > div:first-child {
+      border-bottom-left-radius: 0.5rem;
+      border-bottom-right-radius: 0.5rem;
+      border-bottom: 0;
+    }
+
+    #view-editor.is-fullscreen:not(.zpl-collapsed) #zpl-card #zpl-output-body {
+      border-bottom-left-radius: 0.5rem;
+      border-bottom-right-radius: 0.5rem;
+      overflow: hidden;
+    }
+
+    #view-editor.is-fullscreen #zpl-more-menu,
+    #view-editor.is-fullscreen #drive-chip-menu {
+      top: auto;
+      bottom: calc(100% + 0.5rem);
+      margin-top: 0;
+    }
+
+    /* Header itself stays put; ensure it remains above floating chrome */
+    header {
+      z-index: 50;
+    }
+
+    /* ============================================================
+       Fullscreen left panel — icon rail + tabbed content
+       The rail switches which subsection of #elements-card /
+       #settings-card is shown via data-fs-active-tab on #view-editor.
+       The two cards sit at the same fullscreen coordinates and
+       only one is visible at a time.
+       ============================================================ */
+
+    /* Icon rail — floating strip on the far left, top-anchored.
+       Visually fused with the adjacent content card: rounded only on the
+       left edge, no right border (the content card supplies it), and a
+       z-index above the card so its shadow doesn't draw a seam between
+       them. fs-only class hides it in normal view. */
+    #fs-icon-rail {
+      position: fixed;
+      left: 16px;
+      top: calc(var(--hdr, 64px) + 16px);
+      bottom: 16px;
+      width: 40px;
+      z-index: 37;
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(8px);
+      border: 1px solid #e2e8f0;
+      border-right: 1px solid #f1f5f9;
+      border-radius: 0.5rem 0 0 0.5rem;
+      box-shadow: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      gap: 10px;
+    }
+
+    /* Icon button: square, transparent, centered in the rail. The active
+       state stays transparent — only the icon color shifts to blue and a
+       blue bar appears at the rail's left edge. */
+    .fs-icon-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.15s, background-color 0.15s;
+    }
+
+    .fs-icon-btn:hover:not(.active) {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .fs-icon-btn.active {
+      background: transparent;
+      color: #2563eb;
+    }
+
+    /* 3px blue indicator pinned to the rail's left edge when active.
+       Button is 32px wide inside a 40px rail (centered → 4px gap each side),
+       so left: -4px puts the bar flush with the rail's interior left edge. */
+    .fs-icon-btn.active::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: 4px;
+      bottom: 4px;
+      width: 3px;
+      border-radius: 2px;
+      background: #2563eb;
+    }
+
+    .fs-icon-btn .material-icons-outlined {
+      font-size: 22px;
+    }
+
+    /* Override the earlier #elements-card / #settings-card positioning so
+       they share the same anchor next to the icon rail. The card butts up
+       against the rail (left = 16px viewport edge + 40px rail = 56px) with
+       no gap, and its left edge is squared off + un-bordered so the rail
+       and card render as a single fused panel. */
+    #view-editor.is-fullscreen #elements-card,
+    #view-editor.is-fullscreen #settings-card {
+      left: 56px;
+      top: calc(var(--hdr, 64px) + 16px);
+      bottom: 16px;
+      width: calc((min(100vw, 1920px) - 312px) / 6 + 24px);
+      max-height: none;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-left: 0;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    /* In fullscreen, the chevron-collapse header is no longer needed:
+       the icon rail navigates between sections. Hide it and any fs-only
+       header inside the cards. */
+    #view-editor.is-fullscreen #elements-card > .fs-panel-header,
+    #view-editor.is-fullscreen #settings-card > .fs-panel-header {
+      display: none !important;
+    }
+
+    /* Hide every <details> summary in fullscreen — the icon rail takes
+       over navigation, and we force the active body open via CSS. */
+    #view-editor.is-fullscreen #settings-card details > summary {
+      display: none;
+    }
+
+    /* Force the body inside the active <details> visible regardless of the
+       open attribute. The selector targets the direct child <div> after
+       the (hidden) summary. */
+    #view-editor.is-fullscreen #settings-card details > div {
+      display: block;
+    }
+
+    /* Section title shown at the top of the active tab in fullscreen. */
+    .fs-section-title {
+      display: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      padding: 10px 16px;
+      margin: 0;
+      border-bottom: 1px solid #f1f5f9;
+      background: #f8fafc;
+    }
+
+    /* ---- Tab switching: which card and which subsection is visible ----
+       Driven by data-fs-active-tab on #view-editor (set by FullscreenController).
+       The "add" and "layers" tabs live inside #elements-card;
+       "label-setup", "print-config", "offsets", "font" live inside #settings-card. */
+
+    /* Default: when fullscreen is on, hide every [data-fs-tab] block inside
+       the two content cards; individual rules below re-show the matching one.
+       Scoped to #elements-card / #settings-card so the icon-rail buttons
+       (which also carry data-fs-tab) are not affected. */
+    #view-editor.is-fullscreen :is(#elements-card, #settings-card) [data-fs-tab] {
+      display: none;
+    }
+
+    /* Show the active tab's content + title. */
+    #view-editor.is-fullscreen[data-fs-active-tab="add"] :is(#elements-card, #settings-card) [data-fs-tab="add"],
+    #view-editor.is-fullscreen[data-fs-active-tab="layers"] :is(#elements-card, #settings-card) [data-fs-tab="layers"],
+    #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] :is(#elements-card, #settings-card) [data-fs-tab="label-setup"],
+    #view-editor.is-fullscreen[data-fs-active-tab="print-config"] :is(#elements-card, #settings-card) [data-fs-tab="print-config"],
+    #view-editor.is-fullscreen[data-fs-active-tab="offsets"] :is(#elements-card, #settings-card) [data-fs-tab="offsets"],
+    #view-editor.is-fullscreen[data-fs-active-tab="font"] :is(#elements-card, #settings-card) [data-fs-tab="font"] {
+      display: block;
+    }
+
+    /* The add-element grid needs grid display, not block, when active. */
+    #view-editor.is-fullscreen[data-fs-active-tab="add"] #elements-card > [data-fs-tab="add"].grid {
+      display: grid;
+    }
+
+    /* Section title: same visibility rules, but display: block when active. */
+    #view-editor.is-fullscreen[data-fs-active-tab="add"] .fs-section-title[data-fs-tab="add"],
+    #view-editor.is-fullscreen[data-fs-active-tab="layers"] .fs-section-title[data-fs-tab="layers"],
+    #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] .fs-section-title[data-fs-tab="label-setup"],
+    #view-editor.is-fullscreen[data-fs-active-tab="print-config"] .fs-section-title[data-fs-tab="print-config"],
+    #view-editor.is-fullscreen[data-fs-active-tab="offsets"] .fs-section-title[data-fs-tab="offsets"],
+    #view-editor.is-fullscreen[data-fs-active-tab="font"] .fs-section-title[data-fs-tab="font"] {
+      display: block;
+    }
+
+    /* Hide whichever card has no active section.
+       add + layers live in #elements-card → hide #settings-card on those tabs.
+       label-setup/print-config/offsets/font live in #settings-card → hide #elements-card. */
+    #view-editor.is-fullscreen[data-fs-active-tab="add"] #settings-card,
+    #view-editor.is-fullscreen[data-fs-active-tab="layers"] #settings-card,
+    #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] #elements-card,
+    #view-editor.is-fullscreen[data-fs-active-tab="print-config"] #elements-card,
+    #view-editor.is-fullscreen[data-fs-active-tab="offsets"] #elements-card,
+    #view-editor.is-fullscreen[data-fs-active-tab="font"] #elements-card {
+      display: none !important;
+    }
   </style>
   <link rel="stylesheet" href="src/gallery.css">
 </head>
@@ -350,6 +1055,35 @@
     </header>
 
     <div id="view-editor">
+      <!-- Fullscreen icon rail (visible only in fullscreen). Switches which
+           section of #elements-card / #settings-card is shown via the
+           data-fs-active-tab attribute on #view-editor. -->
+      <nav id="fs-icon-rail" class="fs-only" aria-label="Panel sections">
+        <button type="button" class="fs-icon-btn" data-fs-tab="add"
+          data-tooltip="Add element" aria-label="Add element">
+          <span class="material-icons-outlined">add_box</span>
+        </button>
+        <button type="button" class="fs-icon-btn" data-fs-tab="layers"
+          data-tooltip="Layers" aria-label="Layers">
+          <span class="material-icons-outlined">layers</span>
+        </button>
+        <button type="button" class="fs-icon-btn" data-fs-tab="label-setup"
+          data-tooltip="Label Setup" aria-label="Label Setup">
+          <span class="material-icons-outlined">description</span>
+        </button>
+        <button type="button" class="fs-icon-btn" data-fs-tab="print-config"
+          data-tooltip="Print Configuration" aria-label="Print Configuration">
+          <span class="material-icons-outlined">print</span>
+        </button>
+        <button type="button" class="fs-icon-btn" data-fs-tab="offsets"
+          data-tooltip="Offsets" aria-label="Offsets">
+          <span class="material-icons-outlined">tune</span>
+        </button>
+        <button type="button" class="fs-icon-btn" data-fs-tab="font"
+          data-tooltip="Default Font" aria-label="Default Font">
+          <span class="material-icons-outlined">text_fields</span>
+        </button>
+      </nav>
       <main class="flex-grow max-w-[1920px] mx-auto w-full p-6">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -357,11 +1091,17 @@
           <aside class="lg:col-span-2 lg:col-start-1 space-y-4 h-fit sticky top-6">
 
             <!-- Add Elements -->
-            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-              <div class="bg-slate-50 border-b border-slate-100 px-4 py-3">
+            <div id="elements-card" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+              <div class="bg-slate-50 border-b border-slate-100 px-4 py-3 fs-panel-header">
                 <h2 class="font-semibold text-slate-700 text-sm">Elements</h2>
+                <button type="button" class="fs-chevron-btn" data-fs-chevron="elements" data-tooltip="Collapse"
+                  aria-label="Collapse Elements">
+                  <span class="material-icons-round text-base">expand_less</span>
+                </button>
               </div>
-              <div class="p-3 grid grid-cols-2 gap-2">
+              <!-- Fullscreen-only section title for the active tab -->
+              <h2 class="fs-section-title" data-fs-tab="add">Add element</h2>
+              <div class="p-3 grid grid-cols-2 gap-2" data-fs-tab="add">
                 <button id="add-textblock-btn" data-tooltip="Add Text Block element"
                   class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
                   <span
@@ -422,7 +1162,8 @@
               </div>
 
               <!-- Elements List -->
-              <div class="border-t border-slate-100">
+              <h2 class="fs-section-title" data-fs-tab="layers">Layers</h2>
+              <div class="border-t border-slate-100" data-fs-tab="layers">
                 <div id="elements-list" class="p-3 space-y-1.5 max-h-[300px] overflow-y-auto bg-slate-50/50">
                   <p class="text-center text-slate-400 py-4 italic text-xs">No elements added</p>
                 </div>
@@ -430,9 +1171,18 @@
             </div>
 
             <!-- Configuration Accordion -->
-            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div id="settings-card" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+              <!-- Settings card header (only visible in fullscreen) -->
+              <div class="fs-panel-header fs-only">
+                <h2 class="font-semibold text-slate-700 text-sm">Settings</h2>
+                <button type="button" class="fs-chevron-btn" data-fs-chevron="settings" data-tooltip="Collapse"
+                  aria-label="Collapse Settings">
+                  <span class="material-icons-round text-base">expand_more</span>
+                </button>
+              </div>
+              <h2 class="fs-section-title" data-fs-tab="label-setup">Label Setup</h2>
               <!-- Label Settings -->
-              <details class="group border-b border-slate-100" open>
+              <details class="group border-b border-slate-100" data-fs-tab="label-setup" open>
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
                   <span>Label Setup</span>
@@ -469,8 +1219,9 @@
                 </div>
               </details>
 
+              <h2 class="fs-section-title" data-fs-tab="print-config">Print Configuration</h2>
               <!-- Printer Configuration -->
-              <details class="group border-b border-slate-100">
+              <details class="group border-b border-slate-100" data-fs-tab="print-config">
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
                   <span>Print Configuration</span>
@@ -489,11 +1240,11 @@
                         target="_blank" class="text-blue-500 hover:underline">^PO</a>
                     </label>
                     <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-                      <button type="button" data-orientation="N"
+                      <button type="button" data-orientation="N" aria-label="Normal orientation" aria-pressed="true"
                         class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
                         Normal
                       </button>
-                      <button type="button" data-orientation="I"
+                      <button type="button" data-orientation="I" aria-label="Inverted orientation" aria-pressed="false"
                         class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
                         Inverted
                       </button>
@@ -507,11 +1258,11 @@
                         target="_blank" class="text-blue-500 hover:underline">^PM</a>
                     </label>
                     <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
-                      <button type="button" data-mirror="N"
+                      <button type="button" data-mirror="N" aria-label="Normal (no mirror)" aria-pressed="true"
                         class="px-3 py-1 text-xs rounded bg-white text-blue-600 shadow transition-colors">
                         Normal
                       </button>
-                      <button type="button" data-mirror="Y"
+                      <button type="button" data-mirror="Y" aria-label="Mirrored" aria-pressed="false"
                         class="px-3 py-1 text-xs rounded text-slate-500 hover:bg-slate-200 transition-colors">
                         Mirrored
                       </button>
@@ -587,8 +1338,9 @@
                 </div>
               </details>
 
+              <h2 class="fs-section-title" data-fs-tab="offsets">Offsets</h2>
               <!-- Position & Offsets -->
-              <details class="group border-b border-slate-100">
+              <details class="group border-b border-slate-100" data-fs-tab="offsets">
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
                   <span>Offsets</span>
@@ -628,8 +1380,9 @@
                 </div>
               </details>
 
+              <h2 class="fs-section-title" data-fs-tab="font">Default Font</h2>
               <!-- Font Settings -->
-              <details class="group">
+              <details class="group" data-fs-tab="font">
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
                   <span>Default Font</span>
@@ -714,7 +1467,7 @@
 
               <div class="space-y-6">
                 <!-- Preview Panel -->
-                <div
+                <div id="preview-card"
                   class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
                   <div
                     class="border-b border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -736,8 +1489,7 @@
                               <span class="w-px h-3.5 bg-slate-300"></span>
                               <input id="overlay-opacity-slider" type="range" min="10" max="80" value="40" step="5"
                                 class="w-24 accent-blue-500 cursor-pointer" aria-label="Preview image opacity">
-                              <span id="overlay-opacity-value"
-                                class="text-[10px] font-bold tabular-nums">40%</span>
+                              <span id="overlay-opacity-value" class="text-[10px] font-bold tabular-nums">40%</span>
                             </span>
                           </div>
                           <button id="mode-api-btn" aria-pressed="false"
@@ -760,189 +1512,258 @@
                       </div>
 
                     </div>
-                    <div class="flex items-center justify-end gap-3">
-                      <div class="flex items-center rounded border border-blue-100 bg-blue-50 overflow-hidden">
+                    <div id="header-controls" class="flex items-center justify-end gap-3">
+                      <div id="undo-redo-group"
+                        class="flex items-center rounded border border-blue-100 bg-blue-50 overflow-hidden">
                         <button id="undo-btn" disabled
                           class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
                           data-tooltip="Undo (Ctrl+Z)">
                           <span class="material-icons-round text-sm">undo</span>
-                          Undo
+                          <span class="btn-label">Undo</span>
                         </button>
                         <div class="w-px h-5 bg-blue-100"></div>
                         <button id="redo-btn"
                           class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:bg-blue-100 px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400"
                           data-tooltip="Redo (Ctrl+Shift+Z)" disabled>
                           <span class="material-icons-round text-sm">redo</span>
-                          Redo
+                          <span class="btn-label">Redo</span>
                         </button>
                       </div>
                       <button id="history-toggle-btn" data-tooltip="Toggle edit history panel"
                         class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
                         <span class="material-icons-round text-sm">history</span>
-                        History
+                        <span class="btn-label">History</span>
+                        <span id="history-count-chip" class="history-count-chip" aria-hidden="true">0</span>
                       </button>
                     </div>
                   </div>
                   <div
-                    class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px]"
+                    class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px] overflow-hidden"
                     id="preview-container" data-mode="canvas">
-                    <!-- Canvas Preview (default) -->
-                    <canvas id="label-canvas" width="799" height="399"
-                      class="shadow-lg border border-slate-200 bg-white cursor-default max-w-full max-h-[450px] object-contain absolute z-10"></canvas>
 
-                    <!-- API Preview (hidden by default) -->
+                    <!-- Floating fullscreen toggle (top-right of the canvas).
+                         Teleported into #header-controls when fullscreen mode is active. -->
+                    <button id="fullscreen-toggle-btn" data-tooltip="Enter fullscreen"
+                      class="fullscreen-btn-floating flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
+                      <span id="fullscreen-toggle-icon" class="material-icons-round text-sm">zoom_out_map</span>
+                      <span id="fullscreen-toggle-label" class="btn-label">Fullscreen</span>
+                    </button>
+
+                    <!-- Dot grid + centered messages (visible in api/overlay modes) -->
                     <div id="api-preview-container"
-                      class="hidden absolute inset-0 z-0 flex items-center justify-center p-6 pointer-events-none">
-                      <div class="absolute inset-0 z-0 opacity-[0.03]"
+                      class="hidden absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+                      <div class="absolute inset-0 opacity-[0.03]"
                         style="background-image: radial-gradient(#000 1px, transparent 1px); background-size: 20px 20px;">
                       </div>
-
-                      <div id="preview-backing"
-                        class="hidden absolute inset-0 m-auto z-0 border border-slate-200 bg-white box-content">
-                      </div>
-
                       <div id="preview-error"
-                        class="hidden bg-red-50 text-red-600 p-3 rounded border border-red-100 max-w-sm text-center text-xs z-0">
+                        class="hidden bg-red-50 text-red-600 p-3 rounded border border-red-100 max-w-sm text-center text-xs pointer-events-auto z-20">
                       </div>
-                      <img id="preview-image"
-                        class="hidden max-w-full max-h-[450px] shadow-lg border border-slate-200 bg-white object-contain z-10"
-                        alt="Label preview" />
-                      <div id="preview-placeholder" class="text-slate-400 text-sm italic z-10">
+                      <div id="preview-placeholder" class="text-slate-400 text-sm italic z-20">
                         Click refresh to render
                       </div>
                     </div>
 
+                    <!-- Zoom/pan viewport — centered, transformed for pan -->
+                    <div id="preview-viewport" class="absolute top-1/2 left-1/2 z-10"
+                      style="transform: translate(-50%, -50%);">
+                      <div id="preview-backing"
+                        class="hidden absolute top-0 left-0 z-0 border border-slate-200 bg-white box-content w-full h-full">
+                      </div>
+                      <img id="preview-image"
+                        class="hidden absolute top-0 left-0 shadow-lg border border-slate-200 bg-white z-10"
+                        style="image-rendering: pixelated; image-rendering: crisp-edges;" alt="Label preview" />
+                      <canvas id="label-canvas" width="799" height="399"
+                        class="shadow-lg border border-slate-200 bg-white cursor-default block relative z-20"></canvas>
+                    </div>
+
+                    <!-- Floating zoom controls (bottom-right) -->
+                    <div id="zoom-controls"
+                      class="absolute bottom-3 right-3 z-30 flex items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-md px-1 py-1 text-xs select-none">
+                      <button id="zoom-out-btn"
+                        class="w-7 h-7 inline-flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
+                        data-tooltip="Zoom out (Ctrl+-)">
+                        <span class="material-icons-round text-[16px]">remove</span>
+                      </button>
+                      <div class="relative">
+                        <button id="zoom-level-btn"
+                          class="min-w-[60px] h-7 px-2 inline-flex items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 transition-colors font-medium tabular-nums"
+                          data-tooltip="Zoom level">
+                          <span id="zoom-level-label">100%</span>
+                        </button>
+                        <div id="zoom-presets-menu"
+                          class="hidden absolute bottom-full right-0 mb-2 min-w-[140px] bg-white border border-slate-200 rounded-lg shadow-lg py-1 text-left">
+                          <button
+                            class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center justify-between"
+                            data-zoom="fit">
+                            <span>Fit</span><span class="text-slate-400 text-[10px]">Ctrl+0</span>
+                          </button>
+                          <div class="border-t border-slate-100 my-1"></div>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="0.1">10%</button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="0.25">25%</button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="0.5">50%</button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="0.75">75%</button>
+                          <button
+                            class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center justify-between"
+                            data-zoom="1">
+                            <span>100%</span><span class="text-slate-400 text-[10px]">Ctrl+1</span>
+                          </button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="1.5">150%</button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="2">200%</button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="4">400%</button>
+                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
+                            data-zoom="8">800%</button>
+                        </div>
+                      </div>
+                      <button id="zoom-in-btn"
+                        class="w-7 h-7 inline-flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
+                        data-tooltip="Zoom in (Ctrl+=)">
+                        <span class="material-icons-round text-[16px]">add</span>
+                      </button>
+                    </div>
+
                   </div>
                 </div>
 
-                <div class="fixed bottom-6 right-6 z-40 group">
-                  <button data-tooltip="Keyboard &amp; mouse shortcuts"
-                    class="flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg hover:bg-white transition-all text-slate-500 hover:text-blue-600">
-                    <span class="material-icons-round text-lg">keyboard</span>
-                    <span class="text-xs font-medium pr-1">Shortcuts</span>
-                  </button>
+                <button id="shortcuts-btn" data-tooltip="Show keyboard &amp; mouse shortcuts (?)"
+                  class="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-lg hover:bg-white hover:text-blue-600 transition-all text-slate-500">
+                  <span class="material-icons-round text-lg">keyboard</span>
+                  <span class="text-xs font-medium pr-1">Shortcuts</span>
+                </button>
+
+                <div id="shortcuts-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4"
+                  data-state="closed" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+                  <div id="shortcuts-backdrop" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
                   <div
-                    class="absolute bottom-full right-0 mb-3 w-72 max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-md rounded-lg border border-slate-200 shadow-xl p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-bottom-right scale-95 group-hover:scale-100">
-                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
-                      <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                        Keyboard &amp; Mouse</h4>
-                      <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Hints</span>
+                    class="modal-card relative bg-white rounded-xl shadow-2xl w-[min(820px,92vw)] max-h-[88vh] flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+                      <div class="flex items-center gap-2.5">
+                        <span class="material-icons-round text-slate-500 text-[20px]">keyboard</span>
+                        <h3 id="shortcuts-title" class="font-semibold text-slate-800 text-sm">Keyboard &amp; Mouse
+                          Shortcuts</h3>
+                      </div>
+                      <button id="shortcuts-close" data-tooltip="Close (Esc)"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+                        <span class="material-icons-round text-[18px]">close</span>
+                      </button>
                     </div>
-                    <div class="space-y-2 text-xs">
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Cycle elements</span>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Cycle reverse</span>
-                        <div class="flex gap-1">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Tab</code>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Nudge 1px</span>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Nudge 10px</span>
-                        <div class="flex gap-1">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift</code>
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Arrows</code>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Delete</span>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Del</code>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Copy / Paste</span>
-                        <div class="flex gap-1">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">C / V</code>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Duplicate</span>
-                        <div class="flex gap-1">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">D</code>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
-                        <span class="text-slate-500">Undo</span>
-                        <div class="flex gap-1">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Z</code>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Redo</span>
-                        <div class="flex gap-1">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Ctrl</code>
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Shift Z / Y</code>
-                        </div>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Show guides</span>
-                        <span class="text-[10px] text-slate-500">Hold Ctrl + drag / resize</span>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Cancel drag / resize</span>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Close history panel (idle)</span>
-                        <code
-                          class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Esc</code>
-                      </div>
-                      <div class="flex justify-between items-center pt-1 border-t border-dashed border-slate-200">
-                        <span class="text-slate-500">Select</span>
-                        <span class="text-[10px] text-slate-500">Click element</span>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Open context menu</span>
-                        <span class="text-[10px] text-slate-500">Right-click canvas</span>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Deselect</span>
-                        <span class="text-[10px] text-slate-500">Click empty area</span>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Move</span>
-                        <span class="text-[10px] text-slate-500">Drag element</span>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Resize</span>
-                        <span class="text-[10px] text-slate-500">Drag handles</span>
-                      </div>
-                      <div class="flex justify-between items-center">
-                        <span class="text-slate-500">Cycle layers</span>
-                        <div class="flex gap-1 items-center">
-                          <code
-                            class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 border border-slate-200">Alt</code>
-                          <span class="text-[10px] text-slate-500">+ Click</span>
-                        </div>
-                      </div>
+                    <div class="overflow-y-auto px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+
+                      <section>
+                        <h4 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Selection
+                        </h4>
+                        <ul class="space-y-2 text-xs">
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Select
+                              element</span><span class="kbd-hint">Click element</span></li>
+                          <li class="flex justify-between items-center"><span
+                              class="text-slate-600">Deselect</span><span class="kbd-hint">Click empty area</span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Cycle
+                              next</span><kbd class="kbd">Tab</kbd></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Cycle
+                              previous</span><span class="flex gap-1"><kbd class="kbd">Shift</kbd><kbd
+                                class="kbd">Tab</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Cycle
+                              layers</span><span class="flex gap-1 items-center"><kbd class="kbd">Alt</kbd><span
+                                class="kbd-hint">+ Click</span></span></li>
+                        </ul>
+                      </section>
+
+                      <section>
+                        <h4 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Editing</h4>
+                        <ul class="space-y-2 text-xs">
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Move</span><span
+                              class="kbd-hint">Drag element</span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Resize</span><span
+                              class="kbd-hint">Drag handles</span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Nudge
+                              1px</span><kbd class="kbd">Arrows</kbd></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Nudge
+                              10px</span><span class="flex gap-1"><kbd class="kbd">Shift</kbd><kbd
+                                class="kbd">Arrows</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Delete</span><kbd
+                              class="kbd">Del</kbd></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Copy /
+                              Paste</span><span class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">C /
+                                V</kbd></span></li>
+                          <li class="flex justify-between items-center"><span
+                              class="text-slate-600">Duplicate</span><span class="flex gap-1"><kbd
+                                class="kbd">Ctrl</kbd><kbd class="kbd">D</kbd></span></li>
+                        </ul>
+                      </section>
+
+                      <section>
+                        <h4 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">History</h4>
+                        <ul class="space-y-2 text-xs">
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Undo</span><span
+                              class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">Z</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Redo</span><span
+                              class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">Shift+Z / Y</kbd></span>
+                          </li>
+                        </ul>
+                      </section>
+
+                      <section>
+                        <h4 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Zoom &amp;
+                          Pan</h4>
+                        <ul class="space-y-2 text-xs">
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Zoom in</span><span
+                              class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd class="kbd">+</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Zoom
+                              out</span><span class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd
+                                class="kbd">−</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Fit to
+                              view</span><span class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd
+                                class="kbd">0</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Zoom
+                              100%</span><span class="flex gap-1"><kbd class="kbd">Ctrl</kbd><kbd
+                                class="kbd">1</kbd></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Zoom at
+                              cursor</span><span class="flex gap-1 items-center"><kbd class="kbd">Ctrl</kbd><span
+                                class="kbd-hint">+ Scroll</span></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Pan</span><span
+                              class="flex gap-1 items-center"><kbd class="kbd">Space</kbd><span class="kbd-hint">+
+                                Drag</span></span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Pan
+                              (alternate)</span><span class="kbd-hint">Middle-click drag</span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Pan
+                              horizontally</span><span class="flex gap-1 items-center"><kbd class="kbd">Shift</kbd><span
+                                class="kbd-hint">+ Scroll</span></span></li>
+                        </ul>
+                      </section>
+
+                      <section>
+                        <h4 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Canvas</h4>
+                        <ul class="space-y-2 text-xs">
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Open context
+                              menu</span><span class="kbd-hint">Right-click canvas</span></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Show smart
+                              guides</span><span class="flex gap-1 items-center"><kbd class="kbd">Ctrl</kbd><span
+                                class="kbd-hint">+ Drag / Resize</span></span></li>
+                        </ul>
+                      </section>
+
+                      <section>
+                        <h4 class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Dismiss</h4>
+                        <ul class="space-y-2 text-xs">
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Cancel drag /
+                              resize</span><kbd class="kbd">Esc</kbd></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Close history
+                              panel</span><kbd class="kbd">Esc</kbd></li>
+                          <li class="flex justify-between items-center"><span class="text-slate-600">Close this
+                              dialog</span><kbd class="kbd">Esc</kbd></li>
+                        </ul>
+                      </section>
+
                     </div>
                   </div>
                 </div>
+
 
                 <!-- ZPL Warnings Panel -->
                 <div id="warnings-panel"
@@ -968,16 +1789,18 @@
                 </div>
 
                 <!-- ZPL Output Section -->
-                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                <div id="zpl-card" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                   <div
                     class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-                    <div class="flex items-center gap-2">
-                      <h2 class="font-semibold text-slate-700 text-sm">ZPL Output</h2>
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <h2 class="font-semibold text-slate-700 text-sm shrink-0">ZPL Output</h2>
                       <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands.html"
                         target="_blank"
-                        class="text-blue-500 hover:text-blue-700 text-[10px] font-bold uppercase tracking-wider">
+                        class="text-blue-500 hover:text-blue-700 text-[10px] font-bold uppercase tracking-wider shrink-0">
                         Reference
                       </a>
+                      <span id="zpl-output-inline"
+                        class="fs-only font-mono text-[11px] text-slate-500 truncate min-w-0"></span>
                     </div>
                     <div class="flex items-center gap-2">
                       <button id="copy-btn" disabled data-tooltip="Copy ZPL code to clipboard"
@@ -1065,9 +1888,14 @@
                         </div>
                       </div>
                       <input type="file" id="import-file" accept=".json" style="display: none" />
+                      <button id="zpl-collapse-btn" type="button" data-tooltip="Expand"
+                        class="fs-only inline-flex items-center justify-center w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 transition-colors"
+                        aria-label="Toggle ZPL output">
+                        <span id="zpl-collapse-icon" class="material-icons-round text-base">expand_less</span>
+                      </button>
                     </div>
                   </div>
-                  <div class="relative">
+                  <div id="zpl-output-body" class="relative">
                     <pre id="zpl-output-highlight"
                       class="zpl-output is-empty w-full h-96 p-4 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-none leading-relaxed overflow-auto"></pre>
                     <textarea id="zpl-output-raw" readonly
@@ -1077,12 +1905,18 @@
               </div>
 
               <!-- Properties Panel -->
-              <div
+              <div id="properties-card"
                 class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col max-h-[calc(100vh-10rem)] w-full">
-                <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center">
+                <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center gap-2">
                   <h2 class="font-semibold text-slate-700 text-sm">Element Properties</h2>
-                  <a id="zpl-doc-link" target="_blank" rel="noopener noreferrer" hidden
-                    class="text-xs text-blue-500 hover:text-blue-700 hover:underline"></a>
+                  <div class="flex items-center gap-1">
+                    <a id="zpl-doc-link" target="_blank" rel="noopener noreferrer" hidden
+                      class="text-xs text-blue-500 hover:text-blue-700 hover:underline"></a>
+                    <button type="button" class="fs-chevron-btn" data-fs-chevron="properties" data-tooltip="Collapse"
+                      aria-label="Collapse Element Properties">
+                      <span class="material-icons-round text-base">expand_less</span>
+                    </button>
+                  </div>
                 </div>
                 <div id="properties-panel" class="p-5 flex-grow font-sans overflow-y-auto [scrollbar-gutter:stable]">
                   <p class="text-center text-slate-400 py-12 italic text-sm">Select an element to edit properties</p>

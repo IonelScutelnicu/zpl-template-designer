@@ -24,6 +24,7 @@ export class CanvasRenderer {
     this.ctx.imageSmoothingEnabled = false;
 
     this.scale = 1;
+    this.zoom = 1;
     this.offsetX = 0;
     this.offsetY = 0;
     this.transparentBackground = false;
@@ -46,6 +47,10 @@ export class CanvasRenderer {
 
   setTransparentBackground(enabled) {
     this.transparentBackground = Boolean(enabled);
+  }
+
+  setZoom(zoom) {
+    this.zoom = Math.max(0.01, Number(zoom) || 1);
   }
 
   /**
@@ -72,12 +77,13 @@ export class CanvasRenderer {
     this.labelWidthDots = labelWidthDots;
     this.labelHeightDots = labelHeightDots;
 
-    // Render at 1:1 scale to match API output (1 pixel = 1 dot)
-    this.scale = 1;
+    // Apply current zoom: 1 dot becomes `zoom` screen pixels.
+    this.scale = this.zoom || 1;
 
-    // Set canvas actual size (no scaling)
-    this.canvas.width = labelWidthDots;
-    this.canvas.height = labelHeightDots;
+    // Set canvas internal size to match zoom; the CSS width/height is set to
+    // the same value externally so `rect.width / canvas.width === 1`.
+    this.canvas.width = Math.max(1, Math.round(labelWidthDots * this.scale));
+    this.canvas.height = Math.max(1, Math.round(labelHeightDots * this.scale));
 
     // Calculate offsets to center canvas
     this.offsetX = 0;
@@ -107,14 +113,14 @@ export class CanvasRenderer {
     if (printOrientation === 'I') {
       this.ctx.save();
       // Rotate 180° around the center by translating and scaling
-      this.ctx.translate(labelWidthDots, labelHeightDots);
+      this.ctx.translate(labelWidthDots * this.scale, labelHeightDots * this.scale);
       this.ctx.scale(-1, -1);
     }
 
     // Apply mirror transformation (horizontal flip)
     if (printMirror === 'Y') {
       this.ctx.save();
-      this.ctx.translate(labelWidthDots, 0);
+      this.ctx.translate(labelWidthDots * this.scale, 0);
       this.ctx.scale(-1, 1);
     }
 
@@ -148,6 +154,11 @@ export class CanvasRenderer {
     const majorGridSpacing = 10 * dpmm; // 10mm major grid lines
 
     this.ctx.save();
+
+    // Chrome (grid, guides, selection) is constant on-screen: because
+    // applyViewport forces CSS size = canvas internal size, raw lineWidth
+    // values are already in screen pixels regardless of zoom. Only
+    // coordinates (positions) are multiplied by this.scale.
 
     // Minor grid lines (5mm)
     this.ctx.strokeStyle = '#e2e8f0';
@@ -208,7 +219,8 @@ export class CanvasRenderer {
 
     this.ctx.save();
 
-    // Stripe pattern settings
+    // Stripe pattern — line widths and dash sizes are in screen pixels at
+    // any zoom (canvas internal size matches CSS size).
     const stripeSpacing = 8; // pixels between stripes
     const stripeColor = '#fca5a5'; // Light red color
 
@@ -372,7 +384,8 @@ export class CanvasRenderer {
       height = bounds.height * this.scale;
     }
 
-    // Dashed outline — amber for locked, blue for unlocked
+    // Dashed outline — amber for locked, blue for unlocked. Chrome metrics
+    // are constant on-screen because CSS size equals canvas internal size.
     const isLocked = element.locked;
     const selectionColor = isLocked ? '#F59E0B' : '#3B82F6';
 
@@ -413,9 +426,8 @@ export class CanvasRenderer {
       this.ctx.restore();
     }
 
-    // Draw resize handles
-
-    const handleRadius = 6; // 12px diameter (matches w-3)
+    // Draw resize handles — constant on-screen size (~12px diameter).
+    const handleRadius = 6;
 
     // Helper to draw round handle
     const drawHandle = (cx, cy) => {
@@ -476,30 +488,33 @@ export class CanvasRenderer {
     const canvasX = mouseX - rect.left;
     const canvasY = mouseY - rect.top;
 
-    // Calculate CSS scale factor (displayed size vs internal size)
-    const scaleX = rect.width / this.canvas.width;
-    const scaleY = rect.height / this.canvas.height;
+    // Convert from CSS pixels to canvas-pixel coordinates
+    const cssScaleX = rect.width / this.canvas.width;
+    const cssScaleY = rect.height / this.canvas.height;
+    const pxX = canvasX / cssScaleX;
+    const pxY = canvasY / cssScaleY;
 
-    // Convert from displayed coordinates to internal canvas coordinates
-    let internalX = canvasX / scaleX;
-    let internalY = canvasY / scaleY;
+    // Convert canvas-pixels to label-dots through the current zoom factor.
+    const z = this.scale || 1;
+    let dotX = pxX / z;
+    let dotY = pxY / z;
 
     // If orientation is inverted, transform the coordinates
     // The canvas is flipped 180°, so we need to invert the click position
     if (this.printOrientation === 'I') {
-      internalX = this.labelWidthDots - internalX;
-      internalY = this.labelHeightDots - internalY;
+      dotX = this.labelWidthDots - dotX;
+      dotY = this.labelHeightDots - dotY;
     }
 
     // If mirror is enabled, flip the X coordinate
     if (this.printMirror === 'Y') {
-      internalX = this.labelWidthDots - internalX;
+      dotX = this.labelWidthDots - dotX;
     }
 
     // Subtract offsets to get element-relative coordinates
     return {
-      x: internalX - this.homeX,
-      y: internalY - this.homeY - this.labelTop
+      x: dotX - this.homeX,
+      y: dotY - this.homeY - this.labelTop
     };
   }
 
@@ -536,7 +551,7 @@ export class CanvasRenderer {
         ? (guide.position + this.homeX) * this.scale
         : (guide.position + this.homeY + this.labelTop) * this.scale;
 
-      // Guide line style
+      // Guide line style — constant on-screen weight
       this.ctx.strokeStyle = '#06b6d4'; // cyan-500
       this.ctx.lineWidth = 1;
       this.ctx.setLineDash([4, 3]);

@@ -22,6 +22,7 @@ import { UrlShareService } from './services/UrlShareService.js';
 import { SmartGuideService } from './services/SmartGuideService.js';
 import { ContextMenu } from './ui/ContextMenu.js';
 import { OnboardingWalkthrough } from './ui/OnboardingWalkthrough.js';
+import { FullscreenController } from './ui/FullscreenController.js';
 import { ConfirmModal } from './ui/ConfirmModal.js';
 import { imageToBitmap } from './utils/graphicField.js';
 import { escapeHtml, escapeAttr } from './utils/dom-helpers.js';
@@ -176,6 +177,7 @@ propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings,
 let historyPanelUI;
 let customFontsManager;
 let propertyListenersManager;
+let fullscreen;
 
 // DOM Elements
 const addTextBlockBtn = document.getElementById("add-textblock-btn");
@@ -235,6 +237,7 @@ const setOrientationActive = (value) => {
   orientationButtons.forEach(btn => {
     const isActive = btn.getAttribute('data-orientation') === value;
     btn.className = `px-3 py-1 text-xs rounded transition-colors ${isActive ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'}`;
+    btn.setAttribute('aria-pressed', String(isActive));
   });
 };
 
@@ -242,6 +245,7 @@ const setMirrorActive = (value) => {
   mirrorButtons.forEach(btn => {
     const isActive = btn.getAttribute('data-mirror') === value;
     btn.className = `px-3 py-1 text-xs rounded transition-colors ${isActive ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'}`;
+    btn.setAttribute('aria-pressed', String(isActive));
   });
 };
 const mediaDarkness = document.getElementById("media-darkness");
@@ -280,6 +284,13 @@ const overlayOpacityValueLabel = document.getElementById("overlay-opacity-value"
 const labelCanvas = document.getElementById("label-canvas");
 const apiPreviewContainer = document.getElementById("api-preview-container");
 const previewContainer = document.getElementById("preview-container");
+const previewViewport = document.getElementById("preview-viewport");
+const zoomControls = document.getElementById("zoom-controls");
+const zoomLevelBtn = document.getElementById("zoom-level-btn");
+const zoomLevelLabel = document.getElementById("zoom-level-label");
+const zoomInBtn = document.getElementById("zoom-in-btn");
+const zoomOutBtn = document.getElementById("zoom-out-btn");
+const zoomPresetsMenu = document.getElementById("zoom-presets-menu");
 
 // Canvas and interaction state
 let canvasRenderer = null;
@@ -288,6 +299,30 @@ let contextMenu = null;
 let lastContextMenuLabelPosition = null;
 let previewMode = 'canvas'; // 'canvas', 'overlay', or 'api'
 
+// ============================================================
+// Viewport: zoom + pan
+// ============================================================
+
+// Single zoom/pan applied to all 3 preview modes. `zoom` is the ratio of
+// screen pixels to label dots; `panX/Y` is the translation in screen pixels
+// applied on top of the centered viewport. `isAtFit` is sticky: while true,
+// zoom auto-recomputes to fit on label/container resize; any explicit zoom
+// interaction clears it until the user picks Fit again.
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 8;
+const ZOOM_PRESETS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 4, 8];
+let zoom = 1;
+let panX = 0;
+let panY = 0;
+let isAtFit = true;
+let isSpacePressed = false;
+let isPanning = false;
+let panStartClientX = 0;
+let panStartClientY = 0;
+let panStartPanX = 0;
+let panStartPanY = 0;
+let viewportResizeObserver = null;
+
 // Initialize function
 export function initApp() {
   // Initialize tooltip manager
@@ -295,6 +330,10 @@ export function initApp() {
 
   // Initialize confirmation modal
   const confirmModal = new ConfirmModal();
+
+  // Initialize fullscreen controller (workspace layout state)
+  fullscreen = new FullscreenController();
+  fullscreen.init();
 
   // Initialize canvas renderer
   canvasRenderer = new CanvasRenderer('label-canvas');
@@ -559,7 +598,10 @@ export function initApp() {
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
   modeOverlayBtn.addEventListener("click", () => setPreviewMode('overlay'));
   modeApiBtn.addEventListener("click", () => setPreviewMode('api'));
-  window.addEventListener('resize', syncPreviewBackingSize);
+  window.addEventListener('resize', () => {
+    if (isAtFit) renderCanvasPreview();
+    else applyViewport();
+  });
   // Overlay opacity slider — stop click from bubbling to the parent div (which would re-trigger mode switch)
   overlayOpacitySlider.addEventListener("click", (e) => e.stopPropagation());
   overlayOpacitySlider.addEventListener("input", () => {
@@ -631,6 +673,35 @@ export function initApp() {
   historyClearBtn.addEventListener("click", () => resetHistory("History cleared", { kind: "clear" }));
   historyList.addEventListener("click", handleHistoryClick);
 
+  // Shortcuts modal — click to open, backdrop/close/Esc to dismiss.
+  const shortcutsBtn = document.getElementById("shortcuts-btn");
+  const shortcutsModal = document.getElementById("shortcuts-modal");
+  const shortcutsClose = document.getElementById("shortcuts-close");
+  const shortcutsBackdrop = document.getElementById("shortcuts-backdrop");
+  const openShortcuts = () => {
+    shortcutsModal.classList.remove("hidden");
+    requestAnimationFrame(() => shortcutsModal.setAttribute("data-state", "open"));
+  };
+  const closeShortcuts = () => {
+    shortcutsModal.setAttribute("data-state", "closed");
+    setTimeout(() => shortcutsModal.classList.add("hidden"), 180);
+  };
+  if (shortcutsBtn) shortcutsBtn.addEventListener("click", openShortcuts);
+  if (shortcutsClose) shortcutsClose.addEventListener("click", closeShortcuts);
+  if (shortcutsBackdrop) shortcutsBackdrop.addEventListener("click", closeShortcuts);
+  document.addEventListener("keydown", (e) => {
+    if (shortcutsModal.classList.contains("hidden")) {
+      // "?" opens the shortcuts modal — only when not typing in an input
+      if (e.key === "?" && !e.target.closest("input,textarea,select,[contenteditable]")) {
+        e.preventDefault();
+        openShortcuts();
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeShortcuts();
+    }
+  });
+
   // Warnings panel event listeners
   warningsDismissBtn.addEventListener("click", () => {
     warningsPanelDismissed = true;
@@ -666,8 +737,10 @@ export function initApp() {
     if (e.key === "Escape" && !e.defaultPrevented) {
       if (!zplMoreMenu.classList.contains('hidden')) {
         closeZPLMoreMenu();
-      } else {
+      } else if (historyPanel.classList.contains('open')) {
         closeHistoryPanel();
+      } else if (fullscreen.isOn()) {
+        fullscreen.exit();
       }
     }
   });
@@ -893,6 +966,9 @@ export function initApp() {
     }
   });
 
+  // Wire viewport (zoom + pan) listeners before the first render.
+  wireViewportListeners();
+
   // Initialize functionality
   setPreviewMode('canvas');
 
@@ -938,7 +1014,10 @@ export function initApp() {
   // Initialize onboarding walkthrough
   const walkthrough = new OnboardingWalkthrough();
   walkthrough.init();
-  document.getElementById('tour-btn').addEventListener('click', () => walkthrough.start());
+  document.getElementById('tour-btn').addEventListener('click', () => {
+    if (fullscreen.isOn()) fullscreen.exit();
+    walkthrough.start();
+  });
 
   // Expose internals for automated tests only
   const isE2E = typeof window !== 'undefined' && (
@@ -968,9 +1047,271 @@ function closeZPLMoreMenu() {
 // Render Canvas Preview
 export function renderCanvasPreview() {
   if (!canvasRenderer) return;
+  if (isAtFit) {
+    // Auto mode (sticky): pick 100% when the label fits at native size,
+    // otherwise scale down to fit. See CONTEXT.md `Fit` glossary entry.
+    const fit = computeFitZoom();
+    if (fit > 0) zoom = fit >= 1 ? 1 : fit;
+  }
+  canvasRenderer.setZoom(zoom);
   canvasRenderer.setTransparentBackground(previewMode === 'overlay');
   canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.selectedElement);
-  syncPreviewBackingSize();
+  applyViewport();
+}
+
+// ============================================================
+// Viewport helpers — size + position the canvas, preview image, and
+// preview backing inside the pan/zoom viewport.
+// ============================================================
+
+function getLabelDots() {
+  const dpmm = state.labelSettings?.dpmm || 8;
+  const actualDpi = Math.floor(dpmm * 25.4);
+  const w = Math.floor(((state.labelSettings?.width || 100) / 25.4) * actualDpi);
+  const h = Math.floor(((state.labelSettings?.height || 50) / 25.4) * actualDpi);
+  return { w: Math.max(1, w), h: Math.max(1, h) };
+}
+
+function computeFitZoom() {
+  if (!previewContainer) return 1;
+  // Bail if the container hasn't been laid out yet — the ResizeObserver
+  // re-fits the moment it becomes measurable.
+  if (!previewContainer.clientWidth || !previewContainer.clientHeight) return 1;
+  const { w, h } = getLabelDots();
+  // Reserve breathing room so the label doesn't touch the edge and the
+  // floating zoom pill doesn't overlap it.
+  const padding = 48;
+  const availW = Math.max(1, previewContainer.clientWidth - padding);
+  const availH = Math.max(1, previewContainer.clientHeight - padding);
+  return Math.min(availW / w, availH / h);
+}
+
+function applyViewport() {
+  if (!previewViewport) return;
+  const { w, h } = getLabelDots();
+  const pxW = Math.max(1, Math.round(w * zoom));
+  const pxH = Math.max(1, Math.round(h * zoom));
+
+  previewViewport.style.width = `${pxW}px`;
+  previewViewport.style.height = `${pxH}px`;
+  previewViewport.style.transform =
+    `translate(-50%, -50%) translate(${Math.round(panX)}px, ${Math.round(panY)}px)`;
+
+  // The canvas's internal width/height is set by the renderer; force the CSS
+  // size to match (so rect.width === canvas.width and `cssScaleX === 1`).
+  if (labelCanvas) {
+    labelCanvas.style.width = `${pxW}px`;
+    labelCanvas.style.height = `${pxH}px`;
+  }
+  if (previewImage) {
+    previewImage.style.width = `${pxW}px`;
+    previewImage.style.height = `${pxH}px`;
+    previewImage.style.maxWidth = `${pxW}px`;
+    previewImage.style.maxHeight = `${pxH}px`;
+  }
+  if (previewBacking) {
+    previewBacking.style.width = `${pxW}px`;
+    previewBacking.style.height = `${pxH}px`;
+  }
+
+  updateZoomLabel();
+}
+
+function updateZoomLabel() {
+  if (!zoomLevelLabel) return;
+  const pct = Math.round(zoom * 100);
+  zoomLevelLabel.textContent = isAtFit ? `Fit ${pct}%` : `${pct}%`;
+}
+
+function clampZoom(z) {
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+}
+
+// Zoom around an anchor point in *container* coordinates so the dot under
+// the anchor stays visually fixed across the zoom step.
+function setZoomAt(newZoom, anchorClientX, anchorClientY, { fromUser = true } = {}) {
+  const next = clampZoom(newZoom);
+  if (Math.abs(next - zoom) < 1e-6 && fromUser) return;
+
+  const rect = previewContainer.getBoundingClientRect();
+  // Default anchor: center of preview container.
+  const ax = (anchorClientX ?? (rect.left + rect.width / 2)) - rect.left;
+  const ay = (anchorClientY ?? (rect.top + rect.height / 2)) - rect.top;
+
+  // Convert anchor to the offset relative to the viewport's centered origin.
+  // viewport.transform = translate(-50%, -50%) translate(pan); so the
+  // viewport center is at (containerCenter + pan).
+  const cx = rect.width / 2 + panX;
+  const cy = rect.height / 2 + panY;
+  const dx = ax - cx;
+  const dy = ay - cy;
+
+  // After zoom changes from `zoom` to `next`, the dot that was under the
+  // anchor should stay under it. Distance from viewport center scales by
+  // (next/zoom); adjust pan to keep the anchor stable.
+  const ratio = next / zoom;
+  panX = panX + dx - dx * ratio;
+  panY = panY + dy - dy * ratio;
+  zoom = next;
+  if (fromUser) isAtFit = false;
+
+  renderCanvasPreview();
+}
+
+function setZoomPreset(preset, { fromUser = true } = {}) {
+  if (preset === 'fit') {
+    isAtFit = true;
+    zoom = computeFitZoom() || 1;
+    panX = 0;
+    panY = 0;
+    renderCanvasPreview();
+    return;
+  }
+  const z = Number(preset);
+  if (!Number.isFinite(z)) return;
+  // Preset-via-button keeps the center of the viewport stable (no anchor).
+  setZoomAt(z, undefined, undefined, { fromUser });
+}
+
+function stepZoom(direction, anchorClientX, anchorClientY) {
+  const ladder = ZOOM_PRESETS;
+  // Find next preset strictly above (or below) current zoom.
+  let target;
+  if (direction > 0) {
+    target = ladder.find((p) => p > zoom + 1e-6);
+    if (target === undefined) target = ZOOM_MAX;
+  } else {
+    for (let i = ladder.length - 1; i >= 0; i--) {
+      if (ladder[i] < zoom - 1e-6) { target = ladder[i]; break; }
+    }
+    if (target === undefined) target = ZOOM_MIN;
+  }
+  setZoomAt(target, anchorClientX, anchorClientY);
+}
+
+function toggleZoomPresetsMenu(force) {
+  if (!zoomPresetsMenu) return;
+  const wantOpen = force ?? zoomPresetsMenu.classList.contains('hidden');
+  zoomPresetsMenu.classList.toggle('hidden', !wantOpen);
+}
+
+function wireViewportListeners() {
+  if (!previewContainer) return;
+
+  // Pill: buttons + preset dropdown.
+  if (zoomInBtn) zoomInBtn.addEventListener('click', (e) => { e.stopPropagation(); stepZoom(+1); });
+  if (zoomOutBtn) zoomOutBtn.addEventListener('click', (e) => { e.stopPropagation(); stepZoom(-1); });
+  if (zoomLevelBtn) zoomLevelBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleZoomPresetsMenu(); });
+  if (zoomPresetsMenu) {
+    zoomPresetsMenu.addEventListener('click', (e) => {
+      const btn = e.target.closest('.zoom-preset');
+      if (!btn) return;
+      e.stopPropagation();
+      setZoomPreset(btn.getAttribute('data-zoom'));
+      toggleZoomPresetsMenu(false);
+    });
+  }
+  // Dismiss the presets menu on outside click.
+  document.addEventListener('click', (e) => {
+    if (!zoomPresetsMenu || zoomPresetsMenu.classList.contains('hidden')) return;
+    if (zoomControls && zoomControls.contains(e.target)) return;
+    toggleZoomPresetsMenu(false);
+  });
+
+  // Ctrl+wheel = zoom anchored at cursor; plain wheel = vertical pan;
+  // Shift+wheel = horizontal pan. preventDefault so the page doesn't scroll.
+  previewContainer.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      setZoomAt(zoom * factor, e.clientX, e.clientY);
+      return;
+    }
+    if (e.shiftKey) {
+      // Some browsers/devices emit deltaX when Shift is held; others keep deltaY.
+      // Honor whichever has a value so horizontal pan works everywhere.
+      e.preventDefault();
+      panX -= e.deltaX || e.deltaY;
+      isAtFit = false;
+      applyViewport();
+      return;
+    }
+    if (zoom <= computeFitZoom() + 1e-3) return; // No pan if fully visible
+    e.preventDefault();
+    panX -= e.deltaX;
+    panY -= e.deltaY;
+    isAtFit = false;
+    applyViewport();
+  }, { passive: false });
+
+  // Middle-mouse pan starts on container; Space+left-button pan uses
+  // capture-phase so we intercept before the canvas's selection handler.
+  previewContainer.addEventListener('mousedown', (e) => {
+    const wantPan = e.button === 1 || (e.button === 0 && isSpacePressed);
+    if (!wantPan) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    beginPan(e);
+  }, true);
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    panX = panStartPanX + (e.clientX - panStartClientX);
+    panY = panStartPanY + (e.clientY - panStartClientY);
+    isAtFit = false;
+    applyViewport();
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isPanning) return;
+    isPanning = false;
+    previewContainer.style.cursor = isSpacePressed ? 'grab' : '';
+  });
+
+  // Space: hold to pan (Figma-style). Ignore when typing in an input.
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space') return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
+    if (isSpacePressed) return; // ignore key repeat
+    isSpacePressed = true;
+    previewContainer.style.cursor = 'grab';
+    e.preventDefault();
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code !== 'Space') return;
+    isSpacePressed = false;
+    if (!isPanning) previewContainer.style.cursor = '';
+  });
+
+  // Zoom shortcuts work in all 3 modes — bound at document level.
+  document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === '0') { e.preventDefault(); setZoomPreset('fit'); return; }
+    if (e.key === '1') { e.preventDefault(); setZoomPreset('1'); return; }
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); stepZoom(+1); return; }
+    if (e.key === '-' || e.key === '_') { e.preventDefault(); stepZoom(-1); return; }
+  });
+
+  // Re-fit on container resize while at Fit; otherwise hold the zoom.
+  if (typeof ResizeObserver !== 'undefined') {
+    viewportResizeObserver = new ResizeObserver(() => {
+      if (isAtFit) renderCanvasPreview();
+      else applyViewport();
+    });
+    viewportResizeObserver.observe(previewContainer);
+  }
+}
+
+function beginPan(e) {
+  isPanning = true;
+  panStartClientX = e.clientX;
+  panStartClientY = e.clientY;
+  panStartPanX = panX;
+  panStartPanY = panY;
+  previewContainer.style.cursor = 'grabbing';
 }
 
 const OVERLAY_PREVIEW_DEBOUNCE_MS = 400;
@@ -1006,39 +1347,6 @@ function waitForPreviewRequestWindow() {
 
   previewRequestGate = scheduled.catch(() => {});
   return scheduled;
-}
-
-function syncPreviewBackingSize() {
-  if (!previewBacking) return;
-
-  // Mirror the canvas's CSS display size so Preview/Overlay images match Edit.
-  // When the canvas is visible use its real rect; when it's hidden (api mode)
-  // recompute using the same max-w-full / max-h-[450px] logic CSS would apply.
-  let width, height;
-  const rect = labelCanvas.getBoundingClientRect();
-  if (rect.width && rect.height) {
-    width = Math.round(rect.width);
-    height = Math.round(rect.height);
-  } else {
-    const srcW = labelCanvas.width;
-    const srcH = labelCanvas.height;
-    if (!srcW || !srcH) return;
-    const availW = previewContainer.clientWidth;
-    const availH = Math.min(previewContainer.clientHeight, 450);
-    const scale = Math.min(availW / srcW, availH / srcH, 1);
-    width = Math.round(srcW * scale);
-    height = Math.round(srcH * scale);
-  }
-
-  const w = `${width}px`;
-  const h = `${height}px`;
-  previewBacking.style.width = w;
-  previewBacking.style.height = h;
-  // Override max-w-full so the image matches the canvas width exactly
-  previewImage.style.width = w;
-  previewImage.style.maxWidth = w;
-  previewImage.style.height = h;
-  previewImage.style.maxHeight = h;
 }
 
 // Set Preview Mode
@@ -1077,6 +1385,7 @@ function setPreviewMode(mode) {
     labelCanvas.classList.remove('hidden');
     apiPreviewContainer.classList.add('hidden');
     previewBacking.classList.add('hidden');
+    previewImage.classList.add('hidden');
     labelCanvas.classList.add('bg-white');
     labelCanvas.classList.remove('bg-transparent');
     previewImage.style.opacity = '';
@@ -1104,7 +1413,7 @@ function setPreviewMode(mode) {
     previewImage.classList.add('opacity-100');
   }
   refreshPreviewBtn.disabled = isOverlay;
-  syncPreviewBackingSize();
+  applyViewport();
   if (isOverlay) renderCanvasPreview();
   // When returning to overlay from the editor (canvas), discard the cached
   // preview image so the stale frame isn't shown while the new one loads.
@@ -1317,6 +1626,9 @@ function updateUndoRedoUI() {
   redoBtn.classList.toggle("hover:bg-blue-100", canRedo);
   redoBtn.classList.toggle("text-slate-400", !canRedo);
   redoBtn.classList.toggle("cursor-not-allowed", !canRedo);
+
+  const chip = document.getElementById("history-count-chip");
+  if (chip) chip.textContent = String(historyEntries.length);
 }
 
 function updateCopyExportUI() {
@@ -1780,6 +2092,7 @@ function updateZPLOutput() {
   zplOutputRaw.value = zpl;
   zplOutputHighlight.innerHTML = highlightZPL(zpl);
   zplOutputHighlight.classList.toggle("is-empty", zpl.trim().length === 0);
+  if (fullscreen) fullscreen.updateInlineZpl(zpl);
   scheduleOverlayPreviewRefresh();
 }
 
@@ -1825,6 +2138,8 @@ async function updatePreview() {
   const shouldPaintPreview = () => previewMode === 'api' || previewMode === 'overlay';
 
   if (state.elements.length === 0) {
+    lastPreviewZpl = null;
+    lastPreviewImageUrl = null;
     if (shouldPaintPreview()) {
       previewImage.classList.add('hidden');
       previewError.classList.add('hidden');
@@ -1933,9 +2248,13 @@ async function updatePreview() {
 }
 
 // Copy ZPL to Clipboard
-function copyZPL() {
+async function copyZPL() {
   const text = zplOutputRaw.value;
-  copyTextToClipboard(text);
+  const copied = await copyTextToClipboard(text);
+  if (!copied) {
+    showToast('Failed to copy ZPL. Please select and copy the text manually.', 'error');
+    return;
+  }
 
   // Visual feedback
   copyBtnLabel.textContent = "Copied!";
@@ -2018,7 +2337,7 @@ async function doExportForGallery() {
   const tagsRaw = document.getElementById('gallery-tags').value.trim();
 
   if (!name || !desc) {
-    alert('Name and description are required.');
+    showToast('Name and description are required.', 'error');
     return;
   }
 
@@ -2114,7 +2433,7 @@ async function shareTemplate() {
     }, 2000);
   } catch (error) {
     console.error('Failed to share template URL:', error);
-    alert('Failed to copy share link. Please try exporting as a file instead.');
+    showToast('Failed to copy share link. Please try exporting as a file instead.', 'error');
   }
 }
 
@@ -2123,7 +2442,7 @@ function handleFileImport(event) {
   templateManager.handleFileImport(
     event,
     (template) => importTemplate(template),
-    (error) => alert("Error importing template: " + error)
+    (error) => showToast("Error importing template: " + error, 'error')
   );
 }
 
@@ -2195,6 +2514,12 @@ function escapeHtmlForZPLImport(text) {
 
 // Import Template from JSON
 function importTemplate(template) {
+  // Reset viewport to Fit for the new template — different label dimensions
+  // need a fresh fit, and the user's prior zoom/pan no longer makes sense.
+  isAtFit = true;
+  panX = 0;
+  panY = 0;
+
   // Clear stale Labelary preview so the old template doesn't flash in overlay mode
   if (lastPreviewImageUrl) {
     URL.revokeObjectURL(lastPreviewImageUrl);

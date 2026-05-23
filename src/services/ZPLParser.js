@@ -131,7 +131,7 @@ export class ZPLParser {
       warnings: [],
       currentGroup: null,
       barcodeDefaults: { width: 2, ratio: 2.0 },
-      defaultFont: { id: '0', height: 20, width: 20 },
+      defaultFont: { id: '0', height: 20, width: 0 },
       customFonts: []
     };
 
@@ -804,7 +804,7 @@ export class ZPLParser {
       fontId: '0',
       customFonts: [],
       defaultFontHeight: 20,
-      defaultFontWidth: 20,
+      defaultFontWidth: 0,
       homeX: 0,
       homeY: 0,
       labelTop: 0,

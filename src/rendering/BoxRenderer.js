@@ -48,7 +48,7 @@ export class BoxRenderer {
         const insetHeight = height - thickness;
         targetCtx.lineWidth = thickness;
         if (rounding > 0) {
-          const insetRounding = Math.max(0, Math.min(rounding - thickness / 2, Math.floor(Math.min(insetWidth, insetHeight) / 2)));
+          const insetRounding = Math.max(0, Math.min(rounding - thickness / 2, Math.min(insetWidth, insetHeight) / 2));
           this.roundRect(targetCtx, insetX, insetY, insetWidth, insetHeight, insetRounding, false, true);
         } else {
           targetCtx.strokeRect(insetX, insetY, insetWidth, insetHeight);
@@ -89,7 +89,7 @@ export class BoxRenderer {
         const innerHeight = height - 2 * thickness;
         if (innerWidth > 1 && innerHeight > 1) {
           const innerRounding = Math.max(0, Math.min(rounding - thickness,
-              Math.floor(Math.min(innerWidth, innerHeight) / 2)));
+              Math.min(innerWidth, innerHeight) / 2));
           if (innerRounding > 0) {
             this.roundRect(ctx, innerX + 0.5, innerY + 0.5, innerWidth - 1, innerHeight - 1, innerRounding, false, true);
           } else {
@@ -106,16 +106,13 @@ export class BoxRenderer {
    * Draw rounded rectangle helper
    */
   roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+    const r = Math.min(radius, width / 2, height / 2);
     ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + r, r);
+    ctx.arcTo(x + width, y + height, x + width - r, y + height, r);
+    ctx.arcTo(x, y + height, x, y + height - r, r);
+    ctx.arcTo(x, y, x + r, y, r);
     ctx.closePath();
 
     if (fill) {
