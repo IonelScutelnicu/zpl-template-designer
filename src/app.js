@@ -217,6 +217,7 @@ const shareBtnLabel = document.getElementById("share-btn-label");
 const zplMoreBtn = document.getElementById("zpl-more-btn");
 const zplMoreMenu = document.getElementById("zpl-more-menu");
 const importZPLBtn = document.getElementById("import-zpl-btn");
+const openLabelaryBtn = document.getElementById("open-labelary-btn");
 const zplImportModal = document.getElementById("zpl-import-modal");
 const zplImportInput = document.getElementById("zpl-import-input");
 const zplImportWarnings = document.getElementById("zpl-import-warnings");
@@ -651,6 +652,10 @@ export function initApp() {
       return;
     }
     openZPLImportModal();
+  });
+  openLabelaryBtn.addEventListener("click", () => {
+    closeZPLMoreMenu();
+    openInLabelary();
   });
   document.addEventListener("click", (event) => {
     if (zplMoreMenu.classList.contains("hidden")) return;
@@ -2293,6 +2298,21 @@ function fallbackCopyZPL(text) {
 // Export Template to JSON
 function exportTemplate() {
   templateManager.exportToFile(state.elements, state.labelSettings);
+}
+
+function openInLabelary() {
+  const { width, height, dpmm } = state.labelSettings;
+  const zpl = zplGenerator.generateZPL(state.elements, state.labelSettings);
+  const qs =
+    `density=${dpmm}` +
+    `&quality=grayscale` +
+    `&width=${width}` +
+    `&height=${height}` +
+    `&units=mm` +
+    `&index=0` +
+    `&rotation=0` +
+    `&zpl=${encodeURIComponent(zpl)}`;
+  window.open(`https://labelary.com/viewer.html?${qs}`, '_blank', 'noopener');
 }
 
 // Export for Gallery (also reused for Save to Drive via driveMode)
