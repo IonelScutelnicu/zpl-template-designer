@@ -6,6 +6,8 @@ import {
   qrVersionToModules
 } from './elements/QRCodeElement.js';
 import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
+import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
+import { getBitmapFontMaxSize } from './utils/zplFontSnap.js';
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -102,6 +104,11 @@ export class InteractionHandler {
     }
   }
 
+  getFieldBlockLineHeight(element) {
+    const fontMetrics = resolveFontMetrics(element, this.labelSettings || {}, 1);
+    return resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
+  }
+
   handleMouseDown(e) {
     // Only left-button starts an element interaction; middle/right are reserved
     // for viewport pan and context menu.
@@ -155,11 +162,10 @@ export class InteractionHandler {
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
           if (selectedElement.type === 'FIELDBLOCK') {
-            const fontSize = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
             const maxLines = selectedElement.maxLines || 1;
             const lineSpacing = selectedElement.lineSpacing || 0;
             // Line spacing is only between lines, not after the last line
-            const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
+            const baseLineHeight = this.getFieldBlockLineHeight(selectedElement);
             this.resizeStartHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
           } else {
             this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
@@ -230,9 +236,8 @@ export class InteractionHandler {
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'FIELDBLOCK') {
         // FIELDBLOCK only supports bottom-right resize
-        const fontSize = this.dragElement.fontSize || this.labelSettings?.defaultFontHeight || 30;
         const lineSpacing = this.dragElement.lineSpacing || 0;
-        const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
+        const baseLineHeight = this.getFieldBlockLineHeight(this.dragElement);
         const minHeight = baseLineHeight; // Minimum height is one line
         const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
         // When rotated, visual width comes from Y axis, visual height from X axis
@@ -270,7 +275,10 @@ export class InteractionHandler {
         const dy = coords.y - this.resizeMouseStartY;
         const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
         const fontSizeDelta = isRotated ? dx : dy;
+        const resolvedFontId = this.dragElement.fontId || this.labelSettings?.fontId || '0';
+        const fontMax = getBitmapFontMaxSize(resolvedFontId);
         this.dragElement.fontSize = Math.max(8, Math.round(this.resizeStartHeight + fontSizeDelta));
+        if (fontMax) this.dragElement.fontSize = Math.min(this.dragElement.fontSize, fontMax.maxHeight);
         // Scale fontWidth so the right edge of the selection box tracks the mouse 1:1.
         // measuredWidth = charPixels * fontWidth / fontSize, so fontWidth scales proportionally.
         const startMeasure = isRotated ? this.resizeStartMeasuredHeight : this.resizeStartMeasuredWidth;
@@ -278,6 +286,7 @@ export class InteractionHandler {
         const targetWidth = Math.max(8, startMeasure + deltaMeasure);
         const safeStart = Math.max(1, startMeasure);
         this.dragElement.fontWidth = Math.max(8, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
+        if (fontMax) this.dragElement.fontWidth = Math.min(this.dragElement.fontWidth, fontMax.maxWidth);
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'GRAPHIC') {
@@ -933,11 +942,10 @@ export class InteractionHandler {
       return { x: element.x, y: element.y, width: blockW, height: blockH };
     }
     if (element.type === 'FIELDBLOCK' && this.labelSettings) {
-      const resolvedHeight = element.fontSize || this.labelSettings.defaultFontHeight || 30;
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
       // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
+      const baseLineHeight = this.getFieldBlockLineHeight(element);
       const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
       const blockW = element.blockWidth || 200;
       if (element.orientation === 'R' || element.orientation === 'B') {

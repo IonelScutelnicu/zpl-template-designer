@@ -1,6 +1,8 @@
 // Property Listeners Manager
 // Attaches event listeners to element property inputs
 
+import { getBitmapFontMaxSize } from '../utils/zplFontSnap.js';
+
 /**
  * Manages property panel event listeners
  */
@@ -90,8 +92,16 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
     attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
-    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-size", "fontSize", (v) => {
+      const fontMax = getBitmapFontMaxSize(element.fontId);
+      const value = Math.max(0, parseInt(v) || 0);
+      return fontMax && value > 0 ? Math.min(value, fontMax.maxHeight) : value;
+    });
+    attach("prop-font-width", "fontWidth", (v) => {
+      const fontMax = getBitmapFontMaxSize(element.fontId);
+      const value = Math.max(0, parseInt(v) || 0);
+      return fontMax && value > 0 ? Math.min(value, fontMax.maxWidth) : value;
+    });
     // Orientation toggle buttons (scoped to element panel via [data-tooltip])
     const orientationButtons = document.querySelectorAll('[data-orientation][data-tooltip]');
     const setOrientationActive = (value) => {

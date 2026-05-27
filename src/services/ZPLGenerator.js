@@ -2,6 +2,7 @@
 // Handles generation of ZPL command strings from elements and label settings
 
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
+import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
 
 /**
  * Service for generating ZPL (Zebra Programming Language) output
@@ -178,11 +179,11 @@ export class ZPLGenerator {
 
     if (element.type === 'FIELDBLOCK') {
       boxWidth = element.blockWidth || 200;
-      const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
       // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
+      const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
+      const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
       boxHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     } else if (element.type === 'TEXT') {
       const text = element.previewText || '';

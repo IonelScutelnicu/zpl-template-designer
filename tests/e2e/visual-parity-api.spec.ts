@@ -303,14 +303,21 @@ test.describe('Visual Parity - Canvas vs API', () => {
             height: apiBounds.height * labelHeightDots / apiDims.height,
         };
 
-        console.log('Canvas image size:', canvasDims);
-        console.log('API image size:', apiDims);
-        console.log('Canvas pixel bounds:', canvasBounds);
-        console.log('API pixel bounds:', apiBounds);
-        console.log('Canvas dot-space:', canvasDots);
-        console.log('API dot-space:', apiDots);
-        console.log('Dot-space diff - X:', (canvasDots.left - apiDots.left).toFixed(1), 'Y:', (canvasDots.top - apiDots.top).toFixed(1));
-        console.log('Dot-space diff - W:', (canvasDots.width - apiDots.width).toFixed(1), 'H:', (canvasDots.height - apiDots.height).toFixed(1));
+        const xDiff = Math.abs(canvasDots.left - apiDots.left);
+        const yDiff = Math.abs(canvasDots.top - apiDots.top);
+        const wDiff = Math.abs(canvasDots.width - apiDots.width);
+        const hDiff = Math.abs(canvasDots.height - apiDots.height);
+
+        if (xDiff >= 10 || yDiff >= 10 || wDiff >= 10 || hDiff >= 10) {
+            console.log('Canvas image size:', canvasDims);
+            console.log('API image size:', apiDims);
+            console.log('Canvas pixel bounds:', canvasBounds);
+            console.log('API pixel bounds:', apiBounds);
+            console.log('Canvas dot-space:', canvasDots);
+            console.log('API dot-space:', apiDots);
+            console.log('Dot-space diff - X:', (canvasDots.left - apiDots.left).toFixed(1), 'Y:', (canvasDots.top - apiDots.top).toFixed(1));
+            console.log('Dot-space diff - W:', (canvasDots.width - apiDots.width).toFixed(1), 'H:', (canvasDots.height - apiDots.height).toFixed(1));
+        }
 
         // Width and height should match within 10 dots
         expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(10);

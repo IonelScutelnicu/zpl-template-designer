@@ -2,6 +2,7 @@
 // Parses ZPL template strings into app element objects and label settings
 
 import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
+import { getBitmapFontMaxSize } from '../utils/zplFontSnap.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
@@ -428,6 +429,11 @@ export class ZPLParser {
    */
   _parseText(group, aToken, fdToken, hasReverse, state) {
     const font = this._parseFontCommand(aToken);
+    const fontMax = getBitmapFontMaxSize(font.fontId);
+    if (fontMax) {
+      if (font.height > 0) font.height = Math.min(font.height, fontMax.maxHeight);
+      if (font.width > 0) font.width = Math.min(font.width, fontMax.maxWidth);
+    }
     const { text, placeholder } = this._parseFieldData(fdToken);
 
     return {

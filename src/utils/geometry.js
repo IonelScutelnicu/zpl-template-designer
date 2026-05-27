@@ -1,19 +1,14 @@
 // Geometry and Math Utilities for ZPL Template Creator
 
+import { resolveFontLineHeight, resolveFontMetrics } from './fontMetrics.js';
+
 /**
  * Line height multiplier for FieldBlock rendering.
- * Each line of text occupies fontSize * LINE_HEIGHT_RATIO dots vertically.
+ * Each line of text occupies resolved font height * LINE_HEIGHT_RATIO dots vertically.
  * In ZPL, the line height equals the font height (no extra leading),
  * so this is 1.0 to match actual printer/Labelary output.
  */
 export const LINE_HEIGHT_RATIO = 1.0;
-
-/**
- * Line height multiplier for TextBlock (^TB) rendering.
- * Labelary renders ^TB lines with ~1.25x the font height between baselines,
- * slightly more than the FieldBlock ratio.
- */
-export const TEXT_BLOCK_LINE_HEIGHT_RATIO = 1.25;
 
 /**
  * Clamp a number between min and max values
@@ -55,11 +50,11 @@ export function getElementBoundsResolved(element, labelSettings) {
     return { x: element.x, y: element.y, width: blockW, height: blockH };
   }
   if (element.type === 'FIELDBLOCK') {
-    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
     const maxLines = element.maxLines || 1;
     const lineSpacing = element.lineSpacing || 0;
     // Line spacing is only between lines, not after the last line
-    const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
+    const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
+    const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
     const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     const blockWidth = element.blockWidth || 200;
     if (element.orientation === 'R' || element.orientation === 'B') {

@@ -3,6 +3,7 @@
 
 import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { clampNumber } from '../utils/geometry.js';
+import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
 
 /**
  * Service for applying alignment operations to elements
@@ -230,13 +231,13 @@ export class AlignmentService {
    * Match field block height by adjusting max lines
    * Uses the same height formula as getElementBoundsResolved:
    *   totalHeight = baseLineHeight * maxLines + lineSpacing * (maxLines - 1)
-   *   where baseLineHeight = fontSize * LINE_HEIGHT_RATIO
+   *   where baseLineHeight uses the selected font's configured line-height ratio
    * @param {string} [dimension='height'] - Which label dimension to fill ('width' or 'height')
    */
   matchFieldBlockHeight(element, labelSize, labelSettings, dimension = 'height') {
-    const fontSize = element.fontSize || labelSettings.defaultFontHeight || 30;
     const lineSpacing = element.lineSpacing || 0;
-    const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
+    const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
+    const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
     const targetSize = dimension === 'width' ? labelSize.width : labelSize.height;
     // Solve: baseLineHeight * n + lineSpacing * (n - 1) <= targetSize
     // => n * (baseLineHeight + lineSpacing) <= targetSize + lineSpacing

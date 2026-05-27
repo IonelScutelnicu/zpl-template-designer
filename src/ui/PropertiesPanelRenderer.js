@@ -2,6 +2,7 @@
 // Generates HTML for the element properties editing panel
 
 import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
+import { getBitmapFontMaxSize } from '../utils/zplFontSnap.js';
 
 /**
  * Renderer for the properties panel UI
@@ -201,6 +202,9 @@ export class PropertiesPanelRenderer {
    * Render TEXT element properties
    */
   renderTextProperties(element) {
+    const fontMax = getBitmapFontMaxSize(element.fontId || this.labelSettings?.fontId || '0');
+    const maxH = fontMax ? fontMax.maxHeight : 32000;
+    const maxW = fontMax ? fontMax.maxWidth : 32000;
     return `
       ${this.renderAlignmentControls(element)}
       ${this.renderSection("Position &amp; Size", `
@@ -249,8 +253,8 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
         <div class="grid grid-cols-2 gap-3">
-          ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
-          ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+          ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: maxH, placeholder: "Use default" })}
+          ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: maxW, placeholder: "Use default" })}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}

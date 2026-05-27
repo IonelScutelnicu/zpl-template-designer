@@ -1,8 +1,7 @@
 // Text Block Renderer
 // Renders TEXTBLOCK elements on canvas with word wrapping and truncation
 
-import { ZPL_FONTS } from '../config/constants.js';
-import { TEXT_BLOCK_LINE_HEIGHT_RATIO } from '../utils/geometry.js';
+import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -20,32 +19,32 @@ export class TextBlockRenderer {
   render(ctx, canvas, element, labelSettings, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
-    const x = (element.x + homeX) * scale;
-    const y = (element.y + homeY + labelTop) * scale;
-
-    // Use label default if element fontSize is 0 or not set
-    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
-    const fontSize = rawFontSize * scale;
     const blockWidth = element.blockWidth * scale;
     const blockHeight = element.blockHeight * scale;
 
-    // Get font ID from element or use label's default
-    const fontId = element.fontId || labelSettings.fontId || '0';
-    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
+    const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 
-    // Calculate horizontal scale for font aspect ratio
-    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
-    const fontWidth = rawFontWidth * scale;
-    const scaleX = fontWidth / fontSize;
+    const x = (element.x + homeX) * scale;
+    const y = (element.y + homeY + labelTop) * scale;
+    const fontXOffset = fontWidth * (fontConfig.xOffset || 0);
 
+    // Bitmap fonts align each line's cap top via an alphabetic baseline placed at the
+    // cap height; Font 0 keeps the top-baseline nudge. (top of capitals at Y)
+    const baseline = isBitmap ? 'alphabetic' : 'top';
+    const fillY = isBitmap ? snappedHeight * scale : 0;
     ctx.font = font;
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = baseline;
+    ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
 
-    // Nudge text upward to better match ZPL printer positioning.
-    const yOffset = fontSize * -0.05;
+    // yOffset: dots (×scale) for bitmap fonts, fraction-of-em for Font 0.
+    const yOffset = isBitmap
+      ? (fontConfig.yOffset || 0) * scale
+      : fontSize * (-0.05 + (fontConfig.yOffset || 0));
 
-    const text = element.previewText || '';
+    const raw = element.previewText || '';
+    const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
 
     // Hard-break a word that exceeds maxWidth into character-level chunks
     const breakWord = (word, maxWidth) => {
@@ -95,7 +94,7 @@ export class TextBlockRenderer {
     }
 
     // ^TB truncates text that exceeds the block height
-    const baseLineHeight = fontSize * TEXT_BLOCK_LINE_HEIGHT_RATIO;
+    const baseLineHeight = resolveFontLineHeight(fontMetrics, 1, scale, 'textBlockLineHeightRatio', 'fontSize');
     const maxVisibleLines = Math.max(1, Math.floor(blockHeight / baseLineHeight));
     const visibleLines = lines.slice(0, maxVisibleLines);
 
@@ -105,15 +104,16 @@ export class TextBlockRenderer {
     const drawLines = (targetCtx, offsetX, offsetY, color) => {
       targetCtx.fillStyle = color;
       targetCtx.font = font;
-      targetCtx.textBaseline = 'top';
+      targetCtx.textBaseline = baseline;
+      targetCtx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
 
       visibleLines.forEach((line, i) => {
         const lineY = offsetY + (i * baseLineHeight) + yOffset;
 
         targetCtx.save();
-        targetCtx.translate(offsetX, lineY);
+        targetCtx.translate(offsetX + fontXOffset, lineY);
         targetCtx.scale(scaleX, 1);
-        targetCtx.fillText(line, 0, 0);
+        targetCtx.fillText(line, 0, fillY);
         targetCtx.restore();
       });
     };

@@ -1,7 +1,7 @@
 // Text Renderer
 // Renders TEXT elements on canvas
 
-import { ZPL_FONTS } from '../config/constants.js';
+import { resolveFontMetrics } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -22,61 +22,74 @@ export class TextRenderer {
     const x = (element.x + homeX) * scale;
     const y = (element.y + homeY + labelTop) * scale;
 
-    // Use label default if element fontSize is 0 or not set
-    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
-    const fontSize = rawFontSize * scale;
-
     ctx.save();
 
-    const text = element.previewText || '';
-
-    // Get font ID from element or use label's default
-    const fontId = element.fontId || labelSettings.fontId || '0';
-    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = resolveFontMetrics(element, labelSettings, scale);
+    const raw = element.previewText || '';
+    const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 
-    // Calculate horizontal scale for font aspect ratio
-    // Use label default if element fontWidth is 0 or not set
-    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
-    const fontWidth = rawFontWidth * scale;
-    const scaleX = fontWidth / fontSize;
-
+    // Bitmap fonts: align the cap top to element.y via an alphabetic baseline placed
+    // at the rendered cap height (snappedHeight). Font 0 keeps the top-baseline heuristic.
+    const baseline = isBitmap ? 'alphabetic' : 'top';
     ctx.font = font;
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = baseline;
+    const letterSpacingPx = fontConfig.letterSpacing ? fontConfig.letterSpacing * fontSize : 0;
+    ctx.letterSpacing = `${letterSpacingPx}px`;
     // Measure text width at unscaled size, then apply horizontal scale
-    const measuredWidth = ctx.measureText(text).width;
+    const metrics = ctx.measureText(text);
+    const measuredWidth = metrics.width;
     const textWidth = measuredWidth * scaleX;
-    const textHeight = fontSize;
+    // Bitmap fonts: the visible block is the rendered cap-ink height (snappedHeight).
+    const textHeight = isBitmap ? snappedHeight * scale : fontSize;
+    // Bitmap fonts draw from an alphabetic baseline at the cap height, so glyph
+    // ink hangs `descent` px below the rotation box. N/B place that descent on a
+    // harmless edge, but R/I pivot on textHeight (cap-ink only) and would shove
+    // the whole string by the descender. Add it back for R/I. No descender
+    // (uppercase/filtered fonts) ⇒ descent≈0, matching their correct look.
+    // Font 0 already pivots on the full em (fontSize), so it needs no extra.
+    const pivotDescent = isBitmap ? (metrics.actualBoundingBoxDescent || 0) : 0;
 
-    // Nudge text upward to better match ZPL printer positioning.
-    // Canvas textBaseline='top' adds slight padding above glyphs for diacritics;
-    // ZPL printers place the top of capital letters at the Y coordinate.
-    const yOffset = fontSize * -0.05;
+    // Vertical placement: bitmap fonts translate to the block top (no nudge) and draw
+    // the alphabetic baseline at the cap height so the cap top lands on element.y.
+    // Font 0 keeps its top-baseline nudge and draws at local 0.
+    // yOffset is a vertical calibration nudge: dots (×scale) for bitmap fonts,
+    // fraction-of-em for scalable Font 0. Applied in the local frame so it
+    // rotates with the text.
+    const translateNudge = isBitmap
+      ? (fontConfig.yOffset || 0) * scale
+      : fontSize * (-0.05 + (fontConfig.yOffset || 0));
+    const fillY = isBitmap ? textHeight : 0;
+    const fontXOffset = fontWidth * (fontConfig.xOffset || 0);
 
     const drawTransformedText = (context, color, offsetX = 0, offsetY = 0) => {
       context.save();
       context.fillStyle = color;
       context.font = font;
-      context.textBaseline = 'top';
+      context.textBaseline = baseline;
+      context.letterSpacing = `${letterSpacingPx}px`;
 
       if (element.orientation === 'R') {
-        context.translate(x + textHeight + offsetX, y + offsetY + yOffset);
+        context.translate(x + textHeight + pivotDescent + offsetX, y + offsetY);
         context.rotate(Math.PI / 2);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'I') {
-        context.translate(x + textWidth + offsetX, y + textHeight + offsetY + yOffset);
+        context.translate(x + textWidth + offsetX, y + textHeight + pivotDescent + offsetY);
         context.rotate(Math.PI);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'B') {
-        context.translate(x + offsetX, y + textWidth + offsetY + yOffset);
+        context.translate(x + offsetX, y + textWidth + offsetY);
         context.rotate(-Math.PI / 2);
         context.scale(scaleX, 1);
       } else {
-        context.translate(x + offsetX, y + offsetY + yOffset);
+        context.translate(x + offsetX, y + offsetY);
         context.scale(scaleX, 1);
       }
 
-      context.fillText(text, 0, 0);
+      // Per-font nudges live in the local (post-rotate) frame so they travel
+      // with the rotated text. fillText x is scaled by scaleX, so divide the
+      // horizontal nudge to keep it exactly fontXOffset px along the advance.
+      context.fillText(text, fontXOffset / scaleX, fillY + translateNudge);
       context.restore();
     };
 

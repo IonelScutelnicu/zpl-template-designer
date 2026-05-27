@@ -26,87 +26,123 @@ export const FONT_LABELS = {
 };
 
 /**
- * ZPL font mapping - approximations using system fonts with accurate aspect ratios
- * Based on Zebra ZPL standard built-in fonts (A-H and 0)
+ * ZPL font mapping.
  */
 export const ZPL_FONTS = {
   '0': {
     family: '"Roboto Condensed", "Arial Narrow", "Helvetica Condensed", Arial, sans-serif',
     weight: 'bold',
     monospace: false,
+    yOffset: 0.01,
     baseHeight: 18,
     baseWidth: 10,
+    lineHeightRatio: 1.0,
+    textBlockLineHeightRatio: 1.25,
     aspectRatio: 0.9  // Condensed - matches CG Triumvirate Bold Condensed
   },
   'A': {
-    family: '"Lucida Console", "Courier New", monospace',
+    family: '"Bitstream Vera Sans Mono", "Lucida Console", "Courier New", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 9,
-    baseWidth: 5,
-    aspectRatio: 0.556  // 5/9
+    xOffset: -0.05,
+    yOffset: 0,
+    capRatio: 0.73438,
+    advanceRatio: 0.60205,
+    lineHeightRatio: 1.286,
+    textBlockLineHeightRatio: 1,
+    bitmap: { magStep: 9, magWidthStep: 5, capStep: 7, advStep: 6, maxMag: 10 }
   },
   'B': {
-    family: '"Lucida Console", "Courier New", monospace',
-    weight: 'normal',
+    family: '"Bitstream Vera Sans Mono Bold", "Lucida Console", "Courier New", monospace',
+    weight: 'bold',
     monospace: true,
-    baseHeight: 11,
-    baseWidth: 7,
-    aspectRatio: 0.636  // 7/11
+    uppercase: true,
+    xOffset: -0.07,
+    yOffset: 0,
+    capRatio: 0.73438,
+    advanceRatio: 0.60205,
+    lineHeightRatio: 1.0,
+    textBlockLineHeightRatio: 0.77,
+    bitmap: { magStep: 11, magWidthStep: 7, capStep: 11, advStep: 9, maxMag: 10 }
   },
   'C': {
-    family: '"Lucida Console", "Courier New", monospace',
+    family: '"Bitstream Vera Sans Mono", "Lucida Console", "Courier New", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 18,
-    baseWidth: 10,
-    aspectRatio: 0.556  // 10/18
+    xOffset: -0.08,
+    yOffset: 0,
+    capRatio: 0.73438,
+    advanceRatio: 0.60205,
+    lineHeightRatio: 1.286,
+    textBlockLineHeightRatio: 1,
+    bitmap: { magStep: 18, magWidthStep: 10, capStep: 14, advStep: 12, maxMag: 10 }
   },
   'D': {
-    family: '"Lucida Console", "Courier New", monospace',
+    family: '"Bitstream Vera Sans Mono", "Lucida Console", "Courier New", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 18,
-    baseWidth: 10,
-    aspectRatio: 0.556  // 10/18 (same as C, backward compat)
+    xOffset: -0.07,
+    yOffset: 0,
+    capRatio: 0.73438,
+    advanceRatio: 0.60205,
+    lineHeightRatio: 1.286,
+    textBlockLineHeightRatio: 1,
+    bitmap: { magStep: 18, magWidthStep: 10, capStep: 14, advStep: 12, maxMag: 10 }
   },
   'E': {
-    family: '"OCR A Std", "OCR-A", "Lucida Console", monospace',
+    family: '"OCRB", "Lucida Console", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 28,
-    baseWidth: 15,
-    aspectRatio: 0.536  // 15/28 (OCR-A style)
+    xOffset: -0.15,
+    yOffset: 3,
+    capRatio: 0.73438,
+    advanceRatio: 0.723,
+    lineHeightRatio: 1.4,
+    textBlockLineHeightRatio: 1,
+    bitmap: { magStep: 28, magWidthStep: 15, capStep: 20, advStep: 20, maxMag: 10 }
   },
   'F': {
-    family: '"OCR B Std", "OCR-B", "Lucida Console", monospace',
+    family: '"Bitstream Vera Sans Mono", "Lucida Console", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 26,
-    baseWidth: 15,
-    aspectRatio: 0.577  // 15/26 (OCR-B style)
+    xOffset: -0.12,
+    yOffset: 0,
+    capRatio: 0.73438,
+    advanceRatio: 0.60205,
+    lineHeightRatio: 1.238,
+    textBlockLineHeightRatio: 0.91,
+    bitmap: { magStep: 26, magWidthStep: 13, capStep: 21, advStep: 16, maxMag: 10 }
   },
   'G': {
-    family: '"Lucida Console", "Courier New", monospace',
+    family: '"Bitstream Vera Sans Mono", "Lucida Console", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 60,
-    baseWidth: 40,
-    aspectRatio: 0.667  // 40/60
+    capRatio: 0.73438,
+    advanceRatio: 0.60205,
+    lineHeightRatio: 1.25,
+    textBlockLineHeightRatio: 0.91,
+    bitmap: { magStep: 60, magWidthStep: 40, capStep: 48, advStep: 48, maxMag: 10 }
   },
   'H': {
-    family: '"OCR A Std", "OCR-A", "Lucida Console", monospace',
+    family: '"OCRA", "Lucida Console", monospace',
     weight: 'normal',
     monospace: true,
-    baseHeight: 21,
-    baseWidth: 13,
-    aspectRatio: 0.619  // 13/21
+    xOffset: -0.164,
+    yOffset: 0,
+    filterLowercase: true,
+    capRatio: 0.78125,
+    advanceRatio: 0.723,
+    lineHeightRatio: 1.0,
+    textBlockLineHeightRatio: 0.77,
+    bitmap: { magStep: 21, magWidthStep: 13, capStep: 21, advStep: 19, maxMag: 10 }
   },
   // Default fallback
   'default': {
     family: 'Arial, sans-serif',
     weight: 'normal',
     monospace: false,
+    lineHeightRatio: 1.0,
+    textBlockLineHeightRatio: 1.0,
     aspectRatio: 1.0
   }
 };

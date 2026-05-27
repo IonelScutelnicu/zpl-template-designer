@@ -1,8 +1,8 @@
 // Canvas Renderer for ZPL Template Creator
 // Orchestrates rendering of all element types on HTML5 Canvas
 
-import { ZPL_FONTS } from './config/constants.js';
 import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
+import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
@@ -12,6 +12,7 @@ import { LineRenderer } from './rendering/LineRenderer.js';
 import { CircleRenderer } from './rendering/CircleRenderer.js';
 import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
 import { GraphicFieldRenderer } from './rendering/GraphicFieldRenderer.js';
+import { prefetchFontsForElements } from './utils/fontLoader.js';
 
 export class CanvasRenderer {
   constructor(canvasOrId) {
@@ -144,6 +145,8 @@ export class CanvasRenderer {
     if (printOrientation === 'I') {
       this.ctx.restore();
     }
+
+    prefetchFontsForElements(elements, labelSettings, () => this.renderCanvas(elements, labelSettings, selectedElement));
   }
 
   /**
@@ -332,17 +335,24 @@ export class CanvasRenderer {
    * Uses canvas measureText for accuracy — matches the drawn selection box exactly.
    */
   measureTextBounds(element, labelSettings) {
-    const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
-    const rawFontWidth = element.fontWidth || labelSettings.defaultFontWidth || 20;
-    const scaleX = rawFontWidth / rawFontSize;
-    const fontId = element.fontId || labelSettings.fontId || '0';
-    const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    // scale=1: work in label-dot space, not screen pixels.
+    const { fontConfig, fontSize, snappedHeight, snappedWidth, scaleX, isBitmap } =
+      resolveFontMetrics(element, labelSettings, 1);
+    // Match the glyphs the renderer actually draws (uppercase/filtered fonts).
+    const raw = element.previewText || '';
+    const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     this.ctx.save();
-    this.ctx.font = `${fontConfig.weight} ${rawFontSize}px ${fontConfig.family}`;
-    const measuredWidth = this.ctx.measureText(element.previewText || '').width * scaleX;
+    this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
+    this.ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
+    const m = this.ctx.measureText(text);
+    const measuredWidth = m.width * scaleX;
+    // Bitmap fonts draw from a cap-height baseline (snappedHeight); the glyph
+    // descender hangs below that, so the visible cell is snappedHeight + descent.
+    // Match TextRenderer's pivotDescent so the box bounds the actual ink.
+    const descent = isBitmap ? (m.actualBoundingBoxDescent || 0) : 0;
     this.ctx.restore();
-    const textW = Math.max(measuredWidth, rawFontWidth);
-    const textH = rawFontSize;
+    const textW = Math.max(measuredWidth, snappedWidth);
+    const textH = snappedHeight + descent;
     let w = textW, h = textH;
     if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
     return { x: element.x, y: element.y, width: w, height: h };
@@ -359,11 +369,11 @@ export class CanvasRenderer {
       width = w;
       height = h;
     } else if (element.type === 'FIELDBLOCK' && labelSettings) {
-      const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
+      const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
       const maxLines = element.maxLines || 1;
       const lineSpacing = element.lineSpacing || 0;
       // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolvedHeight * LINE_HEIGHT_RATIO;
+      const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
       const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;
