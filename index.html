@@ -13,6 +13,7 @@
     rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round|Material+Icons+Outlined" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <script>if (localStorage.getItem('fullscreen') === '1') document.documentElement.classList.add('fs-restore');</script>
   <script defer src="templates/index.js"></script>
   <script>
     tailwind.config = {
@@ -289,6 +290,10 @@
        Toggled by the .is-fullscreen class on #view-editor.
        ============================================================ */
 
+    /* Suppress all transitions while restoring fullscreen on page load,
+       so the user never sees a normal-view → fullscreen animation. */
+    html.fs-restore * { transition: none !important; }
+
     /* fs-only elements are hidden in normal view, shown in fullscreen.
        Use !important to win over later rules that set display (like .fs-panel-header). */
     .fs-only {
@@ -416,9 +421,7 @@
       justify-self: end;
     }
 
-    /* Floating Fullscreen toggle inside the canvas (normal view).
-       In fullscreen mode it is teleported into #header-controls and the
-       .fullscreen-btn-floating class is removed so the cluster styling wins. */
+    /* Floating Fullscreen toggle inside the canvas (normal view). Hidden in fullscreen. */
     #fullscreen-toggle-btn.fullscreen-btn-floating {
       position: absolute;
       top: 12px;
@@ -445,6 +448,16 @@
       color: #2563eb;
     }
 
+    /* Hide the floating button in fullscreen; hide zoom-controls until JS teleports it. */
+    #view-editor.is-fullscreen #fullscreen-toggle-btn.fullscreen-btn-floating,
+    #view-editor.is-fullscreen #zoom-controls:not(.fs-zoom-detached) {
+      display: none;
+    }
+
+    /* Exit button — lives permanently in #header-controls, shown only in fullscreen. */
+    #fullscreen-exit-btn { display: none; }
+    #view-editor.is-fullscreen #fullscreen-exit-btn { display: flex; }
+
     #fullscreen-toggle-btn.fullscreen-btn-floating .btn-label {
       display: none;
     }
@@ -468,10 +481,9 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* Fullscreen: collapse Undo/Redo/Exit labels; show the history count chip. */
+    /* Fullscreen: collapse Undo/Redo labels; show the history count chip. */
     #view-editor.is-fullscreen #undo-btn .btn-label,
-    #view-editor.is-fullscreen #redo-btn .btn-label,
-    #view-editor.is-fullscreen #fullscreen-toggle-label {
+    #view-editor.is-fullscreen #redo-btn .btn-label {
       display: none;
     }
 
@@ -527,8 +539,9 @@
       color: #0f172a;
     }
 
-    /* Exit (×): icon-only round button at the right of the pill, separated */
-    #view-editor.is-fullscreen #fullscreen-toggle-btn {
+    /* Exit button: icon-only round button at the right of the pill, separated */
+    #view-editor.is-fullscreen #fullscreen-exit-btn {
+      align-items: center;
       width: 32px;
       height: 32px;
       padding: 0;
@@ -537,14 +550,16 @@
       background: transparent;
       border-radius: 9999px;
       margin-left: 4px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
     }
 
-    #view-editor.is-fullscreen #fullscreen-toggle-btn:hover {
+    #view-editor.is-fullscreen #fullscreen-exit-btn:hover {
       color: #0f172a;
       background: #f1f5f9;
     }
 
-    #view-editor.is-fullscreen #fullscreen-toggle-icon {
+    #view-editor.is-fullscreen #fullscreen-exit-btn .material-icons-round {
       font-size: 18px;
     }
 
@@ -627,6 +642,7 @@
       top: auto;
       border: 1px solid #e2e8f0;
       border-radius: 0.5rem;
+      transition: opacity 0.2s ease-in-out;
     }
 
     /* Collapsed (default): hide the body */
@@ -1055,6 +1071,7 @@
     </header>
 
     <div id="view-editor">
+      <script>if (document.documentElement.classList.contains('fs-restore')) { var ve = document.getElementById('view-editor'); ve.classList.add('is-fullscreen', 'zpl-collapsed'); var hdr = document.querySelector('header'); if (hdr) ve.style.setProperty('--hdr', hdr.offsetHeight + 'px'); }</script>
       <!-- Fullscreen icon rail (visible only in fullscreen). Switches which
            section of #elements-card / #settings-card is shown via the
            data-fs-active-tab attribute on #view-editor. -->
@@ -1535,14 +1552,16 @@
                         <span class="btn-label">History</span>
                         <span id="history-count-chip" class="history-count-chip" aria-hidden="true">0</span>
                       </button>
+                      <button id="fullscreen-exit-btn" data-tooltip="Exit fullscreen (Esc)">
+                        <span class="material-icons-round">zoom_in_map</span>
+                      </button>
                     </div>
                   </div>
                   <div
                     class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px] overflow-hidden"
                     id="preview-container" data-mode="canvas">
 
-                    <!-- Floating fullscreen toggle (top-right of the canvas).
-                         Teleported into #header-controls when fullscreen mode is active. -->
+                    <!-- Floating fullscreen toggle (top-right of the canvas, normal view only). -->
                     <button id="fullscreen-toggle-btn" data-tooltip="Enter fullscreen"
                       class="fullscreen-btn-floating flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors">
                       <span id="fullscreen-toggle-icon" class="material-icons-round text-sm">zoom_out_map</span>

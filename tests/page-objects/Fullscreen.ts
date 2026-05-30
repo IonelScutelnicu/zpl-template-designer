@@ -8,9 +8,12 @@ import { Page, Locator } from '@playwright/test';
 export class Fullscreen {
     readonly page: Page;
     readonly viewEditor: Locator;
+    /** Floating "Enter fullscreen" button on the canvas (normal view only). */
     readonly toggleBtn: Locator;
     readonly toggleIcon: Locator;
     readonly toggleLabel: Locator;
+    /** Static "Exit fullscreen" button in the header (fullscreen only). */
+    readonly exitBtn: Locator;
     readonly zplCollapseBtn: Locator;
     readonly zplCollapseIcon: Locator;
     readonly zplOutputInline: Locator;
@@ -28,6 +31,7 @@ export class Fullscreen {
         this.toggleBtn = page.locator('#fullscreen-toggle-btn');
         this.toggleIcon = page.locator('#fullscreen-toggle-icon');
         this.toggleLabel = page.locator('#fullscreen-toggle-label');
+        this.exitBtn = page.locator('#fullscreen-exit-btn');
         this.zplCollapseBtn = page.locator('#zpl-collapse-btn');
         this.zplCollapseIcon = page.locator('#zpl-collapse-icon');
         this.zplOutputInline = page.locator('#zpl-output-inline');
@@ -40,19 +44,20 @@ export class Fullscreen {
         this.warningsPanel = page.locator('#warnings-panel');
     }
 
-    /** Click the toggle button (works in either direction). */
-    async toggle(): Promise<void> {
-        await this.toggleBtn.click();
-    }
-
     /** Enter fullscreen — idempotent. */
     async enter(): Promise<void> {
-        if (!(await this.isOn())) await this.toggle();
+        if (!(await this.isOn())) await this.toggleBtn.click();
     }
 
     /** Exit fullscreen — idempotent. */
     async exit(): Promise<void> {
-        if (await this.isOn()) await this.toggle();
+        if (await this.isOn()) await this.exitBtn.click();
+    }
+
+    /** Toggle fullscreen state using the appropriate button for the current state. */
+    async toggle(): Promise<void> {
+        if (await this.isOn()) await this.exitBtn.click();
+        else await this.toggleBtn.click();
     }
 
     /** Whether #view-editor currently has the is-fullscreen class. */
@@ -83,8 +88,4 @@ export class Fullscreen {
         return await this.zoomControls.evaluate((el) => el.parentElement === document.body);
     }
 
-    /** Read the id of the parentElement of #fullscreen-toggle-btn. */
-    async toggleBtnParentId(): Promise<string> {
-        return await this.toggleBtn.evaluate((el) => el.parentElement?.id || '');
-    }
 }

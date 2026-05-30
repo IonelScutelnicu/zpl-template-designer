@@ -7,8 +7,7 @@ export class FullscreenController {
   constructor() {
     this.viewEditor = document.getElementById('view-editor');
     this.toggleBtn = document.getElementById('fullscreen-toggle-btn');
-    this.toggleIcon = document.getElementById('fullscreen-toggle-icon');
-    this.toggleLabel = document.getElementById('fullscreen-toggle-label');
+    this.exitBtn = document.getElementById('fullscreen-exit-btn');
     this.zplCollapseBtn = document.getElementById('zpl-collapse-btn');
     this.zplCollapseIcon = document.getElementById('zpl-collapse-icon');
     this.warningsPanel = document.getElementById('warnings-panel');
@@ -16,7 +15,6 @@ export class FullscreenController {
     this._on = false;
     this._zoomParent = null;
     this._zoomSibling = null;
-    this._fsBtnParent = null;
     // Default fullscreen tab. Q5: `+` (Add Element).
     this._activeTab = 'add';
   }
@@ -24,6 +22,9 @@ export class FullscreenController {
   init() {
     if (this.toggleBtn) {
       this.toggleBtn.addEventListener('click', () => this.toggle());
+    }
+    if (this.exitBtn) {
+      this.exitBtn.addEventListener('click', () => this.exit());
     }
     if (this.zplCollapseBtn) {
       this.zplCollapseBtn.addEventListener('click', () => this.toggleZplCollapsed());
@@ -66,6 +67,8 @@ export class FullscreenController {
     // Note: fullscreen state persists across editor ↔ templates view switches.
     // The `is-fullscreen` class stays on #view-editor while the user browses
     // templates; returning to the editor lands in the same layout they left.
+    if (localStorage.getItem('fullscreen') === '1') this.enter();
+    document.documentElement.classList.remove('fs-restore');
   }
 
   isOn() {
@@ -89,15 +92,6 @@ export class FullscreenController {
       zoomControls.classList.add('fs-zoom-detached');
       document.body.appendChild(zoomControls);
     }
-    // Teleport the fullscreen toggle from its floating spot on the canvas
-    // into the header cluster, where it becomes the × at the end of the pill.
-    const fsBtn = document.getElementById('fullscreen-toggle-btn');
-    const headerControls = document.getElementById('header-controls');
-    if (fsBtn && headerControls) {
-      this._fsBtnParent = fsBtn.parentElement;
-      fsBtn.classList.remove('fullscreen-btn-floating');
-      headerControls.appendChild(fsBtn);
-    }
     // Measure header height once per entry and expose as a CSS var
     const header = document.querySelector('header');
     if (header) {
@@ -118,11 +112,6 @@ export class FullscreenController {
     if (propertiesCard) propertiesCard.classList.remove('fs-collapsed');
     // Reset warnings chip to collapsed
     if (this.warningsPanel) this.warningsPanel.classList.remove('fs-chip-expanded');
-    // Update toggle button icon/label/tooltip — in fullscreen the cluster
-    // collapses to icons, so the Exit button shows × (label is hidden via CSS).
-    if (this.toggleIcon) this.toggleIcon.textContent = 'zoom_in_map';
-    if (this.toggleLabel) this.toggleLabel.textContent = 'Exit';
-    if (this.toggleBtn) this.toggleBtn.setAttribute('data-tooltip', 'Exit fullscreen (Esc)');
     // Update ZPL chevron icon (default collapsed = expand_more to invite expansion)
     if (this.zplCollapseIcon) this.zplCollapseIcon.textContent = 'expand_more';
     if (this.zplCollapseBtn) this.zplCollapseBtn.setAttribute('data-tooltip', 'Expand');
@@ -137,6 +126,7 @@ export class FullscreenController {
     });
     // Reset to the default tab (Q5: `+`) on every entry.
     this.setActiveTab('add');
+    localStorage.setItem('fullscreen', '1');
     // Apply the class — transitions kick in
     this.viewEditor.classList.add('is-fullscreen');
   }
@@ -162,13 +152,7 @@ export class FullscreenController {
       this._zoomParent = null;
       this._zoomSibling = null;
     }
-    // Restore the fullscreen toggle to its floating spot on the canvas
-    const fsBtn = document.getElementById('fullscreen-toggle-btn');
-    if (fsBtn && this._fsBtnParent) {
-      fsBtn.classList.add('fullscreen-btn-floating');
-      this._fsBtnParent.appendChild(fsBtn);
-      this._fsBtnParent = null;
-    }
+    localStorage.removeItem('fullscreen');
     this.viewEditor.classList.remove('is-fullscreen');
     this.viewEditor.classList.remove('zpl-collapsed');
     this.viewEditor.removeAttribute('data-fs-active-tab');
@@ -182,10 +166,6 @@ export class FullscreenController {
     document.querySelectorAll('#elements-card, #settings-card, #properties-card')
       .forEach(card => card.classList.remove('fs-collapsed'));
     if (this.warningsPanel) this.warningsPanel.classList.remove('fs-chip-expanded');
-    // Restore toggle button
-    if (this.toggleIcon) this.toggleIcon.textContent = 'zoom_out_map';
-    if (this.toggleLabel) this.toggleLabel.textContent = 'Fullscreen';
-    if (this.toggleBtn) this.toggleBtn.setAttribute('data-tooltip', 'Enter fullscreen');
   }
 
   toggleZplCollapsed() {

@@ -20,25 +20,23 @@ test.describe('Fullscreen editor', () => {
     });
 
     test.describe('Toggle button', () => {
-        test('entering applies is-fullscreen and updates icon/label/tooltip', async () => {
+        test('entering applies is-fullscreen; floating btn hidden, exit btn visible', async () => {
             expect(await fullscreen.isOn()).toBe(false);
 
             await fullscreen.toggle();
 
             await expect(fullscreen.viewEditor).toHaveClass(/\bis-fullscreen\b/);
-            await expect(fullscreen.toggleLabel).toHaveText('Exit');
-            await expect(fullscreen.toggleIcon).toHaveText('zoom_in_map');
-            await expect(fullscreen.toggleBtn).toHaveAttribute('data-tooltip', 'Exit fullscreen (Esc)');
+            await expect(fullscreen.exitBtn).toBeVisible();
+            await expect(fullscreen.toggleBtn).not.toBeVisible();
         });
 
-        test('exiting removes is-fullscreen and restores icon/label/tooltip', async () => {
+        test('exiting removes is-fullscreen; floating btn visible, exit btn hidden', async () => {
             await fullscreen.enter();
             await fullscreen.toggle();
 
             await expect(fullscreen.viewEditor).not.toHaveClass(/\bis-fullscreen\b/);
-            await expect(fullscreen.toggleLabel).toHaveText('Fullscreen');
-            await expect(fullscreen.toggleIcon).toHaveText('zoom_out_map');
-            await expect(fullscreen.toggleBtn).toHaveAttribute('data-tooltip', 'Enter fullscreen');
+            await expect(fullscreen.toggleBtn).toBeVisible();
+            await expect(fullscreen.exitBtn).not.toBeVisible();
         });
     });
 
@@ -63,27 +61,21 @@ test.describe('Fullscreen editor', () => {
     });
 
     test.describe('DOM teleports', () => {
-        test('on enter: zoom-controls moves to body and toggle button moves to header', async () => {
-            // Pre-conditions
+        test('on enter: zoom-controls moves to body', async () => {
             expect(await fullscreen.zoomControlsParentId()).toBe('preview-container');
-            await expect(fullscreen.toggleBtn).toHaveClass(/\bfullscreen-btn-floating\b/);
 
             await fullscreen.enter();
 
             expect(await fullscreen.zoomControlsParentIsBody()).toBe(true);
             await expect(fullscreen.zoomControls).toHaveClass(/\bfs-zoom-detached\b/);
-            expect(await fullscreen.toggleBtnParentId()).toBe('header-controls');
-            await expect(fullscreen.toggleBtn).not.toHaveClass(/\bfullscreen-btn-floating\b/);
         });
 
-        test('on exit: both elements are restored to their original parents', async () => {
+        test('on exit: zoom-controls is restored to its original parent', async () => {
             await fullscreen.enter();
             await fullscreen.exit();
 
             expect(await fullscreen.zoomControlsParentId()).toBe('preview-container');
             await expect(fullscreen.zoomControls).not.toHaveClass(/\bfs-zoom-detached\b/);
-            expect(await fullscreen.toggleBtnParentId()).not.toBe('header-controls');
-            await expect(fullscreen.toggleBtn).toHaveClass(/\bfullscreen-btn-floating\b/);
         });
     });
 
@@ -225,7 +217,7 @@ test.describe('Fullscreen editor', () => {
             );
 
             await expect(fullscreen.viewEditor).toHaveClass(/\bis-fullscreen\b/);
-            await expect(fullscreen.toggleLabel).toHaveText('Exit');
+            await expect(fullscreen.exitBtn).toBeVisible();
         });
     });
 });
