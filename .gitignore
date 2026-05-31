@@ -5,6 +5,7 @@ CONTEXT.md
 /docs
 .*
 !/.gitignore
+
 # Test artifacts
 /test-results/
 /playwright-report/

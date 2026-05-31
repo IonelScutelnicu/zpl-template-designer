@@ -7,7 +7,7 @@ import {
 } from './elements/QRCodeElement.js';
 import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
-import { getBitmapFontMaxSize } from './utils/zplFontSnap.js';
+import { snapRequestedToAllowed } from './utils/zplFontSnap.js';
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -276,17 +276,21 @@ export class InteractionHandler {
         const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
         const fontSizeDelta = isRotated ? dx : dy;
         const resolvedFontId = this.dragElement.fontId || this.labelSettings?.fontId || '0';
-        const fontMax = getBitmapFontMaxSize(resolvedFontId);
-        this.dragElement.fontSize = Math.max(8, Math.round(this.resizeStartHeight + fontSizeDelta));
-        if (fontMax) this.dragElement.fontSize = Math.min(this.dragElement.fontSize, fontMax.maxHeight);
+        const rawFontSize = Math.max(1, Math.round(this.resizeStartHeight + fontSizeDelta));
         // Scale fontWidth so the right edge of the selection box tracks the mouse 1:1.
         // measuredWidth = charPixels * fontWidth / fontSize, so fontWidth scales proportionally.
         const startMeasure = isRotated ? this.resizeStartMeasuredHeight : this.resizeStartMeasuredWidth;
         const deltaMeasure = isRotated ? dy : dx;
-        const targetWidth = Math.max(8, startMeasure + deltaMeasure);
+        const targetWidth = Math.max(1, startMeasure + deltaMeasure);
         const safeStart = Math.max(1, startMeasure);
-        this.dragElement.fontWidth = Math.max(8, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
-        if (fontMax) this.dragElement.fontWidth = Math.min(this.dragElement.fontWidth, fontMax.maxWidth);
+        // Floor at 1 (not 8) so snapping can reach a font's smallest magnification —
+        // e.g. Font A width 5 needs a requested value ≤7; snapRequestedToAllowed clamps
+        // the magnification to ≥1 anyway, so no separate minimum is needed here.
+        const rawFontWidth = Math.max(1, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
+        // Snap live to the font's allowed grid (no-op for scalable fonts).
+        const snapped = snapRequestedToAllowed(resolvedFontId, rawFontSize, rawFontWidth);
+        this.dragElement.fontSize = snapped.height;
+        this.dragElement.fontWidth = snapped.width;
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'GRAPHIC') {

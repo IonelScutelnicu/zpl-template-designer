@@ -30,6 +30,7 @@ import { DriveTemplateService } from './services/DriveTemplateService.js';
 import * as driveAuth from './services/DriveAuth.js';
 import { isConfigured as isDriveConfigured } from './config/drive-config.js';
 import { getCurrentView } from './router.js';
+import { normalizeElementFontSize } from './utils/zplFontSnap.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -399,7 +400,9 @@ export function initApp() {
     onGraphicReplace: (element) => {
       pendingGraphicReplaceId = String(element.id);
       addGraphicFileInput.click();
-    }
+    },
+    onRerenderProperties: () => renderPropertiesPanel(),
+    getLabelSettings: () => state.labelSettings
   });
 
   // Initialize element service with callbacks
@@ -845,7 +848,11 @@ export function initApp() {
 
   // Font settings event listeners
   fontId.addEventListener("change", (e) => {
-    state.updateLabelSettings({ fontId: e.target.value || "0" });
+    const newFontId = e.target.value || "0";
+    state.updateLabelSettings({ fontId: newFontId });
+    // Elements inheriting the label font (fontId === '') now resolve to the new
+    // default — re-snap their bitmap sizes to that font's allowed grid.
+    state.elements.forEach(el => { if (!el.fontId) normalizeElementFontSize(el, newFontId); });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
@@ -1033,6 +1040,7 @@ export function initApp() {
   if (isE2E) {
     window.canvasRenderer = canvasRenderer;
     window.appState = state;
+    window.interactionHandler = interactionHandler;
   }
 }
 
@@ -2585,9 +2593,10 @@ function importTemplate(template) {
     updateFontDropdownOptions();
   }
 
-  // Recreate elements from template
+  // Recreate elements from template. Pass the label default so inherited bitmap
+  // sizes snap to the right grid.
   const importedElements = template.elements
-    .map(elementData => createElementFromData(elementData, { keepId: false }))
+    .map(elementData => createElementFromData(elementData, { keepId: false, labelFontId: template.labelSettings?.fontId }))
     .filter(element => element !== null);
 
   // Set all imported elements at once

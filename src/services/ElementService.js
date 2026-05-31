@@ -254,7 +254,7 @@ export class ElementService {
    * @returns {Object|null} Created element or null if failed
    */
   pasteElement(data, createFromData, options = {}) {
-    const element = createFromData(data);
+    const element = createFromData(data, { labelFontId: this.state.labelSettings?.fontId });
     if (!element) return null;
 
     // Calculate label bounds

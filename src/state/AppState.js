@@ -383,9 +383,11 @@ export class AppState {
   restore(data, createElementFromData) {
     if (!data) return;
 
-    // Restore elements
+    // Restore elements. Pass the restored label default so elements that inherit
+    // the label font (fontId === '') snap their bitmap sizes to the right grid.
     if (data.elements) {
-      this.elements = data.elements.map(el => createElementFromData(el, { keepId: true }));
+      const labelFontId = data.labelSettings?.fontId;
+      this.elements = data.elements.map(el => createElementFromData(el, { keepId: true, labelFontId }));
       this.notify('elementsChanged', this.elements);
     }
 

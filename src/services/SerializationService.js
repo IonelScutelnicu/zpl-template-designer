@@ -10,6 +10,7 @@ import { LineElement } from '../elements/LineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
+import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 
 /**
  * Service for serializing and deserializing elements and application state
@@ -219,6 +220,11 @@ export class SerializationService {
       if (data.type === 'GRAPHIC' && (key === 'bytesB64' || key === 'bytes' || key === 'sourceDataUrl')) continue;
       element[key] = data[key];
     }
+
+    // Snap bitmap-font sizes to the allowed grid (no-op for scalable/non-text
+    // elements). options.labelFontId is the label default, used to resolve the
+    // effective font when the element inherits it (fontId === '').
+    normalizeElementFontSize(element, options.labelFontId);
 
     // Generate new ID if not keeping original
     if (!keepId) {

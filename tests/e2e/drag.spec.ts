@@ -118,6 +118,36 @@ test.describe('Drag - Element Position', () => {
         expect(newY).toBeGreaterThan(100);
     });
 
+    test('Font A: dragging the width handle fully left reaches the smallest allowed width (5)', async ({ page }) => {
+        // Regression: the drag floor used to be 8 requested dots, which snapped to
+        // Font A width magnification 2 (= 10) at minimum, so width 5 was unreachable.
+        await page.goto('/?e2e=1');
+        await canvas.waitForReady();
+        await elementsPanel.addTextElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-font-id', 'A');
+        await propertiesPanel.setFontHeight(18);
+        await propertiesPanel.setFontWidth(50); // widest (magnification 10)
+        await setPosition(page, 50, 50);
+
+        // Bottom-right handle of the measured selection box (label-dot coords).
+        const handle = await page.evaluate(() => {
+            const w = window as unknown as {
+                appState: { selectedElement: unknown; labelSettings: unknown };
+                canvasRenderer: { measureTextBounds: (el: unknown, ls: unknown) => { x: number; y: number; width: number; height: number } };
+            };
+            const b = w.canvasRenderer.measureTextBounds(w.appState.selectedElement, w.appState.labelSettings);
+            return { x: b.x + b.width, y: b.y + b.height };
+        });
+
+        // Drag the handle far left (staying on-canvas at x=10) to collapse the width.
+        await resizeAndWait(page, handle.x, handle.y, 10, handle.y);
+
+        const fontWidth = await page.evaluate(() =>
+            (window as unknown as { appState: { selectedElement: { fontWidth: number } } }).appState.selectedElement.fontWidth);
+        expect(fontWidth).toBe(5);
+    });
+
     // ============== BARCODE ELEMENT ==============
     test('should move BARCODE element when dragged', async ({ page }) => {
         await elementsPanel.addBarcodeElement();

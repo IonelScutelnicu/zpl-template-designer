@@ -378,7 +378,7 @@ function exportJson(t) {
 
 function generateZPLForTemplate(t) {
   var elements = (t.elements || [])
-    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true }); })
+    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true, labelFontId: (t.labelSettings || {}).fontId }); })
     .filter(function (el) { return el !== null; });
   return zplGenerator.generateZPL(elements, t.labelSettings || {});
 }

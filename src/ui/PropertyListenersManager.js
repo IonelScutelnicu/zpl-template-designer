@@ -1,7 +1,7 @@
 // Property Listeners Manager
 // Attaches event listeners to element property inputs
 
-import { getBitmapFontMaxSize } from '../utils/zplFontSnap.js';
+import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 
 /**
  * Manages property panel event listeners
@@ -86,22 +86,33 @@ export class PropertyListenersManager {
   }
 
   /**
+   * Attach Font ID + Font Size (Height)/Width listeners shared by TEXT, TEXTBLOCK and
+   * FIELDBLOCK. The size inputs are dropdowns for bitmap fonts (A–H) and numeric inputs
+   * for scalable fonts; both yield an integer value. Changing the font normalizes the
+   * stored size to the new font's allowed grid and re-renders the panel so the size
+   * controls swap type / repopulate.
+   */
+  _attachFontControls(element, attach) {
+    const fontIdEl = document.getElementById("prop-font-id");
+    if (fontIdEl) {
+      fontIdEl.addEventListener("change", (e) => {
+        element.fontId = e.target.value;
+        normalizeElementFontSize(element, this.callbacks.getLabelSettings?.()?.fontId);
+        this.callbacks.onPropertyChange(element);
+        this.callbacks.onRerenderProperties?.();
+      });
+    }
+    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+  }
+
+  /**
    * Attach TEXT element property listeners
    */
   attachTextProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
-    attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => {
-      const fontMax = getBitmapFontMaxSize(element.fontId);
-      const value = Math.max(0, parseInt(v) || 0);
-      return fontMax && value > 0 ? Math.min(value, fontMax.maxHeight) : value;
-    });
-    attach("prop-font-width", "fontWidth", (v) => {
-      const fontMax = getBitmapFontMaxSize(element.fontId);
-      const value = Math.max(0, parseInt(v) || 0);
-      return fontMax && value > 0 ? Math.min(value, fontMax.maxWidth) : value;
-    });
+    this._attachFontControls(element, attach);
     // Orientation toggle buttons (scoped to element panel via [data-tooltip])
     const orientationButtons = document.querySelectorAll('[data-orientation][data-tooltip]');
     const setOrientationActive = (value) => {
@@ -473,9 +484,7 @@ export class PropertyListenersManager {
   attachFieldBlockProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
-    attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
-    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+    this._attachFontControls(element, attach);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
     attach("prop-line-spacing", "lineSpacing", (v) => parseInt(v) || 0);
@@ -538,9 +547,7 @@ export class PropertyListenersManager {
   attachTextBlockProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
-    attach("prop-font-id", "fontId");
-    attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
-    attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+    this._attachFontControls(element, attach);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 300);
     attach("prop-block-height", "blockHeight", (v) => parseInt(v) || 200);
 

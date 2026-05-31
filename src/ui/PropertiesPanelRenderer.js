@@ -2,7 +2,7 @@
 // Generates HTML for the element properties editing panel
 
 import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
-import { getBitmapFontMaxSize } from '../utils/zplFontSnap.js';
+import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
 
 /**
  * Renderer for the properties panel UI
@@ -199,12 +199,44 @@ export class PropertiesPanelRenderer {
   }
 
   /**
+   * Render the Font Size (Height) + Font Width controls.
+   * For bitmap fonts A–H these are dropdowns of the allowed per-magnification values
+   * (plus a "Default" / "Default (proportional)" option); for scalable fonts (0 /
+   * custom) they fall back to free numeric inputs.
+   */
+  renderFontSizeControls(element) {
+    const resolvedFontId = element.fontId || this.labelSettings?.fontId || '0';
+    const allowed = getBitmapFontAllowedSizes(resolvedFontId);
+    if (!allowed) {
+      return `
+        ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+        ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+      `;
+    }
+    return `
+      ${this.renderFontSizeSelect("Font Size (Height)", "prop-font-size", element.fontSize || 0, allowed.heights, "Default")}
+      ${this.renderFontSizeSelect("Font Width", "prop-font-width", element.fontWidth || 0, allowed.widths, "Default (proportional)")}
+    `;
+  }
+
+  renderFontSizeSelect(label, id, value, values, defaultLabel) {
+    const inList = values.includes(value);
+    return `
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-slate-700 mb-1">${label}</label>
+        <select id="${id}" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          <option value="0" ${value === 0 ? 'selected' : ''}>${defaultLabel}</option>
+          ${values.map(v => `<option value="${v}" ${value === v ? 'selected' : ''}>${v}</option>`).join('')}
+          ${(!inList && value !== 0) ? `<option value="${value}" selected>${value}</option>` : ''}
+        </select>
+      </div>
+    `;
+  }
+
+  /**
    * Render TEXT element properties
    */
   renderTextProperties(element) {
-    const fontMax = getBitmapFontMaxSize(element.fontId || this.labelSettings?.fontId || '0');
-    const maxH = fontMax ? fontMax.maxHeight : 32000;
-    const maxW = fontMax ? fontMax.maxWidth : 32000;
     return `
       ${this.renderAlignmentControls(element)}
       ${this.renderSection("Position &amp; Size", `
@@ -253,8 +285,7 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
         <div class="grid grid-cols-2 gap-3">
-          ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: maxH, placeholder: "Use default" })}
-          ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: maxW, placeholder: "Use default" })}
+          ${this.renderFontSizeControls(element)}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
@@ -542,8 +573,7 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
         <div class="grid grid-cols-2 gap-3">
-          ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
-          ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+          ${this.renderFontSizeControls(element)}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Block Configuration", `
@@ -612,8 +642,7 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
         <div class="grid grid-cols-2 gap-3">
-          ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}
-          ${this.createInputGroup("Font Width", "prop-font-width", element.fontWidth, "number", { min: 0, max: 32000, placeholder: "Use default" })}
+          ${this.renderFontSizeControls(element)}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Block Configuration", `

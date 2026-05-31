@@ -78,7 +78,7 @@ test.describe('Open in Labelary', () => {
         await elementsPanel.addTextElement();
         await elementsPanel.selectElementByIndex(0);
         await propertiesPanel.setSelectValue('prop-font-id', 'A');
-        await propertiesPanel.setFontHeight(69);
+        await propertiesPanel.setFontHeight(72); // allowed value for Font A (9×8)
         await propertiesPanel.setProperty('prop-preview-text', 'Sample Text');
 
         const { url } = await captureLabelaryUrl(page);
@@ -86,7 +86,7 @@ test.describe('Open in Labelary', () => {
 
         expect(zpl).toContain('^XA');
         expect(zpl).toContain('^XZ');
-        expect(zpl).toContain('^AAN,69');
+        expect(zpl).toContain('^AAN,72');
         expect(zpl).toContain('^FDSample Text^FS');
     });
 

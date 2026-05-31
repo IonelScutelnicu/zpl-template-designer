@@ -20,7 +20,7 @@ const FONTS: FontDef[] = [
     { id: 'C', baseH: 18, baseW: 10 },
     { id: 'D', baseH: 18, baseW: 10 },
     { id: 'E', baseH: 28, baseW: 15 },
-    { id: 'F', baseH: 26, baseW: 15 },
+    { id: 'F', baseH: 26, baseW: 13 },
     { id: 'G', baseH: 60, baseW: 40 },
     { id: 'H', baseH: 21, baseW: 13 },
 ];
@@ -132,7 +132,10 @@ for (const font of FONTS) {
 //   'H' — bitmap, largest xOffset (filters lowercase → no descender)
 const ROTATION_FONTS = ['0', 'A', 'H'];
 const ORIENTATIONS = ['R', 'I', 'B'];
-const ROT_SIZE = 40;
+// Bitmap fonts only accept their allowed (per-magnification) heights via the size
+// dropdown. Pick the grid value that snaps to the SAME magnification ~40 did, so the
+// rendered glyph — and thus the baseline — is unchanged: A 9×4=36, H 21×2=42.
+const ROT_SIZE_BY_FONT: Record<string, number> = { '0': 40, A: 36, H: 42 };
 
 for (const fontId of ROTATION_FONTS) {
     test.describe(`Font ${fontId} rotation baseline`, () => {
@@ -172,7 +175,7 @@ for (const fontId of ROTATION_FONTS) {
                 await propertiesPanel.setProperty('prop-preview-text', 'Sample');
                 await propertiesPanel.setProperty('prop-x', 60);
                 await propertiesPanel.setProperty('prop-y', 60);
-                await propertiesPanel.setFontHeight(ROT_SIZE);
+                await propertiesPanel.setFontHeight(ROT_SIZE_BY_FONT[fontId]);
                 await page.locator(`#properties-panel [data-orientation="${orientation}"]`).click();
 
                 await canvas.waitForReady();

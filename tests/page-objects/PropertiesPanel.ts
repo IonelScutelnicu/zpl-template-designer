@@ -30,13 +30,21 @@ export class PropertiesPanel {
     }
 
     /**
-     * Set the value of a property input by its ID
+     * Set the value of a property control by its ID. Works for both <input> and
+     * <select> controls (bitmap-font size fields render as dropdowns). For a select,
+     * an empty value selects the "Default" (0) option.
      */
     async setProperty(propertyId: string, value: string | number): Promise<void> {
         const input = this.panel.locator(`#${propertyId}`);
-        await input.fill(String(value));
-        // Trigger change event
-        await input.dispatchEvent('change');
+        const tag = await input.evaluate((el) => el.tagName);
+        if (tag === 'SELECT') {
+            const v = (value === '' || value === null || value === undefined) ? '0' : String(value);
+            await input.selectOption(v);
+        } else {
+            await input.fill(String(value));
+            // Trigger change event
+            await input.dispatchEvent('change');
+        }
     }
 
     /**
