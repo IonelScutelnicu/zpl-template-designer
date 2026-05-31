@@ -71,6 +71,201 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
   };
 }
 
+/**
+ * Per-character render rules. A font's `charRules` config maps a character to a
+ * rule object whose `type` selects one of these handlers. Each handler resolves a
+ * rule + fontSize (+ ctx, ch) into { advance, draw }:
+ *   - advance: horizontal space the character consumes, in font-space px
+ *   - draw(ctx, x, y): paint the character at (x, top-baseline y); ctx.fillStyle
+ *     and the scale(scaleX, 1) frame are already set by the caller
+ * Add a new behaviour by adding a handler here and a matching `type` in config.
+ */
+const CHAR_RULE_HANDLERS = {
+  // Horizontal/vertical bar — replaces a glyph with a filled rectangle (e.g. '-').
+  bar(rule, fontSize) {
+    const pad = rule.padRatio * fontSize;
+    const lineW = rule.lineRatio * fontSize;
+    const lineH = Math.max(1, Math.round(fontSize * rule.heightRatio));
+    return {
+      advance: pad * 2 + lineW,
+      draw: (ctx, x, y) => ctx.fillRect(x + pad, y + fontSize * rule.yRatio, lineW, lineH),
+    };
+  },
+  // Real glyph in a custom cell. `advanceRatio` sets the cell width (pitch);
+  // `widthRatio` horizontally scales the glyph itself (<1 condenses it, >1 widens).
+  // The glyph is drawn centered in the cell. advanceRatio defaults to the scaled
+  // glyph width when omitted. Used to match Zebra's wider digit pitch and to
+  // narrow the glyph shape.
+  glyph(rule, fontSize, ctx, ch) {
+    const squeeze = rule.widthRatio ?? 1;
+    const drawnWidth = ctx.measureText(ch).width * squeeze;
+    const advance = rule.advanceRatio != null ? rule.advanceRatio * fontSize : drawnWidth;
+    return {
+      advance,
+      draw: (c, x, y) => {
+        const left = x + (advance - drawnWidth) / 2;
+        if (squeeze === 1) {
+          c.fillText(ch, left, y);
+          return;
+        }
+        c.save();
+        c.translate(left, y);
+        c.scale(squeeze, 1);
+        c.fillText(ch, 0, 0);
+        c.restore();
+      },
+    };
+  },
+};
+
+function resolveCharRule(rule, fontSize, ctx, ch) {
+  return CHAR_RULE_HANDLERS[rule.type]?.(rule, fontSize, ctx, ch) ?? null;
+}
+
+function hasRuleChar(text, rules) {
+  for (const ch of text) {
+    if (rules[ch]) return true;
+  }
+  return false;
+}
+
+/**
+ * Measure text width (already scaled by scaleX), applying a font's per-character
+ * render rules (`charRules`). Runs of normal characters are measured in one
+ * measureText call so letter/word spacing is preserved. Falls back to a plain
+ * measureText when the font has no rules or the text contains no ruled character.
+ * ctx.font (and any letter/word spacing) must be set before calling.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {Object} fontConfig
+ * @param {number} fontSize  Rendered font size in the current coordinate space
+ * @param {number} scaleX    Horizontal scale factor applied to advance widths
+ * @returns {number} Width in the post-scaleX coordinate space
+ */
+export function measureStyledText(ctx, text, fontConfig, fontSize, scaleX) {
+  const rules = fontConfig.charRules;
+  if (!rules || !hasRuleChar(text, rules)) {
+    return ctx.measureText(text).width * scaleX;
+  }
+  let width = 0;
+  let run = '';
+  for (const ch of text) {
+    const resolved = rules[ch] && resolveCharRule(rules[ch], fontSize, ctx, ch);
+    if (resolved) {
+      if (run) { width += ctx.measureText(run).width; run = ''; }
+      width += resolved.advance;
+    } else {
+      run += ch;
+    }
+  }
+  if (run) width += ctx.measureText(run).width;
+  return width * scaleX;
+}
+
+/**
+ * Wrap text into lines that fit a per-line max width, soft-breaking on spaces and
+ * hard-breaking words longer than the line. All width measurement goes through
+ * measureStyledText so wrapping and hard-breaking honor the same per-character
+ * render rules the renderer draws with. ctx.font (and any letter/word spacing)
+ * must be set before calling.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {Object} fontConfig
+ * @param {number} fontSize
+ * @param {number} scaleX
+ * @param {(lineIndex: number) => number} lineMaxWidth  Max width (post-scaleX) for
+ *        the line at the given index; lets callers vary it (e.g. hanging indent).
+ * @returns {string[]} The wrapped lines.
+ */
+export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth) {
+  const measure = (s) => measureStyledText(ctx, s, fontConfig, fontSize, scaleX);
+
+  // Hard-break a word that exceeds maxWidth into character-level chunks.
+  const breakWord = (word, maxWidth) => {
+    const chunks = [];
+    let chunk = '';
+    for (const char of word) {
+      const test = chunk + char;
+      if (chunk && measure(test) > maxWidth) {
+        chunks.push(chunk);
+        chunk = char;
+      } else {
+        chunk = test;
+      }
+    }
+    if (chunk) chunks.push(chunk);
+    return chunks;
+  };
+
+  const lines = [];
+  let currentLine = '';
+
+  text.split(' ').forEach(word => {
+    const testLine = currentLine + (currentLine ? ' ' : '') + word;
+    if (measure(testLine) > lineMaxWidth(lines.length) && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+
+    // Hard-break if the line still exceeds the (possibly updated) line width.
+    const maxWidth = lineMaxWidth(lines.length);
+    if (measure(currentLine) > maxWidth) {
+      const chunks = breakWord(currentLine, maxWidth);
+      for (let i = 0; i < chunks.length - 1; i++) {
+        lines.push(chunks[i]);
+      }
+      currentLine = chunks[chunks.length - 1] || '';
+    }
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+/**
+ * Draw text starting at (startX, startY), applying a font's per-character render
+ * rules (`charRules`). Must be called inside the same scale(scaleX, 1) frame the
+ * renderer uses, with ctx.font / fillStyle already set. Widths are in font space
+ * (no scaleX division) so ruled glyphs scale with fontWidth like normal glyphs.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} startX
+ * @param {number} startY
+ * @param {Object} fontConfig
+ * @param {number} fontSize
+ */
+export function drawStyledText(ctx, text, startX, startY, fontConfig, fontSize) {
+  const rules = fontConfig.charRules;
+  if (!rules || !hasRuleChar(text, rules)) {
+    ctx.fillText(text, startX, startY);
+    return;
+  }
+  let localX = startX;
+  let run = '';
+  const flushRun = () => {
+    if (!run) return;
+    ctx.fillText(run, localX, startY);
+    localX += ctx.measureText(run).width;
+    run = '';
+  };
+  for (const ch of text) {
+    const resolved = rules[ch] && resolveCharRule(rules[ch], fontSize, ctx, ch);
+    if (resolved) {
+      flushRun();
+      resolved.draw(ctx, localX, startY);
+      localX += resolved.advance;
+    } else {
+      run += ch;
+    }
+  }
+  flushRun();
+}
+
 function positiveNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;

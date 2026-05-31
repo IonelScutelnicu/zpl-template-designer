@@ -43,6 +43,25 @@ export function snapRequestedToAllowed(fontId, reqHeight, reqWidth) {
 }
 
 /**
+ * Clamp explicit (positive) height/width up to the font's configured minimum
+ * (minHeight/minWidth, in dots). A value of 0 — the inherit/proportional sentinel —
+ * is preserved. Fonts without a configured minimum pass through unchanged.
+ * @param {string} fontId
+ * @param {number} height - requested height in dots (0 = inherit)
+ * @param {number} width - requested width in dots (0 = proportional)
+ * @returns {{height:number, width:number}}
+ */
+export function enforceFontMinSize(fontId, height, width) {
+  const cfg = ZPL_FONTS[fontId];
+  const minH = cfg?.minHeight || 0;
+  const minW = cfg?.minWidth || 0;
+  return {
+    height: height > 0 && height < minH ? minH : height,
+    width: width > 0 && width < minW ? minW : width,
+  };
+}
+
+/**
  * Snaps an element's stored fontSize/fontWidth in place to the allowed grid for its
  * resolved bitmap font. No-op for scalable fonts. `labelFontId` is the label default
  * used when the element has no explicit fontId.

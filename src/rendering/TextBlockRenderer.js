@@ -1,7 +1,7 @@
 // Text Block Renderer
 // Renders TEXTBLOCK elements on canvas with word wrapping and truncation
 
-import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
+import { resolveFontLineHeight, resolveFontMetrics, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -37,6 +37,7 @@ export class TextBlockRenderer {
     ctx.font = font;
     ctx.textBaseline = baseline;
     ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
+    ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
     // yOffset: dots (×scale) for bitmap fonts, fraction-of-em for Font 0.
     const yOffset = isBitmap
@@ -46,52 +47,8 @@ export class TextBlockRenderer {
     const raw = element.previewText || '';
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
 
-    // Hard-break a word that exceeds maxWidth into character-level chunks
-    const breakWord = (word, maxWidth) => {
-      const chunks = [];
-      let chunk = '';
-      for (const char of word) {
-        const test = chunk + char;
-        if (chunk && ctx.measureText(test).width * scaleX > maxWidth) {
-          chunks.push(chunk);
-          chunk = char;
-        } else {
-          chunk = test;
-        }
-      }
-      if (chunk) chunks.push(chunk);
-      return chunks;
-    };
-
-    // Text wrapping with hard-break for long words
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-
-    words.forEach(word => {
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      const scaledWidth = ctx.measureText(testLine).width * scaleX;
-
-      if (scaledWidth > blockWidth && currentLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-
-      // Hard-break current line if the single word still exceeds blockWidth
-      if (ctx.measureText(currentLine).width * scaleX > blockWidth) {
-        const chunks = breakWord(currentLine, blockWidth);
-        for (let i = 0; i < chunks.length - 1; i++) {
-          lines.push(chunks[i]);
-        }
-        currentLine = chunks[chunks.length - 1] || '';
-      }
-    });
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
+    // Wrap with hard-break; ^TB uses a constant block width for every line.
+    const lines = wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, () => blockWidth);
 
     // ^TB truncates text that exceeds the block height
     const baseLineHeight = resolveFontLineHeight(fontMetrics, 1, scale, 'textBlockLineHeightRatio', 'fontSize');
@@ -106,6 +63,7 @@ export class TextBlockRenderer {
       targetCtx.font = font;
       targetCtx.textBaseline = baseline;
       targetCtx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
+      targetCtx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
       visibleLines.forEach((line, i) => {
         const lineY = offsetY + (i * baseLineHeight) + yOffset;
@@ -113,7 +71,7 @@ export class TextBlockRenderer {
         targetCtx.save();
         targetCtx.translate(offsetX + fontXOffset, lineY);
         targetCtx.scale(scaleX, 1);
-        targetCtx.fillText(line, 0, fillY);
+        drawStyledText(targetCtx, line, 0, fillY, fontConfig, fontSize);
         targetCtx.restore();
       });
     };

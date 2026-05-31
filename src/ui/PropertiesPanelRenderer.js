@@ -3,6 +3,7 @@
 
 import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
+import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
 
 /**
  * Renderer for the properties panel UI
@@ -103,7 +104,7 @@ export class PropertiesPanelRenderer {
         <input
           type="${type}"
           id="${id}"
-          value="${displayValue}"
+          value="${escapeAttr(displayValue)}"
           ${attributes}
           class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
@@ -566,7 +567,7 @@ export class PropertiesPanelRenderer {
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
           <textarea id="prop-preview-text" rows="3"
-            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${element.previewText}</textarea>
+            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(element.previewText)}</textarea>
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
       `, { elementType: element.type })}
@@ -635,7 +636,7 @@ export class PropertiesPanelRenderer {
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
           <textarea id="prop-preview-text" rows="3"
-            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${element.previewText}</textarea>
+            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(element.previewText)}</textarea>
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
       `, { elementType: element.type })}

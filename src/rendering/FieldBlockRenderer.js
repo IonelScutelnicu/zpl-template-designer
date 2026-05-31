@@ -1,7 +1,7 @@
 // Field Block Renderer
 // Renders FIELDBLOCK elements on canvas with word wrapping and justification
 
-import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
+import { resolveFontLineHeight, resolveFontMetrics, measureStyledText, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
@@ -37,6 +37,7 @@ export class FieldBlockRenderer {
     ctx.font = font;
     ctx.textBaseline = baseline;
     ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
+    ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
     // yOffset: dots (×scale) for bitmap fonts, fraction-of-em for Font 0.
     const yOffset = isBitmap
@@ -48,62 +49,9 @@ export class FieldBlockRenderer {
 
     const hangingIndentPx = (element.hangingIndent || 0) * scale;
 
-    // Hard-break a word that exceeds maxWidth into character-level chunks
-    const breakWord = (word, maxWidth) => {
-      const chunks = [];
-      let chunk = '';
-      for (const char of word) {
-        const test = chunk + char;
-        if (chunk && ctx.measureText(test).width * scaleX > maxWidth) {
-          chunks.push(chunk);
-          chunk = char;
-        } else {
-          chunk = test;
-        }
-      }
-      if (chunk) chunks.push(chunk);
-      return chunks;
-    };
-
-    // Text wrapping with hard-break for long words
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-
-    words.forEach(word => {
-      const testLine = currentLine + (currentLine ? ' ' : '') + word;
-      const metrics = ctx.measureText(testLine);
-      // Apply scaleX to measured width for accurate wrapping
-      const scaledWidth = metrics.width * scaleX;
-
-      // First line: full blockWidth. Lines 2+: blockWidth minus hanging indent.
-      const maxWidth = lines.length === 0
-        ? blockWidth
-        : Math.max(0, blockWidth - hangingIndentPx);
-
-      if (scaledWidth > maxWidth && currentLine) {
-        lines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
-      }
-
-      // Hard-break current line if the single word still exceeds maxWidth
-      const curMaxWidth = lines.length === 0
-        ? blockWidth
-        : Math.max(0, blockWidth - hangingIndentPx);
-      if (ctx.measureText(currentLine).width * scaleX > curMaxWidth) {
-        const chunks = breakWord(currentLine, curMaxWidth);
-        for (let i = 0; i < chunks.length - 1; i++) {
-          lines.push(chunks[i]);
-        }
-        currentLine = chunks[chunks.length - 1] || '';
-      }
-    });
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
+    // Wrap with hard-break; ^FB indents lines 2+ by the hanging indent.
+    const lines = wrapStyledText(ctx, text, fontConfig, fontSize, scaleX,
+      i => (i === 0 ? blockWidth : Math.max(0, blockWidth - hangingIndentPx)));
 
     // Draw lines (respect maxLines)
     const maxLines = element.maxLines || lines.length;
@@ -121,9 +69,10 @@ export class FieldBlockRenderer {
       targetCtx.font = font;
       targetCtx.textBaseline = baseline;
       targetCtx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
+      targetCtx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
       lines.forEach((line, i) => {
-        const measuredWidth = targetCtx.measureText(line).width * scaleX;
+        const measuredWidth = measureStyledText(targetCtx, line, fontConfig, fontSize, scaleX);
         // Clamp overflow lines to the last line's Y position (ZPL ^FB spec behavior)
         const clampedIndex = Math.min(i, maxLines - 1);
         const lineY = offsetY + (clampedIndex * lineHeight) + yOffset;
@@ -139,7 +88,7 @@ export class FieldBlockRenderer {
 
           // Only justify if: not last line AND has multiple words AND line is shorter than block width
           if (!isLastLine && jWords.length > 1 && measuredWidth < lineBlockWidth) {
-            const wordWidths = jWords.map(word => targetCtx.measureText(word).width * scaleX);
+            const wordWidths = jWords.map(word => measureStyledText(targetCtx, word, fontConfig, fontSize, scaleX));
             const totalWordWidth = wordWidths.reduce((sum, w) => sum + w, 0);
             const spaceBetweenWords = (lineBlockWidth - totalWordWidth) / (jWords.length - 1);
 
@@ -148,7 +97,7 @@ export class FieldBlockRenderer {
               targetCtx.save();
               targetCtx.translate(currentX, lineY);
               targetCtx.scale(scaleX, 1);
-              targetCtx.fillText(word, 0, fillY);
+              drawStyledText(targetCtx, word, 0, fillY, fontConfig, fontSize);
               targetCtx.restore();
               currentX += wordWidths[wordIndex] + spaceBetweenWords;
             });
@@ -166,7 +115,7 @@ export class FieldBlockRenderer {
         targetCtx.save();
         targetCtx.translate(lineX, lineY);
         targetCtx.scale(scaleX, 1);
-        targetCtx.fillText(line, 0, fillY);
+        drawStyledText(targetCtx, line, 0, fillY, fontConfig, fontSize);
         targetCtx.restore();
       });
     };

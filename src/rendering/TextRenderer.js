@@ -1,7 +1,7 @@
 // Text Renderer
 // Renders TEXT elements on canvas
 
-import { resolveFontMetrics } from '../utils/fontMetrics.js';
+import { resolveFontMetrics, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -35,11 +35,12 @@ export class TextRenderer {
     ctx.font = font;
     ctx.textBaseline = baseline;
     const letterSpacingPx = fontConfig.letterSpacing ? fontConfig.letterSpacing * fontSize : 0;
+    const wordSpacingPx = fontConfig.wordSpacing ? fontConfig.wordSpacing * fontSize : 0;
     ctx.letterSpacing = `${letterSpacingPx}px`;
+    ctx.wordSpacing = `${wordSpacingPx}px`;
     // Measure text width at unscaled size, then apply horizontal scale
     const metrics = ctx.measureText(text);
-    const measuredWidth = metrics.width;
-    const textWidth = measuredWidth * scaleX;
+    const textWidth = measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
     // Bitmap fonts: the visible block is the rendered cap-ink height (snappedHeight).
     const textHeight = isBitmap ? snappedHeight * scale : fontSize;
     // Bitmap fonts draw from an alphabetic baseline at the cap height, so glyph
@@ -68,6 +69,7 @@ export class TextRenderer {
       context.font = font;
       context.textBaseline = baseline;
       context.letterSpacing = `${letterSpacingPx}px`;
+      context.wordSpacing = `${wordSpacingPx}px`;
 
       if (element.orientation === 'R') {
         context.translate(x + textHeight + pivotDescent + offsetX, y + offsetY);
@@ -89,7 +91,7 @@ export class TextRenderer {
       // Per-font nudges live in the local (post-rotate) frame so they travel
       // with the rotated text. fillText x is scaled by scaleX, so divide the
       // horizontal nudge to keep it exactly fontXOffset px along the advance.
-      context.fillText(text, fontXOffset / scaleX, fillY + translateNudge);
+      drawStyledText(context, text, fontXOffset / scaleX, fillY + translateNudge, fontConfig, fontSize);
       context.restore();
     };
 

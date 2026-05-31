@@ -2,7 +2,7 @@
 // Orchestrates rendering of all element types on HTML5 Canvas
 
 import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
-import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
+import { resolveFontLineHeight, resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
@@ -344,8 +344,9 @@ export class CanvasRenderer {
     this.ctx.save();
     this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
     this.ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
+    this.ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
     const m = this.ctx.measureText(text);
-    const measuredWidth = m.width * scaleX;
+    const measuredWidth = measureStyledText(this.ctx, text, fontConfig, fontSize, scaleX);
     // Bitmap fonts draw from a cap-height baseline (snappedHeight); the glyph
     // descender hangs below that, so the visible cell is snappedHeight + descent.
     // Match TextRenderer's pivotDescent so the box bounds the actual ink.

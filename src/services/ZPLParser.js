@@ -2,7 +2,7 @@
 // Parses ZPL template strings into app element objects and label settings
 
 import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
-import { snapRequestedToAllowed } from '../utils/zplFontSnap.js';
+import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
@@ -160,7 +160,7 @@ export class ZPLParser {
       elements: [],
       warnings: [],
       currentGroup: null,
-      barcodeDefaults: { width: 2, ratio: 2.0 },
+      barcodeDefaults: { width: 2, ratio: 2.0, height: 50 },
       defaultFont: { id: '0', height: 20, width: 0 },
       customFonts: []
     };
@@ -257,6 +257,7 @@ export class ZPLParser {
     const parts = token.params.split(',');
     if (parts[0]) state.barcodeDefaults.width = parseInt(parts[0]) || 2;
     if (parts[1]) state.barcodeDefaults.ratio = parseFloat(parts[1]) || 2.0;
+    if (parts[2]) state.barcodeDefaults.height = parseInt(parts[2]) || state.barcodeDefaults.height;
   }
 
   /**
@@ -320,15 +321,17 @@ export class ZPLParser {
         if (parts[1]) {
           const h = parseInt(parts[1]);
           if (h > 0) {
-            state.labelSettings.defaultFontHeight = h;
-            state.defaultFont.height = h;
+            const { height } = enforceFontMinSize(state.defaultFont.id, h, 0);
+            state.labelSettings.defaultFontHeight = height;
+            state.defaultFont.height = height;
           }
         }
         if (parts[2]) {
           const w = parseInt(parts[2]);
           if (w > 0) {
-            state.labelSettings.defaultFontWidth = w;
-            state.defaultFont.width = w;
+            const { width } = enforceFontMinSize(state.defaultFont.id, 0, w);
+            state.labelSettings.defaultFontWidth = width;
+            state.defaultFont.width = width;
           }
         }
         break;
@@ -451,10 +454,11 @@ export class ZPLParser {
     const rawSize = font.height === state.defaultFont.height ? 0 : font.height;
     const rawWidth = font.width === state.defaultFont.width ? 0 : font.width;
     const snapped = snapRequestedToAllowed(font.fontId, rawSize, rawWidth);
+    const clamped = enforceFontMinSize(font.fontId, snapped.height, snapped.width);
     return {
       fontId: font.fontId === state.defaultFont.id ? '' : font.fontId,
-      fontSize: snapped.height,
-      fontWidth: snapped.width
+      fontSize: clamped.height,
+      fontWidth: clamped.width
     };
   }
 
@@ -578,17 +582,20 @@ export class ZPLParser {
   _parseBarcode(group, bcToken, byToken, fdToken, hasReverse, state) {
     // ^BC params: orientation,height,interpretation
     const bcParts = bcToken.params.split(',');
-    const height = parseInt(bcParts[1]) || 50;
     const showText = (bcParts[2] || 'Y').trim() !== 'N';
 
     // Use ^BY from this group if present, otherwise from state
     let width = state.barcodeDefaults.width;
     let ratio = state.barcodeDefaults.ratio;
+    let height = state.barcodeDefaults.height;
     if (byToken) {
       const byParts = byToken.params.split(',');
       if (byParts[0]) width = parseInt(byParts[0]) || width;
       if (byParts[1]) ratio = parseFloat(byParts[1]) || ratio;
+      if (byParts[2]) height = parseInt(byParts[2]) || height;
     }
+    // ^BC's own height parameter, when present, overrides the ^BY default.
+    if (bcParts[1]) height = parseInt(bcParts[1]) || height;
 
     const { text, placeholder } = this._parseFieldData(fdToken);
 
