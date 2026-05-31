@@ -425,15 +425,44 @@ export class PropertiesPanelRenderer {
    * Render CIRCLE element properties
    */
   renderCircleProperties(element) {
+    const locked = element.aspectLocked !== false;
+    const heightDisabledAttr = locked ? 'disabled' : '';
+    const heightLabelClass = locked ? 'text-slate-400' : 'text-slate-700';
+    const heightInputClass = locked
+      ? 'w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 px-2 text-xs text-slate-400 cursor-not-allowed'
+      : 'w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
+    const lockIcon = locked ? 'link' : 'link_off';
+    const lockTitle = locked ? 'Aspect ratio locked — click to unlock' : 'Aspect ratio unlocked — click to relock';
+    const lockBtnClass = locked
+      ? 'bg-white text-blue-600 shadow-sm border-slate-200'
+      : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-blue-600';
     return `
       ${this.renderAlignmentControls(element)}
       ${this.renderSection("Position &amp; Size", `
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-3 mb-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
-          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
-          ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
+        </div>
+        <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-end mb-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Width</label>
+            <input id="prop-width" type="number" min="3" max="4095" value="${element.width}"
+              class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+          <button type="button" id="prop-circle-aspect-lock"
+            title="${lockTitle}" data-tooltip="${lockTitle}"
+            class="flex items-center justify-center w-[30px] h-[30px] rounded-md border ${lockBtnClass} transition-colors">
+            <span class="material-icons-round text-[16px] leading-none">${lockIcon}</span>
+          </button>
+          <div>
+            <label id="prop-circle-height-label" class="block text-xs font-medium ${heightLabelClass} mb-1">Height</label>
+            <input id="prop-height" type="number" min="3" max="4095" value="${element.height}"
+              ${heightDisabledAttr}
+              class="${heightInputClass}" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 2, max: 4095 })}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", `

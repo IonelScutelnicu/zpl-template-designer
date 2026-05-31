@@ -8,7 +8,8 @@ const ZPL_DOC_EXPECTED: Record<string, { command: string; url: string }> = {
   QRCODE: { command: '^BQ', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bq.html' },
   BOX: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
   LINE: { command: '^GB', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gb.html' },
-  CIRCLE: { command: '^GE', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html' },
+  // New circles are aspect-locked → Circle → ^GC. Unlocking gives ^GE (see below).
+  CIRCLE: { command: '^GC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gc.html' },
 };
 
 type AddMethod = keyof ElementsPanel & `add${string}Element`;
@@ -44,6 +45,20 @@ test.describe('ZPL Documentation Link', () => {
       await expect(link).toHaveAttribute('target', '_blank');
     });
   }
+
+  test('doc link follows the Circle aspect lock (^GC locked → ^GE unlocked)', async ({ page }) => {
+    await elementsPanel.addCircleElement();
+    await elementsPanel.selectElementByIndex(0);
+
+    const link = page.locator('#zpl-doc-link');
+    await expect(link).toHaveText('^GC docs');
+    await expect(link).toHaveAttribute('href', 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gc.html');
+
+    // Unlocking turns the Circle into an Ellipse → ^GE doc, live (no reselect).
+    await page.locator('#prop-circle-aspect-lock').click();
+    await expect(link).toHaveText('^GE docs');
+    await expect(link).toHaveAttribute('href', 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html');
+  });
 
   test('should hide doc link when no element is selected', async ({ page }) => {
     const link = page.locator('#zpl-doc-link');

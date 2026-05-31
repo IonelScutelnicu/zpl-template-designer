@@ -1,6 +1,7 @@
 /node_modules
 AGENTS.md
 CLAUDE.md
+CONTEXT.md
 /docs
 .*
 !/.gitignore

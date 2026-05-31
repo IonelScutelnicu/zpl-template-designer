@@ -347,6 +347,9 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
                 await elementsPanel.addCircleElement();
                 // Adding an element auto-selects it; wait for the properties panel to render
                 await page.waitForSelector('#properties-panel #prop-width');
+                // New circles are aspect-locked (1:1). Unlock so width/height resize
+                // independently — this case verifies per-axis Ellipse resize.
+                await page.locator('#prop-circle-aspect-lock').click();
 
                 const w0 = parseInt(await propertiesPanel.getProperty('prop-width'));
                 const h0 = parseInt(await propertiesPanel.getProperty('prop-height'));

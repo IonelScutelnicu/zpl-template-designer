@@ -163,7 +163,8 @@ export class SerializationService {
           data.height,
           data.thickness,
           data.color,
-          data.reverse
+          data.reverse,
+          data.aspectLocked ?? true
         );
         break;
 

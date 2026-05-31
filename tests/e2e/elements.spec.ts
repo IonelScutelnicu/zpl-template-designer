@@ -267,9 +267,9 @@ test.describe('Elements - Add, Select, Delete', () => {
             expect(await elementsPanel.getElementCount()).toBe(0);
         });
 
-        test('should generate ZPL containing ^GE command for Circle element', async () => {
+        test('should generate ZPL containing ^GC command for Circle element (locked by default)', async () => {
             await elementsPanel.addCircleElement();
-            await zplOutput.verifyZPLContains('^GE');
+            await zplOutput.verifyZPLContains('^GC');
         });
     });
 

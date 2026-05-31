@@ -108,7 +108,8 @@ export class ElementService {
           props.height || 80,
           props.thickness || 3,
           props.color || 'B',
-          props.reverse || false
+          props.reverse || false,
+          props.aspectLocked ?? true
         );
         break;
 

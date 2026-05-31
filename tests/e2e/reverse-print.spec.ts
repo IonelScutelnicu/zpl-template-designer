@@ -32,7 +32,7 @@ const elementSpecs: ElementSpec[] = [
     { type: 'QRCODE',     add: p => p.addQRCodeElement(),    foPrefix: /\^FO\d+,\d+/, primaryCmd: '^BQ' },
     { type: 'BOX',        add: p => p.addBoxElement(),       foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GB' },
     { type: 'LINE',       add: p => p.addLineElement(),      foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GB' },
-    { type: 'CIRCLE',     add: p => p.addCircleElement(),    foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GE' },
+    { type: 'CIRCLE',     add: p => p.addCircleElement(),    foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GC' },
     { type: 'GRAPHIC',    add: p => p.addGraphicElement(png),foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GFA' },
 ];
 

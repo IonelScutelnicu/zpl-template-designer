@@ -10,8 +10,37 @@ import { getBitmapFontMaxSize } from '../utils/zplFontSnap.js';
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
-  'BQ', 'GB', 'GE', 'GF'
+  'BQ', 'GB', 'GE', 'GC', 'GF'
 ]);
+
+/**
+ * Clamp an ellipse/circle dimension (^GE width/height, ^GC diameter) to ZPL's
+ * documented 3–4095 dot range. Larger values are replaced with 4095 per the
+ * ^GE/^GC spec; smaller values are floored to 3.
+ */
+function clampShapeDim(value, fallback) {
+  const n = parseInt(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(4095, Math.max(3, n));
+}
+
+/**
+ * Clamp a ^GE/^GC border thickness to ZPL's documented 2–4095 dot range.
+ */
+function clampShapeThickness(value, fallback) {
+  const n = parseInt(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(4095, Math.max(2, n));
+}
+
+/**
+ * Normalise a ^GE/^GC line color to the documented B/W values, defaulting any
+ * other value to B (black).
+ */
+function normalizeShapeColor(value) {
+  const c = (value || '').trim().toUpperCase();
+  return c === 'W' ? 'W' : 'B';
+}
 
 /**
  * Header commands that configure label settings (not element-specific)
@@ -351,6 +380,10 @@ export class ZPLParser {
       return this._parseGraphicField(group, getCommand('GF'), getCommand('FD'), hasCommand('FR'), state);
     }
 
+    if (hasCommand('GC')) {
+      return this._parseCircleFromGC(group, getCommand('GC'), hasCommand('FR'));
+    }
+
     if (hasCommand('GE')) {
       return this._parseCircle(group, getCommand('GE'), hasCommand('FR'));
     }
@@ -669,19 +702,42 @@ export class ZPLParser {
   }
 
   /**
-   * Parse CIRCLE from ^GE command
+   * Parse ELLIPSE from ^GE command. Always unlocked, even when width === height
+   * (the author wrote an ellipse command). See ADR 0004.
    */
   _parseCircle(group, geToken, hasReverse) {
     const parts = geToken.params.split(',');
+    // ^GE w,h,t,c — dims 3–4095, thickness 2–4095, default thickness 1. See ADR 0004.
     return {
       type: 'CIRCLE',
       x: group.x,
       y: group.y,
-      width: parseInt(parts[0]) || 80,
-      height: parseInt(parts[1]) || 80,
-      thickness: parseInt(parts[2]) || 3,
-      color: (parts[3] || 'B').trim(),
-      reverse: hasReverse
+      width: clampShapeDim(parts[0], 80),
+      height: clampShapeDim(parts[1], 80),
+      thickness: clampShapeThickness(parts[2], 1),
+      color: normalizeShapeColor(parts[3]),
+      reverse: hasReverse,
+      aspectLocked: false
+    };
+  }
+
+  /**
+   * Parse CIRCLE from ^GC command (^GCdiameter,thickness,color). Always locked.
+   * ^GC d,t,c — diameter 3–4095 (default 3), thickness 2–4095 (default 1). See ADR 0004.
+   */
+  _parseCircleFromGC(group, gcToken, hasReverse) {
+    const parts = gcToken.params.split(',');
+    const diameter = clampShapeDim(parts[0], 3);
+    return {
+      type: 'CIRCLE',
+      x: group.x,
+      y: group.y,
+      width: diameter,
+      height: diameter,
+      thickness: clampShapeThickness(parts[1], 1),
+      color: normalizeShapeColor(parts[2]),
+      reverse: hasReverse,
+      aspectLocked: true
     };
   }
 

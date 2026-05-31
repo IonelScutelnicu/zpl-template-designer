@@ -181,11 +181,100 @@ export class PropertyListenersManager {
    * Attach CIRCLE element property listeners
    */
   attachCircleProperties(element, attach) {
-    attach("prop-width", "width", (v) => parseInt(v) || 80);
-    attach("prop-height", "height", (v) => parseInt(v) || 80);
-    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    const widthInput = document.getElementById('prop-width');
+    const heightInput = document.getElementById('prop-height');
+
+    // ^GE/^GC dimensions are 3–4095 dots, thickness 2–4095. Clamp the stored
+    // value on every keystroke so the ZPL stays in range, but only normalise
+    // the visible text on blur — rewriting mid-type would make values whose
+    // leading digit is below the minimum (e.g. 1500 → 3) unreachable. See ADR 0004.
+    const clampDim = (v) => Math.min(4095, Math.max(3, parseInt(v) || 3));
+
+    // Width is authoritative: while locked, editing width mirrors to height
+    // (1:1 Circle / ^GC). See ADR 0004.
+    if (widthInput) {
+      widthInput.addEventListener('input', (e) => {
+        const v = clampDim(e.target.value);
+        element.width = v;
+        if (element.aspectLocked) {
+          element.height = v;
+          if (heightInput) heightInput.value = v;
+        }
+        this.callbacks.onPropertyChange(element);
+      });
+      widthInput.addEventListener('change', (e) => { e.target.value = element.width; });
+    }
+    if (heightInput) {
+      heightInput.addEventListener('input', (e) => {
+        if (element.aspectLocked) return; // height input is disabled while locked
+        element.height = clampDim(e.target.value);
+        this.callbacks.onPropertyChange(element);
+      });
+      heightInput.addEventListener('change', (e) => { e.target.value = element.height; });
+    }
+
+    // ^GE/^GC border thickness is 2–4095 dots (same blur-normalise approach).
+    const thicknessInput = document.getElementById('prop-thickness');
+    if (thicknessInput) {
+      thicknessInput.addEventListener('input', (e) => {
+        element.thickness = Math.min(4095, Math.max(2, parseInt(e.target.value) || 2));
+        this.callbacks.onPropertyChange(element);
+      });
+      thicknessInput.addEventListener('change', (e) => { e.target.value = element.thickness; });
+    }
+
     this._attachColorToggle(element);
     this._attachReverseToggle(element);
+    this._attachCircleAspectLock(element);
+  }
+
+  /**
+   * Aspect Lock toggle for circular elements. Locked → Circle (^GC, 1:1);
+   * unlocked → Ellipse (^GE). Mirrors the GRAPHIC lock UI but snaps to a fixed
+   * 1:1 ratio rather than a source bitmap's natural ratio. See ADR 0004.
+   */
+  _attachCircleAspectLock(element) {
+    const lockBtn = document.getElementById('prop-circle-aspect-lock');
+    if (!lockBtn) return;
+    const heightInput = document.getElementById('prop-height');
+    const heightLabel = document.getElementById('prop-circle-height-label');
+    const lockedInputClasses = ['bg-slate-50', 'text-slate-400', 'cursor-not-allowed'];
+    const unlockedInputClasses = ['text-slate-700', 'focus:ring-1', 'focus:ring-blue-500', 'focus:border-blue-500'];
+
+    const applyLockUI = (locked) => {
+      const iconSpan = lockBtn.querySelector('.material-icons-round');
+      if (iconSpan) iconSpan.textContent = locked ? 'link' : 'link_off';
+      const title = locked ? 'Aspect ratio locked — click to unlock' : 'Aspect ratio unlocked — click to relock';
+      lockBtn.title = title;
+      lockBtn.dataset.tooltip = title;
+      lockBtn.classList.toggle('bg-white', locked);
+      lockBtn.classList.toggle('text-blue-600', locked);
+      lockBtn.classList.toggle('shadow-sm', locked);
+      lockBtn.classList.toggle('bg-slate-100', !locked);
+      lockBtn.classList.toggle('text-slate-400', !locked);
+      lockBtn.classList.toggle('hover:text-blue-600', !locked);
+
+      if (heightInput) {
+        heightInput.disabled = locked;
+        for (const c of lockedInputClasses) heightInput.classList.toggle(c, locked);
+        for (const c of unlockedInputClasses) heightInput.classList.toggle(c, !locked);
+      }
+      if (heightLabel) {
+        heightLabel.classList.toggle('text-slate-400', locked);
+        heightLabel.classList.toggle('text-slate-700', !locked);
+      }
+    };
+
+    lockBtn.addEventListener('click', () => {
+      element.aspectLocked = !element.aspectLocked;
+      applyLockUI(element.aspectLocked);
+      if (element.aspectLocked) {
+        // Re-lock: snap height to width (1:1). Width is authoritative.
+        element.height = element.width;
+        if (heightInput) heightInput.value = element.width;
+      }
+      this.callbacks.onPropertyChange(element);
+    });
   }
 
   /**

@@ -373,6 +373,7 @@ export function initApp() {
       updateZPLOutput();
       updateElementsList();
       renderCanvasPreview();
+      updateZplDocLink();
       scheduleHistoryCommit(`element-${element.id}`, `Updated ${element.type} properties`, {
         kind: "edit",
         detail: element.getDisplayName()
@@ -1999,6 +2000,16 @@ const ZPL_DOC_MAP = {
   GRAPHIC: { command: '^GF', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gf.html' },
 };
 
+// A locked Circle exports ^GC; an unlocked Ellipse exports ^GE (see ADR 0004),
+// so the doc link follows the aspect lock.
+const ZPL_GC_DOC = { command: '^GC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gc.html' };
+
+function resolveZplDoc(element) {
+  if (!element) return null;
+  if (element.type === 'CIRCLE' && element.aspectLocked !== false) return ZPL_GC_DOC;
+  return ZPL_DOC_MAP[element.type] || null;
+}
+
 function renderPropertiesPanel() {
   const html = propertiesPanelRenderer.render(state.selectedElement);
   propertiesPanel.innerHTML = html;
@@ -2007,8 +2018,16 @@ function renderPropertiesPanel() {
     attachPropertyListeners(state.selectedElement);
   }
 
+  updateZplDocLink();
+}
+
+// Sync the ZPL doc link to the current selection. Kept separate from the panel
+// render so it can also refresh on property changes (e.g. toggling a Circle's
+// aspect lock flips the link between ^GC and ^GE without a full re-render).
+function updateZplDocLink() {
   const docLink = document.getElementById('zpl-doc-link');
-  const doc = state.selectedElement && ZPL_DOC_MAP[state.selectedElement.type];
+  if (!docLink) return;
+  const doc = resolveZplDoc(state.selectedElement);
   if (doc) {
     docLink.textContent = `${doc.command} docs`;
     docLink.href = doc.url;

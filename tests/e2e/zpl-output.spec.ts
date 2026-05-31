@@ -90,16 +90,16 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await zplOutput.verifyZPLContains('^GB');
         });
 
-        test('should generate ^GE command for Circle element', async () => {
+        test('should generate ^GC command for Circle element (locked by default)', async () => {
             await elementsPanel.addCircleElement();
-            await zplOutput.verifyZPLContains('^GE');
+            await zplOutput.verifyZPLContains('^GC');
         });
 
-        test('should generate correct ^GE format for Circle element', async () => {
+        test('should generate correct ^GC format for Circle element', async () => {
             await elementsPanel.addCircleElement();
             const zpl = await zplOutput.getZPLCode();
-            // ^GE format: ^GEwidth,height,thickness,color
-            expect(zpl).toMatch(/\^GE\d+,\d+,\d+,[BW]/);
+            // ^GC format: ^GCdiameter,thickness,color
+            expect(zpl).toMatch(/\^GC\d+,\d+,[BW]/);
         });
 
         test('should generate ^GFA command for uploaded Graphic Field element', async () => {

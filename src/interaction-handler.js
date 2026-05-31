@@ -404,14 +404,17 @@ export class InteractionHandler {
           }
         }
 
-        // GRAPHIC: Shift only has an effect when aspect is currently locked —
-        // it breaks the lock for this resize. When already unlocked, Shift is a no-op.
+        // GRAPHIC and CIRCLE: Shift only has an effect when aspect is currently
+        // locked — it breaks the lock for this resize (CIRCLE → Ellipse). When
+        // already unlocked, Shift is a no-op. A locked CIRCLE has a 1:1 start
+        // ratio, so the shared projection math keeps it circular. See ADR 0004.
+        const supportsAspectLock = this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'CIRCLE';
         const isAspectLocked = this.dragElement.aspectLocked ?? true;
         const wantAspect = isAspectLocked && !e.shiftKey;
-        if (this.dragElement.type === 'GRAPHIC' && e.shiftKey && isAspectLocked) {
+        if (supportsAspectLock && e.shiftKey && isAspectLocked) {
           this._aspectLockBrokenByShift = true;
         }
-        if (this.dragElement.type === 'GRAPHIC' && wantAspect && this.resizeStartHeight > 0) {
+        if (supportsAspectLock && wantAspect && this.resizeStartHeight > 0) {
           const aspect = this.resizeStartHeight / this.resizeStartWidth;
           const widthDelta = newWidth - this.resizeStartWidth;
           const heightDelta = newHeight - this.resizeStartHeight;
@@ -575,7 +578,8 @@ export class InteractionHandler {
       this.isResizing = false;
       this.resizeHandle = null;
       this.renderer.clearSmartGuides();
-      if (this._aspectLockBrokenByShift && this.dragElement && this.dragElement.type === 'GRAPHIC') {
+      if (this._aspectLockBrokenByShift && this.dragElement &&
+          (this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'CIRCLE')) {
         this.dragElement.aspectLocked = false;
         this._aspectLockBrokenByShift = false;
       }
@@ -599,7 +603,8 @@ export class InteractionHandler {
     if (this.isDragging || this.isResizing) {
       // Finalize drag if mouse leaves canvas
       this.renderer.clearSmartGuides();
-      if (this._aspectLockBrokenByShift && this.dragElement && this.dragElement.type === 'GRAPHIC') {
+      if (this._aspectLockBrokenByShift && this.dragElement &&
+          (this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'CIRCLE')) {
         this.dragElement.aspectLocked = false;
         this._aspectLockBrokenByShift = false;
       }

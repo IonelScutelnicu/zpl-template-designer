@@ -433,21 +433,25 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             expect(zpl).toMatch(/\^FO\d+,55/);
         });
 
-        test('should update width and reflect in ^GE command', async () => {
+        test('should update width and reflect in ^GC command (locked by default)', async () => {
             await propertiesPanel.setProperty('prop-width', 120);
-            await zplOutput.verifyZPLContains('^GE120,');
+            // Locked Circle emits ^GCdiameter,thickness,color
+            await zplOutput.verifyZPLContains('^GC120,');
         });
 
-        test('should update height and reflect in ^GE command', async () => {
+        test('should update height and reflect in ^GE command (after unlocking)', async ({ page }) => {
+            // Height is independent only once the aspect lock is released (Ellipse).
+            await page.locator('#prop-circle-aspect-lock').click();
             await propertiesPanel.setProperty('prop-height', 100);
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toMatch(/\^GE\d+,100,/);
         });
 
-        test('should update thickness and reflect in ^GE command', async () => {
+        test('should update thickness and reflect in ^GC command', async () => {
             await propertiesPanel.setProperty('prop-thickness', 8);
             const zpl = await zplOutput.getZPLCode();
-            expect(zpl).toMatch(/\^GE\d+,\d+,8,/);
+            // ^GCdiameter,thickness,color — thickness is the second parameter
+            expect(zpl).toMatch(/\^GC\d+,8,/);
         });
 
         test('should update color to White and reflect in ^GE command', async ({ page }) => {

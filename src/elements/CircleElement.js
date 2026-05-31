@@ -2,7 +2,7 @@ import { ZPLElement } from './ZPLElement.js';
 
 // Circle/Ellipse Element Class
 export class CircleElement extends ZPLElement {
-    constructor(x = 0, y = 0, width = 80, height = 80, thickness = 3, color = 'B', reverse = false) {
+    constructor(x = 0, y = 0, width = 80, height = 80, thickness = 3, color = 'B', reverse = false, aspectLocked = true) {
         super(x, y);
         this.type = 'CIRCLE';
         this.width = width;
@@ -10,12 +10,19 @@ export class CircleElement extends ZPLElement {
         this.thickness = thickness;
         this.color = color;
         this.reverse = reverse; // ^FR (reverse print)
+        // Aspect Lock: locked → Circle (^GC, width/height pinned 1:1);
+        // unlocked → Ellipse (^GE, independent dimensions). See ADR 0004.
+        this.aspectLocked = aspectLocked;
     }
 
     render() {
-        // ZPL format: ^FOx,y^FR^GEwidth,height,thickness,color^FS
         // ^FR - Reverse print (optional)
         const reverseCmd = this.reverse ? '^FR' : '';
+        if (this.aspectLocked) {
+            // Circle: ^FOx,y^FR^GCdiameter,thickness,color^FS (width is authoritative)
+            return `^FO${this.x},${this.y}${reverseCmd}^GC${this.width},${this.thickness},${this.color}^FS`;
+        }
+        // Ellipse: ^FOx,y^FR^GEwidth,height,thickness,color^FS
         return `^FO${this.x},${this.y}${reverseCmd}^GE${this.width},${this.height},${this.thickness},${this.color}^FS`;
     }
 
@@ -24,8 +31,8 @@ export class CircleElement extends ZPLElement {
     }
 
     getDisplayName() {
-        const shape = this.width === this.height ? 'Circle' : 'Ellipse';
-        return `${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
+        const shape = this.aspectLocked ? 'Circle' : 'Ellipse';
+        return `${shape} ${this.width}x${this.height} (${this.color === 'B' ? 'Black' : 'White'})`;
     }
 
     getBounds() {
