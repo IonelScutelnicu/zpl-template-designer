@@ -12,8 +12,15 @@ const STEPS = [
     position: "center",
   },
   {
+    target: "#view-toggle",
+    title: "Templates & Editor",
+    body: "Switch between the Templates gallery to start from a ready-made label, and the Editor to design your own.",
+    icon: "grid_view",
+    position: "bottom",
+  },
+  {
     target: "#add-textblock-btn",
-    area: "#add-textblock-btn, #add-fieldblock-btn, #add-text-btn, #add-barcode-btn, #add-qrcode-btn, #add-box-btn, #add-line-btn, #add-circle-btn",
+    area: "#add-textblock-btn, #add-fieldblock-btn, #add-text-btn, #add-barcode-btn, #add-qrcode-btn, #add-box-btn, #add-line-btn, #add-circle-btn, #add-graphic-btn",
     title: "Add Elements",
     body: "Start by clicking any button to add text, barcodes, shapes, or QR codes to your label.",
     icon: "add_box",

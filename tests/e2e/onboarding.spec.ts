@@ -14,7 +14,7 @@ test.describe('Onboarding Walkthrough', () => {
         const popover = page.locator('.walkthrough-popover');
         await expect(popover).toBeVisible();
         await expect(popover.locator('[data-wt="title"]')).toHaveText('Welcome to ZPL Editor');
-        await expect(popover.locator('[data-wt="counter"]')).toHaveText('1 / 9');
+        await expect(popover.locator('[data-wt="counter"]')).toHaveText('1 / 10');
     });
 
     test('can navigate through all steps with Next button', async ({ page }) => {
@@ -29,36 +29,40 @@ test.describe('Onboarding Walkthrough', () => {
         await expect(nextBtn).toHaveText('Get Started');
         await nextBtn.click();
 
-        // Step 2: Add Elements
-        await expect(title).toHaveText('Add Elements');
+        // Step 2: Templates & Editor
+        await expect(title).toHaveText('Templates & Editor');
         await expect(nextBtn).toHaveText('Next');
         await nextBtn.click();
 
-        // Step 3: Design Canvas
+        // Step 3: Add Elements
+        await expect(title).toHaveText('Add Elements');
+        await nextBtn.click();
+
+        // Step 4: Design Canvas
         await expect(title).toHaveText('Design Canvas');
         await nextBtn.click();
 
-        // Step 4: Elements List
+        // Step 5: Elements List
         await expect(title).toHaveText('Elements List');
         await nextBtn.click();
 
-        // Step 5: Properties Panel
+        // Step 6: Properties Panel
         await expect(title).toHaveText('Properties Panel');
         await nextBtn.click();
 
-        // Step 6: Live ZPL Output
+        // Step 7: Live ZPL Output
         await expect(title).toHaveText('Live ZPL Output');
         await nextBtn.click();
 
-        // Step 7: Edit & Preview Modes
+        // Step 8: Edit & Preview Modes
         await expect(title).toHaveText('Edit & Preview Modes');
         await nextBtn.click();
 
-        // Step 8: Copy, Share & Export
+        // Step 9: Copy, Share & Export
         await expect(title).toHaveText('Copy, Share & Export');
         await nextBtn.click();
 
-        // Step 9: You're All Set!
+        // Step 10: You're All Set!
         await expect(title).toHaveText("You're All Set!");
         await expect(nextBtn).toHaveText('Done');
         await nextBtn.click();
@@ -117,15 +121,15 @@ test.describe('Onboarding Walkthrough', () => {
 
         // Go forward with ArrowRight
         await page.keyboard.press('ArrowRight');
-        await expect(title).toHaveText('Add Elements');
+        await expect(title).toHaveText('Templates & Editor');
 
         // Go forward again
         await page.keyboard.press('ArrowRight');
-        await expect(title).toHaveText('Design Canvas');
+        await expect(title).toHaveText('Add Elements');
 
         // Go back with ArrowLeft
         await page.keyboard.press('ArrowLeft');
-        await expect(title).toHaveText('Add Elements');
+        await expect(title).toHaveText('Templates & Editor');
     });
 
     test('Back button is hidden on first step', async ({ page }) => {
