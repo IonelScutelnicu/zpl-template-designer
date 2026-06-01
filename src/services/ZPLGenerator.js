@@ -97,7 +97,14 @@ export class ZPLGenerator {
     const actualDpi = Math.floor(dpmm * 25.4);
     const printWidthDots = Math.floor((width / 25.4) * actualDpi);
 
-    let header = '^XA\n';
+    // Label metadata comment (^FX): width/height in mm + density. ZPL has no
+    // native way to encode label height or dpmm, so the editor stamps them into
+    // a JSON comment the parser reads back on import. Carrying width in mm too
+    // avoids ^PW↔mm rounding drift. The sentinel key keeps this apart from any
+    // human-authored ^FX note; JSON contains no ^/~, so it's tokenizer safe.
+    // Emitted as the first command after ^XA.
+    const meta = { labelMeta: { w: width, h: labelSettings.height, dpmm } };
+    let header = `^XA\n^FX${JSON.stringify(meta)}^FS\n`;
 
     // Print width
     header += `^PW${printWidthDots}\n`;

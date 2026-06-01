@@ -10,8 +10,26 @@ import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
-  'BQ', 'GB', 'GE', 'GC', 'GF'
+  'BQ', 'GB', 'GE', 'GC', 'GF', 'FX'
 ]);
+
+/**
+ * Allowed label-metadata bounds, mirroring the editor's own UI constraints
+ * (index.html: width/height min=10 max=381 mm; dpmm select 6/8/12/24). The
+ * ^FX metadata comment is validated against these so an imported comment can
+ * only ever narrow into known-good settings, never inject arbitrary values.
+ */
+const META_MM_MIN = 10;
+const META_MM_MAX = 381;
+const META_ALLOWED_DPMM = new Set([6, 8, 12, 24]);
+
+function isValidMetaMm(value) {
+  return Number.isFinite(value) && value >= META_MM_MIN && value <= META_MM_MAX;
+}
+
+function isValidMetaDpmm(value) {
+  return META_ALLOWED_DPMM.has(value);
+}
 
 /**
  * Clamp an ellipse/circle dimension (^GE width/height, ^GC diameter) to ZPL's
@@ -80,6 +98,25 @@ export class ZPLParser {
   }
 
   /**
+   * Read our label-metadata object from an ^FX comment payload. Returns the
+   * `labelMeta` object, or null if the payload isn't our sentinel-keyed JSON
+   * (a human-authored note, malformed JSON, etc.). Only honored from a leading
+   * comment slot (see _processTokens), so a stray body comment can't rewrite
+   * settings.
+   */
+  _readLabelMeta(params) {
+    try {
+      const obj = JSON.parse(params);
+      if (obj && typeof obj.labelMeta === 'object' && obj.labelMeta !== null) {
+        return obj.labelMeta;
+      }
+    } catch {
+      // Not our comment.
+    }
+    return null;
+  }
+
+  /**
    * Tokenize ZPL into an array of command objects
    * @param {string} zpl - Raw ZPL string
    * @returns {Array<{prefix: string, command: string, params: string}>}
@@ -137,6 +174,23 @@ export class ZPLParser {
         const paramEnd = fsIndex !== -1 ? fsIndex : nextIndex;
         const params = content.substring(m.codeEnd, paramEnd).replace(/^\s+/, '');
         tokens.push({ prefix: m.prefix, command: m.command, params });
+      } else if (m.command === 'FX') {
+        // ^FX is a comment: consume everything through the matching ^FS as an
+        // opaque payload, and skip the contained matches so any ^/~ sequences
+        // inside the comment are NOT re-tokenized as live commands.
+        let fsMatchIdx = -1;
+        for (let j = i + 1; j < matches.length; j++) {
+          if (matches[j].command === 'FS') {
+            fsMatchIdx = j;
+            break;
+          }
+        }
+        const paramEnd = fsMatchIdx !== -1 ? matches[fsMatchIdx].index : nextIndex;
+        const params = content.substring(m.codeEnd, paramEnd).replace(/^\s+/, '').replace(/\s+$/, '');
+        tokens.push({ prefix: m.prefix, command: 'FX', params });
+        // Jump to just before the ^FS so the loop resumes there (the ^FS is
+        // still emitted normally to close the comment / any open group).
+        if (fsMatchIdx !== -1) i = fsMatchIdx - 1;
       } else {
         const params = content.substring(m.codeEnd, nextIndex).replace(/^\s+/, '').replace(/\s+$/, '');
         tokens.push({ prefix: m.prefix, command: m.command, params });
@@ -162,7 +216,9 @@ export class ZPLParser {
       currentGroup: null,
       barcodeDefaults: { width: 2, ratio: 2.0, height: 50 },
       defaultFont: { id: '0', height: 20, width: 0 },
-      customFonts: []
+      customFonts: [],
+      labelMeta: null,
+      sawCommand: false
     };
 
     for (const token of tokens) {
@@ -173,6 +229,20 @@ export class ZPLParser {
           message: `Unsupported command "${token.prefix}${token.command}" was ignored`
         });
         continue;
+      }
+
+      // ^FX (comment): inert by design. Honor label metadata only from a leading
+      // comment — before any other command (the canonical slot the generator
+      // emits, right after ^XA) — so a stray body comment can't rewrite settings.
+      if (token.command === 'FX') {
+        if (!state.sawCommand && !state.labelMeta) {
+          const meta = this._readLabelMeta(token.params);
+          if (meta) state.labelMeta = meta;
+        }
+        continue;
+      }
+      if (token.command !== 'XA' && token.command !== 'XZ') {
+        state.sawCommand = true;
       }
 
       // ^FO starts a new element group
@@ -243,6 +313,12 @@ export class ZPLParser {
       state.labelSettings.customFonts = state.customFonts;
     }
 
+    // Apply validated label metadata last so it overrides ^PW-derived width and
+    // the dpmm/height defaults. Each field is validated independently against the
+    // editor's bounds; an invalid value is ignored (falls back) and warns, while
+    // unknown keys are silently skipped (forward-compat).
+    this._applyLabelMeta(state);
+
     return {
       elements: state.elements,
       labelSettings: state.labelSettings,
@@ -258,6 +334,41 @@ export class ZPLParser {
     if (parts[0]) state.barcodeDefaults.width = parseInt(parts[0]) || 2;
     if (parts[1]) state.barcodeDefaults.ratio = parseFloat(parts[1]) || 2.0;
     if (parts[2]) state.barcodeDefaults.height = parseInt(parts[2]) || state.barcodeDefaults.height;
+  }
+
+  /**
+   * Validate and apply the stashed ^FX label metadata (width/height in mm,
+   * dpmm) over the resolved label settings. Out-of-range values are ignored
+   * (the existing ^PW/option-derived value stands) and produce a warning;
+   * unknown keys are silently dropped.
+   */
+  _applyLabelMeta(state) {
+    const meta = state.labelMeta;
+    if (!meta) return;
+
+    if (meta.w !== undefined) {
+      if (isValidMetaMm(meta.w)) {
+        state.labelSettings.width = meta.w;
+      } else {
+        state.warnings.push({ command: '^FX', message: `Ignored invalid label width "${meta.w}" in metadata (allowed ${META_MM_MIN}–${META_MM_MAX} mm)` });
+      }
+    }
+
+    if (meta.h !== undefined) {
+      if (isValidMetaMm(meta.h)) {
+        state.labelSettings.height = meta.h;
+      } else {
+        state.warnings.push({ command: '^FX', message: `Ignored invalid label height "${meta.h}" in metadata (allowed ${META_MM_MIN}–${META_MM_MAX} mm)` });
+      }
+    }
+
+    if (meta.dpmm !== undefined) {
+      if (isValidMetaDpmm(meta.dpmm)) {
+        state.labelSettings.dpmm = meta.dpmm;
+      } else {
+        state.warnings.push({ command: '^FX', message: `Ignored invalid dpmm "${meta.dpmm}" in metadata (allowed 6, 8, 12, 24)` });
+      }
+    }
   }
 
   /**
