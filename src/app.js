@@ -2402,6 +2402,11 @@ async function doExportForGallery() {
     desc,
   };
 
+  // Preserve addedAt from the loaded template if it had one.
+  if (currentTemplateMetadata && currentTemplateMetadata.addedAt) {
+    metadata.addedAt = currentTemplateMetadata.addedAt;
+  }
+
   const galleryExport = {
     metadata,
     elements: serialized.elements,

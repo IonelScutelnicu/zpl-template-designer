@@ -6,7 +6,8 @@
     "tags": [
       "Code 128"
     ],
-    "desc": "Sample Label for an Air Freight shipment"
+    "desc": "Sample Label for an Air Freight shipment",
+    "addedAt": "2026-05-01"
   },
   "elements": [
     {

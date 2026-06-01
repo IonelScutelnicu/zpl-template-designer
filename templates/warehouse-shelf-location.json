@@ -21,10 +21,11 @@
       "height": 150,
       "width": 3,
       "ratio": 3,
-      "showText": true
+      "showText": true,
+      "reverse": false
     },
     {
-      "x": 29,
+      "x": 10,
       "y": 49,
       "id": 1777491443753.5642,
       "locked": false,
