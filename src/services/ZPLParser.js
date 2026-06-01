@@ -708,10 +708,16 @@ export class ZPLParser {
     // ^BC's own height parameter, when present, overrides the ^BY default.
     if (bcParts[1]) height = parseInt(bcParts[1]) || height;
 
-    const { text, placeholder } = this._parseFieldData(fdToken);
-
-    // Strip Code 128 Subset B start character (>:) if present at the beginning
-    const cleanText = text.startsWith('>:') ? text.slice(2) : text;
+    // Strip Code 128 Subset B start character (>:) before detecting the
+    // placeholder — the placeholder pattern is anchored, so the prefix would
+    // otherwise prevent a match.
+    let rawData = fdToken ? fdToken.params : '';
+    if (rawData.startsWith('>:')) {
+      rawData = rawData.slice(2);
+    }
+    const match = rawData.match(/^%([^%]+)%$/);
+    const cleanText = match ? match[1] : rawData;
+    const placeholder = match ? match[1] : '';
 
     return {
       type: 'BARCODE',

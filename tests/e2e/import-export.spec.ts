@@ -558,4 +558,62 @@ test.describe('Import/Export - Template Persistence', () => {
             fs.unlinkSync(tempPath);
         });
     });
+
+    // ============== ZPL IMPORT - PLACEHOLDERS ==============
+    // Every placeholder-supporting element should round-trip its %placeholder%
+    // through production ZPL generation and re-import. We drive each element from
+    // its real data shape, generate the production ZPL (which substitutes the
+    // %placeholder% the field name carries), parse it back, and assert both the
+    // placeholder and the preview value (placeholder name) survive.
+    test.describe('ZPL import placeholders', () => {
+        const CASES = [
+            {
+                name: 'TEXT',
+                data: { type: 'TEXT', x: 10, y: 10, previewText: 'sample', placeholder: 'name', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
+                field: 'previewText',
+            },
+            {
+                name: 'TEXTBLOCK',
+                data: { type: 'TEXTBLOCK', x: 10, y: 10, previewText: 'sample', placeholder: 'address', fontSize: 30, fontWidth: 30, blockWidth: 200, blockHeight: 50, fontId: '', orientation: 'N', reverse: false },
+                field: 'previewText',
+            },
+            {
+                name: 'FIELDBLOCK',
+                data: { type: 'FIELDBLOCK', x: 10, y: 10, previewText: 'sample', placeholder: 'description', fontSize: 30, fontWidth: 30, blockWidth: 200, maxLines: 2, lineSpacing: 0, justification: 'L', hangingIndent: 0, fontId: '', orientation: 'N', reverse: false },
+                field: 'previewText',
+            },
+            {
+                name: 'BARCODE',
+                data: { type: 'BARCODE', x: 7, y: 0, previewData: '12345', placeholder: 'barcode', height: 20, width: 2, ratio: 3, showText: true, reverse: false },
+                field: 'previewData',
+            },
+            {
+                name: 'QRCODE',
+                data: { type: 'QRCODE', x: 10, y: 10, previewData: 'https://example.com', placeholder: 'url', model: 2, magnification: 5, errorCorrection: 'Q', reverse: false },
+                field: 'previewData',
+            },
+        ];
+
+        for (const { name, data, field } of CASES) {
+            test(`reads ${name} placeholder on import`, async ({ page }) => {
+                const parsed = await page.evaluate(async (elementData) => {
+                    const [{ SerializationService }, { ZPLGenerator }, { ZPLParser }] = await Promise.all([
+                        import('/src/services/SerializationService.js'),
+                        import('/src/services/ZPLGenerator.js'),
+                        import('/src/services/ZPLParser.js'),
+                    ]);
+                    const settings = { width: 50, height: 30, dpmm: 8 };
+                    const element = new SerializationService().createElementFromData(elementData, { keepId: true });
+                    const zpl = new ZPLGenerator().generateZPL([element], settings);
+                    return new ZPLParser().parse(zpl, { dpmm: settings.dpmm, labelHeight: settings.height });
+                }, data);
+
+                const el = parsed.elements.find((e: { type: string }) => e.type === name);
+                expect(el, `${name} element should be parsed`).toBeTruthy();
+                expect(el.placeholder).toBe(data.placeholder);
+                // Preview value falls back to the placeholder name when a field is templated.
+                expect(el[field]).toBe(data.placeholder);
+            });
+        }
+    });
 });
