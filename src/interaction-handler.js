@@ -7,7 +7,7 @@ import {
 } from './elements/QRCodeElement.js';
 import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
-import { snapRequestedToAllowed } from './utils/zplFontSnap.js';
+import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -149,8 +149,11 @@ export class InteractionHandler {
           this.resizeStartWidth = graphicRotated90 ? selectedElement.heightDots : selectedElement.widthDots;
           this.resizeStartHeight = graphicRotated90 ? selectedElement.widthDots : selectedElement.heightDots;
         } else if (selectedElement.type === 'TEXT') {
+          const resolvedFontId = selectedElement.fontId || this.labelSettings?.fontId || '0';
           this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 20;
-          this.resizeStartFontWidth = selectedElement.fontWidth || this.labelSettings?.defaultFontWidth || 20;
+          this.resizeStartFontWidth = selectedElement.fontWidth
+            || this.labelSettings?.defaultFontWidth
+            || proportionalRequestedWidth(resolvedFontId, this.resizeStartHeight);
           // Store the measured text width so horizontal drag tracks the right edge 1:1
           const measuredBounds = this.renderer.measureTextBounds(selectedElement, this.labelSettings);
           this.resizeStartWidth = measuredBounds.width;

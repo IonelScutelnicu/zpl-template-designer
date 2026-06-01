@@ -43,6 +43,20 @@ export function snapRequestedToAllowed(fontId, reqHeight, reqWidth) {
 }
 
 /**
+ * Proportional (width-omitted) requested width for a font at a given requested
+ * height, in stored dot space. Scalable fonts track height 1:1; bitmap fonts use
+ * magWidthStep × the height's magnification.
+ * @param {string} fontId
+ * @param {number} reqHeight - requested height in dots
+ * @returns {number} proportional requested width in dots
+ */
+export function proportionalRequestedWidth(fontId, reqHeight) {
+  const b = ZPL_FONTS[fontId]?.bitmap;
+  if (!b) return reqHeight;
+  return b.magWidthStep * magnification(reqHeight, b.magStep, b.maxMag);
+}
+
+/**
  * Clamp explicit (positive) height/width up to the font's configured minimum
  * (minHeight/minWidth, in dots). A value of 0 — the inherit/proportional sentinel —
  * is preserved. Fonts without a configured minimum pass through unchanged.

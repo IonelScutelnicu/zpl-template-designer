@@ -148,6 +148,35 @@ test.describe('Drag - Element Position', () => {
         expect(fontWidth).toBe(5);
     });
 
+    test('default font: resizing a proportional-width TEXT does not collapse width to the default', async ({ page }) => {
+        // Regression: when the width field was empty (proportional, fontWidth=0), the
+        // resize seed fell back to a hardcoded 20, so the first mouse move snapped the
+        // glyph from 100x100 to 100x20. The seed must come from the font height instead.
+        await page.goto('/?e2e=1');
+        await canvas.waitForReady();
+        await elementsPanel.addTextElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setFontHeight(100); // width left empty -> proportional
+        await setPosition(page, 50, 50);
+
+        // Bottom-right handle of the measured selection box (label-dot coords).
+        const handle = await page.evaluate(() => {
+            const w = window as unknown as {
+                appState: { selectedElement: unknown; labelSettings: unknown };
+                canvasRenderer: { measureTextBounds: (el: unknown, ls: unknown) => { x: number; y: number; width: number; height: number } };
+            };
+            const b = w.canvasRenderer.measureTextBounds(w.appState.selectedElement, w.appState.labelSettings);
+            return { x: b.x + b.width, y: b.y + b.height };
+        });
+
+        // Tiny vertical-only nudge: no horizontal drag, so width must stay ~100.
+        await resizeAndWait(page, handle.x, handle.y, handle.x, handle.y + 4);
+
+        const fontWidth = await page.evaluate(() =>
+            (window as unknown as { appState: { selectedElement: { fontWidth: number } } }).appState.selectedElement.fontWidth);
+        expect(fontWidth).toBeGreaterThan(80);
+    });
+
     // ============== BARCODE ELEMENT ==============
     test('should move BARCODE element when dragged', async ({ page }) => {
         await elementsPanel.addBarcodeElement();
