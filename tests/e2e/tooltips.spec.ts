@@ -19,7 +19,7 @@ test.describe('Tooltips', () => {
         await page.waitForTimeout(600);
         const tooltip = page.locator('.zpl-tooltip');
         await expect(tooltip).toBeVisible();
-        await expect(tooltip).toContainText('Add Barcode element');
+        await expect(tooltip).toContainText('Add 1D Barcode');
     });
 
     test('should show tooltip for Add Circle button', async ({ page }) => {
@@ -127,7 +127,7 @@ test.describe('Tooltips', () => {
         await page.locator('#add-barcode-btn').hover();
         await page.waitForTimeout(600);
         await expect(page.locator('.zpl-tooltip')).toBeVisible();
-        await expect(page.locator('.zpl-tooltip')).toContainText('Add Barcode element');
+        await expect(page.locator('.zpl-tooltip')).toContainText('Add 1D Barcode');
     });
 
     // 7. Properties panel buttons have tooltips (after adding an element)

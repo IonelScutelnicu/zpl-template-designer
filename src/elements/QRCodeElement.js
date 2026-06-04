@@ -1,91 +1,54 @@
 import { ZPLElement } from './ZPLElement.js';
+import { getBarcodeGeometry, matrixModuleDots } from '../utils/barcodeGeometry.js';
 
-// QR Code capacity lookup table (byte mode)
-const QR_BYTE_CAPACITY = {
-    1: { L: 17, M: 14, Q: 11, H: 7 },
-    2: { L: 32, M: 26, Q: 20, H: 14 },
-    3: { L: 53, M: 42, Q: 32, H: 24 },
-    4: { L: 78, M: 62, Q: 46, H: 34 },
-    5: { L: 106, M: 84, Q: 60, H: 44 },
-    6: { L: 134, M: 106, Q: 74, H: 58 },
-    7: { L: 154, M: 122, Q: 86, H: 64 },
-    8: { L: 192, M: 152, Q: 108, H: 84 },
-    9: { L: 230, M: 180, Q: 130, H: 98 },
-    10: { L: 271, M: 213, Q: 151, H: 119 },
-    11: { L: 321, M: 251, Q: 177, H: 137 },
-    12: { L: 367, M: 287, Q: 203, H: 155 },
-    13: { L: 425, M: 331, Q: 241, H: 177 },
-    14: { L: 458, M: 362, Q: 258, H: 194 },
-    15: { L: 520, M: 412, Q: 292, H: 220 },
-    16: { L: 586, M: 450, Q: 322, H: 250 },
-    17: { L: 644, M: 504, Q: 364, H: 280 },
-    18: { L: 718, M: 560, Q: 394, H: 310 },
-    19: { L: 792, M: 624, Q: 442, H: 338 },
-    20: { L: 858, M: 666, Q: 482, H: 382 },
-    21: { L: 929, M: 711, Q: 509, H: 403 },
-    22: { L: 1003, M: 779, Q: 565, H: 439 },
-    23: { L: 1091, M: 857, Q: 611, H: 461 },
-    24: { L: 1171, M: 911, Q: 661, H: 511 },
-    25: { L: 1273, M: 997, Q: 715, H: 535 },
-    26: { L: 1367, M: 1059, Q: 751, H: 593 },
-    27: { L: 1465, M: 1125, Q: 805, H: 625 },
-    28: { L: 1528, M: 1190, Q: 868, H: 658 },
-    29: { L: 1628, M: 1264, Q: 908, H: 698 },
-    30: { L: 1732, M: 1370, Q: 982, H: 742 },
-    31: { L: 1840, M: 1452, Q: 1030, H: 790 },
-    32: { L: 1952, M: 1538, Q: 1112, H: 842 },
-    33: { L: 2068, M: 1628, Q: 1168, H: 898 },
-    34: { L: 2188, M: 1722, Q: 1228, H: 958 },
-    35: { L: 2303, M: 1809, Q: 1283, H: 983 },
-    36: { L: 2431, M: 1911, Q: 1351, H: 1051 },
-    37: { L: 2563, M: 1989, Q: 1423, H: 1093 },
-    38: { L: 2699, M: 2099, Q: 1499, H: 1139 },
-    39: { L: 2809, M: 2213, Q: 1579, H: 1219 },
-    40: { L: 2953, M: 2331, Q: 1663, H: 1273 }
-};
-
-export function calculateQRVersion(dataLength, errorCorrection) {
-    if (dataLength === 0) return 1;
-
-    for (let version = 1; version <= 40; version++) {
-        const capacity = QR_BYTE_CAPACITY[version]?.[errorCorrection];
-        if (capacity && dataLength <= capacity) {
-            return version;
-        }
-    }
-
-    return 40; // Cap at maximum version
-}
-
-export function qrVersionToModules(version) {
-    return 21 + 4 * (version - 1);
-}
-
-// QR Code Element Class
+// 2D Barcode element. The `symbology` selects the ZPL command:
+//   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7
+// QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way).
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false) {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0) {
         super(x, y);
         this.type = 'QRCODE';
+        this.symbology = symbology;
         this.previewData = previewData;
         this.placeholder = placeholder;
+        // QR (^BQ)
         this.model = model;              // 1 = original, 2 = enhanced (recommended)
         this.magnification = magnification; // 1-10 (scaling factor)
         this.errorCorrection = errorCorrection; // H, Q, M, L (high to low)
+        // Data Matrix (^BX)
+        this.moduleSize = moduleSize;    // individual module size in dots
+        this.quality = quality;          // ECC level (200 = ECC 200, recommended)
+        // PDF417 (^B7)
+        this.moduleWidth = moduleWidth;  // X module width in dots (^BY)
+        this.rowHeight = rowHeight;      // row height in dots
+        this.securityLevel = securityLevel; // 0-8
+        this.columns = columns;          // 0 = auto
         this.reverse = reverse; // ^FR (reverse print)
     }
 
-    render() {
-        // ZPL format: ^FOx,y^FR^BQN,model,magnification^FDerrorCorrection,data^FS
-        // ^FR - Reverse print (optional)
-        const content = this.placeholder ? `%${this.placeholder}%` : this.previewData;
+    _render(content) {
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${content}^FS`;
+        const pos = `^FO${this.x},${this.y}${reverseCmd}`;
+        switch (this.symbology) {
+            case 'DATAMATRIX':
+                return `${pos}^BXN,${this.moduleSize},${this.quality}^FD${content}^FS`;
+            case 'PDF417': {
+                const cols = this.columns > 0 ? `,${this.columns}` : '';
+                return `${pos}^BY${this.moduleWidth}^B7N,${this.rowHeight},${this.securityLevel}${cols}^FD${content}^FS`;
+            }
+            case 'QR':
+            default:
+                return `${pos}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${content}^FS`;
+        }
+    }
+
+    render() {
+        return this._render(this.placeholder ? `%${this.placeholder}%` : this.previewData);
     }
 
     renderPreview() {
         // Uses preview data for Labelary API visualization
-        const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${this.previewData}^FS`;
+        return this._render(this.previewData);
     }
 
     getDisplayName() {
@@ -94,12 +57,16 @@ export class QRCodeElement extends ZPLElement {
     }
 
     getBounds() {
-        // QR code size based on data length, error correction, and magnification
-        const dataLength = this.previewData.length;
-        const version = calculateQRVersion(dataLength, this.errorCorrection);
-        const modules = qrVersionToModules(version);
-        const size = modules * this.magnification;
-        return { x: this.x, y: this.y, width: size, height: size + 10 };
+        const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
+        const geom = getBarcodeGeometry(this);
+        if (geom.kind === 'matrix') {
+            const { mx, my } = matrixModuleDots(this);
+            return { x: this.x, y: this.y, width: geom.cols * mx, height: geom.rows * my + yOffset };
+        }
+        // Fallback (encode failed): match the square placeholder the renderers
+        // draw — a 21-module box at magnification, for every symbology.
+        const size = 21 * (this.magnification || 5);
+        return { x: this.x, y: this.y, width: size, height: size + yOffset };
     }
 
     canMatchLabelSize() { return false; }

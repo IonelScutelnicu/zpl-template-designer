@@ -606,7 +606,7 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
                 const appState = (window as any).appState;
                 if (!appState || !appState.elements[0]) return null;
                 const bounds = appState.elements[0].getBounds();
-                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+                return { x: bounds.x + bounds.width, y: bounds.y + bounds.height, width: bounds.width };
             });
             if (!handlePos) throw new Error('Could not get handle position');
 
@@ -616,9 +616,11 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
                 return rect.width / c.width;
             });
 
+            // Module width is an integer, so drag by the barcode's full width to
+            // guarantee the multiplier crosses at least one whole module.
             await canvas.drag(
-                handlePos.x * cssScale,          handlePos.y * cssScale,
-                (handlePos.x + 40) * cssScale,   (handlePos.y + 20) * cssScale
+                handlePos.x * cssScale,                       handlePos.y * cssScale,
+                (handlePos.x + handlePos.width) * cssScale,   (handlePos.y + 20) * cssScale
             );
             await canvas.waitForReady();
 

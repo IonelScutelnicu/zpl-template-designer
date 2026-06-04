@@ -1,10 +1,19 @@
 // Elements List Renderer
 // Generates HTML for the elements list sidebar
 
+import { SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
+
 /**
  * Renderer for the elements list UI
  */
 export class ElementsListRenderer {
+  /** Badge label for an element: symbology name for barcodes, else the type. */
+  typeBadge(element) {
+    if ((element.type === 'BARCODE' || element.type === 'QRCODE') && element.symbology) {
+      return SYMBOLOGY_LABELS[element.symbology] || element.type;
+    }
+    return element.type;
+  }
   /**
    * Render the elements list
    * @param {Array} elements - Array of elements
@@ -45,7 +54,7 @@ export class ElementsListRenderer {
         <div class="flex-1 min-w-0 pr-2">
           <div class="flex items-center gap-2">
             <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-[3px] text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-800">
-              ${element.type}
+              ${this.typeBadge(element)}
             </span>
             ${warningIcon}
           </div>

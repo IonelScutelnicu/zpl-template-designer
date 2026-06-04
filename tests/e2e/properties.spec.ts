@@ -585,17 +585,18 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await elementsPanel.selectElementByIndex(0);
         });
 
-        test('should toggle Barcode showText and reflect in ^BC command', async ({ page }) => {
-            // Default showText=true → 'Y' in ^BC; uncheck → 'N'
-            // #prop-show-text is sr-only (visually hidden), so use force:true
-            const checkbox = page.locator('#prop-show-text');
-            await checkbox.uncheck({ force: true });
+        test('should toggle Barcode showText and reflect in ^BC command', async () => {
+            // Default HRI=Below → 'Y' in ^BC; choosing Off → 'N'
+            await propertiesPanel.panel.locator('[data-hri="off"]').click();
             const zpl = await zplOutput.getZPLCode();
             // ^BC command with Y/N for interpretation line
             expect(zpl).toMatch(/\^BCN,\d+,N/);
         });
 
         test('should update Barcode ratio and reflect in ^BY command', async () => {
+            // Ratio (wide:narrow) only applies to Code 39, so the control is only
+            // shown for that symbology.
+            await propertiesPanel.setSelectValue('prop-symbology', 'CODE39');
             await propertiesPanel.setProperty('prop-ratio', 3);
             const zpl = await zplOutput.getZPLCode();
             // ^BY{width},{ratio} — ratio is the second parameter

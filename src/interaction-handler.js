@@ -1,11 +1,8 @@
 // Interaction Handler for Canvas
 // Handles mouse clicks, drag-to-move, and keyboard events
 
-import {
-  calculateQRVersion,
-  qrVersionToModules
-} from './elements/QRCodeElement.js';
-import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
+import { getBarcodeGeometry, matrixModuleDots, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from './utils/barcodeGeometry.js';
+import { LINE_HEIGHT_RATIO, clampNumber } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
 
@@ -259,18 +256,22 @@ export class InteractionHandler {
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'QRCODE') {
-        // QRCODE only supports bottom-right resize (magnification)
-        const newWidth = Math.max(10, coords.x - this.dragElement.x);
-        const newHeight = Math.max(10, coords.y - this.dragElement.y);
-        const targetSize = Math.min(newWidth, newHeight);
-
-        const dataLength = (this.dragElement.previewData || '').length;
-        const version = calculateQRVersion(dataLength, this.dragElement.errorCorrection);
-        const modules = qrVersionToModules(version);
-        const targetMag = modules > 0 ? Math.round(targetSize / modules) : this.dragElement.magnification;
-        const clamped = Math.max(1, Math.min(10, targetMag));
-
-        this.dragElement.magnification = clamped;
+        // 2D barcodes support bottom-right resize by adjusting their module size.
+        const el = this.dragElement;
+        const newWidth = Math.max(10, coords.x - el.x);
+        const newHeight = Math.max(10, coords.y - el.y);
+        const geom = getBarcodeGeometry(el);
+        const b = BARCODE_2D_SIZE_BOUNDS;
+        if (geom.kind === 'matrix') {
+          if (el.symbology === 'PDF417') {
+            el.moduleWidth = clampNumber(Math.round(newWidth / geom.cols), b.PDF417.moduleWidth.min, b.PDF417.moduleWidth.max);
+            el.rowHeight = clampNumber(Math.round(newHeight / geom.rows), b.PDF417.rowHeight.min, b.PDF417.rowHeight.max);
+          } else if (el.symbology === 'DATAMATRIX') {
+            el.moduleSize = clampNumber(Math.round(Math.min(newWidth, newHeight) / geom.cols), b.DATAMATRIX.moduleSize.min, b.DATAMATRIX.moduleSize.max);
+          } else {
+            el.magnification = clampNumber(Math.round(Math.min(newWidth, newHeight) / geom.cols), b.QR.magnification.min, b.QR.magnification.max);
+          }
+        }
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'TEXT') {
@@ -474,11 +475,12 @@ export class InteractionHandler {
           this.dragElement._needsReencode = true;
         } else if (this.dragElement.type === 'BARCODE') {
           const dataLength = (this.dragElement.previewData || '').length;
-          const totalModules = 35 + (11 * dataLength);
+          const geom = getBarcodeGeometry(this.dragElement);
+          const totalModules = geom.kind === 'linear' ? geom.modules : linearFallbackModules(dataLength);
           const availableWidth = labelW - newX;
-          const maxMultiplier = totalModules > 0 ? Math.min(10, availableWidth / totalModules) : this.dragElement.width;
+          const maxMultiplier = totalModules > 0 ? Math.floor(Math.min(10, availableWidth / totalModules)) : this.dragElement.width;
           const targetMultiplier = totalModules > 0 ? newWidth / totalModules : this.dragElement.width;
-          const roundedMultiplier = Math.round(targetMultiplier * 10) / 10;
+          const roundedMultiplier = Math.round(targetMultiplier);
           const clampedMultiplier = Math.max(1, Math.min(maxMultiplier, roundedMultiplier));
 
           this.dragElement.width = clampedMultiplier;

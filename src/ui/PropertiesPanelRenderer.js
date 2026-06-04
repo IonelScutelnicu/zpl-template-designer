@@ -4,6 +4,23 @@
 import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
+import { SYMBOLOGY_LABELS, SYMBOLOGY_META, BARCODE_SYMBOLOGIES, QR_SYMBOLOGIES, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
+
+// Small inline-SVG glyphs for the symbology picker. Linear symbologies share one
+// barcode glyph; the 2D ones get a representative matrix/stacked glyph.
+const THUMB_LINEAR = `<svg viewBox="0 0 40 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="6" width="2" height="20"/><rect x="7" y="6" width="1" height="20"/><rect x="10" y="6" width="3" height="20"/><rect x="15" y="6" width="1" height="20"/><rect x="18" y="6" width="2" height="20"/><rect x="22" y="6" width="1" height="20"/><rect x="25" y="6" width="2" height="20"/><rect x="29" y="6" width="3" height="20"/><rect x="34" y="6" width="1" height="20"/><rect x="37" y="6" width="2" height="20"/></svg>`;
+const THUMB_QR = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4.5" y="4.5" width="3" height="3"/><rect x="22" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="24.5" y="4.5" width="3" height="3"/><rect x="2" y="22" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4.5" y="24.5" width="3" height="3"/><rect x="14" y="3" width="2" height="2"/><rect x="17" y="6" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/><rect x="16" y="13" width="2" height="2"/><rect x="20" y="16" width="2" height="2"/><rect x="24" y="20" width="2" height="2"/><rect x="27" y="24" width="2" height="2"/><rect x="22" y="26" width="2" height="2"/><rect x="16" y="22" width="2" height="2"/><rect x="13" y="19" width="2" height="2"/></svg>`;
+const THUMB_DATAMATRIX = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="2" height="26"/><rect x="3" y="27" width="26" height="2"/><rect x="5" y="3" width="2" height="2"/><rect x="9" y="3" width="2" height="2"/><rect x="13" y="3" width="2" height="2"/><rect x="17" y="3" width="2" height="2"/><rect x="21" y="3" width="2" height="2"/><rect x="25" y="3" width="2" height="2"/><rect x="27" y="5" width="2" height="2"/><rect x="27" y="9" width="2" height="2"/><rect x="27" y="13" width="2" height="2"/><rect x="27" y="17" width="2" height="2"/><rect x="27" y="21" width="2" height="2"/><rect x="27" y="25" width="2" height="2"/><rect x="7" y="7" width="2" height="2"/><rect x="11" y="9" width="2" height="2"/><rect x="15" y="7" width="2" height="2"/><rect x="19" y="11" width="2" height="2"/><rect x="9" y="15" width="2" height="2"/><rect x="13" y="17" width="2" height="2"/><rect x="17" y="15" width="2" height="2"/><rect x="21" y="19" width="2" height="2"/><rect x="11" y="21" width="2" height="2"/><rect x="19" y="23" width="2" height="2"/><rect x="15" y="23" width="2" height="2"/><rect x="23" y="15" width="2" height="2"/></svg>`;
+const THUMB_PDF417 = `<svg viewBox="0 0 40 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="5" width="3" height="22"/><rect x="8" y="5" width="1" height="22"/><rect x="11" y="5" width="2" height="22"/><rect x="15" y="5" width="1" height="22"/><rect x="18" y="5" width="3" height="22"/><rect x="23" y="5" width="1" height="22"/><rect x="26" y="5" width="2" height="22"/><rect x="30" y="5" width="1" height="22"/><rect x="34" y="5" width="3" height="22"/><rect x="0" y="10" width="40" height="1.2" fill="white"/><rect x="0" y="16" width="40" height="1.2" fill="white"/><rect x="0" y="22" width="40" height="1.2" fill="white"/></svg>`;
+const SYMBOLOGY_THUMBS = {
+  CODE128: THUMB_LINEAR,
+  CODE39: THUMB_LINEAR,
+  EAN13: THUMB_LINEAR,
+  UPCA: THUMB_LINEAR,
+  QR: THUMB_QR,
+  DATAMATRIX: THUMB_DATAMATRIX,
+  PDF417: THUMB_PDF417,
+};
 
 /**
  * Renderer for the properties panel UI
@@ -110,6 +127,152 @@ export class PropertiesPanelRenderer {
         >
       </div>
     `;
+  }
+
+  /**
+   * Render a labelled <select>. `options` is an array of [value, label] pairs.
+   */
+  createSelectGroup(label, id, value, options) {
+    return `
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-slate-700 mb-1">${label}</label>
+        <select id="${id}" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          ${options.map(([v, lbl]) => `<option value="${escapeAttr(v)}" ${String(value) === String(v) ? "selected" : ""}>${lbl}</option>`).join("")}
+        </select>
+      </div>
+    `;
+  }
+
+  /**
+   * Render the custom Symbology picker: a styled trigger button + popover list
+   * of symbologies (thumbnail, name, ZPL command, description). A visually
+   * hidden native <select id="prop-symbology"> holds the canonical value so the
+   * change wiring (and tests) keep working; the popover dispatches to it.
+   * `symbologies` is the ordered list of codes valid for this element type.
+   */
+  renderSymbologyPicker(current, symbologies) {
+    const cat = SYMBOLOGY_META[current]?.dim === '2D' ? '2D · MATRIX' : '1D · LINEAR';
+    const triggerInfo = this.renderSymbologyInfo(current, false);
+    const options = symbologies.map((sym) => {
+      const selected = sym === current;
+      const selClasses = selected ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-slate-50';
+      return `
+        <button type="button" role="option" data-symbology="${sym}" aria-selected="${selected}"
+          class="symbology-option w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition ${selClasses}">
+          ${this.renderSymbologyInfo(sym, true)}
+          <span class="material-icons-round text-blue-500 text-lg shrink-0 ${selected ? '' : 'invisible'}">check</span>
+        </button>`;
+    }).join('');
+
+    const nativeOptions = symbologies
+      .map((sym) => `<option value="${sym}" ${sym === current ? 'selected' : ''}>${SYMBOLOGY_LABELS[sym]}</option>`)
+      .join('');
+
+    return `
+      <div class="symbology-picker relative" data-open="false">
+        <select id="prop-symbology" class="sr-only" tabindex="-1" aria-hidden="true">${nativeOptions}</select>
+        <button type="button" id="symbology-trigger" aria-haspopup="listbox" aria-expanded="false"
+          class="w-full flex items-center gap-3 rounded-xl border border-blue-300 bg-white px-3 py-2.5 text-left shadow-sm ring-1 ring-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 transition">
+          ${triggerInfo}
+          <span class="symbology-chevron material-icons-round text-slate-400 text-lg shrink-0 transition-transform">expand_more</span>
+        </button>
+        <div id="symbology-menu" role="listbox"
+          class="hidden absolute left-0 right-0 mt-1.5 z-30 max-h-72 overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          <div class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">${cat}</div>
+          ${options}
+        </div>
+      </div>`;
+  }
+
+  /**
+   * Render the thumbnail + name + ZPL code + description for one symbology.
+   * Shared by the picker trigger (showCat=false adds the dimension badge) and
+   * each option row (showCat=true).
+   */
+  renderSymbologyInfo(sym, isOption) {
+    const meta = SYMBOLOGY_META[sym] || {};
+    const badge = isOption ? '' : `
+      <span class="shrink-0 text-[10px] font-semibold text-indigo-500 bg-indigo-50 rounded-full px-2 py-0.5">${meta.dim || ''}</span>`;
+    return `
+      <span class="shrink-0 ${isOption ? 'w-11 h-9' : 'w-12 h-10'} flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-800">
+        ${SYMBOLOGY_THUMBS[sym] || ''}
+      </span>
+      <span class="flex-1 min-w-0">
+        <span class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-slate-800 truncate">${SYMBOLOGY_LABELS[sym] || sym}</span>
+          <code class="text-[11px] font-mono text-slate-400">${meta.code || ''}</code>
+        </span>
+        <span class="block text-xs text-slate-400 truncate">${meta.desc || ''}</span>
+      </span>
+      ${badge}`;
+  }
+
+  /**
+   * Render a labelled toggle switch bound to a boolean property.
+   */
+  createToggleGroup(label, id, checked) {
+    return `
+      <div class="mb-3">
+        <label class="flex items-center justify-between cursor-pointer">
+          <span class="text-xs font-medium text-slate-700">${label}</span>
+          <div class="relative">
+            <input type="checkbox" id="${id}" class="sr-only peer" ${checked ? "checked" : ""}>
+            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+          </div>
+        </label>
+      </div>
+    `;
+  }
+
+  /**
+   * Render the N/R/I/B orientation icon button group. Buttons carry
+   * data-orientation + data-tooltip so PropertyListenersManager can wire them
+   * (same markup/contract used by TEXT, TEXTBLOCK, FIELDBLOCK, GRAPHIC).
+   */
+  renderOrientationButtons(orientation) {
+    const btn = (value, label, iconClass) => `
+      <button type="button" data-orientation="${value}"
+        aria-label="${label}"
+        aria-pressed="${orientation === value}"
+        class="flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${orientation === value ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm"}"
+        data-tooltip="${label}">
+        <span class="material-icons-round text-base${iconClass ? ` inline-block ${iconClass}` : ""}">text_rotation_none</span>
+      </button>`;
+    return `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            ${btn("N", "Normal (N)", "")}
+            ${btn("R", "Rotated 90° (R)", "rotate-90")}
+            ${btn("I", "Inverted 180° (I)", "rotate-180")}
+            ${btn("B", "Bottom-Up 270° (B)", "-rotate-90")}
+          </div>
+        </div>`;
+  }
+
+  /**
+   * Render the human-readable interpretation (HRI) segmented control. Combines
+   * showText + printTextAbove into one Off/Below/Above switch: Off → no text,
+   * Below → text under the bars, Above → text over the bars. Buttons carry
+   * data-hri so PropertyListenersManager can wire them.
+   */
+  renderHriControl(element) {
+    const current = !element.showText ? "off" : (element.printTextAbove ? "above" : "below");
+    const btn = (value, label) => `
+      <button type="button" data-hri="${value}"
+        aria-pressed="${current === value}"
+        class="flex-1 flex items-center justify-center py-1.5 px-2 rounded-md text-xs font-medium transition-all ${current === value ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:bg-white hover:text-slate-700 hover:shadow-sm"}">
+        ${label}
+      </button>`;
+    return `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Human-readable (HRI)</label>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            ${btn("off", "Off")}
+            ${btn("below", "Below")}
+            ${btn("above", "Above")}
+          </div>
+        </div>`;
   }
 
   /**
@@ -294,50 +457,90 @@ export class PropertiesPanelRenderer {
   }
 
   /**
-   * Render BARCODE element properties
+   * Render BARCODE (1D) element properties
    */
   renderBarcodeProperties(element) {
+    const symbology = element.symbology || "CODE128";
+    const isCode39 = symbology === "CODE39";
     return `
+      ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, BARCODE_SYMBOLOGIES), { open: true, elementType: element.type })}
       ${this.renderAlignmentControls(element)}
       ${this.renderSection("Position &amp; Size", `
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
           ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
-          ${this.createInputGroup("Width Multiplier", "prop-width", element.width, "number", { min: 1, max: 10, step: 0.1 })}
         </div>
+        ${this.renderOrientationButtons(element.orientation || "N")}
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
         ${this.createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
       `, { elementType: element.type })}
       ${this.renderSection("Barcode Settings", `
-        ${this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 1, max: 10, step: 0.1 })}
-        <div class="mb-3">
-          <label class="flex items-center justify-between cursor-pointer">
-            <span class="text-xs font-medium text-slate-700">Show Text Below Barcode</span>
-            <div class="relative">
-              <input type="checkbox" id="prop-show-text" class="sr-only peer" ${element.showText === true ? "checked" : ""}>
-              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-            </div>
-          </label>
-        </div>
+        ${this.createInputGroup("Module Width", "prop-width", element.width, "number", { min: 1, max: 10 })}
+        ${isCode39 ? this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 2, max: 3, step: 0.1 }) : ""}
+        ${isCode39 ? this.createToggleGroup("Mod-43 Check Digit", "prop-check-digit", element.checkDigit === true) : ""}
+        ${this.renderHriControl(element)}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 
   /**
-   * Render QRCODE element properties
+   * Render the symbology-specific size + settings controls for a 2D barcode.
+   */
+  renderQRCodeSettings(element) {
+    switch (element.symbology) {
+      case "DATAMATRIX":
+        return `
+          ${this.createInputGroup("Module Size", "prop-module-size", element.moduleSize, "number", BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize)}
+          ${this.createSelectGroup("Quality (ECC)", "prop-quality", element.quality, [
+            ["200", "ECC 200 (recommended)"],
+            ["140", "ECC 140"],
+            ["100", "ECC 100"],
+            ["80", "ECC 080"],
+            ["50", "ECC 050"],
+            ["0", "ECC 000"],
+          ])}
+        `;
+      case "PDF417":
+        return `
+          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.PDF417.moduleWidth)}
+          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.PDF417.rowHeight)}
+          ${this.createInputGroup("Security Level", "prop-security-level", element.securityLevel, "number", { min: 0, max: 8 })}
+          ${this.createInputGroup("Columns (0 = auto)", "prop-columns", element.columns, "number", { min: 0, max: 30 })}
+        `;
+      case "QR":
+      default:
+        return `
+          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.QR.magnification)}
+          ${this.createSelectGroup("Model", "prop-model", element.model, [
+            ["1", "Model 1 (Original)"],
+            ["2", "Model 2 (Enhanced)"],
+          ])}
+          ${this.createSelectGroup("Error Correction", "prop-error-correction", element.errorCorrection, [
+            ["H", "H - Ultra-High (30%)"],
+            ["Q", "Q - Quality (25%)"],
+            ["M", "M - Medium (15%)"],
+            ["L", "L - Low (7%)"],
+          ])}
+        `;
+    }
+  }
+
+  /**
+   * Render QRCODE (2D) element properties
    */
   renderQRCodeProperties(element) {
+    const symbology = element.symbology || "QR";
     return `
+      ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, QR_SYMBOLOGIES), { open: true, elementType: element.type })}
       ${this.renderAlignmentControls(element)}
-      ${this.renderSection("Position &amp; Size", `
+      ${this.renderSection("Position", `
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", { min: 1, max: 10 })}
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
@@ -351,24 +554,7 @@ export class PropertiesPanelRenderer {
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
       `, { elementType: element.type })}
-      ${this.renderSection("QR Settings", `
-        <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-700 mb-1">Model</label>
-          <select id="prop-model" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="1" ${element.model === 1 ? "selected" : ""}>Model 1 (Original)</option>
-            <option value="2" ${element.model === 2 ? "selected" : ""}>Model 2 (Enhanced)</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-700 mb-1">Error Correction</label>
-          <select id="prop-error-correction" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-            <option value="H" ${element.errorCorrection === "H" ? "selected" : ""}>H - Ultra-High (30%)</option>
-            <option value="Q" ${element.errorCorrection === "Q" ? "selected" : ""}>Q - Quality (25%)</option>
-            <option value="M" ${element.errorCorrection === "M" ? "selected" : ""}>M - Medium (15%)</option>
-            <option value="L" ${element.errorCorrection === "L" ? "selected" : ""}>L - Low (7%)</option>
-          </select>
-        </div>
-      `, { open: true, elementType: element.type })}
+      ${this.renderSection("2D Barcode Settings", this.renderQRCodeSettings(element), { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }

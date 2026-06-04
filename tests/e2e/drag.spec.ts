@@ -202,7 +202,7 @@ test.describe('Drag - Element Position', () => {
 
         const height = parseInt(await propertiesPanel.getProperty('prop-height'));
 
-        // Grab the bottom resize handle (mid-width estimate) and drag downward
+        // Grab the bottom resize handle (barcode mid-width ≈ 145 dots) and drag downward
         await resizeAndWait(page, 100 + 145, 100 + height, 100 + 145, 100 + height + 60);
 
         await elementsPanel.selectElementByIndex(0);

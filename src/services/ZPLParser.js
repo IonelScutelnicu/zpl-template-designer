@@ -10,7 +10,10 @@ import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
-  'BQ', 'GB', 'GE', 'GC', 'GF', 'FX'
+  'BQ', 'GB', 'GE', 'GC', 'GF', 'FX',
+  // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
+  // 'B' since the tokenizer only captures letters; ^BE/^BU/^BX are two-letter.
+  'B', 'BE', 'BU', 'BX'
 ]);
 
 /**
@@ -222,8 +225,15 @@ export class ZPLParser {
     };
 
     for (const token of tokens) {
-      // Check for unknown commands
-      if (!KNOWN_COMMANDS.has(token.command)) {
+      // Check for unknown commands. ^B is only "known" for ^B3 (Code 39) and
+      // ^B7 (PDF417); other numeric variants (^B1/^B2/^B8/^B9, …) have no
+      // dispatch branch and would otherwise be dropped silently, so they must
+      // still warn.
+      const isKnown = KNOWN_COMMANDS.has(token.command)
+        && (token.command !== 'B'
+          || token.params.charAt(0) === '3'
+          || token.params.charAt(0) === '7');
+      if (!isKnown) {
         state.warnings.push({
           command: `${token.prefix}${token.command}`,
           message: `Unsupported command "${token.prefix}${token.command}" was ignored`
@@ -510,8 +520,34 @@ export class ZPLParser {
       return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), hasCommand('FR'), state);
     }
 
+    if (hasCommand('BX')) {
+      return this._parseDataMatrix(group, getCommand('BX'), getCommand('FD'), hasCommand('FR'));
+    }
+
+    if (hasCommand('BE')) {
+      return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13');
+    }
+
+    if (hasCommand('BU')) {
+      return this._parseBarcode(group, getCommand('BU'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCA');
+    }
+
     if (hasCommand('BC')) {
-      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE128');
+    }
+
+    // ^B3 (Code 39) and ^B7 (PDF417) tokenize as command 'B' with the digit
+    // pushed into params, since the tokenizer only captures letters.
+    if (hasCommand('B')) {
+      const bToken = getCommand('B');
+      const sub = bToken.params.charAt(0);
+      const shifted = { ...bToken, params: bToken.params.slice(1) };
+      if (sub === '3') {
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE39');
+      }
+      if (sub === '7') {
+        return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'));
+      }
     }
 
     if (hasCommand('A') && hasCommand('TB')) {
@@ -688,12 +724,29 @@ export class ZPLParser {
   }
 
   /**
-   * Parse BARCODE element from ^BC + ^FD (with optional ^BY)
+   * Parse a 1D BARCODE element from its command + ^FD (with optional ^BY).
+   * Handles ^BC (Code 128), ^B3 (Code 39), ^BE (EAN-13), ^BU (UPC-A); the
+   * height/interpretation parameter positions differ for Code 39.
    */
-  _parseBarcode(group, bcToken, byToken, fdToken, hasReverse, state) {
-    // ^BC params: orientation,height,interpretation
-    const bcParts = bcToken.params.split(',');
-    const showText = (bcParts[2] || 'Y').trim() !== 'N';
+  _parseBarcode(group, token, byToken, fdToken, hasReverse, state, symbology = 'CODE128') {
+    const parts = token.params.split(',');
+
+    // Orientation is always the first param; default N for an empty/invalid value.
+    const rawOrientation = (parts[0] || 'N').trim().toUpperCase();
+    const orientation = ['N', 'R', 'I', 'B'].includes(rawOrientation) ? rawOrientation : 'N';
+
+    // Code 39 (^B3o,e,h,f) carries a check-digit param before height.
+    let heightIdx = 1;
+    let showIdx = 2;
+    let checkDigit = false;
+    if (symbology === 'CODE39') {
+      checkDigit = (parts[1] || 'N').trim() === 'Y';
+      heightIdx = 2;
+      showIdx = 3;
+    }
+    const showText = (parts[showIdx] || 'Y').trim() !== 'N';
+    // "Print interpretation line above code" (g) sits right after f in all four commands.
+    const printTextAbove = (parts[showIdx + 1] || 'N').trim() === 'Y';
 
     // Use ^BY from this group if present, otherwise from state
     let width = state.barcodeDefaults.width;
@@ -705,14 +758,14 @@ export class ZPLParser {
       if (byParts[1]) ratio = parseFloat(byParts[1]) || ratio;
       if (byParts[2]) height = parseInt(byParts[2]) || height;
     }
-    // ^BC's own height parameter, when present, overrides the ^BY default.
-    if (bcParts[1]) height = parseInt(bcParts[1]) || height;
+    // The command's own height parameter, when present, overrides the ^BY default.
+    if (parts[heightIdx]) height = parseInt(parts[heightIdx]) || height;
 
     // Strip Code 128 Subset B start character (>:) before detecting the
     // placeholder — the placeholder pattern is anchored, so the prefix would
     // otherwise prevent a match.
     let rawData = fdToken ? fdToken.params : '';
-    if (rawData.startsWith('>:')) {
+    if (symbology === 'CODE128' && rawData.startsWith('>:')) {
       rawData = rawData.slice(2);
     }
     const match = rawData.match(/^%([^%]+)%$/);
@@ -721,6 +774,7 @@ export class ZPLParser {
 
     return {
       type: 'BARCODE',
+      symbology,
       x: group.x,
       y: group.y,
       previewData: cleanText,
@@ -729,6 +783,68 @@ export class ZPLParser {
       width,
       ratio,
       showText,
+      checkDigit,
+      orientation,
+      printTextAbove,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse a Data Matrix element from ^BX + ^FD
+   */
+  _parseDataMatrix(group, bxToken, fdToken, hasReverse) {
+    // ^BX params: orientation,height(module size),quality,columns,rows,...
+    const parts = bxToken.params.split(',');
+    const moduleSize = parseInt(parts[1]) || 4;
+    const quality = parseInt(parts[2]) || 200;
+
+    const rawData = fdToken ? fdToken.params : '';
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'DATAMATRIX',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      moduleSize,
+      quality,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse a PDF417 element from ^B7 + ^FD (with optional ^BY for module width)
+   */
+  _parsePDF417(group, b7Token, byToken, fdToken, hasReverse) {
+    // ^B7 params: orientation,rowHeight,securityLevel,columns,rows,truncate
+    const parts = b7Token.params.split(',');
+    const rowHeight = parseInt(parts[1]) || 4;
+    const securityLevel = parseInt(parts[2]);
+    const columns = parseInt(parts[3]) || 0;
+
+    let moduleWidth = 2;
+    if (byToken) {
+      const byParts = byToken.params.split(',');
+      if (byParts[0]) moduleWidth = parseInt(byParts[0]) || 2;
+    }
+
+    const rawData = fdToken ? fdToken.params : '';
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'PDF417',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      moduleWidth,
+      rowHeight,
+      securityLevel: Number.isNaN(securityLevel) ? 5 : securityLevel,
+      columns,
       reverse: hasReverse
     };
   }
@@ -764,6 +880,7 @@ export class ZPLParser {
 
     return {
       type: 'QRCODE',
+      symbology: 'QR',
       x: group.x,
       y: group.y,
       previewData,

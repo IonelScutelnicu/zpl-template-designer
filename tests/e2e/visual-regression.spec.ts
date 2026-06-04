@@ -147,6 +147,44 @@ test.describe('Visual Regression Tests', () => {
         });
     });
 
+    // ============== BARCODE SYMBOLOGY BASELINES ==============
+    test.describe('Barcode Symbology Baselines', () => {
+        const cases = [
+            { kind: '1d', symbology: 'CODE128', data: '1234567890' },
+            { kind: '1d', symbology: 'CODE39', data: 'CODE39' },
+            { kind: '1d', symbology: 'EAN13', data: '123456789012' },
+            { kind: '1d', symbology: 'UPCA', data: '12345678901' },
+            { kind: '2d', symbology: 'QR', data: 'https://test.com' },
+            { kind: '2d', symbology: 'DATAMATRIX', data: 'Data Matrix' },
+            { kind: '2d', symbology: 'PDF417', data: 'PDF417 sample' },
+        ] as const;
+
+        for (const c of cases) {
+            test(`should render ${c.symbology} consistently`, async ({ page }) => {
+                if (c.kind === '1d') {
+                    await elementsPanel.addBarcodeElement();
+                } else {
+                    await elementsPanel.addQRCodeElement();
+                }
+                await elementsPanel.selectElementByIndex(0);
+                await propertiesPanel.setSelectValue('prop-symbology', c.symbology);
+
+                await page.locator('#prop-x').fill('80');
+                await page.locator('#prop-x').dispatchEvent('input');
+                await page.locator('#prop-y').fill('80');
+                await page.locator('#prop-y').dispatchEvent('input');
+                await page.locator('#prop-preview-data').fill(c.data);
+                await page.locator('#prop-preview-data').dispatchEvent('input');
+
+                await canvas.waitForReady();
+                const screenshot = await canvas.takeScreenshot();
+                const result = await compareWithBaseline(screenshot, `canvas-sym-${c.symbology.toLowerCase()}`, { threshold: 0.1 });
+
+                expect(result.diffPercentage).toBeLessThan(5);
+            });
+        }
+    });
+
     // ============== ELEMENT POSITIONING ACCURACY ==============
     test.describe('Element Positioning Accuracy', () => {
         test('should render element at exact position specified', async ({ page }) => {

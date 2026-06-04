@@ -1,0 +1,395 @@
+// Barcode geometry
+// Single source of truth for barcode/2D module geometry, backed by bwip-js.
+// Used by element models (bounds), renderers (drawing), and resize/match logic
+// so on-canvas size always reflects the real encoded symbol.
+
+import bwipjs from '../vendor/bwip-js.mjs';
+
+// Map our symbology codes to bwip-js bcid names.
+const BWIP_BCID = {
+  CODE128: 'code128',
+  CODE39: 'code39',
+  EAN13: 'ean13',
+  UPCA: 'upca',
+  QR: 'qrcode',
+  DATAMATRIX: 'datamatrix',
+  PDF417: 'pdf417',
+};
+
+// 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'EAN13', 'UPCA'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417'];
+
+// Human-readable labels (dropdowns, placeholder fallback).
+export const SYMBOLOGY_LABELS = {
+  CODE128: 'Code 128',
+  CODE39: 'Code 39',
+  EAN13: 'EAN-13',
+  UPCA: 'UPC-A',
+  QR: 'QR Code',
+  DATAMATRIX: 'Data Matrix',
+  PDF417: 'PDF417',
+};
+
+// Rich metadata for the symbology picker UI: ZPL command, one-line description
+// and dimension family. Keyed by symbology code; label comes from SYMBOLOGY_LABELS.
+export const SYMBOLOGY_META = {
+  CODE128: { code: '^BC', desc: 'Alphanumeric · variable length', dim: '1D' },
+  CODE39: { code: '^B3', desc: 'A–Z, 0–9, symbols · variable', dim: '1D' },
+  EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
+  UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
+  QR: { code: '^BQ', desc: 'Matrix · URLs, high capacity', dim: '2D' },
+  DATAMATRIX: { code: '^BX', desc: 'Matrix · tiny marks, GS1', dim: '2D' },
+  PDF417: { code: '^B7', desc: 'Stacked · IDs, large payloads', dim: '2D' },
+};
+
+// Default preview data per symbology (valid for each so a fresh element renders
+// cleanly). Also used by the symbology-switch behaviour in PropertyListenersManager.
+export const DEFAULT_PREVIEW_DATA = {
+  CODE128: '1234567890',
+  CODE39: 'CODE39',
+  EAN13: '123456789012',
+  UPCA: '12345678901',
+  QR: 'https://example.com',
+  DATAMATRIX: 'Data Matrix',
+  PDF417: 'PDF417',
+};
+
+// Fixed-length numeric symbologies: ZPL auto-truncates / left-pads with zeros to
+// exactly this many ^FD chars (printer computes the trailing check digit). These
+// barcodes are digit-only, so any disallowed character is mapped to '0' first.
+// Mirror that here so the canvas (bwip-js) matches Labelary/printer output. (^BE doc)
+const FIXED_FD_LENGTH = { EAN13: 12, UPCA: 11 };
+
+export function normalizeBarcodeData(symbology, data) {
+  const len = FIXED_FD_LENGTH[symbology];
+  let s = data || '';
+  if (!len) return s;
+  s = s.replace(/\D/g, '0'); // numeric-only: disallowed chars become '0'
+  // Right-aligned: keep the trailing `len` chars (Labelary truncates leading
+  // overflow) / left-pad short data with zeros.
+  return s.length > len ? s.slice(-len) : s.padStart(len, '0');
+}
+
+/** Resolve an element's symbology, defaulting by element type for legacy data. */
+export function resolveSymbology(element) {
+  return element.symbology || (element.type === 'QRCODE' ? 'QR' : 'CODE128');
+}
+
+/**
+ * Per-symbology 2D-barcode size fields and their clamp ranges. Single source of
+ * truth for the {min, max} limits shared by drag-resize (interaction-handler),
+ * match-to-label (AlignmentService), and the properties-panel inputs
+ * (PropertiesPanelRenderer) so those sites can't drift apart. The {min, max}
+ * shape is consumed directly by createInputGroup's options.
+ */
+export const BARCODE_2D_SIZE_BOUNDS = {
+  PDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
+  DATAMATRIX: { moduleSize: { min: 1, max: 30 } },
+  QR: { magnification: { min: 1, max: 10 } }
+};
+
+/** Pixel size (in dots) of a single matrix module for a 2D element. */
+export function matrixModuleDots(element) {
+  switch (resolveSymbology(element)) {
+    case 'DATAMATRIX':
+      return { mx: element.moduleSize || 4, my: element.moduleSize || 4 };
+    case 'PDF417':
+      return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
+    case 'QR':
+    default:
+      return { mx: element.magnification || 5, my: element.magnification || 5 };
+  }
+}
+
+/** Code 128 module-count estimate, used as a fallback when encoding fails. */
+export function linearFallbackModules(dataLength) {
+  return 35 + 11 * dataLength;
+}
+
+const POSITIONED_TEXT_SYMBOLOGIES = new Set(['EAN13', 'UPCA']);
+
+// HRI (human-readable interpretation) line config. `hriFontConfig` is the single
+// source of truth, grouped by barcode family (`EAN` covers EAN-13/UPC-A, `CODE`
+// covers Code 128/39), then by position (`top`/`bottom`); HRI_CONFIG maps each
+// symbology to its family. Every position declares the font, placement, and a
+// per-module-width (1–10) map — all plain, hand-tunable data, consumed by the
+// renderer (barcodeRender.js) via getHriConfig().
+//
+//   font.id     ZPL font id — gets preloaded (fontLoader), and is required by the
+//               bitmap font-model. Set it whenever the line uses a bundled font
+//               (font A, OCR-B) so its FontFace is loaded, even for direct rendering.
+//   font.model  true → render via the bitmap font-model (family + scaleX stretch from
+//               ZPL_FONTS[id]); module entries give requested {height,width} in dots.
+//   font.family CSS family for direct pixel rendering; module entries give {fontSize}
+//               in dots. `letterSpacing` (a ratio of fontSize) is optional. A line may
+//               set both `id` (to preload) and `family` (e.g. OCR-B below).
+//   placement: 'center'    → one centered string above/below the bars.
+//              'fragments' → place each bwip HRI fragment by its x-offset (EAN/UPC
+//                            below: digit groups split across the guard bars).
+//   module[mw]: per-module-width { height,width | fontSize, gap, xOffset } in dots.
+//               xOffset horizontally nudges the line (positive = right).
+const HRI_OCRB = '"OCRB", monospace';
+
+const hriFontConfig = {
+  EAN: {
+    top: {
+      font: { id: 'A', model: true },
+      placement: 'center',
+      module: {
+        1: { height: 9, width: 5, gap: 10, xOffset: -1 },
+        2: { height: 18, width: 10, gap: 12, xOffset: -3 },
+        3: { height: 27, width: 15, gap: 14, xOffset: -3 },
+        4: { height: 36, width: 20, gap: 16, xOffset: -5 },
+        5: { height: 45, width: 25, gap: 18, xOffset: -6 },
+        6: { height: 54, width: 30, gap: 20, xOffset: -8 },
+        7: { height: 63, width: 35, gap: 22, xOffset: -8 },
+        8: { height: 72, width: 40, gap: 24, xOffset: -8 },
+        9: { height: 81, width: 45, gap: 26, xOffset: -9 },
+        10:{ height: 90, width: 50, gap: 28, xOffset: -11 },
+      }
+    },
+    bottom: {
+      font: { id: 'E', family: HRI_OCRB }, // OCR-B: id preloads the FontFace, family renders direct-px
+      placement: 'fragments',
+      module: {
+        1: { fontSize: 8, gap: 4, xOffset: 2 },
+        2: { fontSize: 18, gap: 4, xOffset: 2 },
+        3: { fontSize: 28, gap: 5, xOffset: 3 },
+        4: { fontSize: 28, gap: 5, xOffset: 2 },
+        5: { fontSize: 28, gap: 5, xOffset: 2 },
+        6: { fontSize: 28, gap: 5, xOffset: 0 },
+        7: { fontSize: 28, gap: 5, xOffset: 0 },
+        8: { fontSize: 56, gap: 7, xOffset: 3 },
+        9: { fontSize: 56, gap: 7, xOffset: 2 },
+        10:{ fontSize: 56, gap: 7, xOffset: 2 },
+      }
+    },
+  },
+  CODE: {
+    top: {
+      font: { id: 'A', model: true },
+      placement: 'center',
+      letterSpacing: 0.12,
+      module: {
+        1: { height: 9, width: 5, gap: 10, xOffset: -1 },
+        2: { height: 18, width: 10, gap: 12, xOffset: -1 },
+        3: { height: 27, width: 15, gap: 14, xOffset: -2 },
+        4: { height: 36, width: 20, gap: 16, xOffset: -4 },
+        5: { height: 45, width: 25, gap: 18, xOffset: -4 },
+        6: { height: 54, width: 30, gap: 20, xOffset: -5 },
+        7: { height: 63, width: 35, gap: 22, xOffset: -5 },
+        8: { height: 72, width: 40, gap: 24, xOffset: -5 },
+        9: { height: 81, width: 45, gap: 26, xOffset: -5 },
+        10:{ height: 90, width: 50, gap: 28, xOffset: -6 },
+      }
+    },
+    bottom: {
+      font: { id: 'A', model: true },
+      placement: 'center',
+      letterSpacing: 0.12,
+      module: {
+        1: { height: 9, width: 5, gap: 6, xOffset: -1 },
+        2: { height: 18, width: 10, gap: 6, xOffset: -1 },
+        3: { height: 27, width: 15, gap: 6, xOffset: -2 },
+        4: { height: 36, width: 20, gap: 6, xOffset: -3 },
+        5: { height: 45, width: 25, gap: 6, xOffset: -4 },
+        6: { height: 54, width: 30, gap: 6, xOffset: -5 },
+        7: { height: 63, width: 35, gap: 6, xOffset: -5 },
+        8: { height: 72, width: 40, gap: 6, xOffset: -5 },
+        9: { height: 81, width: 45, gap: 6, xOffset: -5 },
+        10:{ height: 90, width: 50, gap: 6, xOffset: -6 },
+      }
+    }
+  }
+}
+
+// Symbology → HRI family. EAN-13/UPC-A share one entry; Code 128/39 share another.
+export const HRI_CONFIG = {
+  EAN13: hriFontConfig.EAN,
+  UPCA: hriFontConfig.EAN,
+  CODE128: hriFontConfig.CODE,
+  CODE39: hriFontConfig.CODE,
+};
+
+/** Resolve the HRI line config for a symbology + position, or null if none. */
+export function getHriConfig(symbology, above) {
+  return HRI_CONFIG[symbology]?.[above ? 'top' : 'bottom'] || null;
+}
+
+// Code 39 symbol values, indexed for the mod-43 check digit.
+const CODE39_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%';
+
+/**
+ * Compute the Code 39 mod-43 check character for `data` (the char Zebra appends to
+ * the HRI when ^B3's check-digit flag is on). Returns '' if any char is outside the
+ * Code 39 set — in that case bwip can't encode the data either, so it never shows.
+ */
+export function code39CheckChar(data) {
+  let sum = 0;
+  for (const ch of data || '') {
+    const idx = CODE39_CHARS.indexOf(ch);
+    if (idx < 0) return '';
+    sum += idx;
+  }
+  return CODE39_CHARS[sum % 43];
+}
+
+/** Build the bwip-js options object for an element's current symbology + data. */
+function buildBwipOptions(element) {
+  const symbology = resolveSymbology(element);
+  const opts = { bcid: BWIP_BCID[symbology] || 'code128', text: normalizeBarcodeData(symbology, element.previewData) };
+  if (POSITIONED_TEXT_SYMBOLOGIES.has(symbology)) {
+    // Always request text geometry: bwip only emits EAN/UPC's extended guard bars
+    // (the taller bars at the start/middle/end) when includetext is on. We want
+    // those guard bars even when the HRI line is hidden — the renderer gates the
+    // actual text drawing on element.showText, so this only affects bar heights.
+    opts.includetext = true;
+  }
+  if (symbology === 'CODE39' && element.checkDigit) {
+    // ^B3 with the mod-43 check digit enabled (e param Y): the printer appends one
+    // computed check character, widening the symbol by one Code 39 character. Mirror
+    // that on the canvas so the bar count matches Labelary. (The check char is added
+    // to the HRI line by BarcodeRenderer via code39CheckChar.)
+    opts.includecheck = true;
+  }
+  if (symbology === 'CODE128') {
+    // Mirror the ZPL `^FD>:` prefix (BarcodeElement): force Code 128 Subset B so
+    // the canvas geometry matches Labelary, whose ^BC defaults to Subset B. Without
+    // this, bwip-js auto-selects the more compact Subset C for digit-only data,
+    // making the on-canvas barcode narrower than what actually prints.
+    opts.newencoder = true; // suppressc is only honoured by the new encoder path
+    opts.suppressc = true;
+  }
+  if (symbology === 'QR') {
+    opts.eclevel = element.errorCorrection || 'Q';
+  } else if (symbology === 'PDF417') {
+    if (element.securityLevel != null) opts.eclevel = element.securityLevel;
+    if (element.columns > 0) {
+      opts.columns = element.columns;
+    } else {
+      // Mirror Zebra's auto-column sizing so the canvas width matches Labelary.
+      const cols = pdf417PreferredColumns(opts);
+      if (cols > 0) opts.columns = cols;
+    }
+  }
+  return opts;
+}
+
+const geomCache = new Map();
+const CACHE_MAX = 256;
+
+// Predicted PDF417 column counts, keyed by `text|eclevel`. buildBwipOptions runs
+// before the geometry cache is consulted, so memoising here keeps the extra probe
+// encode off the hot path for repeated lookups of the same symbol.
+const pdf417ColsCache = new Map();
+
+/**
+ * Pick the data-column count Zebra/Labelary firmware would choose for an auto
+ * (columns=0) PDF417 symbol. bwip-js's own auto-columns runs consistently wider
+ * than Zebra, so the on-canvas symbol ends up too wide versus the Labelary
+ * preview. Zebra instead sizes the symbol toward a ~2:1 printed width:height
+ * aspect, with rows at the PDF417 spec's 3-module height. We probe-encode once
+ * (bwip auto) to get the total codeword count N, then choose the column count
+ * whose resulting symbol is closest to that aspect (empirically matches Labelary
+ * across security levels 0–8 and a range of data lengths).
+ */
+function pdf417PreferredColumns(opts) {
+  const key = `${opts.text}|${opts.eclevel ?? ''}`;
+  const cached = pdf417ColsCache.get(key);
+  if (cached != null) return cached;
+
+  let cols = 0;
+  try {
+    const probe = bwipjs.raw({ bcid: 'pdf417', text: opts.text, eclevel: opts.eclevel });
+    const o = probe.find((e) => e && e.pixs);
+    if (o) {
+      // PDF417 row width in modules is 17·columns + 69, so columns = (pixx − 69)/17.
+      const autoCols = Math.round((+o.pixx - 69) / 17);
+      const n = autoCols * (o.pixs.length / +o.pixx); // total codewords
+      let best = null;
+      for (let c = 1; c <= 30; c++) {
+        const rows = Math.max(3, Math.ceil(n / c));
+        if (rows > 90) continue;
+        const aspect = (17 * c + 69) / (3 * rows);
+        const dev = Math.abs(aspect - 2.06);
+        // `<=` breaks near-ties toward more columns, matching Zebra's bias.
+        if (!best || dev <= best.dev) best = { c, dev };
+      }
+      cols = best ? best.c : 0;
+    }
+  } catch {
+    cols = 0; // fall back to bwip auto; encode errors surface downstream.
+  }
+
+  if (pdf417ColsCache.size >= CACHE_MAX) pdf417ColsCache.clear();
+  pdf417ColsCache.set(key, cols);
+  return cols;
+}
+
+/**
+ * Encode an element with bwip-js and return its raw geometry.
+ * @returns {{kind:'linear', sbs:number[], modules:number}
+ *          | {kind:'matrix', cols:number, rows:number, pixs:number[]}
+ *          | {kind:'error', message:string}}
+ */
+export function getBarcodeGeometry(element) {
+  const opts = buildBwipOptions(element);
+  const symbology = resolveSymbology(element);
+  // Code 39's wide:narrow ratio comes from the element (^BY ratio), not bwip. The
+  // printer can only print whole dots, so the wide bar is floor(w·r) dots and the
+  // *effective* ratio is floor(w·r)/w — not the literal r (see ^BY "Module Width
+  // Ratios in Dots"). Using the effective ratio keeps the canvas width in sync with
+  // Labelary (e.g. w=2, r=2.3 prints at 2:1, not 2.3:1).
+  const wnRatio = symbology === 'CODE39'
+    ? Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2)
+    : 0;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
+  const cached = geomCache.get(key);
+  if (cached) return cached;
+
+  let result;
+  try {
+    const stack = bwipjs.raw(opts);
+    const o = stack.find((e) => e && (e.sbs || e.pixs)) || stack[0];
+    if (o && o.pixs) {
+      // bwip's pixy is the rendered pixel height, which for PDF417 bakes in a
+      // default row multiplier (e.g. 14 module rows reported as pixy=42). pixs is
+      // stored at true module resolution, so derive the real row count from it —
+      // our own rowHeight/moduleSize handles vertical scaling. (QR/Data Matrix are
+      // square so pixy already equals the row count.)
+      const cols = +o.pixx;
+      result = { kind: 'matrix', cols, rows: o.pixs.length / cols, pixs: o.pixs };
+    } else if (o && o.sbs) {
+      // bwip-js encodes Code 39 at a fixed 3:1 wide:narrow ratio. Rescale the wide
+      // elements (value 3) to the element's effective ^BY ratio (wnRatio, quantized
+      // above) so the canvas width matches Labelary; other linear symbologies
+      // (Code 128, EAN/UPC) keep bwip's widths.
+      const sbs = wnRatio && wnRatio !== 3
+        ? Array.from(o.sbs, (v) => (v === 3 ? wnRatio : v))
+        : o.sbs;
+      let modules = 0;
+      for (let i = 0; i < sbs.length; i++) modules += sbs[i];
+      result = {
+        kind: 'linear',
+        sbs,
+        modules,
+        bhs: Array.isArray(o.bhs) ? o.bhs : null,
+        bbs: Array.isArray(o.bbs) ? o.bbs : null,
+        // Only trust bwip's text positions when we asked for them (includetext,
+        // i.e. EAN13/UPCA). Without it bwip still emits a degenerate entry with a
+        // null y-offset for Code 128/39; treating that as positioned text draws it
+        // over the bars. Leaving txt null lets the renderer draw centered text below.
+        txt: (opts.includetext && Array.isArray(o.txt) && o.txt.length > 0) ? o.txt : null,
+      };
+    } else {
+      result = { kind: 'error', message: 'No barcode geometry produced' };
+    }
+  } catch (e) {
+    result = { kind: 'error', message: String((e && e.message) || e) };
+  }
+
+  if (geomCache.size >= CACHE_MAX) geomCache.clear();
+  geomCache.set(key, result);
+  return result;
+}

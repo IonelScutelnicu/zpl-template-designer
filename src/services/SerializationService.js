@@ -78,7 +78,11 @@ export class SerializationService {
           data.ratio,
           data.placeholder,
           data.showText,
-          data.reverse
+          data.reverse,
+          data.symbology,
+          data.checkDigit,
+          data.orientation,
+          data.printTextAbove
         );
         break;
 

@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel } from '../page-objects';
+import { ElementsPanel, PropertiesPanel } from '../page-objects';
 
 const ZPL_DOC_EXPECTED: Record<string, { command: string; url: string }> = {
   TEXT: { command: '^A', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-a.html' },
@@ -58,6 +58,44 @@ test.describe('ZPL Documentation Link', () => {
     await page.locator('#prop-circle-aspect-lock').click();
     await expect(link).toHaveText('^GE docs');
     await expect(link).toHaveAttribute('href', 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html');
+  });
+
+  test('doc link follows the barcode symbology (^BC → ^B3 → ^BE → ^BU)', async ({ page }) => {
+    const propertiesPanel = new PropertiesPanel(page);
+    await elementsPanel.addBarcodeElement();
+    await elementsPanel.selectElementByIndex(0);
+
+    const link = page.locator('#zpl-doc-link');
+    await expect(link).toHaveText('^BC docs');
+
+    const cases = [
+      { symbology: 'CODE39', command: '^B3', slug: 'r-zpl-b3' },
+      { symbology: 'EAN13', command: '^BE', slug: 'r-zpl-be' },
+      { symbology: 'UPCA', command: '^BU', slug: 'r-zpl-bu' },
+      { symbology: 'CODE128', command: '^BC', slug: 'r-zpl-bc' },
+    ];
+    for (const { symbology, command, slug } of cases) {
+      await propertiesPanel.setSelectValue('prop-symbology', symbology);
+      await expect(link).toHaveText(`${command} docs`);
+      await expect(link).toHaveAttribute('href', `https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/${slug}.html`);
+    }
+  });
+
+  test('doc link follows the 2D symbology (^BQ → ^BX → ^B7)', async ({ page }) => {
+    const propertiesPanel = new PropertiesPanel(page);
+    await elementsPanel.addQRCodeElement();
+    await elementsPanel.selectElementByIndex(0);
+
+    const link = page.locator('#zpl-doc-link');
+    await expect(link).toHaveText('^BQ docs');
+
+    await propertiesPanel.setSelectValue('prop-symbology', 'DATAMATRIX');
+    await expect(link).toHaveText('^BX docs');
+    await expect(link).toHaveAttribute('href', 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bx.html');
+
+    await propertiesPanel.setSelectValue('prop-symbology', 'PDF417');
+    await expect(link).toHaveText('^B7 docs');
+    await expect(link).toHaveAttribute('href', 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-b7.html');
   });
 
   test('should hide doc link when no element is selected', async ({ page }) => {

@@ -11,6 +11,7 @@ import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
 import { getElementBoundsResolved } from '../utils/geometry.js';
+import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
 
 /**
  * Service for managing element lifecycle (create, delete, reorder, duplicate)
@@ -52,30 +53,39 @@ export class ElementService {
         );
         break;
 
-      case 'BARCODE':
+      case 'BARCODE': {
+        const symbology = props.symbology || 'CODE128';
         element = new BarcodeElement(
           x, y,
-          props.data || '1234567890',
+          props.data ?? DEFAULT_PREVIEW_DATA[symbology],
           props.height || 50,
           props.width || 2,
           props.ratio || 2.0,
           props.placeholder || '',
           props.showText !== undefined ? props.showText : true,
-          props.reverse || false
+          props.reverse || false,
+          symbology,
+          props.checkDigit || false,
+          props.orientation || 'N',
+          props.printTextAbove || false
         );
         break;
+      }
 
-      case 'QRCODE':
+      case 'QRCODE': {
+        const symbology = props.symbology || 'QR';
         element = new QRCodeElement(
           x, y,
-          props.data || 'https://example.com',
+          props.data ?? DEFAULT_PREVIEW_DATA[symbology],
           props.model || 2,
           props.magnification || 5,
           props.errorCorrection || 'Q',
           props.placeholder || '',
-          props.reverse || false
+          props.reverse || false,
+          symbology
         );
         break;
+      }
 
       case 'BOX':
         element = new BoxElement(

@@ -1,9 +1,9 @@
 // Alignment Service
 // Handles element alignment calculations and operations
 
-import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO } from '../utils/geometry.js';
-import { clampNumber } from '../utils/geometry.js';
+import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO, clampNumber } from '../utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
+import { getBarcodeGeometry, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 
 /**
  * Service for applying alignment operations to elements
@@ -186,23 +186,32 @@ export class AlignmentService {
    * Calculate barcode width to match label
    */
   matchBarcodeWidth(element, labelSize) {
-    const dataLength = (element.previewData || '').length;
-    const totalModules = 35 + (11 * dataLength);
+    const geom = getBarcodeGeometry(element);
+    const totalModules = geom.kind === 'linear'
+      ? geom.modules
+      : linearFallbackModules((element.previewData || '').length);
     const targetMultiplier = totalModules > 0 ? labelSize.width / totalModules : element.width;
-    const rounded = Math.round(targetMultiplier * 10) / 10;
-    element.width = clampNumber(rounded, 1, 10);
+    element.width = clampNumber(Math.round(targetMultiplier), 1, 10);
   }
 
   /**
-   * Calculate QR code size to match label dimension
+   * Calculate 2D barcode size to match a label dimension, by adjusting the
+   * symbology's module size.
    */
   matchQRCodeSize(element, labelSize, dimension) {
-    const dataLength = (element.previewData || '').length;
-    const version = this.calculateQRVersion(dataLength, element.errorCorrection);
-    const modules = this.qrVersionToModules(version);
-    const targetSize = dimension === 'width' ? labelSize.width : labelSize.height;
-    const targetMag = modules > 0 ? Math.round(targetSize / modules) : element.magnification;
-    element.magnification = clampNumber(targetMag, 1, 10);
+    const geom = getBarcodeGeometry(element);
+    if (geom.kind !== 'matrix') return;
+    const target = dimension === 'width' ? labelSize.width : labelSize.height;
+    const b = BARCODE_2D_SIZE_BOUNDS;
+    if (element.symbology === 'PDF417') {
+      if (dimension === 'width') element.moduleWidth = clampNumber(Math.round(target / geom.cols), b.PDF417.moduleWidth.min, b.PDF417.moduleWidth.max);
+      else element.rowHeight = clampNumber(Math.round(target / geom.rows), b.PDF417.rowHeight.min, b.PDF417.rowHeight.max);
+    } else if (element.symbology === 'DATAMATRIX') {
+      const modules = dimension === 'width' ? geom.cols : geom.rows;
+      element.moduleSize = clampNumber(Math.round(target / modules), b.DATAMATRIX.moduleSize.min, b.DATAMATRIX.moduleSize.max);
+    } else {
+      element.magnification = clampNumber(Math.round(target / geom.cols), b.QR.magnification.min, b.QR.magnification.max);
+    }
   }
 
   /**
@@ -244,42 +253,5 @@ export class AlignmentService {
     // => n <= (targetSize + lineSpacing) / (baseLineHeight + lineSpacing)
     const estimatedLines = Math.max(1, Math.floor((targetSize + lineSpacing) / (baseLineHeight + lineSpacing)));
     element.maxLines = clampNumber(estimatedLines, 1, 9999);
-  }
-
-  /**
-   * Calculate QR code version based on data length and error correction
-   * @param {number} dataLength - Length of data to encode
-   * @param {string} errorCorrection - Error correction level ('L', 'M', 'Q', 'H')
-   * @returns {number} QR code version (1-40)
-   */
-  calculateQRVersion(dataLength, errorCorrection = 'Q') {
-    // Simplified QR version calculation
-    // Maps approximate data capacity to version
-    const capacityMap = {
-      L: [41, 77, 127, 187, 255, 322, 370, 461, 552, 652],
-      M: [34, 63, 101, 149, 202, 255, 293, 365, 432, 513],
-      Q: [27, 48, 77, 111, 144, 178, 207, 259, 312, 364],
-      H: [17, 34, 58, 82, 106, 139, 154, 202, 235, 288]
-    };
-
-    const capacities = capacityMap[errorCorrection] || capacityMap.Q;
-
-    for (let i = 0; i < capacities.length; i++) {
-      if (dataLength <= capacities[i]) {
-        return i + 1;
-      }
-    }
-
-    // For larger data, use approximate formula
-    return Math.min(40, Math.ceil(dataLength / 100) + 10);
-  }
-
-  /**
-   * Convert QR version to module count
-   * @param {number} version - QR code version (1-40)
-   * @returns {number} Number of modules per side
-   */
-  qrVersionToModules(version) {
-    return 21 + (version - 1) * 4;
   }
 }

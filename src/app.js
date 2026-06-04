@@ -31,6 +31,7 @@ import * as driveAuth from './services/DriveAuth.js';
 import { isConfigured as isDriveConfigured } from './config/drive-config.js';
 import { getCurrentView } from './router.js';
 import { normalizeElementFontSize } from './utils/zplFontSnap.js';
+import { SYMBOLOGY_META, resolveSymbology } from './utils/barcodeGeometry.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -1687,35 +1688,26 @@ function redo() {
   applyAppState(historyEntries[state.getHistoryIndex()].state);
 }
 
+// Fields captured/restored per element type for a transform (move/resize) so the
+// operation lands as one undoable history entry. Single source of truth shared by
+// getElementTransformState and restoreElementTransformState — add a new resize-
+// mutable field here once and both capture and restore pick it up.
+const TRANSFORM_FIELDS = {
+  BOX: ["width", "height", "thickness"],
+  LINE: ["width", "thickness", "orientation"],
+  BARCODE: ["width", "height"],
+  CIRCLE: ["width", "height", "thickness"],
+  FIELDBLOCK: ["blockWidth", "maxLines"],
+  QRCODE: ["magnification", "moduleSize", "moduleWidth", "rowHeight"],
+  TEXT: ["fontSize", "fontWidth"],
+};
+
 function getElementTransformState(element) {
   if (!element) return null;
   const state = { x: element.x, y: element.y, type: element.type };
-
-  if (element.type === "BOX") {
-    state.width = element.width;
-    state.height = element.height;
-    state.thickness = element.thickness;
-  } else if (element.type === "LINE") {
-    state.width = element.width;
-    state.thickness = element.thickness;
-    state.orientation = element.orientation;
-  } else if (element.type === "BARCODE") {
-    state.width = element.width;
-    state.height = element.height;
-  } else if (element.type === "CIRCLE") {
-    state.width = element.width;
-    state.height = element.height;
-    state.thickness = element.thickness;
-  } else if (element.type === "FIELDBLOCK") {
-    state.blockWidth = element.blockWidth;
-    state.maxLines = element.maxLines;
-  } else if (element.type === "QRCODE") {
-    state.magnification = element.magnification;
-  } else if (element.type === "TEXT") {
-    state.fontSize = element.fontSize;
-    state.fontWidth = element.fontWidth;
+  for (const field of TRANSFORM_FIELDS[element.type] || []) {
+    state[field] = element[field];
   }
-
   return state;
 }
 
@@ -1725,29 +1717,8 @@ function restoreElementTransformState(element, before) {
   if (typeof before.x === "number") element.x = before.x;
   if (typeof before.y === "number") element.y = before.y;
 
-  if (element.type === "BOX") {
-    if (typeof before.width === "number") element.width = before.width;
-    if (typeof before.height === "number") element.height = before.height;
-    if (typeof before.thickness === "number") element.thickness = before.thickness;
-  } else if (element.type === "LINE") {
-    if (typeof before.width === "number") element.width = before.width;
-    if (typeof before.thickness === "number") element.thickness = before.thickness;
-    if (typeof before.orientation === "string") element.orientation = before.orientation;
-  } else if (element.type === "BARCODE") {
-    if (typeof before.width === "number") element.width = before.width;
-    if (typeof before.height === "number") element.height = before.height;
-  } else if (element.type === "CIRCLE") {
-    if (typeof before.width === "number") element.width = before.width;
-    if (typeof before.height === "number") element.height = before.height;
-    if (typeof before.thickness === "number") element.thickness = before.thickness;
-  } else if (element.type === "FIELDBLOCK") {
-    if (typeof before.blockWidth === "number") element.blockWidth = before.blockWidth;
-    if (typeof before.maxLines === "number") element.maxLines = before.maxLines;
-  } else if (element.type === "QRCODE") {
-    if (typeof before.magnification === "number") element.magnification = before.magnification;
-  } else if (element.type === "TEXT") {
-    if (typeof before.fontSize === "number") element.fontSize = before.fontSize;
-    if (typeof before.fontWidth === "number") element.fontWidth = before.fontWidth;
+  for (const field of TRANSFORM_FIELDS[element.type] || []) {
+    if (before[field] !== undefined) element[field] = before[field];
   }
 }
 
@@ -2012,9 +1983,22 @@ const ZPL_DOC_MAP = {
 // so the doc link follows the aspect lock.
 const ZPL_GC_DOC = { command: '^GC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gc.html' };
 
+const ZPL_DOC_BASE = 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/';
+
+// Build a Zebra doc entry from a ZPL command (e.g. '^B3' -> r-zpl-b3.html).
+function zplDocFor(command) {
+  return { command, url: `${ZPL_DOC_BASE}r-zpl-${command.slice(1).toLowerCase()}.html` };
+}
+
 function resolveZplDoc(element) {
   if (!element) return null;
   if (element.type === 'CIRCLE' && element.aspectLocked !== false) return ZPL_GC_DOC;
+  // Barcodes/QR codes carry a symbology that selects the ZPL command, so the
+  // link tracks the chosen symbology rather than the element type.
+  if (element.type === 'BARCODE' || element.type === 'QRCODE') {
+    const meta = SYMBOLOGY_META[resolveSymbology(element)];
+    if (meta) return zplDocFor(meta.code);
+  }
   return ZPL_DOC_MAP[element.type] || null;
 }
 

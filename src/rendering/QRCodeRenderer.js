@@ -1,7 +1,8 @@
 // QR Code Renderer
-// Renders QRCODE elements on canvas
+// Renders 2D QRCODE elements (QR, Data Matrix, PDF417) using real bwip-js geometry.
 
-import { calculateQRVersion, qrVersionToModules } from '../elements/QRCodeElement.js';
+import { getBarcodeGeometry, matrixModuleDots, resolveSymbology, SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
+import { drawMatrix, drawPlaceholder } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -19,60 +20,33 @@ export class QRCodeRenderer {
   render(ctx, canvas, element, _labelSettings, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
-    // QR codes in ZPL: no X offset, 10 dot Y offset (quiet zone from ^FO origin, independent of magnification)
+    const symbology = resolveSymbology(element);
+    // QR codes carry a 10-dot quiet-zone Y offset from the ^FO origin.
+    const yOffset = symbology === 'QR' ? 10 * scale : 0;
     const x = (element.x + homeX) * scale;
-    const y = (element.y + homeY + labelTop) * scale + 10 * scale;
+    const y = (element.y + homeY + labelTop) * scale + yOffset;
 
-    // Calculate QR code size based on data length and error correction
-    const dataLength = element.previewData.length;
-    const version = calculateQRVersion(dataLength, element.errorCorrection);
-    const modules = qrVersionToModules(version);
-    const size = modules * element.magnification * scale;
-    const moduleSize = size / modules;
-    const seed = this.hashString(`${element.previewData}|${element.errorCorrection}|${element.model}|${element.magnification}`);
+    const { mx, my } = matrixModuleDots(element);
+    const moduleW = mx * scale;
+    const moduleH = my * scale;
 
-    const drawInk = (targetCtx, color, ox = 0, oy = 0) => {
-      const sx = x + ox;
-      const sy = y + oy;
-      targetCtx.save();
-      targetCtx.fillStyle = color;
-      const rng = this.createRng(seed);
+    const geom = getBarcodeGeometry(element);
 
-      // Draw deterministic QR-like pattern, skipping positioning marker zones
-      for (let row = 0; row < modules; row++) {
-        for (let col = 0; col < modules; col++) {
-          const val = rng();
-          const inMarker = (row < 8 && col < 8) ||
-                           (row < 8 && col >= modules - 8) ||
-                           (row >= modules - 8 && col < 8);
-          if (!inMarker && val > 0.5) {
-            targetCtx.fillRect(sx + col * moduleSize, sy + row * moduleSize, moduleSize, moduleSize);
-          }
-        }
-      }
+    if (geom.kind !== 'matrix') {
+      const size = 21 * (element.magnification || 5) * scale;
+      drawPlaceholder(ctx, { x, y, width: size, height: size, label: SYMBOLOGY_LABELS[symbology] });
+      return;
+    }
 
-      // Draw positioning markers (7 modules each) — only ink, no white fill
-      const markerSize = moduleSize * 7;
-      const m = moduleSize;
-      const drawMarkerInk = (mx, my) => {
-        targetCtx.fillRect(mx, my, markerSize, m);
-        targetCtx.fillRect(mx, my + markerSize - m, markerSize, m);
-        targetCtx.fillRect(mx, my + m, m, markerSize - 2 * m);
-        targetCtx.fillRect(mx + markerSize - m, my + m, m, markerSize - 2 * m);
-        targetCtx.fillRect(mx + 2 * m, my + 2 * m, 3 * m, 3 * m);
-      };
-      drawMarkerInk(sx, sy);
-      drawMarkerInk(sx + size - markerSize, sy);
-      drawMarkerInk(sx, sy + size - markerSize);
-      targetCtx.restore();
-    };
+    const width = geom.cols * moduleW;
+    const height = geom.rows * moduleH;
 
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      drawInk(targetCtx, color, ox, oy);
+      drawMatrix(targetCtx, geom, { x: x + ox, y: y + oy, moduleW, moduleH, color });
     };
 
     const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, { x, y, width: size, height: size })
+      ? captureReverseBg(ctx, canvas, { x, y, width, height })
       : null;
 
     drawShape(ctx, '#000000');
@@ -80,30 +54,5 @@ export class QRCodeRenderer {
     if (captured) {
       applyReverseOverlay(ctx, captured, drawShape);
     }
-  }
-
-  /**
-   * Simple deterministic hash for stable QR preview patterns
-   */
-  hashString(value) {
-    let hash = 2166136261;
-    for (let i = 0; i < value.length; i++) {
-      hash ^= value.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-
-  /**
-   * Xorshift32 RNG for predictable pseudo-random values
-   */
-  createRng(seed) {
-    let state = seed || 1;
-    return () => {
-      state ^= state << 13;
-      state ^= state >>> 17;
-      state ^= state << 5;
-      return (state >>> 0) / 4294967296;
-    };
   }
 }
