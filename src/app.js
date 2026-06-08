@@ -270,13 +270,15 @@ const customFontError = document.getElementById("custom-font-error");
 const previewImage = document.getElementById("preview-image");
 const previewBacking = document.getElementById("preview-backing");
 const previewError = document.getElementById("preview-error");
+const previewErrorRetryBtn = document.getElementById("preview-error-retry");
+const previewErrorBackBtn = document.getElementById("preview-error-back");
 const previewPlaceholder = document.getElementById("preview-placeholder");
 const refreshPreviewIcon = document.getElementById("refresh-preview-icon");
+const renderingIsland = document.getElementById("preview-rendering-island");
 const warningsPanel = document.getElementById("warnings-panel");
 const warningsList = document.getElementById("warnings-list");
 const warningsCount = document.getElementById("warnings-count");
 const warningsDismissBtn = document.getElementById("warnings-dismiss-btn");
-const refreshPreviewBtn = document.getElementById("refresh-preview-btn");
 const togglePreviewModeBtn = null; // Deprecated
 const modeCanvasBtn = document.getElementById("mode-canvas-btn");
 const modeOverlayBtn = document.getElementById("mode-overlay-btn");
@@ -599,7 +601,8 @@ export function initApp() {
   addGraphicBtn.addEventListener("click", () => addGraphicFileInput.click());
   addGraphicFileInput.addEventListener("change", handleGraphicFileSelected);
   copyBtn.addEventListener("click", copyZPL);
-  refreshPreviewBtn.addEventListener("click", updatePreview);
+  previewErrorRetryBtn.addEventListener("click", () => { void updatePreview(); });
+  previewErrorBackBtn.addEventListener("click", () => setPreviewMode('canvas'));
   // Mode switching
   modeCanvasBtn.addEventListener("click", () => setPreviewMode('canvas'));
   modeOverlayBtn.addEventListener("click", () => setPreviewMode('overlay'));
@@ -1330,25 +1333,27 @@ function beginPan(e) {
 }
 
 const OVERLAY_PREVIEW_DEBOUNCE_MS = 400;
+const PREVIEW_DEBOUNCE_MS = 1000;
 const PREVIEW_REQUEST_MIN_INTERVAL_MS = 1000;
-let overlayPreviewTimer = null;
+let previewRefreshTimer = null;
 let nextPreviewRequestAt = 0;
 let previewRequestGate = Promise.resolve();
 
-function clearOverlayPreviewRefresh() {
-  if (!overlayPreviewTimer) return;
-  clearTimeout(overlayPreviewTimer);
-  overlayPreviewTimer = null;
+function clearPreviewRefresh() {
+  if (!previewRefreshTimer) return;
+  clearTimeout(previewRefreshTimer);
+  previewRefreshTimer = null;
 }
 
-function scheduleOverlayPreviewRefresh() {
-  if (previewMode !== 'overlay') return;
+function schedulePreviewRefresh() {
+  if (previewMode !== 'overlay' && previewMode !== 'api') return;
 
-  clearOverlayPreviewRefresh();
-  overlayPreviewTimer = setTimeout(() => {
-    overlayPreviewTimer = null;
+  clearPreviewRefresh();
+  const delay = previewMode === 'overlay' ? OVERLAY_PREVIEW_DEBOUNCE_MS : PREVIEW_DEBOUNCE_MS;
+  previewRefreshTimer = setTimeout(() => {
+    previewRefreshTimer = null;
     void updatePreview();
-  }, OVERLAY_PREVIEW_DEBOUNCE_MS);
+  }, delay);
 }
 
 function waitForPreviewRequestWindow() {
@@ -1368,8 +1373,8 @@ function waitForPreviewRequestWindow() {
 function setPreviewMode(mode) {
   const prevMode = previewMode;
   previewMode = mode;
-  if (mode !== 'overlay') {
-    clearOverlayPreviewRefresh();
+  if (mode !== 'overlay' && mode !== 'api') {
+    clearPreviewRefresh();
   }
 
   // Reset button styles
@@ -1399,13 +1404,13 @@ function setPreviewMode(mode) {
   if (mode === 'canvas') {
     labelCanvas.classList.remove('hidden');
     apiPreviewContainer.classList.add('hidden');
+    previewError.classList.add('hidden');
     previewBacking.classList.add('hidden');
     previewImage.classList.add('hidden');
     labelCanvas.classList.add('bg-white');
     labelCanvas.classList.remove('bg-transparent');
     previewImage.style.opacity = '';
     previewImage.classList.add('opacity-100');
-    refreshPreviewBtn.disabled = true;
 
     renderCanvasPreview();
     return;
@@ -1427,13 +1432,12 @@ function setPreviewMode(mode) {
     previewImage.style.opacity = '';
     previewImage.classList.add('opacity-100');
   }
-  refreshPreviewBtn.disabled = isOverlay;
   applyViewport();
   if (isOverlay) renderCanvasPreview();
   // When returning to overlay from the editor (canvas), discard the cached
   // preview image so the stale frame isn't shown while the new one loads.
   if (isOverlay && prevMode === 'canvas') {
-    lastPreviewImageUrl = null;
+    currentPreviewUrl = null;
     previewImage.classList.add('hidden');
   }
   void updatePreview();
@@ -2109,20 +2113,64 @@ function updateZPLOutput() {
   zplOutputHighlight.innerHTML = highlightZPL(zpl);
   zplOutputHighlight.classList.toggle("is-empty", zpl.trim().length === 0);
   if (fullscreen) fullscreen.updateInlineZpl(zpl);
-  scheduleOverlayPreviewRefresh();
+  schedulePreviewRefresh();
 }
 
-// Cache for API preview
-let lastPreviewZpl = null;
-let lastPreviewImageUrl = null;
+// Cache for API preview — in-memory LRU keyed by the full Labelary request
+// signature (dpmm + label size + ZPL). `currentPreviewUrl` tracks the object URL
+// currently painted, so the previous frame can stay visible while a new render is
+// in flight. Cached object URLs are revoked only on eviction (see ADR 0003).
+const PREVIEW_CACHE_MAX = 30;
+const previewCache = new Map();
+let currentPreviewUrl = null;
 let warningsPanelDismissed = false;
 let previewRequestId = 0;
 let pendingPreviewFetches = 0;
 
+// The rendering island only appears if a render is genuinely slow. Below this
+// threshold we show nothing and keep the previous preview on screen, swapping
+// crisply when the new one lands (see ADR 0006).
+const RENDERING_INDICATOR_DELAY_MS = 500;
+let renderingIslandTimer = null;
+
+function buildPreviewCacheKey(dpmm, width, height, zpl) {
+  return `${dpmm}|${width}|${height}|${zpl}`;
+}
+
+function cachePreviewResult(key, objectUrl, warnings) {
+  previewCache.set(key, { objectUrl, warnings });
+  if (previewCache.size > PREVIEW_CACHE_MAX) {
+    const oldestKey = previewCache.keys().next().value;
+    const oldest = previewCache.get(oldestKey);
+    previewCache.delete(oldestKey);
+    if (oldest) URL.revokeObjectURL(oldest.objectUrl);
+  }
+}
+
+function showRenderingIndicator(visible) {
+  renderingIsland.classList.toggle('hidden', !visible);
+  refreshPreviewIcon.classList.toggle('animate-spin', visible);
+}
+
 function setRefreshSpinning(active) {
   if (active) pendingPreviewFetches++;
   else pendingPreviewFetches = Math.max(0, pendingPreviewFetches - 1);
-  refreshPreviewIcon.classList.toggle('animate-spin', pendingPreviewFetches > 0);
+
+  if (pendingPreviewFetches > 0) {
+    // Arm the delayed reveal once; don't re-arm while it's already pending/shown.
+    if (!renderingIslandTimer && renderingIsland.classList.contains('hidden')) {
+      renderingIslandTimer = setTimeout(() => {
+        renderingIslandTimer = null;
+        if (pendingPreviewFetches > 0) showRenderingIndicator(true);
+      }, RENDERING_INDICATOR_DELAY_MS);
+    }
+  } else {
+    if (renderingIslandTimer) {
+      clearTimeout(renderingIslandTimer);
+      renderingIslandTimer = null;
+    }
+    showRenderingIndicator(false);
+  }
 }
 
 async function fetchPreviewResponse(url, previewZpl, requestId, retriesRemaining = 1) {
@@ -2154,8 +2202,7 @@ async function updatePreview() {
   const shouldPaintPreview = () => previewMode === 'api' || previewMode === 'overlay';
 
   if (state.elements.length === 0) {
-    lastPreviewZpl = null;
-    lastPreviewImageUrl = null;
+    currentPreviewUrl = null;
     if (shouldPaintPreview()) {
       previewImage.classList.add('hidden');
       previewError.classList.add('hidden');
@@ -2168,25 +2215,35 @@ async function updatePreview() {
   // Generate preview ZPL with byte map for warning resolution
   const { zpl: previewZpl, byteMap } = zplGenerator.generatePreviewZPLWithMap(state.elements, state.labelSettings, state.selectedElement);
   const { width, height, dpmm } = state.labelSettings;
+  const cacheKey = buildPreviewCacheKey(dpmm, width, height, previewZpl);
 
-  // Check cache - if ZPL hasn't changed, reuse the existing image
-  if (previewZpl === lastPreviewZpl && lastPreviewImageUrl) {
+  // Cache hit — reuse the rendered image and its warnings (LRU bump).
+  const cached = previewCache.get(cacheKey);
+  if (cached) {
+    previewCache.delete(cacheKey);
+    previewCache.set(cacheKey, cached);
+    currentPreviewUrl = cached.objectUrl;
+    if (cached.warnings.length > 0) {
+      state.setWarnings(cached.warnings);
+    } else {
+      state.clearWarnings();
+    }
     if (shouldPaintPreview()) {
       previewError.classList.add('hidden');
       previewPlaceholder.classList.add('hidden');
-      previewImage.src = lastPreviewImageUrl;
+      previewImage.src = cached.objectUrl;
       previewImage.classList.remove('hidden');
     }
     return;
   }
 
   // Keep the previous render visible while the new one is fetched.
-  // The refresh button icon spins to indicate the in-flight request.
+  // The spinner indicates the in-flight request.
   if (shouldPaintPreview()) {
     previewError.classList.add('hidden');
     previewPlaceholder.classList.add('hidden');
-    if (lastPreviewImageUrl) {
-      previewImage.src = lastPreviewImageUrl;
+    if (currentPreviewUrl) {
+      previewImage.src = currentPreviewUrl;
       previewImage.classList.remove('hidden');
     } else {
       previewImage.classList.add('hidden');
@@ -2216,10 +2273,11 @@ async function updatePreview() {
 
     // Parse linter warnings from response header
     const warningsHeader = response.headers.get('X-Warnings');
+    let resolvedWarnings = [];
     if (warningsHeader) {
       const parsed = warningParser.parse(warningsHeader);
-      const resolved = warningParser.resolveElements(parsed, byteMap);
-      state.setWarnings(resolved);
+      resolvedWarnings = warningParser.resolveElements(parsed, byteMap);
+      state.setWarnings(resolvedWarnings);
       warningsPanelDismissed = false;
     } else {
       state.clearWarnings();
@@ -2233,14 +2291,10 @@ async function updatePreview() {
       return;
     }
 
-    // Clean up old cached image URL
-    if (lastPreviewImageUrl) {
-      URL.revokeObjectURL(lastPreviewImageUrl);
-    }
-
-    // Cache the new ZPL and image URL
-    lastPreviewZpl = previewZpl;
-    lastPreviewImageUrl = imageUrl;
+    // Cache the render (image + warnings) under its request signature; the LRU
+    // owns the object URL and revokes it on eviction.
+    cachePreviewResult(cacheKey, imageUrl, resolvedWarnings);
+    currentPreviewUrl = imageUrl;
 
     if (shouldPaintPreview()) {
       previewImage.src = imageUrl;
@@ -2254,7 +2308,6 @@ async function updatePreview() {
     console.error("Preview error:", error);
     if (shouldPaintPreview()) {
       previewImage.classList.add('hidden');
-      previewError.textContent = `Error loading preview: ${error.message}`;
       previewError.classList.remove('hidden');
     }
     state.clearWarnings();
@@ -2556,12 +2609,10 @@ function importTemplate(template) {
   panX = 0;
   panY = 0;
 
-  // Clear stale Labelary preview so the old template doesn't flash in overlay mode
-  if (lastPreviewImageUrl) {
-    URL.revokeObjectURL(lastPreviewImageUrl);
-    lastPreviewImageUrl = null;
-  }
-  lastPreviewZpl = null;
+  // Clear the painted Labelary preview so the old template doesn't flash in
+  // overlay mode. The cache keeps its entries (keyed by request signature); the
+  // new template renders under its own key.
+  currentPreviewUrl = null;
   previewImage.classList.add('hidden');
 
   // Clear current elements

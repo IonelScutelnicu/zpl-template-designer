@@ -37,15 +37,13 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             // Wait for the error to appear
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
             expect(await previewPanel.hasError()).toBe(true);
             const errorMsg = await previewPanel.getErrorMessage();
-            expect(errorMsg).toContain('Error loading preview');
-            expect(errorMsg).toContain('500');
+            expect(errorMsg).toContain("Couldn't render the preview");
         });
 
         test('should display error message on HTTP 429 rate limit', async ({ page }) => {
@@ -59,14 +57,12 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
             expect(await previewPanel.hasError()).toBe(true);
             const errorMsg = await previewPanel.getErrorMessage();
-            expect(errorMsg).toContain('Error loading preview');
-            expect(errorMsg).toContain('429');
+            expect(errorMsg).toContain("Couldn't render the preview");
         });
 
         test('should display error message on HTTP 400 bad request', async ({ page }) => {
@@ -80,13 +76,12 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
             expect(await previewPanel.hasError()).toBe(true);
             const errorMsg = await previewPanel.getErrorMessage();
-            expect(errorMsg).toContain('400');
+            expect(errorMsg).toContain("Couldn't render the preview");
         });
     });
 
@@ -102,13 +97,12 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
             expect(await previewPanel.hasError()).toBe(true);
             const errorMsg = await previewPanel.getErrorMessage();
-            expect(errorMsg).toContain('Error loading preview');
+            expect(errorMsg).toContain("Couldn't render the preview");
         });
 
         test('should display error on connection timeout', async ({ page }) => {
@@ -118,7 +112,6 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -132,7 +125,6 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -152,7 +144,6 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -167,7 +158,6 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -178,7 +168,6 @@ test.describe('Labelary API - Error Scenarios', () => {
         test('should show placeholder when label has no elements', async ({ page }) => {
             // Don't add any elements
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             // Should show placeholder, not error
             await expect(previewPanel.previewPlaceholder).toBeVisible();
@@ -222,7 +211,7 @@ test.describe('Labelary API - Error Scenarios', () => {
             shouldFail = true;
             await page.locator('#prop-preview-text').fill('Failure case');
             await page.locator('#prop-preview-text').dispatchEvent('change');
-            await previewPanel.refreshBtn.click();
+            // The edit auto-refreshes (debounced); the new fetch fails.
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
             await expect(previewPanel.previewImage).toBeHidden();
@@ -287,14 +276,13 @@ test.describe('Labelary API - Error Scenarios', () => {
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
 
-            // Attempt while server is down — should fail
-            await previewPanel.refreshBtn.click();
+            // Attempt while server is down — switching to API mode renders, fails
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
             expect(await previewPanel.hasError()).toBe(true);
 
             // "Fix" the server, then retry — should succeed
             shouldFail = false;
-            await previewPanel.refreshBtn.click();
+            await previewPanel.rerender();
             await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
 
             // Error should be gone, image should be visible
@@ -316,15 +304,14 @@ test.describe('Labelary API - Error Scenarios', () => {
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
 
-            // Trigger error
-            await previewPanel.refreshBtn.click();
+            // Trigger error — switching to API mode renders, fails
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
             const errorMsg = await previewPanel.getErrorMessage();
-            expect(errorMsg).toContain('503');
+            expect(errorMsg).toContain("Couldn't render the preview");
 
             // Fix the "server" and retry
             shouldFail = false;
-            await previewPanel.refreshBtn.click();
+            await previewPanel.rerender();
             await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
 
             // Error message should be hidden
@@ -347,14 +334,14 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             // Fail multiple times while server is down
             for (let i = 0; i < 3; i++) {
-                await previewPanel.refreshBtn.click();
+                await previewPanel.rerender();
                 await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
                 expect(await previewPanel.hasError()).toBe(true);
             }
 
             // "Fix" the server and retry — should succeed
             shouldFail = false;
-            await previewPanel.refreshBtn.click();
+            await previewPanel.rerender();
             await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
             expect(await previewPanel.hasError()).toBe(false);
         });
@@ -365,19 +352,18 @@ test.describe('Labelary API - Error Scenarios', () => {
     // =============================================
     test.describe('Error Message Content', () => {
 
-        test('should include HTTP status code in error message for server errors', async ({ page }) => {
+        test('should show the error card for server errors', async ({ page }) => {
             await page.route(LABELARY_URL, route => {
                 route.fulfill({ status: 502, contentType: 'text/plain', body: 'Bad Gateway' });
             });
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
             const errorMsg = await previewPanel.getErrorMessage();
-            expect(errorMsg).toContain('502');
+            expect(errorMsg).toContain("Couldn't render the preview");
         });
 
         test('should show descriptive error for network failures', async ({ page }) => {
@@ -387,7 +373,6 @@ test.describe('Labelary API - Error Scenarios', () => {
 
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshBtn.click();
 
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 
@@ -397,7 +382,7 @@ test.describe('Labelary API - Error Scenarios', () => {
             expect(errorMsg!.length).toBeGreaterThan(10);
         });
 
-        test('should replace old error message with new one on subsequent failure', async ({ page }) => {
+        test('should keep showing the error card after a subsequent failure', async ({ page }) => {
             let status = 500;
 
             await page.route(LABELARY_URL, route => {
@@ -407,18 +392,52 @@ test.describe('Labelary API - Error Scenarios', () => {
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
 
-            // First error: 500
-            await previewPanel.refreshBtn.click();
+            // First failure — switching to API mode renders, fails
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
             const firstError = await previewPanel.getErrorMessage();
-            expect(firstError).toContain('500');
+            expect(firstError).toContain("Couldn't render the preview");
 
-            // Second error: 503
+            // Second failure — the friendly error card stays visible
             status = 503;
-            await previewPanel.refreshBtn.click();
+            await previewPanel.rerender();
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
-            const secondError = await previewPanel.getErrorMessage();
-            expect(secondError).toContain('503');
+            expect(await previewPanel.hasError()).toBe(true);
+        });
+
+        test('should retry from the error card and recover when the service is back', async ({ page }) => {
+            let shouldFail = true;
+            await page.route(LABELARY_URL, async (route) => {
+                if (shouldFail) {
+                    await route.fulfill({ status: 500, contentType: 'text/plain', body: 'Error' });
+                } else {
+                    await route.fulfill({ status: 200, contentType: 'image/png', body: createMinimalPNG() });
+                }
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
+
+            // "Fix" the service, then click Try again in the error card
+            shouldFail = false;
+            await page.locator('#preview-error-retry').click();
+
+            await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
+            expect(await previewPanel.hasError()).toBe(false);
+        });
+
+        test('should return to Edit mode from the error card', async ({ page }) => {
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({ status: 500, contentType: 'text/plain', body: 'Error' });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
+
+            await page.locator('#preview-error-back').click();
+
+            expect(await previewPanel.isCanvasMode()).toBe(true);
         });
     });
 });

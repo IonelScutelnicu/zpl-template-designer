@@ -11,7 +11,6 @@ export class PreviewPanel {
     readonly canvasBtn: Locator;
     readonly overlayBtn: Locator;
     readonly apiBtn: Locator;
-    readonly refreshBtn: Locator;
     readonly canvas: Locator;
     readonly apiPreviewContainer: Locator;
     readonly previewImage: Locator;
@@ -25,7 +24,6 @@ export class PreviewPanel {
         this.canvasBtn = page.locator('#mode-canvas-btn');
         this.overlayBtn = page.locator('#mode-overlay-btn');
         this.apiBtn = page.locator('#mode-api-btn');
-        this.refreshBtn = page.locator('#refresh-preview-btn');
         this.canvas = page.locator('#label-canvas');
         this.apiPreviewContainer = page.locator('#api-preview-container');
         this.previewImage = page.locator('#preview-image');
@@ -56,11 +54,25 @@ export class PreviewPanel {
     }
 
     /**
-     * Refresh the preview (API mode)
+     * Force a fresh render of the current state without editing it. Toggles
+     * Canvas → API, which triggers an immediate (non-debounced) updatePreview.
+     * Failed renders are not cached, so this re-fetches after a mocked error.
      */
-    async refreshPreview(): Promise<void> {
-        await waitForRateLimit();
-        await this.refreshBtn.click();
+    async rerender(): Promise<void> {
+        await this.switchToCanvasMode();
+        await this.switchToAPIMode();
+    }
+
+    /**
+     * Wait for the debounced auto-refresh to fire and the render to settle.
+     * Preview/Overlay modes auto-render on change (1000ms / 400ms debounce); this
+     * waits past the debounce, then for the in-flight fetch to finish and the
+     * image to be shown.
+     */
+    async waitForPreviewRender(): Promise<void> {
+        // Let the preview debounce fire (1000ms in Preview mode) before checking.
+        await this.page.waitForTimeout(1200);
+        await this.waitForAPIPreviewLoaded();
     }
 
     /**
@@ -155,7 +167,6 @@ export class PreviewPanel {
      */
     async getAPIPreviewImage(): Promise<Buffer> {
         await this.switchToAPIMode();
-        await this.refreshPreview();
         await this.waitForAPIPreviewLoaded();
         return await this.previewImage.screenshot();
     }
@@ -207,17 +218,4 @@ export class PreviewPanel {
         };
     }
 
-    /**
-     * Check if refresh button is enabled
-     */
-    async isRefreshEnabled(): Promise<boolean> {
-        return await this.refreshBtn.isEnabled();
-    }
-
-    /**
-     * Check if refresh button is disabled
-     */
-    async isRefreshDisabled(): Promise<boolean> {
-        return !(await this.isRefreshEnabled());
-    }
 }

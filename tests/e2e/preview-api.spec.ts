@@ -49,13 +49,6 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
             expect(beforeScreenshot.equals(afterScreenshot)).toBe(false);
         });
-
-        test('should keep refresh button enabled in canvas mode', async () => {
-            // In canvas mode, refresh may be disabled or enabled depending on implementation
-            // Just verify button exists
-            const refreshBtn = previewPanel.refreshBtn;
-            await expect(refreshBtn).toBeVisible();
-        });
     });
 
     // ============== API MODE ==============
@@ -73,7 +66,7 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             await expect(apiContainer).toBeVisible();
         });
 
-        test('should show placeholder message before refresh in API mode', async () => {
+        test('should show placeholder message before any render in API mode', async () => {
             await previewPanel.switchToAPIMode();
 
             const placeholder = previewPanel.previewPlaceholder;
@@ -82,20 +75,19 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             expect(isVisible || await previewPanel.previewImage.isVisible()).toBe(true);
         });
 
-        test('should load preview image after refresh in API mode', async () => {
+        test('should auto-load preview image in API mode', async () => {
             await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshPreview();
 
-            // Wait for loading to complete
+            // Switching to Preview mode renders immediately (no manual refresh).
             await previewPanel.waitForAPIPreviewLoaded();
 
             const previewImage = previewPanel.previewImage;
             await expect(previewImage).toBeVisible();
         });
 
-        test('should update preview when refresh is clicked after adding element', async () => {
-            // Increase timeout for this test due to Labelary API
+        test('should auto-refresh preview after editing while in API mode', async () => {
+            // Increase timeout for this test due to Labelary API + debounce
             test.setTimeout(90000);
 
             // Add an initial element so the API returns an image
@@ -105,10 +97,9 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
             const beforeSrc = await previewPanel.getAPIPreviewSrc();
 
-            // Add another element and refresh
+            // Add another element — the preview should auto-refresh after the debounce
             await elementsPanel.addBarcodeElement();
-            await previewPanel.refreshPreview();
-            await previewPanel.waitForAPIPreviewLoaded();
+            await previewPanel.waitForPreviewRender();
 
             const afterSrc = await previewPanel.getAPIPreviewSrc();
 
@@ -321,7 +312,6 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
             // Get API preview
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
             const apiImage = await previewPanel.previewImage.screenshot();
 
@@ -343,7 +333,6 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             const canvasImage = await canvas.takeScreenshot();
 
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
             const apiImage = await previewPanel.previewImage.screenshot();
 
@@ -358,7 +347,6 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             const canvasImage = await canvas.takeScreenshot();
 
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
             const apiImage = await previewPanel.previewImage.screenshot();
 
@@ -375,7 +363,6 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             const canvasImage = await canvas.takeScreenshot();
 
             await previewPanel.switchToAPIMode();
-            await previewPanel.refreshPreview();
             await previewPanel.waitForAPIPreviewLoaded();
             const apiImage = await previewPanel.previewImage.screenshot();
 
@@ -395,30 +382,97 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
         test('should show loading state while fetching API preview', async () => {
             await elementsPanel.addTextElement();
+
+            // Switching to Preview mode kicks off an immediate render.
             await previewPanel.switchToAPIMode();
 
-            // Start refresh and check that the refresh icon spins during the fetch
-            const refreshPromise = previewPanel.refreshPreview();
-
-            // The spinner may appear briefly. Just verify the locator is present.
+            // The spinner indicator is present in the DOM (shown while fetching).
             await expect(previewPanel.refreshIcon).toBeAttached();
 
-            await refreshPromise;
+            await previewPanel.waitForAPIPreviewLoaded();
         });
     });
 
-    // ============== REFRESH BUTTON STATE ==============
-    test.describe('Refresh Button', () => {
-        test('should enable refresh button in API mode', async () => {
+    // ============== AUTO-REFRESH + CACHE ==============
+    test.describe('Auto-refresh and cache', () => {
+        test('should auto-render a new request after an edit in Preview mode', async ({ page }) => {
+            let requestCount = 0;
+            await page.route(LABELARY_URL, route => {
+                requestCount += 1;
+                route.fulfill({ status: 200, contentType: 'image/png', body: createMinimalPNG() });
+            });
+
+            await elementsPanel.addTextElement();
             await previewPanel.switchToAPIMode();
-            expect(await previewPanel.isRefreshEnabled()).toBe(true);
+            await previewPanel.waitForAPIPreviewLoaded();
+
+            requestCount = 0;
+            const previewText = page.locator('#prop-preview-text');
+            await elementsPanel.selectElementByIndex(0);
+            await previewText.fill('Auto Refresh');
+            await previewText.dispatchEvent('change');
+
+            await page.waitForTimeout(1300);
+            await previewPanel.waitForAPIPreviewLoaded();
+
+            expect(requestCount).toBe(1);
+            await expect(previewPanel.previewImage).toBeVisible();
         });
 
-        test('should disable refresh button in canvas mode', async () => {
-            // Check if refresh is disabled in canvas mode
-            const isEnabled = await previewPanel.isRefreshEnabled();
-            // Behavior may vary - just verify button exists and has a state
-            expect(typeof isEnabled).toBe('boolean');
+        test('should serve a revisited identical state from cache without a new request', async ({ page }) => {
+            let requestCount = 0;
+            await page.route(LABELARY_URL, route => {
+                requestCount += 1;
+                route.fulfill({ status: 200, contentType: 'image/png', body: createMinimalPNG() });
+            });
+
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+            const previewText = page.locator('#prop-preview-text');
+            await previewText.fill('State A');
+            await previewText.dispatchEvent('change');
+
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const countAfterA = requestCount;
+
+            // Edit to a new state B → new request
+            await previewText.fill('State B');
+            await previewText.dispatchEvent('change');
+            await page.waitForTimeout(1300);
+            await previewPanel.waitForAPIPreviewLoaded();
+            expect(requestCount).toBeGreaterThan(countAfterA);
+            const countAfterB = requestCount;
+
+            // Edit back to the identical State A → served from cache, no new request
+            await previewText.fill('State A');
+            await previewText.dispatchEvent('change');
+            await page.waitForTimeout(1300);
+
+            expect(requestCount).toBe(countAfterB);
+            await expect(previewPanel.previewImage).toBeVisible();
+        });
+
+        test('should not serve a cached image when the label size changes', async ({ page }) => {
+            let requestCount = 0;
+            await page.route(LABELARY_URL, route => {
+                requestCount += 1;
+                route.fulfill({ status: 200, contentType: 'image/png', body: createMinimalPNG() });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const countBefore = requestCount;
+
+            // Same elements, different label width → different request signature → new render
+            const labelWidth = page.locator('#label-width');
+            await labelWidth.fill('120');
+            await labelWidth.dispatchEvent('input');
+            await page.waitForTimeout(1300);
+            await previewPanel.waitForAPIPreviewLoaded();
+
+            expect(requestCount).toBeGreaterThan(countBefore);
         });
     });
 });

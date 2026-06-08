@@ -421,6 +421,12 @@
       justify-self: end;
     }
 
+    /* In fullscreen the mode switcher floats at top:12px, so push the rendering
+       island down to clear it. */
+    #view-editor.is-fullscreen #preview-rendering-island {
+      top: 88px;
+    }
+
     /* Floating Fullscreen toggle inside the canvas (normal view). Hidden in fullscreen. */
     #fullscreen-toggle-btn.fullscreen-btn-floating {
       position: absolute;
@@ -1536,16 +1542,6 @@
                           </button>
                         </div>
 
-                        <button id="refresh-preview-btn" disabled data-tooltip="Refresh Labelary API preview"
-                          class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
-                          <svg id="refresh-preview-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                            </path>
-                          </svg>
-                          Refresh
-                        </button>
                       </div>
 
                     </div>
@@ -1588,17 +1584,27 @@
                       <span id="fullscreen-toggle-label" class="btn-label">Fullscreen</span>
                     </button>
 
+                    <!-- Rendering indicator island — anchored on the canvas, under the mode
+                         switcher. Appears only when a Labelary render runs longer than ~500ms. -->
+                    <div id="preview-rendering-island"
+                      class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-white border border-slate-200 shadow-md rounded-full pl-2.5 pr-3.5 py-1.5 pointer-events-none">
+                      <svg id="refresh-preview-icon" class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                      <span class="text-xs font-medium text-slate-600">Rendering…</span>
+                    </div>
+
                     <!-- Dot grid + centered messages (visible in api/overlay modes) -->
                     <div id="api-preview-container"
                       class="hidden absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
                       <div class="absolute inset-0 opacity-[0.03]"
                         style="background-image: radial-gradient(#000 1px, transparent 1px); background-size: 20px 20px;">
                       </div>
-                      <div id="preview-error"
-                        class="hidden bg-red-50 text-red-600 p-3 rounded border border-red-100 max-w-sm text-center text-xs pointer-events-auto z-20">
-                      </div>
                       <div id="preview-placeholder" class="text-slate-400 text-sm italic z-20">
-                        Click refresh to render
+                        Preview will appear here
                       </div>
                     </div>
 
@@ -1613,6 +1619,36 @@
                         style="image-rendering: pixelated; image-rendering: crisp-edges;" alt="Label preview" />
                       <canvas id="label-canvas" width="799" height="399"
                         class="shadow-lg border border-slate-200 bg-white cursor-default block relative z-20"></canvas>
+                    </div>
+
+                    <!-- Error card — top-level overlay so it stacks above the viewport/backing -->
+                    <div id="preview-error"
+                      class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 bg-white rounded-xl border border-red-100 shadow-lg p-5 max-w-sm text-left pointer-events-auto">
+                      <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                          <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                          </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <h3 class="font-semibold text-slate-800 text-sm">Couldn't render the preview</h3>
+                          <p id="preview-error-message" class="mt-1 text-xs text-slate-500 leading-relaxed">
+                            The render service didn't respond. Your design is safe — the editor kept your last
+                            successful preview.
+                          </p>
+                          <div class="flex gap-2 mt-4">
+                            <button id="preview-error-retry"
+                              class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
+                              Try again
+                            </button>
+                            <button id="preview-error-back"
+                              class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
+                              Back to Edit
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <!-- Floating zoom controls (bottom-right) -->

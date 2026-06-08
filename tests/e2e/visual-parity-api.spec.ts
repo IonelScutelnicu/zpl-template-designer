@@ -37,7 +37,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
 
         // Get API preview at full dot resolution
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -67,7 +66,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -95,7 +93,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -123,7 +120,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -151,7 +147,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -173,7 +168,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -193,7 +187,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -222,7 +215,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -251,7 +243,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
@@ -278,7 +269,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshPreview();
         await previewPanel.waitForAPIPreviewLoaded();
         const apiImage = await previewPanel.getAPIPreviewFullResolution();
 

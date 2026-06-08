@@ -40,7 +40,6 @@ test.describe('ZPL Warnings - Element Lifecycle', () => {
         await elementsPanel.addBoxElement();
 
         await previewPanel.switchToAPIMode();
-        await previewPanel.refreshBtn.click();
 
         const warningsPanel = page.locator('#warnings-panel');
         await warningsPanel.waitFor({ state: 'visible', timeout: 10000 });
