@@ -83,6 +83,7 @@ export class ZPLGenerator {
       labelTop = 0,
       printOrientation = 'N',
       printMirror = 'N',
+      mediaTracking = 'Y',
       mediaDarkness = 25,
       printSpeed = 4,
       slewSpeed = 4,
@@ -132,6 +133,20 @@ export class ZPLGenerator {
 
     // Media type (MTT = thermal transfer)
     header += '^MTT\n';
+
+    // Media tracking (^MN). Web/gap (Y) is the silent default — emit only a
+    // non-default selection so existing templates' output is unchanged.
+    if (mediaTracking !== 'Y') {
+      header += `^MN${mediaTracking}\n`;
+    }
+
+    // Label length (^LL). Only meaningful for continuous media, where the
+    // printer has no gap/notch to detect label boundaries. Derived from the
+    // label height in mm, mirroring how ^PW is derived from width.
+    if (mediaTracking === 'N') {
+      const labelLengthDots = Math.floor((labelSettings.height / 25.4) * actualDpi);
+      header += `^LL${labelLengthDots}\n`;
+    }
 
     // Custom fonts (^CW commands)
     if (customFonts && customFonts.length > 0) {

@@ -15,7 +15,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Shareable links** — compress the current template into a URL hash for quick sharing
 - **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
 - **Custom fonts** — register custom ZPL fonts via `^CW` commands
-- **Print settings** — orientation, mirror, darkness, speed, home position, label top, and print quantity controls (`^PQ`)
+- **Print settings** — orientation, mirror, media tracking (`^MN`, incl. continuous media with `^LL`), darkness, speed, home position, label top, and print quantity controls (`^PQ`)
 - **ZPL warnings** — Labelary API linter warnings with element-level attribution
 - **Onboarding tour** — built-in guided walkthrough for first-time users
 
@@ -89,6 +89,8 @@ The application generates ZPL code in the following format:
 ^PR[printSpeed],[slewSpeed],[backfeedSpeed]
 ^PO[orientation]
 ^PM[mirror]
+^MN[mediaTracking]
+^LL[labelLength]
 ~SD[darkness]
 ^LH[homeX],[homeY]
 ^LT[labelTop]
@@ -107,6 +109,8 @@ Where:
 - `^PR` — Print / Slew / Backfeed speeds
 - `^PO` — Print Orientation
 - `^PM` — Print Mirror
+- `^MN` — Media Tracking (omitted for the default web/gap; emitted for continuous/mark/auto)
+- `^LL` — Label Length in dots (emitted only for continuous media)
 - `~SD` — Media Darkness
 - `^LH`/`^LT` — Label Home / Top
 - `^CW`/`^CF` — Font Configuration

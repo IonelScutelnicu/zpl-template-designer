@@ -379,6 +379,61 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
     });
 
+    // ============== MEDIA TRACKING (^MN / ^LL) ==============
+    test.describe('Media Tracking', () => {
+        test.beforeEach(async ({ page }) => {
+            await elementsPanel.addTextElement();
+            // Expand Print Configuration section which is closed by default
+            await page.locator('details[data-fs-tab="print-config"] summary').click();
+        });
+
+        test('should omit ^MN and ^LL for the default web/gap media', async () => {
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('^MN');
+            expect(zpl).not.toContain('^LL');
+        });
+
+        test('should emit ^MNN and ^LL for continuous media', async ({ page }) => {
+            await page.locator('#media-tracking').selectOption('N');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^MNN');
+            // ^LL is derived from label height in dots (height_mm × dpi)
+            expect(zpl).toMatch(/\^LL\d+/);
+        });
+
+        test('should emit ^MNM with no ^LL for mark sensing', async ({ page }) => {
+            await page.locator('#media-tracking').selectOption('M');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^MNM');
+            expect(zpl).not.toContain('^LL');
+        });
+
+        test('should round-trip continuous media tracking through ZPL import', async ({ page }) => {
+            const original = '^XA^MNN^LL400^FO50,50^A0N,30,30^FDHi^FS^XZ';
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            // A text element exists (from beforeEach), so a confirm modal appears first.
+            await page.locator('#confirm-ok-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+
+            // ^MN/^LL are recognised, so no warnings — the first click imports directly.
+            await page.locator('#zpl-import-confirm-btn').click();
+            const warningsVisible = await page.locator('#zpl-import-warnings').isVisible().catch(() => false);
+            if (warningsVisible) {
+                await page.locator('#zpl-import-confirm-btn').click();
+            }
+
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            await expect(page.locator('#media-tracking')).toHaveValue('N');
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^MNN');
+        });
+    });
+
     // ============== FIELDBLOCK ORIENTATION ZPL ==============
     test.describe('FieldBlock Orientation ZPL', () => {
         test('should generate ^A with orientation R for rotated FieldBlock', async ({ page }) => {

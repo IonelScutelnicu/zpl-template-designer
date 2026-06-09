@@ -8,7 +8,7 @@ import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap
  * Known ZPL commands that the parser handles (won't generate warnings)
  */
 const KNOWN_COMMANDS = new Set([
-  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
+  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
@@ -67,7 +67,7 @@ function normalizeShapeColor(value) {
  * Header commands that configure label settings (not element-specific)
  */
 const HEADER_COMMANDS = new Set([
-  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'SD', 'LH', 'LT', 'CI', 'MT',
+  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ'
 ]);
 
@@ -413,6 +413,25 @@ export class ZPLParser {
         const val = token.params.trim().charAt(0);
         if ('NY'.includes(val)) {
           state.labelSettings.printMirror = val;
+        }
+        break;
+      }
+      case 'MN': {
+        // ^MN media tracking; first char selects the mode. W (web sensing) maps
+        // to the editor's Y (web/gap); other values fall through unchanged.
+        let val = token.params.trim().charAt(0).toUpperCase();
+        if (val === 'W') val = 'Y';
+        if ('NYMA'.includes(val)) {
+          state.labelSettings.mediaTracking = val;
+        }
+        break;
+      }
+      case 'LL': {
+        // ^LL label length in dots → height in mm, parallel to the ^PW case.
+        // Overridden later by ^FX metadata height when present.
+        const dots = parseInt(token.params);
+        if (dots > 0) {
+          state.labelSettings.height = Math.round(dots / dpmm);
         }
         break;
       }
@@ -1105,6 +1124,7 @@ export class ZPLParser {
       dpmm,
       printOrientation: 'N',
       printMirror: 'N',
+      mediaTracking: 'Y',
       mediaDarkness: 25,
       printSpeed: 4,
       slewSpeed: 4,

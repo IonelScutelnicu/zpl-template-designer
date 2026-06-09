@@ -251,6 +251,7 @@ const setMirrorActive = (value) => {
     btn.setAttribute('aria-pressed', String(isActive));
   });
 };
+const mediaTracking = document.getElementById("media-tracking");
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
@@ -800,6 +801,12 @@ export function initApp() {
       renderCanvasPreview();
       scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
     });
+  });
+
+  mediaTracking.addEventListener("change", (e) => {
+    state.updateLabelSettings({ mediaTracking: e.target.value });
+    updateZPLOutput();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   mediaDarkness.addEventListener("input", (e) => {
@@ -1456,6 +1463,7 @@ function syncLabelSettingsInputs() {
   labelTop.value = state.labelSettings.labelTop;
   setOrientationActive(state.labelSettings.printOrientation);
   setMirrorActive(state.labelSettings.printMirror);
+  mediaTracking.value = state.labelSettings.mediaTracking || 'Y';
   mediaDarkness.value = state.labelSettings.mediaDarkness;
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;

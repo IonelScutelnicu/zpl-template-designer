@@ -20,6 +20,7 @@ export class AppState {
       dpmm: 8,                 // dots per mm
       printOrientation: "N",   // N = normal, I = inverted
       printMirror: "N",        // N = normal, Y = mirrored (^PM)
+      mediaTracking: "Y",      // ^MN media tracking (N=continuous, Y=web/gap, M=mark, A=auto)
       mediaDarkness: 25,       // ~SD value (0-30)
       printSpeed: 4,           // ^PR value (2-14)
       slewSpeed: 4,            // ^PR value (2-14)
