@@ -100,13 +100,14 @@ test.describe('Open in Labelary', () => {
         await expect(page.locator('#zpl-more-menu')).toHaveClass(/hidden/);
     });
 
-    test('works with an empty canvas (opens viewer with blank zpl)', async ({ page }) => {
-        const { url } = await captureLabelaryUrl(page);
-        const params = new URL(url).searchParams;
-        // ZPLGenerator emits '' when there are no elements; the viewer URL is
-        // still well-formed and includes the empty zpl param.
-        expect(params.has('zpl')).toBe(true);
-        expect(params.get('zpl')).toBe('');
-        expect(params.get('density')).toBe('8');
+    test('is disabled while the canvas is empty', async ({ page }) => {
+        // Nothing to preview with no elements — mirror the Export button's
+        // disabled-until-content behaviour.
+        await page.locator('#zpl-more-btn').click();
+        await expect(page.locator('#open-labelary-btn')).toBeDisabled();
+
+        // Adding an element enables it.
+        await elementsPanel.addTextElement();
+        await expect(page.locator('#open-labelary-btn')).toBeEnabled();
     });
 });

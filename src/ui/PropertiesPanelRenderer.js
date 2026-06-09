@@ -668,7 +668,7 @@ export class PropertiesPanelRenderer {
               class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
           </div>
           <button type="button" id="prop-circle-aspect-lock"
-            title="${lockTitle}" data-tooltip="${lockTitle}"
+            data-tooltip="${lockTitle}"
             class="flex items-center justify-center w-[30px] h-[30px] rounded-md border ${lockBtnClass} transition-colors">
             <span class="material-icons-round text-[16px] leading-none">${lockIcon}</span>
           </button>
@@ -960,7 +960,7 @@ export class PropertiesPanelRenderer {
                   class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
               </div>
               <button type="button" id="prop-graphic-aspect-lock"
-                title="${lockTitle}" data-tooltip="${lockTitle}"
+                data-tooltip="${lockTitle}"
                 class="flex items-center justify-center w-[30px] h-[30px] rounded-md border ${lockBtnClass} transition-colors">
                 <span class="material-icons-round text-[16px] leading-none">${lockIcon}</span>
               </button>

@@ -396,7 +396,6 @@ export class PropertyListenersManager {
       const iconSpan = lockBtn.querySelector('.material-icons-round');
       if (iconSpan) iconSpan.textContent = locked ? 'link' : 'link_off';
       const title = locked ? 'Aspect ratio locked — click to unlock' : 'Aspect ratio unlocked — click to relock';
-      lockBtn.title = title;
       lockBtn.dataset.tooltip = title;
       lockBtn.classList.toggle('bg-white', locked);
       lockBtn.classList.toggle('text-blue-600', locked);
@@ -526,7 +525,6 @@ export class PropertyListenersManager {
         const iconSpan = lockBtn.querySelector('.material-icons-round');
         if (iconSpan) iconSpan.textContent = locked ? 'link' : 'link_off';
         const title = locked ? 'Aspect ratio locked — click to unlock' : 'Aspect ratio unlocked — click to relock';
-        lockBtn.title = title;
         lockBtn.dataset.tooltip = title;
         lockBtn.classList.toggle('bg-white', locked);
         lockBtn.classList.toggle('text-blue-600', locked);

@@ -1676,6 +1676,10 @@ function updateCopyExportUI() {
   shareBtn.disabled = !hasElements;
   shareBtn.classList.toggle('opacity-50', !hasElements);
   shareBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
+  openLabelaryBtn.disabled = !hasElements;
+  openLabelaryBtn.classList.toggle('opacity-50', !hasElements);
+  openLabelaryBtn.classList.toggle('cursor-not-allowed', !hasElements);
 }
 
 function renderHistoryList() {
