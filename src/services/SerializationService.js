@@ -225,6 +225,14 @@ export class SerializationService {
       element[key] = data[key];
     }
 
+    // Invariant: a shape whose width and height differ is an ellipse, not a
+    // circle. Force its aspect lock open so render() emits ^GE (independent
+    // dimensions) instead of ^GC (which ignores height). Runs after the copy
+    // loop above so it overrides any inconsistent saved aspectLocked value.
+    if (element.aspectLocked && element.width !== element.height) {
+      element.aspectLocked = false;
+    }
+
     // Snap bitmap-font sizes to the allowed grid (no-op for scalable/non-text
     // elements). options.labelFontId is the label default, used to resolve the
     // effective font when the element inherits it (fontId === '').
