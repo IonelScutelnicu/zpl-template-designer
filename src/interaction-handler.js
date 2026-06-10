@@ -683,6 +683,16 @@ export class InteractionHandler {
     const isModifier = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
 
+    // Ctrl+Alt+N (⌥⌘N) starts a new blank label. Ctrl+N alone is reserved by
+    // the browser (new window) and can't be captured, so we require Alt.
+    if (isModifier && e.altKey && key === 'n') {
+      e.preventDefault();
+      if (this.callbacks.onNewTemplate) {
+        this.callbacks.onNewTemplate();
+      }
+      return;
+    }
+
     if (isModifier && key === 'z') {
       e.preventDefault();
       if (e.shiftKey) {

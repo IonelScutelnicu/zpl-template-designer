@@ -109,7 +109,7 @@ Where:
 - `^PR` — Print / Slew / Backfeed speeds
 - `^PO` — Print Orientation
 - `^PM` — Print Mirror
-- `^MN` — Media Tracking (omitted for the default web/gap; emitted for continuous/mark/auto)
+- `^MN` — Media Tracking (omitted when no mode is selected; emitted for web/gap, continuous, mark, or auto)
 - `^LL` — Label Length in dots (emitted only for continuous media)
 - `~SD` — Media Darkness
 - `^LH`/`^LT` — Label Home / Top

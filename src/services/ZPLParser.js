@@ -1124,7 +1124,7 @@ export class ZPLParser {
       dpmm,
       printOrientation: 'N',
       printMirror: 'N',
-      mediaTracking: 'Y',
+      mediaTracking: '',
       mediaDarkness: 25,
       printSpeed: 4,
       slewSpeed: 4,

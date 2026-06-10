@@ -63,11 +63,10 @@ const STEPS = [
     position: "bottom",
   },
   {
-    target: "#copy-btn",
-    area: "#copy-btn, #share-btn, #zpl-more-btn",
-    title: "Copy, Share & Export",
-    body: "Copy ZPL to clipboard, generate a shareable link, or export/import templates as JSON.",
-    icon: "share",
+    target: "#zpl-more-btn",
+    title: "Template Menu",
+    body: "Open the Template menu to start a new label, save it to Drive, share a link, copy ZPL, import or export templates, or open it in Labelary.",
+    icon: "description",
     position: "bottom",
   },
   {

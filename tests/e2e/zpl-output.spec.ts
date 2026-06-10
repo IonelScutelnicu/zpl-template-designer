@@ -387,14 +387,25 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await page.locator('details[data-fs-tab="print-config"] summary').click();
         });
 
-        test('should omit ^MN and ^LL for the default web/gap media', async () => {
+        test('should omit ^MN and ^LL when no media tracking is selected', async ({ page }) => {
+            await expect(page.locator('[data-media-tracking="Y"]')).toHaveAttribute('aria-pressed', 'false');
+            await expect(page.locator('[data-media-tracking="N"]')).toHaveAttribute('aria-pressed', 'false');
+            await expect(page.locator('[data-media-tracking="M"]')).toHaveAttribute('aria-pressed', 'false');
+            await expect(page.locator('[data-media-tracking="A"]')).toHaveAttribute('aria-pressed', 'false');
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).not.toContain('^MN');
             expect(zpl).not.toContain('^LL');
         });
 
+        test('should emit ^MNY when web gap media is selected', async ({ page }) => {
+            await page.locator('[data-media-tracking="Y"]').click();
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^MNY');
+            expect(zpl).not.toContain('^LL');
+        });
+
         test('should emit ^MNN and ^LL for continuous media', async ({ page }) => {
-            await page.locator('#media-tracking').selectOption('N');
+            await page.locator('[data-media-tracking="N"]').click();
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain('^MNN');
             // ^LL is derived from label height in dots (height_mm × dpi)
@@ -402,9 +413,22 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
 
         test('should emit ^MNM with no ^LL for mark sensing', async ({ page }) => {
-            await page.locator('#media-tracking').selectOption('M');
+            await page.locator('[data-media-tracking="M"]').click();
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain('^MNM');
+            expect(zpl).not.toContain('^LL');
+        });
+
+        test('should toggle media tracking off when clicking the selected button again', async ({ page }) => {
+            const webGapButton = page.locator('[data-media-tracking="Y"]');
+            await webGapButton.click();
+            await expect(webGapButton).toHaveAttribute('aria-pressed', 'true');
+
+            await webGapButton.click();
+            await expect(webGapButton).toHaveAttribute('aria-pressed', 'false');
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).not.toContain('^MN');
             expect(zpl).not.toContain('^LL');
         });
 
@@ -428,7 +452,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
                 return document.querySelectorAll('#elements-list .element-item').length > 0;
             }, { timeout: 5000 });
 
-            await expect(page.locator('#media-tracking')).toHaveValue('N');
+            await expect(page.locator('[data-media-tracking="N"]')).toHaveAttribute('aria-pressed', 'true');
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain('^MNN');
         });

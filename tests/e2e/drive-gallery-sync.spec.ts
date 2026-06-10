@@ -88,8 +88,9 @@ async function saveNewToDrive(page: import('@playwright/test').Page, name: strin
     await page.locator('#add-text-btn').click();
     await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
 
-    await page.locator('#drive-chip-btn').click();
+    await page.locator('#zpl-more-btn').click();
     await expect(page.locator('#drive-menu-save')).toBeVisible();
+    await expect(page.locator('#drive-menu-save')).toBeEnabled();
     await page.locator('#drive-menu-save').click();
 
     await expect(page.locator('#export-gallery-modal')).toBeVisible({ timeout: 5000 });
@@ -131,6 +132,45 @@ test.describe('Drive → Gallery cache sync', () => {
         const card = page.locator('.tcard[data-id="drive:new-file-123"]');
         await expect(card).toBeVisible();
         await expect(card.locator('.name')).toHaveText('My Test Template');
+    });
+
+    test('header dirty dot appears on edit and clears after saving to Drive', async ({ page }) => {
+        await page.route(DRIVE_UPLOAD_URL, route =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    id: 'dot-file-1',
+                    name: 'Dot Test.json',
+                    modifiedTime: new Date().toISOString(),
+                    createdTime: new Date().toISOString(),
+                }),
+            })
+        );
+
+        await page.goto('/');
+        await switchToView(page, 'editor');
+
+        // Clean canvas → name shown, dot hidden.
+        await expect(page.locator('#editor-doc-name')).toBeVisible();
+        await expect(page.locator('#editor-doc-dot')).toBeHidden();
+
+        // An edit makes the doc dirty → amber dot.
+        await page.locator('#add-text-btn').click();
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        await expect(page.locator('#editor-doc-dot')).toBeVisible();
+
+        // Save via the Template menu → clean again → dot hidden.
+        await page.locator('#zpl-more-btn').click();
+        await expect(page.locator('#drive-menu-save')).toBeEnabled();
+        await page.locator('#drive-menu-save').click();
+        await expect(page.locator('#export-gallery-modal')).toBeVisible({ timeout: 5000 });
+        await page.locator('#gallery-name').fill('Dot Test');
+        await page.locator('#gallery-desc').fill('A dirty-dot test');
+        await page.locator('#export-gallery-confirm-btn').click();
+        await expect(page.locator('#toast-host')).toContainText('Saved to Drive', { timeout: 10000 });
+
+        await expect(page.locator('#editor-doc-dot')).toBeHidden();
     });
 
     test('saving a second template after gallery init appears instantly', async ({ page }) => {

@@ -58,8 +58,8 @@ test.describe('Onboarding Walkthrough', () => {
         await expect(title).toHaveText('Edit & Preview Modes');
         await nextBtn.click();
 
-        // Step 9: Copy, Share & Export
-        await expect(title).toHaveText('Copy, Share & Export');
+        // Step 9: Template Menu
+        await expect(title).toHaveText('Template Menu');
         await nextBtn.click();
 
         // Step 10: You're All Set!

@@ -212,12 +212,15 @@ const exportGalleryModal = document.getElementById("export-gallery-modal");
 const exportGalleryCloseBtn = document.getElementById("export-gallery-close-btn");
 const exportGalleryCancelBtn = document.getElementById("export-gallery-cancel-btn");
 const exportGalleryConfirmBtn = document.getElementById("export-gallery-confirm-btn");
+const newTemplateBtn = document.getElementById("new-template-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
 const shareBtn = document.getElementById("share-btn");
 const shareBtnLabel = document.getElementById("share-btn-label");
 const zplMoreBtn = document.getElementById("zpl-more-btn");
 const zplMoreMenu = document.getElementById("zpl-more-menu");
+const copyZplMenu = document.getElementById("copy-zpl-menu");
+const shareMenu = document.getElementById("share-menu");
 const importZPLBtn = document.getElementById("import-zpl-btn");
 const openLabelaryBtn = document.getElementById("open-labelary-btn");
 const zplImportModal = document.getElementById("zpl-import-modal");
@@ -251,7 +254,30 @@ const setMirrorActive = (value) => {
     btn.setAttribute('aria-pressed', String(isActive));
   });
 };
-const mediaTracking = document.getElementById("media-tracking");
+const mediaTrackingButtons = document.querySelectorAll('[data-media-tracking]');
+const mediaTrackingCaption = document.getElementById("media-tracking-caption");
+
+const MEDIA_TRACKING_CAPTIONS = {
+  default: {
+    code: '',
+    text: 'Optional. Leave all buttons unselected to omit ^MN from the generated ZPL.',
+  },
+  Y: { code: '^MNY', text: 'Die-cut labels separated by gaps. The printer senses each gap to find label boundaries.' },
+  N: { code: '^MNN', text: 'Receipt-style roll with no gaps or marks. Label length comes from the template (^LL), not the media.' },
+  M: { code: '^MNM', text: 'Labels with a black mark printed on the back. The printer senses each mark to set length.' },
+  A: { code: '^MNA', text: 'The printer calibrates on feed and detects the media type automatically.' },
+};
+
+const setMediaTrackingActive = (value) => {
+  mediaTrackingButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-media-tracking') === value;
+    btn.className = `flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${isActive ? 'border-2 border-blue-500 bg-blue-50 text-blue-600' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`;
+    btn.setAttribute('aria-pressed', String(isActive));
+  });
+  const caption = MEDIA_TRACKING_CAPTIONS[value] || MEDIA_TRACKING_CAPTIONS.default;
+  mediaTrackingCaption.querySelector('.font-mono').textContent = caption.code;
+  mediaTrackingCaption.querySelector('[data-caption-text]').textContent = caption.text;
+};
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
@@ -336,6 +362,25 @@ export function initApp() {
 
   // Initialize confirmation modal
   const confirmModal = new ConfirmModal();
+
+  // Start a fresh blank label. Confirms first when there's work to lose
+  // (any elements, or an in-progress Drive doc), then resets to the boot
+  // state and detaches from any open Drive file.
+  const startNewTemplate = async () => {
+    if (state.elements.length > 0 || driveDoc.dirty) {
+      const ok = await confirmModal.show(
+        "Discard the current label and start a new one? This can't be undone."
+      );
+      if (!ok) return;
+    }
+    const blank = {
+      elements: [],
+      labelSettings: new AppState().labelSettings,
+      metadata: null,
+    };
+    importTemplate(blank, { historyLabel: "New template", historyKind: "new" });
+    resetDriveDoc();
+  };
 
   // Initialize fullscreen controller (workspace layout state)
   fullscreen = new FullscreenController();
@@ -504,6 +549,7 @@ export function initApp() {
     },
     onUndo: () => undo(),
     onRedo: () => redo(),
+    onNewTemplate: () => startNewTemplate(),
     getSelectedElement: () => state.selectedElement,  // Read from state
     serializeElement: (element) => serializeElement(element),
     pasteElement: (data) => pasteElementFromData(data),
@@ -602,6 +648,7 @@ export function initApp() {
   addGraphicBtn.addEventListener("click", () => addGraphicFileInput.click());
   addGraphicFileInput.addEventListener("change", handleGraphicFileSelected);
   copyBtn.addEventListener("click", copyZPL);
+  copyZplMenu.addEventListener("click", () => { closeZPLMoreMenu(); copyZPL(); });
   previewErrorRetryBtn.addEventListener("click", () => { void updatePreview(); });
   previewErrorBackBtn.addEventListener("click", () => setPreviewMode('canvas'));
   // Mode switching
@@ -623,6 +670,10 @@ export function initApp() {
     event.stopPropagation();
     toggleZPLMoreMenu();
   });
+  newTemplateBtn.addEventListener("click", () => {
+    closeZPLMoreMenu();
+    startNewTemplate();
+  });
   exportBtn.addEventListener("click", () => {
     exportTemplate();
     closeZPLMoreMenu();
@@ -641,6 +692,7 @@ export function initApp() {
   dismissOnBackdrop(exportGalleryModal);
   dismissOnBackdrop(zplImportModal);
   shareBtn.addEventListener("click", shareTemplate);
+  shareMenu.addEventListener("click", () => { closeZPLMoreMenu(); shareTemplate(); });
   importBtn.addEventListener("click", async () => {
     closeZPLMoreMenu();
     if (state.elements.length > 0) {
@@ -803,10 +855,15 @@ export function initApp() {
     });
   });
 
-  mediaTracking.addEventListener("change", (e) => {
-    state.updateLabelSettings({ mediaTracking: e.target.value });
-    updateZPLOutput();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  mediaTrackingButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const value = btn.getAttribute('data-media-tracking');
+      const nextValue = state.labelSettings.mediaTracking === value ? '' : value;
+      state.updateLabelSettings({ mediaTracking: nextValue });
+      setMediaTrackingActive(nextValue);
+      updateZPLOutput();
+      scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+    });
   });
 
   mediaDarkness.addEventListener("input", (e) => {
@@ -1012,7 +1069,11 @@ export function initApp() {
     editorViewContainer.addEventListener('view:enter', () => {
       rehydrateFromHandoff();
       renderEditorHeaderChip();
+      updateDriveChipLabel();
     });
+    // Hide the header doc-name when leaving the editor (currentView is already
+    // the next view by the time view:leave fires).
+    editorViewContainer.addEventListener('view:leave', () => updateDriveChipLabel());
   }
 
   // Check for shared template in URL hash
@@ -1463,7 +1524,7 @@ function syncLabelSettingsInputs() {
   labelTop.value = state.labelSettings.labelTop;
   setOrientationActive(state.labelSettings.printOrientation);
   setMirrorActive(state.labelSettings.printMirror);
-  mediaTracking.value = state.labelSettings.mediaTracking || 'Y';
+  setMediaTrackingActive(state.labelSettings.mediaTracking || '');
   mediaDarkness.value = state.labelSettings.mediaDarkness;
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;
@@ -1581,6 +1642,30 @@ function markClean() {
   updateSaveStatusUI();
 }
 
+// Detach the editor from any open Google Drive file — used by "New template".
+// Returns the editor to a brand-new, unsaved-document state and strips the
+// ?drive= URL param so a reload starts clean instead of reopening the old file.
+function resetDriveDoc() {
+  driveDoc.fileId = null;
+  driveDoc.folderId = null;
+  driveDoc.dirty = false;
+  driveDoc.saving = false;
+  driveDoc.lastSavedAt = null;
+  driveDoc.driveMode = false;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('drive')) {
+      url.searchParams.delete('drive');
+      window.history.replaceState({}, '', url.toString());
+    }
+  } catch {
+    // best-effort
+  }
+  updateSaveStatusUI();
+  updateDriveSaveBtnState();
+  updateDriveChipLabel();
+}
+
 function setSaving(saving) {
   driveDoc.saving = saving;
   updateSaveStatusUI();
@@ -1599,17 +1684,21 @@ function formatRelativeTime(date) {
 }
 
 function updateSaveStatusUI() {
-  const el = document.getElementById('drive-chip-status');
-  if (!el) return;
-  if (driveDoc.saving) {
-    el.textContent = '· Saving';
-    el.className = 'font-normal text-blue-500';
-  } else if (driveDoc.dirty) {
-    el.textContent = '· Unsaved';
-    el.className = 'font-normal text-amber-500';
+  const dot = document.getElementById('editor-doc-dot');
+  if (!dot) return;
+  const base = 'h-2 w-2 rounded-full shrink-0';
+  // The save-state dot is only meaningful when connected to Drive — otherwise
+  // the user has no way to save and the dot would just be unexplained noise.
+  const connected = isDriveConfigured() && driveAuth.isConnected();
+  if (connected && driveDoc.saving) {
+    dot.className = `${base} bg-blue-500`;
+    dot.dataset.tooltip = 'Saving…';
+  } else if (connected && driveDoc.dirty) {
+    dot.className = `${base} bg-amber-500`;
+    dot.dataset.tooltip = 'Unsaved changes';
   } else {
-    el.textContent = '';
-    el.className = 'font-normal';
+    dot.className = `hidden ${base}`;
+    delete dot.dataset.tooltip;
   }
 }
 
@@ -1664,6 +1753,14 @@ function updateCopyExportUI() {
   copyBtn.disabled = !hasElements;
   copyBtn.classList.toggle('opacity-50', !hasElements);
   copyBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
+  copyZplMenu.disabled = !hasElements;
+  copyZplMenu.classList.toggle('opacity-50', !hasElements);
+  copyZplMenu.classList.toggle('cursor-not-allowed', !hasElements);
+
+  shareMenu.disabled = !hasElements;
+  shareMenu.classList.toggle('opacity-50', !hasElements);
+  shareMenu.classList.toggle('cursor-not-allowed', !hasElements);
 
   exportBtn.disabled = !hasElements;
   exportBtn.classList.toggle('opacity-50', !hasElements);
@@ -2486,6 +2583,7 @@ async function doExportForGallery() {
       }
       currentTemplateMetadata = metadata;
       updateDriveChipLabel();
+      updateDriveSaveBtnState();
       document.title = metadata.name + ' — Zebra ZPL Editor';
       setSaving(false);
       markClean();
@@ -2614,7 +2712,7 @@ function escapeHtmlForZPLImport(text) {
 }
 
 // Import Template from JSON
-function importTemplate(template) {
+function importTemplate(template, { historyLabel = "Imported template", historyKind = "import" } = {}) {
   // Reset viewport to Fit for the new template — different label dimensions
   // need a fresh fit, and the user's prior zoom/pan no longer makes sense.
   isAtFit = true;
@@ -2660,7 +2758,7 @@ function importTemplate(template) {
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
-  resetHistory("Imported template", { kind: "import" });
+  resetHistory(historyLabel, { kind: historyKind });
   updateCopyExportUI();
 }
 
@@ -2682,22 +2780,38 @@ function closeHistoryPanel() {
 // ============================================================
 
 function updateDriveSaveBtnState() {
-  const btn = document.getElementById('drive-chip-btn');
-  if (!btn) return;
+  // The Save / Save as… / Edit details items live in the Template menu and stay
+  // visible but disabled when not usable (per the "disabled when not active" rule).
   const connected = isDriveConfigured() && driveAuth.isConnected();
-  btn.disabled = !connected;
-  btn.dataset.tooltip = connected ? 'Save to Google Drive' : 'Connect Google Drive to save';
-  const wrap = document.getElementById('drive-save-wrap');
-  if (wrap) wrap.classList.toggle('hidden', !connected);
+  const saveBtn = document.getElementById('drive-menu-save');
+  const saveAsBtn = document.getElementById('drive-menu-save-as');
   const renameBtn = document.getElementById('drive-menu-rename');
-  if (renameBtn) renameBtn.disabled = !driveDoc.fileId;
+
+  if (saveBtn) {
+    saveBtn.disabled = !connected;
+    saveBtn.dataset.tooltip = connected ? 'Save to Google Drive' : 'Connect Google Drive to save';
+  }
+  if (saveAsBtn) {
+    saveAsBtn.disabled = !connected;
+    saveAsBtn.dataset.tooltip = connected ? 'Save as a new template' : 'Connect Google Drive to save';
+  }
+  if (renameBtn) {
+    renameBtn.disabled = !connected || !driveDoc.fileId;
+    renameBtn.dataset.tooltip = !connected
+      ? 'Connect Google Drive to save'
+      : (driveDoc.fileId ? 'Edit template details' : 'Save the template to Drive first');
+  }
 }
 
 function updateDriveChipLabel() {
-  const el = document.getElementById('drive-chip-name');
-  if (!el) return;
-  if (!isDriveConfigured() || !driveAuth.isConnected()) return;
-  el.textContent = (currentTemplateMetadata && currentTemplateMetadata.name) || 'Untitled template';
+  // Header-left document name — shown only in the Editor view.
+  const wrap = document.getElementById('editor-doc-name');
+  const text = document.getElementById('editor-doc-name-text');
+  if (!wrap || !text) return;
+  const inEditor = getCurrentView() === 'editor';
+  wrap.classList.toggle('hidden', !inEditor);
+  wrap.classList.toggle('flex', inEditor);
+  text.textContent = (currentTemplateMetadata && currentTemplateMetadata.name) || 'Untitled template';
 }
 
 function syncEditorUrlForDrive() {
@@ -2767,27 +2881,20 @@ async function saveToDrive() {
 }
 
 function wireDriveEditorBindings() {
-  // Save to Drive dropdown (ZPL panel)
-  const chipBtn = document.getElementById('drive-chip-btn');
-  if (chipBtn) {
-    chipBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.getElementById('drive-chip-menu').classList.toggle('hidden');
-    });
-  }
+  // Save / Save as… / Edit details now live in the Template menu (#zpl-more-menu).
   const menuSave = document.getElementById('drive-menu-save');
   if (menuSave) menuSave.addEventListener('click', () => {
-    document.getElementById('drive-chip-menu').classList.add('hidden');
+    closeZPLMoreMenu();
     saveToDrive();
   });
   const menuSaveAs = document.getElementById('drive-menu-save-as');
   if (menuSaveAs) menuSaveAs.addEventListener('click', () => {
-    document.getElementById('drive-chip-menu').classList.add('hidden');
+    closeZPLMoreMenu();
     openExportGalleryModal('create');
   });
   const menuRename = document.getElementById('drive-menu-rename');
   if (menuRename) menuRename.addEventListener('click', () => {
-    document.getElementById('drive-chip-menu').classList.add('hidden');
+    closeZPLMoreMenu();
     openExportGalleryModal('update');
   });
 
@@ -2797,12 +2904,6 @@ function wireDriveEditorBindings() {
       e.preventDefault();
       saveToDrive();
     }
-  });
-
-  // Close drive dropdown when clicking outside it.
-  document.addEventListener('click', () => {
-    const menu = document.getElementById('drive-chip-menu');
-    if (menu) menu.classList.add('hidden');
   });
 
   // Confirm-on-close if dirty.
@@ -2817,11 +2918,13 @@ function wireDriveEditorBindings() {
   // Initial UI sync
   updateSaveStatusUI();
   updateDriveSaveBtnState();
+  updateDriveChipLabel();
 
   // Mount header chip and listen for auth state changes.
   renderEditorHeaderChip();
   driveAuth.subscribe(renderEditorHeaderChip);
   driveAuth.subscribe(updateDriveSaveBtnState);
+  driveAuth.subscribe(updateSaveStatusUI);
   driveAuth.refreshProfileIfMissing();
 }
 

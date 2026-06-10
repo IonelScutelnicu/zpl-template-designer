@@ -83,7 +83,7 @@ export class ZPLGenerator {
       labelTop = 0,
       printOrientation = 'N',
       printMirror = 'N',
-      mediaTracking = 'Y',
+      mediaTracking = '',
       mediaDarkness = 25,
       printSpeed = 4,
       slewSpeed = 4,
@@ -134,9 +134,9 @@ export class ZPLGenerator {
     // Media type (MTT = thermal transfer)
     header += '^MTT\n';
 
-    // Media tracking (^MN). Web/gap (Y) is the silent default — emit only a
-    // non-default selection so existing templates' output is unchanged.
-    if (mediaTracking !== 'Y') {
+    // Media tracking (^MN). Omit the command unless the user explicitly picked
+    // a mode, including web/gap.
+    if (mediaTracking && 'NYMA'.includes(mediaTracking)) {
       header += `^MN${mediaTracking}\n`;
     }
 
