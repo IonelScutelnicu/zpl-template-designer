@@ -253,7 +253,7 @@
   margin-top: 24px;
 }
 .search {
-  background: white;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0 14px;
@@ -464,6 +464,10 @@
   position: absolute;
   top: 10px;
   left: 10px;
+  /* Stay above the thumbnail. In dark theme the thumb img gets a CSS filter,
+     which creates a stacking context that would otherwise paint over the
+     badge (it follows the badge in DOM order). */
+  z-index: 1;
   font-size: 9px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   letter-spacing: 0.06em;
@@ -1140,8 +1144,11 @@
 }
 
 /* ============ MY TEMPLATE CARD MARKER ============ */
+/* Match the solid ".pill" treatment (e.g. the dpi pill) rather than a
+   translucent fill — over the thumbnail, transparency washes the badge out.
+   All three vars flip per theme, so this reads cleanly in light and dark. */
 .tcard.private .badge.mine {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border: 1px solid var(--accent-soft);
+  background: var(--btn-ghost);
+  color: var(--ink-3);
+  border: 1px solid var(--line);
 }

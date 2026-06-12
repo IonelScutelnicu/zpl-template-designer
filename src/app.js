@@ -78,6 +78,11 @@ function rehydrateFromHandoff() {
         markClean();
         syncEditorUrlForDrive();
         updateDriveSaveBtnState();
+      } else {
+        // Public/duplicated gallery template carries no Drive file. Detach from
+        // any Drive file left open from a previous edit so Save creates a new
+        // file instead of overwriting the unrelated one we last had open.
+        resetDriveDoc();
       }
     } catch (err) {
       console.warn('Failed to load gallery template:', err);
@@ -786,10 +791,16 @@ export function initApp() {
     }
   });
 
-  // Warnings panel event listeners
-  warningsDismissBtn.addEventListener("click", () => {
-    warningsPanelDismissed = true;
-    warningsPanel.classList.add('hidden');
+  // Warnings panel event listeners. The dismiss button collapses the
+  // panel to its header rather than closing it — in fullscreen it toggles
+  // the chip's expanded state, in normal view a collapsed class.
+  warningsDismissBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (document.getElementById('view-editor').classList.contains('is-fullscreen')) {
+      warningsPanel.classList.toggle('fs-chip-expanded');
+    } else {
+      warningsPanel.classList.toggle('warnings-collapsed');
+    }
   });
 
   warningsList.addEventListener("click", (e) => {
@@ -807,12 +818,13 @@ export function initApp() {
 
   // Subscribe to warnings changes
   state.subscribe('warningsChanged', (warnings) => {
-    if (warnings.length > 0 && !warningsPanelDismissed) {
+    if (warnings.length > 0) {
       warningsPanel.classList.remove('hidden');
       warningsCount.textContent = warnings.length;
       warningsList.innerHTML = warningsPanelRenderer.render(warnings);
     } else {
       warningsPanel.classList.add('hidden');
+      warningsPanel.classList.remove('warnings-collapsed');
     }
     updateElementsList();
   });
@@ -2266,7 +2278,6 @@ function updateZPLOutput() {
 const PREVIEW_CACHE_MAX = 30;
 const previewCache = new Map();
 let currentPreviewUrl = null;
-let warningsPanelDismissed = false;
 let previewRequestId = 0;
 let pendingPreviewFetches = 0;
 
@@ -2421,7 +2432,6 @@ async function updatePreview() {
       const parsed = warningParser.parse(warningsHeader);
       resolvedWarnings = warningParser.resolveElements(parsed, byteMap);
       state.setWarnings(resolvedWarnings);
-      warningsPanelDismissed = false;
     } else {
       state.clearWarnings();
     }
@@ -2763,7 +2773,6 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   state.setElements([]);
   state.setSelectedElement(null);
   state.clearWarnings();
-  warningsPanelDismissed = false;
 
   currentTemplateMetadata = template.metadata || null;
   updateDriveChipLabel();

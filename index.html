@@ -13,7 +13,10 @@
     rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round|Material+Icons+Outlined" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <script>if (localStorage.getItem('fullscreen') === '1') document.documentElement.classList.add('fs-restore');</script>
+  <script>
+    if (localStorage.getItem('fullscreen') === '1') document.documentElement.classList.add('fs-restore');
+    if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+  </script>
   <script defer src="templates/index.js"></script>
   <script>
     tailwind.config = {
@@ -215,6 +218,33 @@
       inset: 0;
       z-index: 9999;
       pointer-events: auto;
+    }
+
+    /* Collapsed warnings panel (normal view): show only the header bar. */
+    #warnings-panel.warnings-collapsed #warnings-list {
+      display: none;
+    }
+
+    /* Collapse/expand chevron flips with the panel state (chevron-down when
+       collapsed = "expand", chevron-up when expanded = "collapse"). Driven by
+       CSS so it stays in sync whether toggled via the button or, in
+       fullscreen, the header click. */
+    #warnings-toggle-icon {
+      transition: transform 0.2s ease;
+    }
+
+    /* Normal view: expanded by default → point up. */
+    #warnings-panel:not(.warnings-collapsed) #warnings-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    /* Fullscreen chip: collapsed by default (point down); expanded → up. */
+    #view-editor.is-fullscreen #warnings-panel #warnings-toggle-icon {
+      transform: rotate(0deg);
+    }
+
+    #view-editor.is-fullscreen #warnings-panel.fs-chip-expanded #warnings-toggle-icon {
+      transform: rotate(180deg);
     }
 
     .zpl-output {
@@ -789,6 +819,10 @@
     /* Shortcuts modal: enter/leave animation */
     #shortcuts-modal {
       transition: opacity 0.18s ease;
+      /* The modal is a fixed full-screen overlay but lives inside a
+         space-y-6 flow container, which adds a 24px top margin that pushes
+         the backdrop down and leaves the header uncovered. Zero it out. */
+      margin-top: 0;
     }
 
     #shortcuts-modal.hidden {
@@ -1047,6 +1081,7 @@
     }
   </style>
   <link rel="stylesheet" href="src/gallery.css">
+  <link rel="stylesheet" href="src/theme-dark.css">
 </head>
 
 <body class="bg-slate-100 min-h-screen text-slate-800">
@@ -1125,7 +1160,8 @@
               </button>
               <button id="drive-menu-rename" role="menuitem" disabled data-tooltip="Save the template to Drive first"
                 class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">drive_file_rename_outline</span>
+                <span class="material-icons-round text-[14px] leading-none"
+                  aria-hidden="true">drive_file_rename_outline</span>
                 <span>Edit details</span>
               </button>
               <div role="separator" class="my-1 border-t border-slate-100"></div>
@@ -1176,6 +1212,10 @@
           <input type="file" id="import-file" accept=".json" style="display: none" />
           <div class="h-5 w-px bg-slate-200"></div>
           <div class="flex items-center gap-1">
+            <button id="theme-toggle-btn" data-tooltip="Toggle dark mode" aria-label="Toggle dark mode"
+              class="inline-flex items-center justify-center w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-blue-600 transition-colors">
+              <span class="material-icons-round text-[18px]">dark_mode</span>
+            </button>
             <button id="tour-btn" data-tooltip="Replay guided tour" aria-label="Replay guided tour"
               class="inline-flex items-center justify-center w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-blue-600 transition-colors">
               <span class="material-icons-round text-[18px]">help_outline</span>
@@ -1364,27 +1404,33 @@
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
                           <rect x="1" y="9" width="62" height="14" rx="2" fill="#d7dfec" />
-                          <rect x="4" y="11" width="16" height="10" rx="1.5" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
-                          <rect x="24" y="11" width="16" height="10" rx="1.5" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
-                          <rect x="44" y="11" width="16" height="10" rx="1.5" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
+                          <rect x="4" y="11" width="16" height="10" rx="1.5" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
+                          <rect x="24" y="11" width="16" height="10" rx="1.5" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
+                          <rect x="44" y="11" width="16" height="10" rx="1.5" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
                         </svg>
                         <span class="text-xs font-medium">Web / Gap</span>
                       </button>
                       <button type="button" data-media-tracking="N" aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
+                          <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
                           <line x1="7" y1="13.5" x2="38" y2="13.5" stroke="#cbd5e1" stroke-width="1.6" />
                           <line x1="7" y1="16.5" x2="30" y2="16.5" stroke="#cbd5e1" stroke-width="1.6" />
                           <line x1="7" y1="19.5" x2="35" y2="19.5" stroke="#cbd5e1" stroke-width="1.6" />
-                          <line x1="52" y1="10.5" x2="52" y2="21.5" stroke="#b6c2d4" stroke-width="1" stroke-dasharray="2 2" />
+                          <line x1="52" y1="10.5" x2="52" y2="21.5" stroke="#b6c2d4" stroke-width="1"
+                            stroke-dasharray="2 2" />
                         </svg>
                         <span class="text-xs font-medium">Continuous</span>
                       </button>
                       <button type="button" data-media-tracking="M" aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
+                          <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
                           <rect x="13" y="10" width="4.5" height="12" fill="#1e293b" />
                           <rect x="33" y="10" width="4.5" height="12" fill="#1e293b" />
                           <rect x="53" y="10" width="4.5" height="12" fill="#1e293b" />
@@ -1394,7 +1440,8 @@
                       <button type="button" data-media-tracking="A" aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="none" stroke="#8da0b9" stroke-width="1" stroke-dasharray="3 2.5" />
+                          <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="none" stroke="#8da0b9"
+                            stroke-width="1" stroke-dasharray="3 2.5" />
                           <circle cx="30" cy="15" r="4.2" fill="#ffffff" stroke="#475569" stroke-width="1.4" />
                           <line x1="33.2" y1="18.2" x2="37" y2="22" stroke="#475569" stroke-width="1.6" />
                         </svg>
@@ -1403,7 +1450,8 @@
                     </div>
                     <div id="media-tracking-caption"
                       class="mt-3 rounded-lg bg-slate-50 border border-slate-100 py-2.5 px-3 text-xs text-slate-500 leading-relaxed">
-                      <span class="font-mono text-blue-500"></span> <span data-caption-text>Optional. Leave all buttons unselected to omit ^MN from the generated ZPL.</span>
+                      <span class="font-mono text-blue-500"></span> <span data-caption-text>Optional. Leave all buttons
+                        unselected to omit ^MN from the generated ZPL.</span>
                     </div>
                   </div>
                   <div class="pt-3 border-t border-slate-100">
@@ -1415,7 +1463,8 @@
                     <div class="grid grid-cols-2 gap-3">
                       <button type="button" data-media-type="T" aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
-                        <svg width="72" height="38" viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <svg width="72" height="38" viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true">
                           <rect x="22" y="2" width="20" height="6" rx="1.5" fill="#334155" />
                           <rect x="28" y="8" width="8" height="2.5" fill="#334155" />
                           <rect x="9" y="13.5" width="46" height="4" fill="#64748b" />
@@ -1423,9 +1472,12 @@
                           <circle cx="8" cy="15.5" r="1.3" fill="#cbd5e1" />
                           <circle cx="56" cy="15.5" r="4.2" fill="#475569" />
                           <circle cx="56" cy="15.5" r="1.3" fill="#cbd5e1" />
-                          <rect x="2" y="23" width="60" height="9" rx="1.5" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
-                          <line x1="7" y1="26" x2="22" y2="26" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" />
-                          <line x1="7" y1="29" x2="17" y2="29" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" />
+                          <rect x="2" y="23" width="60" height="9" rx="1.5" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
+                          <line x1="7" y1="26" x2="22" y2="26" stroke="#1e293b" stroke-width="1.8"
+                            stroke-linecap="round" />
+                          <line x1="7" y1="29" x2="17" y2="29" stroke="#1e293b" stroke-width="1.8"
+                            stroke-linecap="round" />
                         </svg>
                         <span class="text-center leading-tight">
                           <span class="block text-xs font-medium">Thermal Transfer</span>
@@ -1434,14 +1486,20 @@
                       </button>
                       <button type="button" data-media-type="D" aria-pressed="true"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border-2 border-blue-500 bg-blue-50 text-blue-600 transition-colors">
-                        <svg width="72" height="38" viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <svg width="72" height="38" viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true">
                           <rect x="22" y="7" width="20" height="6" rx="1.5" fill="#334155" />
                           <rect x="28" y="13" width="8" height="2.5" fill="#334155" />
-                          <line x1="24" y1="16.5" x2="22" y2="19" stroke="#94a3b8" stroke-width="1.1" stroke-linecap="round" />
-                          <line x1="40" y1="16.5" x2="42" y2="19" stroke="#94a3b8" stroke-width="1.1" stroke-linecap="round" />
-                          <rect x="2" y="19" width="60" height="9.5" rx="1.5" fill="#ffffff" stroke="#8da0b9" stroke-width="1" />
-                          <line x1="7" y1="22.5" x2="22" y2="22.5" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" />
-                          <line x1="7" y1="25.5" x2="17" y2="25.5" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" />
+                          <line x1="24" y1="16.5" x2="22" y2="19" stroke="#94a3b8" stroke-width="1.1"
+                            stroke-linecap="round" />
+                          <line x1="40" y1="16.5" x2="42" y2="19" stroke="#94a3b8" stroke-width="1.1"
+                            stroke-linecap="round" />
+                          <rect x="2" y="19" width="60" height="9.5" rx="1.5" fill="#ffffff" stroke="#8da0b9"
+                            stroke-width="1" />
+                          <line x1="7" y1="22.5" x2="22" y2="22.5" stroke="#1e293b" stroke-width="1.8"
+                            stroke-linecap="round" />
+                          <line x1="7" y1="25.5" x2="17" y2="25.5" stroke="#1e293b" stroke-width="1.8"
+                            stroke-linecap="round" />
                         </svg>
                         <span class="text-center leading-tight">
                           <span class="block text-xs font-medium">Direct Thermal</span>
@@ -1451,7 +1509,9 @@
                     </div>
                     <div id="media-type-caption"
                       class="mt-3 rounded-lg bg-slate-50 border border-slate-100 py-2.5 px-3 text-xs text-slate-500 leading-relaxed">
-                      <span class="font-mono text-blue-500">^MTD</span> <span data-caption-text>The printhead heats chemically coated media that darkens on contact. No ribbon needed, but prints fade over time.</span>
+                      <span class="font-mono text-blue-500">^MTD</span> <span data-caption-text>The printhead heats
+                        chemically coated media that darkens on contact. No ribbon needed, but prints fade over
+                        time.</span>
                     </div>
                   </div>
                 </div>
@@ -1806,7 +1866,7 @@
                     <div id="preview-viewport" class="absolute top-1/2 left-1/2 z-10"
                       style="transform: translate(-50%, -50%);">
                       <div id="preview-backing"
-                        class="hidden absolute top-0 left-0 z-0 border border-slate-200 bg-white box-content w-full h-full">
+                        class="hidden absolute top-0 left-0 z-0 border border-slate-200 bg-white box-border w-full h-full">
                       </div>
                       <img id="preview-image"
                         class="hidden absolute top-0 left-0 shadow-lg border border-slate-200 bg-white z-10"
@@ -2045,12 +2105,10 @@
                         class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white min-w-[18px]">0</span>
                     </div>
                     <button id="warnings-dismiss-btn"
-                      class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-200 rounded transition-colors"
-                      data-tooltip="Dismiss warnings">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-200 rounded transition-colors flex items-center"
+                      data-tooltip="Toggle warnings">
+                      <span id="warnings-toggle-icon"
+                        class="material-icons-round text-[18px] leading-none">expand_more</span>
                     </button>
                   </div>
                   <div id="warnings-list" class="overflow-y-auto max-h-48 p-2 space-y-1">

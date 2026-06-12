@@ -251,6 +251,66 @@ test.describe('Drive → Gallery cache sync', () => {
         await expect(card).toBeVisible();
     });
 
+    test('opening a public template after editing a Drive file does not overwrite that file on save', async ({ page }) => {
+        // Regression: the editor is an SPA; driveDoc.fileId persisted across view
+        // switches. After editing a Drive file then opening a public (non-Drive)
+        // gallery template, Ctrl+S silently PATCHed the previously-open Drive
+        // file with the public template's content. The fix detaches from the
+        // Drive file when a handoff carries no driveFileId, so Save creates a
+        // new file (Save-As modal) instead of overwriting.
+        const uploads: { method: string; url: string }[] = [];
+        await page.route(DRIVE_UPLOAD_URL, route => {
+            uploads.push({ method: route.request().method(), url: route.request().url() });
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    id: 'existing-file',
+                    name: 'Original.json',
+                    modifiedTime: new Date().toISOString(),
+                }),
+            });
+        });
+
+        // 1. Editor opens an existing Drive file via the handoff.
+        await page.addInitScript(() => {
+            sessionStorage.setItem('gallery_template', JSON.stringify({
+                metadata: { name: 'Original Name', use: 'shipping', desc: 'Original desc', tags: [] },
+                elements: [{ type: 'TEXT', x: 50, y: 50, text: 'Hello', fontSize: 20, fontWidth: 20, fontId: '0' }],
+                labelSettings: { width: 100, height: 50, dpmm: 8 },
+                driveFileId: 'existing-file',
+                driveFolderId: 'mock-folder',
+            }));
+        });
+
+        await page.goto('/?view=gallery');
+        await expect(page.locator('#view-gallery')).not.toBeHidden();
+        await switchToView(page, 'editor');
+        await expect(page.locator('#elements-list .element-item')).not.toHaveCount(0, { timeout: 10000 });
+
+        // 2. Open a PUBLIC gallery template (no driveFileId) mid-session: stage a
+        //    handoff payload then re-enter the editor, mirroring openInEditor().
+        await switchToView(page, 'gallery');
+        await page.evaluate(() => {
+            sessionStorage.setItem('gallery_template', JSON.stringify({
+                metadata: { name: 'Public Template', use: 'shipping', desc: 'From gallery', tags: [] },
+                elements: [{ type: 'TEXT', x: 10, y: 10, text: 'Public', fontSize: 20, fontWidth: 20, fontId: '0' }],
+                labelSettings: { width: 100, height: 50, dpmm: 8 },
+            }));
+        });
+        await switchToView(page, 'editor');
+        await expect(page.locator('#elements-list .element-item')).not.toHaveCount(0, { timeout: 10000 });
+
+        // 3. Save → must NOT silently PATCH existing-file. Instead the Save-As
+        //    modal opens to create a new file.
+        await page.keyboard.press('Control+s');
+        await expect(page.locator('#export-gallery-modal')).toBeVisible({ timeout: 5000 });
+
+        // No update (PATCH) request should have touched existing-file.
+        const patchedExisting = uploads.some(u => u.method === 'PATCH' && u.url.includes('existing-file'));
+        expect(patchedExisting).toBe(false);
+    });
+
     test('gallery template count includes newly saved Drive template', async ({ page }) => {
         await page.route(DRIVE_UPLOAD_URL, route =>
             route.fulfill({

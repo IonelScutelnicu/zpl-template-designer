@@ -1,0 +1,382 @@
+/* ============================================================
+   Dark theme — "Pro Dark Editor" (see design.md)
+   Scoped under html.dark, toggled by the header sun/moon button
+   and persisted in localStorage('theme'). This is an OVERRIDE
+   layer over the Tailwind-CDN utilities the app already uses, so
+   no markup needs dark: variants. Selectors carry html.dark +
+   the utility class, which outranks Tailwind's single-class rules.
+
+   Hard constraints (user): the canvas label stays WHITE with black
+   content, and has NO glow/shadow halo around it — see the
+   #label-canvas / #preview-image / #preview-backing block below.
+   ============================================================ */
+
+html.dark {
+  /* Tonal ramp — near-black with a subtle cool/blue tint (blue→black) */
+  --d-workspace: #0e0f13;   /* deepest — canvas workspace */
+  --d-bg: #121317;          /* app background */
+  --d-surface: #191a1f;     /* panels, cards, menus, modals (bg-white) */
+  --d-subtle: #141519;      /* section headers / sunken fills (bg-slate-50) */
+  --d-raised: #212329;      /* chips, inputs, tooltip (bg-slate-100) */
+  --d-track: #2a2c33;       /* tracks, dividers-as-bg, hover (bg-slate-200) */
+  --d-control: #31343c;     /* dark solid buttons (bg-slate-800/900) */
+  --d-border-subtle: #212329;
+  --d-border: #2a2c33;
+  --d-border-strong: #3a3d46;
+  --d-text: #dae2fd;        /* on-surface */
+  --d-text-2: #c7c4d7;      /* on-surface-variant */
+  --d-text-muted: #908fa0;  /* outline */
+  --d-accent: #6b7280;      /* primary-container — solid actions, rings */
+  --d-accent-hover: #7e8590;
+  --d-accent-text: #c7ccd4; /* primary — links, active text */
+
+  /* Gallery view reads these CSS vars directly (src/gallery.css) */
+  --bg: #121317;
+  --card: #191a1f;
+  --ink: #dae2fd;
+  --ink-2: #c7c4d7;
+  --ink-3: #908fa0;
+  --ink-4: #6b6f80;
+  --ink-5: #3a3d46;
+  --line: #2a2c33;
+  --line-2: #212329;
+  --accent: #c7ccd4;
+  --accent-soft: rgba(148, 163, 184, 0.18);
+  --accent-soft-2: rgba(148, 163, 184, 0.10);
+  --accent-ink: #c7ccd4;
+  --beta-bg: rgba(148, 163, 184, 0.18);
+  --beta-ink: #c7ccd4;
+  --warn: #ffb4ab;
+  --warn-soft: rgba(255, 180, 171, 0.16);
+  --good: #6ee7a0;
+  --good-soft: rgba(110, 231, 160, 0.16);
+  --btn-ghost: #212329;
+  --amber: #fcd34d;
+  --amber-soft: rgba(252, 211, 77, 0.16);
+  --amber-ink: #fde68a;
+}
+
+html.dark body {
+  background-color: var(--d-bg);
+  color: var(--d-text);
+}
+
+/* ---- Surfaces (backgrounds) ---- */
+html.dark .bg-white { background-color: var(--d-surface); }
+html.dark .bg-white\/95 { background-color: rgba(25, 26, 31, 0.95); }
+html.dark .bg-slate-50 { background-color: var(--d-subtle); }
+html.dark .bg-slate-50\/50 { background-color: var(--d-subtle); }
+html.dark .bg-slate-100 { background-color: var(--d-raised); }
+html.dark .bg-slate-200 { background-color: var(--d-track); }
+html.dark .bg-slate-200\/60 { background-color: rgba(42, 44, 51, 0.6); }
+html.dark .bg-slate-300 { background-color: var(--d-control); }
+html.dark .bg-slate-800 { background-color: var(--d-control); }
+
+html.dark .hover\:bg-white:hover { background-color: var(--d-raised); }
+html.dark .hover\:bg-slate-50:hover { background-color: var(--d-raised); }
+html.dark .hover\:bg-slate-100:hover { background-color: var(--d-track); }
+html.dark .hover\:bg-slate-200:hover { background-color: var(--d-border-strong); }
+html.dark .hover\:bg-slate-700:hover { background-color: var(--d-border-strong); }
+
+/* ---- Accent / status soft backgrounds ---- */
+html.dark .bg-blue-50,
+html.dark .bg-indigo-50 { background-color: rgba(148, 163, 184, 0.12); }
+html.dark .bg-blue-100,
+html.dark .bg-indigo-100 { background-color: rgba(148, 163, 184, 0.18); }
+html.dark .bg-blue-500,
+html.dark .bg-blue-600,
+html.dark .bg-indigo-600 { background-color: var(--d-accent); }
+html.dark .hover\:bg-blue-50:hover { background-color: rgba(148, 163, 184, 0.16); }
+html.dark .hover\:bg-blue-100:hover { background-color: rgba(148, 163, 184, 0.24); }
+html.dark .hover\:bg-blue-700:hover,
+html.dark .hover\:bg-indigo-700:hover { background-color: var(--d-accent-hover); }
+
+html.dark .bg-amber-50 { background-color: rgba(252, 211, 77, 0.10); }
+html.dark .bg-amber-100 { background-color: rgba(252, 211, 77, 0.16); }
+html.dark .bg-amber-200 { background-color: rgba(252, 211, 77, 0.24); }
+html.dark .bg-amber-500 { background-color: #fbbf24; }
+html.dark .hover\:bg-amber-50:hover { background-color: rgba(252, 211, 77, 0.14); }
+html.dark .hover\:bg-amber-100:hover { background-color: rgba(252, 211, 77, 0.22); }
+html.dark .hover\:bg-amber-200:hover { background-color: rgba(252, 211, 77, 0.30); }
+
+html.dark .bg-red-50 { background-color: rgba(255, 180, 171, 0.10); }
+html.dark .bg-red-100 { background-color: rgba(255, 180, 171, 0.16); }
+html.dark .bg-red-600 { background-color: #b42318; }
+html.dark .hover\:bg-red-50:hover { background-color: rgba(255, 180, 171, 0.16); }
+html.dark .hover\:bg-red-700:hover { background-color: #912018; }
+
+html.dark .bg-green-100,
+html.dark .bg-emerald-100 { background-color: rgba(110, 231, 160, 0.16); }
+html.dark .bg-green-600 { background-color: #1f9d57; }
+html.dark .hover\:bg-green-700:hover { background-color: #1a8049; }
+html.dark .bg-sky-100 { background-color: rgba(56, 189, 248, 0.16); }
+
+/* ---- Text ---- */
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700 { color: var(--d-text); }
+html.dark .text-slate-600,
+html.dark .text-slate-500 { color: var(--d-text-2); }
+html.dark .text-slate-400 { color: var(--d-text-muted); }
+html.dark .disabled\:text-slate-400:disabled { color: #6b6f80; }
+html.dark .hover\:text-slate-600:hover,
+html.dark .hover\:text-slate-700:hover { color: var(--d-text); }
+
+html.dark .text-blue-500,
+html.dark .text-blue-600,
+html.dark .text-blue-700,
+html.dark .text-blue-800,
+html.dark .text-indigo-500,
+html.dark .text-indigo-600,
+html.dark .group-hover\:text-blue-500,
+html.dark .group:hover .group-hover\:text-blue-500 { color: var(--d-accent-text); }
+html.dark .hover\:text-blue-600:hover,
+html.dark .hover\:text-blue-700:hover { color: #dfe2e7; }
+
+html.dark .text-amber-500 { color: #fbbf24; }
+html.dark .text-amber-600,
+html.dark .text-amber-700 { color: #fcd34d; }
+html.dark .text-amber-800,
+html.dark .text-amber-900 { color: #fde68a; }
+html.dark .hover\:text-amber-600:hover,
+html.dark .hover\:text-amber-800:hover { color: #fde68a; }
+
+html.dark .text-red-500,
+html.dark .text-red-600 { color: #ffb4ab; }
+html.dark .hover\:text-red-500:hover,
+html.dark .hover\:text-red-600:hover { color: #ffc9c2; }
+
+html.dark .text-green-600,
+html.dark .text-emerald-600 { color: #6ee7a0; }
+html.dark .text-sky-600 { color: #7dd3fc; }
+
+/* ---- Borders ---- */
+html.dark .border-white { border-color: var(--d-control); }
+html.dark .border-slate-100 { border-color: var(--d-border-subtle); }
+html.dark .border-slate-200 { border-color: var(--d-border); }
+html.dark .border-slate-300 { border-color: var(--d-border-strong); }
+html.dark .hover\:border-slate-200:hover { border-color: var(--d-border); }
+html.dark .hover\:border-slate-300:hover { border-color: var(--d-border-strong); }
+
+html.dark .border-red-100 { border-color: rgba(255, 180, 171, 0.25); }
+html.dark .border-amber-200 { border-color: rgba(252, 211, 77, 0.30); }
+html.dark .border-amber-300 { border-color: rgba(252, 211, 77, 0.40); }
+html.dark .border-blue-100 { border-color: rgba(148, 163, 184, 0.30); }
+html.dark .border-blue-300 { border-color: rgba(148, 163, 184, 0.45); }
+html.dark .border-blue-400,
+html.dark .border-blue-500 { border-color: var(--d-accent); }
+html.dark .hover\:border-blue-200:hover { border-color: rgba(148, 163, 184, 0.40); }
+html.dark .hover\:border-blue-300:hover { border-color: rgba(148, 163, 184, 0.55); }
+html.dark .hover\:border-blue-400:hover,
+html.dark .hover\:border-blue-500:hover { border-color: var(--d-accent); }
+
+/* ---- Rings (Tailwind ring uses --tw-ring-color) ---- */
+html.dark .ring-blue-100 { --tw-ring-color: rgba(148, 163, 184, 0.25); }
+html.dark .ring-blue-200 { --tw-ring-color: rgba(148, 163, 184, 0.35); }
+html.dark .ring-blue-500 { --tw-ring-color: var(--d-accent); }
+html.dark .focus\:ring-blue-300:focus { --tw-ring-color: rgba(148, 163, 184, 0.5); }
+html.dark .focus\:ring-blue-500:focus { --tw-ring-color: var(--d-accent); }
+html.dark .focus\:border-blue-500:focus { border-color: var(--d-accent); }
+html.dark .accent-blue-500 { accent-color: var(--d-accent); }
+
+/* ---- Form controls — give inputs a sunken surface distinct from the
+   panel they sit on (both would otherwise be bg-white → invisible).
+   :not(...) raises specificity above html.dark .bg-white. ---- */
+html.dark input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),
+html.dark textarea,
+html.dark select {
+  background-color: var(--d-subtle);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.dark ::placeholder { color: var(--d-text-muted); opacity: 1; }
+html.dark input[type=checkbox],
+html.dark input[type=radio] { accent-color: var(--d-accent); }
+/* The gallery search field is transparent inside its own styled .search
+   container — exempt it from the sunken-input fill so it matches. */
+html.dark #search-input { background-color: transparent; }
+
+/* ============================================================
+   The WHITE label must stay white and lose its glow/halo.
+   ID specificity (1,1,1) beats html.dark .bg-white (0,2,1),
+   so these keep their white fill while dropping shadow-lg.
+   ============================================================ */
+html.dark #label-canvas,
+html.dark #preview-image,
+html.dark #preview-backing {
+  background-color: #ffffff;
+  box-shadow: none;
+  border-color: var(--d-border);
+}
+
+/* The pure-white label reads as too bright/flashy against the dark
+   canvas. Dim the whole preview viewport — presentation only, it does
+   NOT change the ZPL, the canvas bitmap, or the Labelary preview image,
+   so the label stays white on export. White becomes a soft light-grey
+   while black content stays crisp. Tune the value to taste. */
+html.dark #preview-viewport { filter: brightness(0.85); }
+
+/* Workspace around the label: deepest tone + subtle dark dot grid
+   (overrides gallery.css's light #preview-container grid). */
+html.dark #preview-container {
+  background-color: var(--d-workspace);
+  background-image: radial-gradient(circle, #2d3449 1px, transparent 1px);
+}
+
+/* ============================================================
+   Overrides for the hardcoded-hex blocks in index.html <style>
+   ============================================================ */
+
+/* Custom scrollbar */
+html.dark ::-webkit-scrollbar-thumb { background: var(--d-track); }
+html.dark ::-webkit-scrollbar-thumb:hover { background: var(--d-border-strong); }
+
+/* ZPL hover tooltip */
+html.dark .zpl-tooltip {
+  background: var(--d-raised);
+  color: var(--d-text);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+}
+
+/* ZPL output empty-state + syntax highlighting */
+html.dark .zpl-output.is-empty::before { color: var(--d-text-muted); }
+html.dark .zpl-token-command { color: var(--d-accent-text); }
+html.dark .zpl-token-number { color: #6ee7a0; }
+html.dark .zpl-token-punct { color: var(--d-text-muted); }
+html.dark .zpl-token-data { color: #fcd34d; }
+
+/* Segmented view-switcher */
+html.dark .app-tabs { background: var(--d-subtle); border-color: var(--d-border); }
+html.dark .app-tabs button { color: var(--d-text-2); }
+html.dark .app-tabs button.active {
+  background: var(--d-raised);
+  color: var(--d-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+html.dark .app-tabs button:not(.active):hover { color: var(--d-text); }
+
+/* Keyboard chips in the Shortcuts modal */
+html.dark .kbd { background: var(--d-raised); color: var(--d-text); border-color: var(--d-border); }
+html.dark .kbd-hint { color: var(--d-text-muted); }
+
+/* History count chip */
+html.dark .history-count-chip { background: var(--d-raised); color: var(--d-text-2); }
+
+/* Onboarding walkthrough popover */
+html.dark .walkthrough-popover {
+  background: var(--d-surface);
+  color: var(--d-text);
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- Fullscreen floating "glass" chrome ---- */
+html.dark #view-editor.is-fullscreen #elements-card,
+html.dark #view-editor.is-fullscreen #settings-card,
+html.dark #view-editor.is-fullscreen #properties-card,
+html.dark #view-editor.is-fullscreen #zpl-card {
+  background: rgba(25, 26, 31, 0.92);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+}
+html.dark #view-editor.is-fullscreen #elements-card,
+html.dark #view-editor.is-fullscreen #settings-card,
+html.dark #view-editor.is-fullscreen #properties-card,
+html.dark #view-editor.is-fullscreen #zpl-card { border-color: var(--d-border); }
+
+html.dark #view-editor.is-fullscreen #preview-card>.border-b>div:nth-child(2),
+html.dark #view-editor.is-fullscreen #preview-card>.border-b>div:nth-child(3) {
+  background: rgba(25, 26, 31, 0.92);
+  border-color: var(--d-border);
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.55);
+}
+
+html.dark #fullscreen-toggle-btn.fullscreen-btn-floating {
+  background: rgba(25, 26, 31, 0.92);
+  border-color: var(--d-border);
+  color: var(--d-text-2);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.5);
+}
+html.dark #fullscreen-toggle-btn.fullscreen-btn-floating:hover {
+  background: var(--d-raised);
+  color: var(--d-accent-text);
+}
+
+html.dark #view-editor.is-fullscreen #undo-redo-group>.w-px { background: var(--d-border); }
+html.dark #view-editor.is-fullscreen #undo-btn,
+html.dark #view-editor.is-fullscreen #redo-btn,
+html.dark #view-editor.is-fullscreen #history-toggle-btn { color: var(--d-text-2); }
+html.dark #view-editor.is-fullscreen #undo-btn:not(:disabled):hover,
+html.dark #view-editor.is-fullscreen #redo-btn:not(:disabled):hover,
+html.dark #view-editor.is-fullscreen #history-toggle-btn:hover { background: var(--d-raised); color: var(--d-text); }
+html.dark #view-editor.is-fullscreen #history-toggle-btn { border-left-color: var(--d-border); }
+html.dark #view-editor.is-fullscreen #history-toggle-btn:hover .history-count-chip { background: var(--d-track); color: var(--d-text); }
+
+html.dark #view-editor.is-fullscreen #fullscreen-exit-btn { color: var(--d-text-muted); }
+html.dark #view-editor.is-fullscreen #fullscreen-exit-btn:hover { color: var(--d-text); background: var(--d-raised); }
+
+/* Warnings chip in fullscreen */
+html.dark #view-editor.is-fullscreen #warnings-panel {
+  background: rgba(45, 35, 12, 0.92);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+}
+
+/* Chevron + section headers inside the floating panels */
+html.dark .fs-chevron-btn { color: var(--d-text-muted); }
+html.dark .fs-chevron-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--d-text); }
+html.dark #view-editor.is-fullscreen #settings-card .fs-panel-header {
+  border-bottom-color: var(--d-border-subtle);
+  background: var(--d-subtle);
+}
+html.dark .fs-section-title {
+  color: var(--d-text-2);
+  border-bottom-color: var(--d-border-subtle);
+  background: var(--d-subtle);
+}
+
+/* Fullscreen icon rail */
+html.dark #fs-icon-rail {
+  background: rgba(25, 26, 31, 0.92);
+  border-color: var(--d-border);
+  border-right-color: var(--d-border-subtle);
+}
+html.dark .fs-icon-btn { color: var(--d-text-muted); }
+html.dark .fs-icon-btn:hover:not(.active) { background: var(--d-raised); color: var(--d-text); }
+html.dark .fs-icon-btn.active { color: var(--d-accent-text); }
+html.dark .fs-icon-btn.active::before { background: var(--d-accent); }
+
+/* ---- Gallery template-detail modal ----
+   .btn-primary uses background:var(--ink) (light in dark mode) and the
+   danger button uses var(--warn) (light) — both leave white text
+   unreadable. Give them a proper solid fill, and force the title light. */
+html.dark .modal-body h2 { color: var(--d-text); }
+html.dark .btn-primary { background: var(--d-accent); color: #fff; }
+html.dark .btn-primary:hover { background: var(--d-accent-hover); }
+html.dark .confirm-actions .btn-primary.danger { background: #b42318; color: #fff; }
+html.dark .confirm-actions .btn-primary.danger:hover { background: #912018; }
+
+/* Modal backdrop scrims — these use slate-900 (rgba(15,23,42,…) / the
+   bg-slate-900/* utilities), which tints the page blue. Use neutral black
+   to match the gray theme. (The <dialog> backdrops already use bg-black.) */
+html.dark .modal-scrim::backdrop { background: rgba(0, 0, 0, 0.6); }
+html.dark #shortcuts-backdrop { background-color: rgba(0, 0, 0, 0.6); }
+html.dark #history-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+
+/* Dim the white label thumbnails in the gallery cards and modal preview,
+   matching the #preview-viewport treatment so they aren't flashy. */
+html.dark .tcard .thumb-wrap img,
+html.dark .modal-preview .frame img { filter: brightness(0.85); }
+
+/* The "new" badge (gallery.css) hardcodes white text on var(--accent). In
+   dark mode --accent is light, so white-on-light is unreadable. Flip the text
+   to the dark surface color, keeping the solid accent pill high-contrast and
+   visually distinct from the subtle translucent "mine" badge. */
+html.dark .tcard .badge.new { color: var(--d-bg); }
+
+/* Media chip under the modal preview — hardcodes background:white in
+   gallery.css, a jarring white box on dark. Restyle as a subtle pill. */
+html.dark .modal-preview .footer-meta {
+  background: var(--d-track);
+  border-color: var(--d-border-strong);
+  color: var(--d-text-2);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
