@@ -426,6 +426,14 @@ export class ZPLParser {
         }
         break;
       }
+      case 'MT': {
+        // ^MT media type; first char selects T (thermal transfer) or D (direct thermal).
+        const val = token.params.trim().charAt(0).toUpperCase();
+        if ('TD'.includes(val)) {
+          state.labelSettings.mediaType = val;
+        }
+        break;
+      }
       case 'LL': {
         // ^LL label length in dots → height in mm, parallel to the ^PW case.
         // Overridden later by ^FX metadata height when present.
@@ -500,7 +508,6 @@ export class ZPLParser {
       }
       // Silently accepted commands (no-op)
       case 'CI':
-      case 'MT':
       case 'XA':
       case 'XZ':
         break;
@@ -1125,6 +1132,7 @@ export class ZPLParser {
       printOrientation: 'N',
       printMirror: 'N',
       mediaTracking: '',
+      mediaType: 'D',
       mediaDarkness: 25,
       printSpeed: 4,
       slewSpeed: 4,

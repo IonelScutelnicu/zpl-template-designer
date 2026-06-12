@@ -265,8 +265,16 @@ test.describe('Drive → Gallery cache sync', () => {
             })
         );
 
-        // Visit gallery first to initialize and note the initial count
-        await page.goto('/?view=gallery');
+        // Visit gallery first to initialize and note the initial count. Wait for
+        // the initial Drive folder listing to resolve before moving on: on gallery
+        // init loadMyTemplates() runs async and assigns MY_TEMPLATES from the
+        // (empty) response. Under load that response can land AFTER the
+        // drive:template-saved event fires below, overwriting the just-saved
+        // template and reverting the count. Settling the list first removes the race.
+        await Promise.all([
+            page.waitForResponse(r => /\/drive\/v3\/files\?/.test(r.url())),
+            page.goto('/?view=gallery'),
+        ]);
         const initialCount = await page.locator('#stat-templates').textContent();
 
         // Switch to editor

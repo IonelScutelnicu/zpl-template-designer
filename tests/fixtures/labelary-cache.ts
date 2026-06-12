@@ -4,6 +4,8 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 const CACHE_DIR = path.join(__dirname, 'labelary-cache');
+const ACTIVE_RUN_DIR = path.join(CACHE_DIR, '.active-run');
+const SHOULD_TRACK_ACTIVE_KEYS = process.env.LABELARY_CACHE_PRUNE === '1';
 
 function computeCacheKey(zpl: string, dpmm: string, width: string, height: string): string {
     return crypto.createHash('sha1')
@@ -14,6 +16,18 @@ function computeCacheKey(zpl: string, dpmm: string, width: string, height: strin
 function getCachedImage(key: string): Buffer | null {
     const filePath = path.join(CACHE_DIR, `${key}.png`);
     return fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
+}
+
+function markCacheKeyAsActive(key: string): void {
+    if (!SHOULD_TRACK_ACTIVE_KEYS) {
+        return;
+    }
+
+    if (!fs.existsSync(ACTIVE_RUN_DIR)) {
+        fs.mkdirSync(ACTIVE_RUN_DIR, { recursive: true });
+    }
+
+    fs.writeFileSync(path.join(ACTIVE_RUN_DIR, `${key}.seen`), '');
 }
 
 function saveToCache(key: string, data: Buffer): void {
@@ -37,6 +51,7 @@ export async function setupLabelaryCacheInterceptor(page: Page): Promise<void> {
 
         const [, dpmm, width, height] = match;
         const key = computeCacheKey(zpl, dpmm, width, height);
+        markCacheKeyAsActive(key);
         const cached = getCachedImage(key);
 
         if (cached) {

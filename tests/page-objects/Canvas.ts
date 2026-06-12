@@ -23,9 +23,23 @@ export class Canvas {
     }
 
     /**
+     * Scroll the page to the top so the canvas sits at its stable position
+     * below the sticky header. The editor is a normally-scrolling page; when the
+     * side panels are tall, Playwright's auto-scroll on panel interactions can
+     * leave the canvas partly (or fully) under the header. Pointer math here is
+     * boundingBox()-relative, so a scrolled canvas makes drag/resize coordinates
+     * land off-target. Resetting scroll before reading canvas geometry keeps
+     * those coordinates accurate.
+     */
+    private async resetScroll(): Promise<void> {
+        await this.page.evaluate(() => window.scrollTo(0, 0));
+    }
+
+    /**
      * Get the canvas bounding box
      */
     async getBoundingBox(): Promise<{ x: number; y: number; width: number; height: number } | null> {
+        await this.resetScroll();
         return await this.canvas.boundingBox();
     }
 
@@ -48,7 +62,7 @@ export class Canvas {
      * Drag from one position to another on the canvas
      */
     async drag(fromX: number, fromY: number, toX: number, toY: number): Promise<void> {
-        const box = await this.canvas.boundingBox();
+        const box = await this.getBoundingBox();
         if (!box) throw new Error('Canvas not found');
 
         await this.page.mouse.move(box.x + fromX, box.y + fromY);
@@ -109,6 +123,10 @@ export class Canvas {
      */
     async takeScreenshot(): Promise<Buffer> {
         await this.deselect();
+        // Reset scroll so the sticky header doesn't occlude the canvas top in the
+        // captured image (which would hide content near y=0 and make distinct
+        // states compare equal). See resetScroll() for context.
+        await this.resetScroll();
         return await this.canvas.screenshot();
     }
 

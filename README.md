@@ -34,6 +34,15 @@ Open http://localhost:3000 — no build step required (vanilla JS + Tailwind CDN
 
 Google Drive features require Google API credentials. See `src/config/drive-config.js` for the required setup and scopes.
 
+## Testing
+
+```bash
+npx playwright test
+npm run test:labelary-cache
+```
+
+Use `npm run test:labelary-cache` when you want to refresh the committed Labelary response cache. It reruns the Playwright suite, keeps every cache image requested by that successful run, and deletes stale `.png` files from `tests/fixtures/labelary-cache`.
+
 ## Element Properties
 
 ### Text

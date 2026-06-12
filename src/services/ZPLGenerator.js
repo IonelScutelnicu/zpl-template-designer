@@ -84,6 +84,7 @@ export class ZPLGenerator {
       printOrientation = 'N',
       printMirror = 'N',
       mediaTracking = '',
+      mediaType = 'D',
       mediaDarkness = 25,
       printSpeed = 4,
       slewSpeed = 4,
@@ -131,8 +132,8 @@ export class ZPLGenerator {
     // Character encoding (CI28 = UTF-8)
     header += '^CI28\n';
 
-    // Media type (MTT = thermal transfer)
-    header += '^MTT\n';
+    // Media type (^MT). T = thermal transfer (ribbon), D = direct thermal.
+    header += `^MT${mediaType}\n`;
 
     // Media tracking (^MN). Omit the command unless the user explicitly picked
     // a mode, including web/gap.

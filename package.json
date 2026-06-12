@@ -10,6 +10,7 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
+    "test:labelary-cache": "node tests/fixtures/manage-labelary-cache.js",
     "baselines": "npx ts-node --project tests/fixtures/tsconfig.manage-baselines.json tests/fixtures/manage-baselines.ts"
   },
   "repository": {

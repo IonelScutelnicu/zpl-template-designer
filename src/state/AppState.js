@@ -21,6 +21,7 @@ export class AppState {
       printOrientation: "N",   // N = normal, I = inverted
       printMirror: "N",        // N = normal, Y = mirrored (^PM)
       mediaTracking: "",       // ^MN media tracking (empty = omit, N=continuous, Y=web/gap, M=mark, A=auto)
+      mediaType: "D",          // ^MT media type (T = thermal transfer, D = direct thermal)
       mediaDarkness: 25,       // ~SD value (0-30)
       printSpeed: 4,           // ^PR value (2-14)
       slewSpeed: 4,            // ^PR value (2-14)

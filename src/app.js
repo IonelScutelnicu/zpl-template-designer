@@ -278,6 +278,24 @@ const setMediaTrackingActive = (value) => {
   mediaTrackingCaption.querySelector('.font-mono').textContent = caption.code;
   mediaTrackingCaption.querySelector('[data-caption-text]').textContent = caption.text;
 };
+const mediaTypeButtons = document.querySelectorAll('[data-media-type]');
+const mediaTypeCaption = document.getElementById("media-type-caption");
+
+const MEDIA_TYPE_CAPTIONS = {
+  T: { code: '^MTT', text: 'A heated printhead transfers ink from a ribbon onto the label. Durable prints that resist heat, light, and abrasion.' },
+  D: { code: '^MTD', text: 'The printhead heats chemically coated media that darkens on contact. No ribbon needed, but prints fade over time.' },
+};
+
+const setMediaTypeActive = (value) => {
+  mediaTypeButtons.forEach(btn => {
+    const isActive = btn.getAttribute('data-media-type') === value;
+    btn.className = `flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${isActive ? 'border-2 border-blue-500 bg-blue-50 text-blue-600' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`;
+    btn.setAttribute('aria-pressed', String(isActive));
+  });
+  const caption = MEDIA_TYPE_CAPTIONS[value] || MEDIA_TYPE_CAPTIONS.D;
+  mediaTypeCaption.querySelector('.font-mono').textContent = caption.code;
+  mediaTypeCaption.querySelector('[data-caption-text]').textContent = caption.text;
+};
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");
 const slewSpeed = document.getElementById("slew-speed");
@@ -861,6 +879,16 @@ export function initApp() {
       const nextValue = state.labelSettings.mediaTracking === value ? '' : value;
       state.updateLabelSettings({ mediaTracking: nextValue });
       setMediaTrackingActive(nextValue);
+      updateZPLOutput();
+      scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+    });
+  });
+
+  mediaTypeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const value = btn.getAttribute('data-media-type');
+      state.updateLabelSettings({ mediaType: value });
+      setMediaTypeActive(value);
       updateZPLOutput();
       scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
     });
@@ -1525,6 +1553,7 @@ function syncLabelSettingsInputs() {
   setOrientationActive(state.labelSettings.printOrientation);
   setMirrorActive(state.labelSettings.printMirror);
   setMediaTrackingActive(state.labelSettings.mediaTracking || '');
+  setMediaTypeActive(state.labelSettings.mediaType || 'D');
   mediaDarkness.value = state.labelSettings.mediaDarkness;
   printSpeed.value = state.labelSettings.printSpeed;
   slewSpeed.value = state.labelSettings.slewSpeed;
@@ -1652,6 +1681,10 @@ function resetDriveDoc() {
   driveDoc.saving = false;
   driveDoc.lastSavedAt = null;
   driveDoc.driveMode = false;
+  // Clear the re-entry guard too — otherwise revisiting the same ?drive=<id>
+  // later in this SPA session is skipped as "already loaded" even though no
+  // Drive doc is open anymore.
+  lastLoadedDriveId = null;
   try {
     const url = new URL(window.location.href);
     if (url.searchParams.has('drive')) {
@@ -1687,13 +1720,14 @@ function updateSaveStatusUI() {
   const dot = document.getElementById('editor-doc-dot');
   if (!dot) return;
   const base = 'h-2 w-2 rounded-full shrink-0';
-  // The save-state dot is only meaningful when connected to Drive — otherwise
-  // the user has no way to save and the dot would just be unexplained noise.
-  const connected = isDriveConfigured() && driveAuth.isConnected();
-  if (connected && driveDoc.saving) {
+  // The save-state dot is shown whenever Drive is configured: it surfaces that
+  // there are unsaved changes (prompting the user to connect and save). It's
+  // hidden only when Drive isn't set up at all, where saving isn't an option.
+  const active = isDriveConfigured();
+  if (active && driveDoc.saving) {
     dot.className = `${base} bg-blue-500`;
     dot.dataset.tooltip = 'Saving…';
-  } else if (connected && driveDoc.dirty) {
+  } else if (active && driveDoc.dirty) {
     dot.className = `${base} bg-amber-500`;
     dot.dataset.tooltip = 'Unsaved changes';
   } else {
@@ -2734,8 +2768,11 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   currentTemplateMetadata = template.metadata || null;
   updateDriveChipLabel();
 
-  // Import label settings
-  state.updateLabelSettings(template.labelSettings);
+  // Import label settings. Overlay the payload onto fresh defaults so fields
+  // absent from older/partial payloads (e.g. mediaTracking) reset to their
+  // default instead of leaking ^MN/^LL from the previously open label.
+  const defaultLabelSettings = new AppState().labelSettings;
+  state.updateLabelSettings({ ...defaultLabelSettings, ...template.labelSettings });
   syncLabelSettingsInputs();
 
   if (template.labelSettings.customFonts !== undefined && Array.isArray(template.labelSettings.customFonts)) {
