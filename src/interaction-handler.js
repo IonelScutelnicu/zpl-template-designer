@@ -34,8 +34,22 @@ export class InteractionHandler {
     this.hasNotifiedDragStart = false;
     this.keyboardMoveActive = false;
     this.keyboardMoveTimer = null;
-    this.keyboardMoveElement = null;
+    this.keyboardMoveTargets = null;
     this.smartGuideService = null;
+
+    // Multi-select state
+    this.dragGroup = null;          // [{el, dx, dy}] offsets vs the primary drag element
+    this.dragGroupBounds = null;    // union bounds of the drag group relative to the primary
+    this.pendingCollapseElement = null; // member of a multi-selection clicked without dragging
+    this.isMarquee = false;         // drag-select rectangle in progress
+    this.marqueeStart = null;       // {x, y} in label dots
+    this.marqueeAdditive = false;   // Shift held → add to existing selection
+    this.marqueeBase = [];          // selection that existed when an additive marquee began
+    this.marqueeSelection = null;   // latest hits computed during the marquee drag
+    // While a marquee is active these are bound to window so the drag keeps
+    // tracking past the canvas edge and finalizes on release anywhere.
+    this._boundMarqueeMove = this.handleMarqueeMove.bind(this);
+    this._boundMarqueeUp = this.handleMarqueeUp.bind(this);
 
     this.setupEventListeners();
   }
@@ -115,10 +129,13 @@ export class InteractionHandler {
     this.mouseDownTime = Date.now();
     this.mouseDownX = coords.x;
     this.mouseDownY = coords.y;
+    this.pendingCollapseElement = null;
 
-    // Check for resize handle click first (if element is selected)
+    // Check for resize handle click first — only with a single selection
+    // (group resize is out of scope; handles aren't drawn for multi-selections).
     const selectedElement = this.callbacks.getSelectedElement();
-    if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
+    const selectionList = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : (selectedElement ? [selectedElement] : []);
+    if (selectionList.length === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         if (selectedElement.locked) return;
@@ -195,8 +212,21 @@ export class InteractionHandler {
     }
 
     if (element) {
-      // Select immediately on mouse down (locked elements can still be selected for viewing)
-      this.callbacks.onElementSelected(element);
+      // Shift+Click toggles membership (Alt overrides Shift and stays single-replace).
+      if (e.shiftKey && !e.altKey) {
+        if (this.callbacks.toggleSelection) this.callbacks.toggleSelection(element);
+        return;
+      }
+
+      const inMulti = selectionList.length > 1 && selectionList.some(el => String(el.id) === String(element.id));
+      if (inMulti) {
+        // Keep the group so it can be dragged as a unit; a click without a drag
+        // collapses to just this element (resolved in handleMouseUp).
+        this.pendingCollapseElement = element;
+      } else {
+        // Replace selection with this single element.
+        this.callbacks.onElementSelected(element);
+      }
 
       if (!element.locked) {
         this.dragElement = element;
@@ -204,18 +234,162 @@ export class InteractionHandler {
         this.dragOffsetY = coords.y - element.y;
         this.dragStartX = element.x;
         this.dragStartY = element.y;
+        this.buildDragGroup(element, inMulti);
 
         // Update cursor
         this.canvas.style.cursor = 'grab';
+      } else {
+        this.dragGroup = null;
       }
     } else {
-      // Clicked on empty canvas - deselect
-      this.callbacks.onElementSelected(null);
+      // Empty canvas → start a marquee drag-select. Shift adds to the current
+      // selection; without Shift we deselect (a plain empty click clears).
+      this.isMarquee = true;
+      this.marqueeStart = { x: coords.x, y: coords.y };
+      this.marqueeSelection = null;
+      this.marqueeAdditive = e.shiftKey;
+      this.marqueeBase = e.shiftKey && this.callbacks.getSelectedElements
+        ? this.callbacks.getSelectedElements()
+        : [];
+      if (!e.shiftKey) {
+        this.callbacks.onElementSelected(null);
+      }
+      // Track the marquee at the window level so it survives the pointer leaving
+      // the canvas and finalizes on release wherever that happens.
+      window.addEventListener('mousemove', this._boundMarqueeMove);
+      window.addEventListener('mouseup', this._boundMarqueeUp);
     }
+  }
+
+  /**
+   * Update the marquee from a window-level mouse move (pointer may be off-canvas).
+   */
+  handleMarqueeMove(e) {
+    if (!this.isMarquee) return;
+    const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
+    const rect = this.normalizeRect(this.marqueeStart, coords);
+
+    const hits = this.getElementsInRect(rect);
+    let selection = hits;
+    if (this.marqueeAdditive) {
+      const byId = new Map();
+      [...this.marqueeBase, ...hits].forEach(el => byId.set(String(el.id), el));
+      selection = [...byId.values()];
+    }
+    this.marqueeSelection = selection;
+    // Lightweight live update: set the rect + selection and redraw the canvas
+    // only (panels are refreshed once on release to avoid per-frame DOM churn).
+    if (this.callbacks.onMarqueeSelect) this.callbacks.onMarqueeSelect(selection, rect);
+  }
+
+  /**
+   * Finalize a marquee on window-level mouse up (release may be off-canvas).
+   */
+  handleMarqueeUp() {
+    if (!this.isMarquee) return;
+    this.endMarquee(true);
+  }
+
+  /**
+   * Tear down an active marquee. When `apply` is true the final hit set becomes
+   * the selection; otherwise the selection is left as-is (used on cancel).
+   */
+  endMarquee(apply) {
+    if (!this.isMarquee) return;
+    this.isMarquee = false;
+    window.removeEventListener('mousemove', this._boundMarqueeMove);
+    window.removeEventListener('mouseup', this._boundMarqueeUp);
+
+    if (this.callbacks.onMarqueeUpdate) this.callbacks.onMarqueeUpdate(null);
+    if (apply && this.marqueeSelection && this.callbacks.onSelectionChanged) {
+      this.callbacks.onSelectionChanged(this.marqueeSelection);
+    }
+
+    this.marqueeStart = null;
+    this.marqueeBase = [];
+    this.marqueeSelection = null;
+    this.dragElement = null;
+    this.canvas.style.cursor = 'default';
+  }
+
+  /**
+   * Snapshot the set of elements that will move together on drag, with each
+   * member's offset from the primary (clicked) element, plus the union bounds
+   * of the group relative to the primary for boundary clamping.
+   */
+  buildDragGroup(primary, inMulti) {
+    const selection = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : [];
+    const members = (inMulti ? selection : [primary]).filter(el => !el.locked);
+    this.dragGroup = members.map(el => ({ el, dx: el.x - primary.x, dy: el.y - primary.y }));
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const el of members) {
+      const b = this.getDragConstraintBounds(el);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
+    }
+    this.dragGroupBounds = {
+      offsetX: minX - primary.x,
+      offsetY: minY - primary.y,
+      width: maxX - minX,
+      height: maxY - minY
+    };
+  }
+
+  /**
+   * Move every member of the drag group, keeping their relative offsets and
+   * clamping the group's union bounds inside the label.
+   */
+  handleGroupDrag(coords) {
+    let newX = coords.x - this.dragOffsetX;
+    let newY = coords.y - this.dragOffsetY;
+
+    const labelW = this.labelSettings.width * this.labelSettings.dpmm;
+    const labelH = this.labelSettings.height * this.labelSettings.dpmm;
+    const gb = this.dragGroupBounds;
+
+    const minX = -gb.offsetX;
+    const maxX = labelW - gb.width - gb.offsetX;
+    const minY = -gb.offsetY;
+    const maxY = labelH - gb.height - gb.offsetY;
+
+    newX = Math.max(minX, Math.min(newX, maxX));
+    newY = Math.max(minY, Math.min(newY, maxY));
+
+    const px = Math.round(newX);
+    const py = Math.round(newY);
+    for (const m of this.dragGroup) {
+      m.el.x = px + m.dx;
+      m.el.y = py + m.dy;
+    }
+
+    if (this.callbacks.onElementsDragging) {
+      this.callbacks.onElementsDragging(this.dragGroup.map(m => m.el));
+    }
+  }
+
+  /**
+   * Elements whose selection bounds intersect the marquee rectangle (touch
+   * semantics), excluding locked elements.
+   */
+  getElementsInRect(rect) {
+    const rx2 = rect.x + rect.width;
+    const ry2 = rect.y + rect.height;
+    return this.elements.filter(el => {
+      if (el.locked) return false;
+      const b = this.getSelectionBounds(el);
+      return !(b.x > rx2 || b.x + b.width < rect.x || b.y > ry2 || b.y + b.height < rect.y);
+    });
   }
 
   handleMouseMove(e) {
     const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
+
+    // A marquee in progress is driven by window-level listeners (so it keeps
+    // tracking off-canvas); the canvas move handler stays out of the way.
+    if (this.isMarquee) return;
 
     // Handle Resize
     if (this.isResizing && this.dragElement) {
@@ -504,14 +678,29 @@ export class InteractionHandler {
       const dy = Math.abs(coords.y - this.mouseDownY);
       const distance = Math.sqrt(dx * dx + dy * dy);
 
+      const isGroupDrag = this.dragGroup && this.dragGroup.length > 1;
+
       // Start dragging if moved more than 5 dots
       if (!this.isDragging && distance > 5) {
         this.isDragging = true;
+        this.pendingCollapseElement = null; // an actual drag, not a collapse-click
         this.canvas.style.cursor = 'grabbing';
-        if (!this.hasNotifiedDragStart && this.callbacks.onElementTransformStart) {
-          this.callbacks.onElementTransformStart(this.dragElement, 'drag');
+        if (!this.hasNotifiedDragStart) {
+          if (isGroupDrag) {
+            this.renderer.clearSmartGuides(); // smart guides are disabled for group drag
+            if (this.callbacks.onGroupTransformStart) {
+              this.callbacks.onGroupTransformStart(this.dragGroup.map(m => m.el));
+            }
+          } else if (this.callbacks.onElementTransformStart) {
+            this.callbacks.onElementTransformStart(this.dragElement, 'drag');
+          }
           this.hasNotifiedDragStart = true;
         }
+      }
+
+      if (this.isDragging && isGroupDrag) {
+        this.handleGroupDrag(coords);
+        return;
       }
 
       if (this.isDragging) {
@@ -556,7 +745,8 @@ export class InteractionHandler {
     } else {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
+      const selCount = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements().length : (selectedElement ? 1 : 0);
+      if (selCount === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -577,10 +767,14 @@ export class InteractionHandler {
     const dx = Math.abs(coords.x - this.mouseDownX);
     const dy = Math.abs(coords.y - this.mouseDownY);
     const distance = Math.sqrt(dx * dx + dy * dy);
+    const isClick = clickDuration < 200 && distance < 5;
 
-    if (clickDuration < 200 && distance < 5) {
-      // This was a click, not a drag
-      // Selection already handled in mousedown
+    // A marquee is finalized by its window-level mouseup handler, not here.
+    if (this.isMarquee) return;
+
+    // A plain click on one member of a multi-selection collapses to that element.
+    if (isClick && this.pendingCollapseElement) {
+      this.callbacks.onElementSelected(this.pendingCollapseElement);
     }
 
     if (this.isResizing) {
@@ -598,17 +792,30 @@ export class InteractionHandler {
     if (this.isDragging) {
       // Finalize drag
       this.renderer.clearSmartGuides();
-      this.callbacks.onElementDragEnd(this.dragElement);
+      if (this.dragGroup && this.dragGroup.length > 1) {
+        if (this.callbacks.onElementsDragEnd) {
+          this.callbacks.onElementsDragEnd(this.dragGroup.map(m => m.el));
+        }
+      } else {
+        this.callbacks.onElementDragEnd(this.dragElement);
+      }
       this.isDragging = false;
     }
 
     // Reset drag state
     this.dragElement = null;
+    this.dragGroup = null;
+    this.dragGroupBounds = null;
+    this.pendingCollapseElement = null;
     this.canvas.style.cursor = 'default';
     this.hasNotifiedDragStart = false;
   }
 
   handleMouseLeave(e) {
+    // A marquee keeps tracking past the canvas edge (window-level listeners),
+    // so leaving the canvas must NOT cancel it.
+    if (this.isMarquee) return;
+
     if (this.isDragging || this.isResizing) {
       // Finalize drag if mouse leaves canvas
       this.renderer.clearSmartGuides();
@@ -617,14 +824,32 @@ export class InteractionHandler {
         this.dragElement.aspectLocked = false;
         this._aspectLockBrokenByShift = false;
       }
-      this.callbacks.onElementDragEnd(this.dragElement);
+      if (this.isDragging && this.dragGroup && this.dragGroup.length > 1) {
+        if (this.callbacks.onElementsDragEnd) {
+          this.callbacks.onElementsDragEnd(this.dragGroup.map(m => m.el));
+        }
+      } else {
+        this.callbacks.onElementDragEnd(this.dragElement);
+      }
       this.isDragging = false;
       this.isResizing = false;
     }
 
     this.dragElement = null;
+    this.dragGroup = null;
+    this.dragGroupBounds = null;
+    this.pendingCollapseElement = null;
     this.canvas.style.cursor = 'default';
     this.hasNotifiedDragStart = false;
+  }
+
+  /**
+   * Normalize two points into a positive-size rect in label dots.
+   */
+  normalizeRect(a, b) {
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    return { x, y, width: Math.abs(b.x - a.x), height: Math.abs(b.y - a.y) };
   }
 
   handleContextMenu(e) {
@@ -637,10 +862,12 @@ export class InteractionHandler {
     const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
     const element = this.getElementAtPosition(coords.x, coords.y);
 
-    // Select the element if right-clicked on one that isn't already selected
+    // Select the right-clicked element unless it's already part of the selection
+    // (so right-clicking a member of a multi-selection keeps the whole group).
     if (element) {
-      const currentSelected = this.callbacks.getSelectedElement();
-      if (!currentSelected || String(currentSelected.id) !== String(element.id)) {
+      const selected = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : [];
+      const inSelection = selected.some(el => String(el.id) === String(element.id));
+      if (!inSelection) {
         this.callbacks.onElementSelected(element);
       }
     }
@@ -651,11 +878,22 @@ export class InteractionHandler {
   }
 
   handleKeyDown(e) {
+    // ESC during a marquee cancels it, leaving the live selection as-is.
+    if (e.key === 'Escape' && this.isMarquee) {
+      e.preventDefault();
+      this.endMarquee(false);
+      return;
+    }
+
     // ESC cancels an active drag/resize transform and restores pre-transform state.
     if (e.key === 'Escape' && (this.isDragging || this.isResizing) && this.dragElement) {
       e.preventDefault();
       this.renderer.clearSmartGuides();
-      if (this.callbacks.onElementTransformCancel) {
+      if (this.isDragging && this.dragGroup && this.dragGroup.length > 1) {
+        if (this.callbacks.onGroupTransformCancel) {
+          this.callbacks.onGroupTransformCancel(this.dragGroup.map(m => m.el));
+        }
+      } else if (this.callbacks.onElementTransformCancel) {
         this.callbacks.onElementTransformCancel(this.dragElement);
       }
 
@@ -663,6 +901,8 @@ export class InteractionHandler {
       this.isResizing = false;
       this.resizeHandle = null;
       this.dragElement = null;
+      this.dragGroup = null;
+      this.dragGroupBounds = null;
       this._aspectLockBrokenByShift = false;
       this.canvas.style.cursor = 'default';
       this.hasNotifiedDragStart = false;
@@ -713,14 +953,20 @@ export class InteractionHandler {
       return;
     }
 
+    if (isModifier && key === 'a') {
+      e.preventDefault();
+      if (this.callbacks.onSelectAll) this.callbacks.onSelectAll();
+      return;
+    }
+
     if (isModifier && key === 'c') {
       // Allow native copy when text is selected on the page
       const copySelection = window.getSelection();
       if (copySelection && copySelection.toString().length > 0) return;
 
-      const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && this.callbacks.serializeElement) {
-        this.clipboardData = this.callbacks.serializeElement(selectedElement);
+      const selection = this.getActiveSelection();
+      if (selection.length > 0 && this.callbacks.serializeElement) {
+        this.clipboardData = selection.map(el => this.callbacks.serializeElement(el)).filter(Boolean);
       }
       e.preventDefault();
       return;
@@ -740,10 +986,10 @@ export class InteractionHandler {
 
     if (isModifier && key === 'd') {
       e.preventDefault();
-      const selectedElement = this.callbacks.getSelectedElement();
-      if (selectedElement && this.callbacks.serializeElement && this.callbacks.pasteElement) {
-        const data = this.callbacks.serializeElement(selectedElement);
-        if (data) {
+      const selection = this.getActiveSelection();
+      if (selection.length > 0 && this.callbacks.serializeElement && this.callbacks.pasteElement) {
+        const data = selection.map(el => this.callbacks.serializeElement(el)).filter(Boolean);
+        if (data.length > 0) {
           this.callbacks.pasteElement(data);
         }
       }
@@ -790,30 +1036,30 @@ export class InteractionHandler {
       return;
     }
 
-    // Only handle arrow keys if an element is selected
-    if (!this.callbacks.getSelectedElement()) return;
+    // Arrow-move and Delete operate on the whole selection (locked excluded).
+    const selection = this.getActiveSelection();
+    if (selection.length === 0) return;
 
-    const selectedElement = this.callbacks.getSelectedElement();
-    if (!selectedElement) return;
-
-    // Locked elements can't be moved or deleted via keyboard
-    if (selectedElement.locked) {
-      // Still allow Delete key to be handled (guard is in the callback)
-      if (e.key === 'Delete' && this.callbacks.onElementDeleted) {
-        this.callbacks.onElementDeleted(selectedElement);
+    // Handle Delete separately (not affected by orientation).
+    if (e.key === 'Delete') {
+      const deletable = selection.filter(el => !el.locked);
+      if (deletable.length === 0) return;
+      if (deletable.length > 1 && this.callbacks.onElementsDeleted) {
+        this.callbacks.onElementsDeleted(deletable);
+      } else if (this.callbacks.onElementDeleted) {
+        this.callbacks.onElementDeleted(deletable[0]);
       }
       return;
     }
 
-    let moved = false;
+    const movable = selection.filter(el => !el.locked);
+    if (movable.length === 0) return;
+
     const moveAmount = e.shiftKey ? 10 : 1;
 
-    // Check if orientation is inverted - if so, reverse arrow key directions
-    // so visual movement matches user expectations
+    // Reverse arrow directions under inverted/mirror so visual movement matches.
     const isInverted = this.labelSettings.printOrientation === 'I';
     const isMirrored = this.labelSettings.printMirror === 'Y';
-
-    // Determine effective direction based on orientation and mirror
     let effectiveKey = e.key;
     if (isInverted) {
       switch (e.key) {
@@ -830,39 +1076,55 @@ export class InteractionHandler {
       }
     }
 
+    let dx = 0, dy = 0;
     switch (effectiveKey) {
-      case 'ArrowLeft':
-        selectedElement.x = Math.max(0, selectedElement.x - moveAmount);
-        moved = true;
-        break;
-      case 'ArrowRight':
-        const maxX = this.labelSettings.width * this.labelSettings.dpmm - this.getDragConstraintBounds(selectedElement).width;
-        selectedElement.x = Math.min(maxX, selectedElement.x + moveAmount);
-        moved = true;
-        break;
-      case 'ArrowUp':
-        selectedElement.y = Math.max(0, selectedElement.y - moveAmount);
-        moved = true;
-        break;
-      case 'ArrowDown':
-        const maxY = this.labelSettings.height * this.labelSettings.dpmm - this.getDragConstraintBounds(selectedElement).height;
-        selectedElement.y = Math.min(maxY, selectedElement.y + moveAmount);
-        moved = true;
-        break;
+      case 'ArrowLeft': dx = -moveAmount; break;
+      case 'ArrowRight': dx = moveAmount; break;
+      case 'ArrowUp': dy = -moveAmount; break;
+      case 'ArrowDown': dy = moveAmount; break;
+      default: return;
     }
 
-    // Handle Delete key separately (not affected by orientation)
-    if (e.key === 'Delete') {
-      if (this.callbacks.onElementDeleted) {
-        this.callbacks.onElementDeleted(selectedElement);
-      }
+    // Clamp the delta so the selection's union bounds stay inside the label.
+    const labelW = this.labelSettings.width * this.labelSettings.dpmm;
+    const labelH = this.labelSettings.height * this.labelSettings.dpmm;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const el of movable) {
+      const b = this.getDragConstraintBounds(el);
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
     }
+    if (minX + dx < 0) dx = -minX;
+    if (maxX + dx > labelW) dx = labelW - maxX;
+    if (minY + dy < 0) dy = -minY;
+    if (maxY + dy > labelH) dy = labelH - maxY;
 
-    if (moved) {
+    if (dx === 0 && dy === 0) {
       e.preventDefault();
-      this.startKeyboardMove(selectedElement);
-      this.callbacks.onElementMoved(selectedElement);
+      return;
     }
+
+    movable.forEach(el => { el.x += dx; el.y += dy; });
+    e.preventDefault();
+    this.startKeyboardMove(movable);
+    if (movable.length > 1 && this.callbacks.onElementsMoved) {
+      this.callbacks.onElementsMoved(movable);
+    } else {
+      this.callbacks.onElementMoved(movable[0]);
+    }
+  }
+
+  /**
+   * Current selection as an array (back-compat with the single-selection getter).
+   */
+  getActiveSelection() {
+    if (this.callbacks.getSelectedElements) {
+      return this.callbacks.getSelectedElements();
+    }
+    const single = this.callbacks.getSelectedElement && this.callbacks.getSelectedElement();
+    return single ? [single] : [];
   }
 
   handleKeyUp(e) {
@@ -877,12 +1139,15 @@ export class InteractionHandler {
     }
   }
 
-  startKeyboardMove(element) {
+  startKeyboardMove(target) {
+    const targets = Array.isArray(target) ? target : [target];
     if (!this.keyboardMoveActive) {
       this.keyboardMoveActive = true;
-      this.keyboardMoveElement = element;
-      if (this.callbacks.onKeyboardMoveStart) {
-        this.callbacks.onKeyboardMoveStart(element);
+      this.keyboardMoveTargets = targets;
+      if (targets.length > 1) {
+        if (this.callbacks.onGroupMoveStart) this.callbacks.onGroupMoveStart(targets);
+      } else if (this.callbacks.onKeyboardMoveStart) {
+        this.callbacks.onKeyboardMoveStart(targets[0]);
       }
     }
 
@@ -900,11 +1165,13 @@ export class InteractionHandler {
       clearTimeout(this.keyboardMoveTimer);
       this.keyboardMoveTimer = null;
     }
-    const element = this.keyboardMoveElement;
+    const targets = this.keyboardMoveTargets || [];
     this.keyboardMoveActive = false;
-    this.keyboardMoveElement = null;
-    if (this.callbacks.onKeyboardMoveEnd) {
-      this.callbacks.onKeyboardMoveEnd(element);
+    this.keyboardMoveTargets = null;
+    if (targets.length > 1) {
+      if (this.callbacks.onGroupMoveEnd) this.callbacks.onGroupMoveEnd(targets);
+    } else if (targets.length === 1 && this.callbacks.onKeyboardMoveEnd) {
+      this.callbacks.onKeyboardMoveEnd(targets[0]);
     }
   }
 
@@ -1098,6 +1365,8 @@ export class InteractionHandler {
     this.canvas.removeEventListener('mouseleave', this.handleMouseLeave);
     document.removeEventListener('keydown', this.handleKeyDown);
     document.removeEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('mousemove', this._boundMarqueeMove);
+    window.removeEventListener('mouseup', this._boundMarqueeUp);
     if (this.keyboardMoveTimer) {
       clearTimeout(this.keyboardMoveTimer);
       this.keyboardMoveTimer = null;

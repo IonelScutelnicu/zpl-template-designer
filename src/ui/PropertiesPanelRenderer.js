@@ -37,16 +37,99 @@ export class PropertiesPanelRenderer {
 
   /**
    * Render the complete properties panel
-   * @param {Object|null} selectedElement - Currently selected element
+   * @param {Object|Array|null} selection - Currently selected element(s)
    * @returns {string} HTML string
    */
-  render(selectedElement) {
-    if (!selectedElement) {
+  render(selection) {
+    const list = Array.isArray(selection) ? selection : (selection ? [selection] : []);
+
+    if (list.length === 0) {
       return '<p class="text-center text-slate-400 py-12 italic text-sm">Select an element to edit properties</p>';
     }
 
-    const content = this.renderElementProperties(selectedElement);
-    return `<div class="animate-fade-in">${content}</div>`;
+    if (list.length === 1) {
+      const content = this.renderElementProperties(list[0]);
+      return `<div class="animate-fade-in">${content}</div>`;
+    }
+
+    return `<div class="animate-fade-in">${this.renderMultiSelectionSummary(list)}</div>`;
+  }
+
+  /**
+   * Render the summary + group-action panel shown when 2+ elements are selected.
+   * Per-field editing isn't offered for multi-selections; instead we expose
+   * align/distribute/delete actions over the whole group.
+   */
+  renderMultiSelectionSummary(elements) {
+    const count = elements.length;
+    const lockedCount = elements.filter(el => el.locked).length;
+    const distributeDisabled = count < 3;
+
+    const alignBtn = (action, icon, tooltip) => `
+      <button type="button" data-group-align="${action}"
+        class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
+        data-tooltip="${tooltip}">
+        <span class="material-icons-round text-slate-400 group-hover:text-blue-500 transition-colors">${icon}</span>
+      </button>`;
+
+    const distributeBtn = (axis, icon, tooltip) => `
+      <button type="button" data-group-distribute="${axis}" ${distributeDisabled ? 'disabled' : ''}
+        class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all ${distributeDisabled ? 'opacity-50 cursor-not-allowed hover:border-slate-200 hover:bg-white' : ''}"
+        data-tooltip="${tooltip}">
+        <span class="material-icons-round text-slate-400 group-hover:text-blue-500 transition-colors">${icon}</span>
+      </button>`;
+
+    const labelAlignBtn = (action, icon, tooltip) => `
+      <button type="button" data-group-align-label="${action}"
+        class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
+        data-tooltip="${tooltip}">
+        <span class="material-icons-round text-slate-400 group-hover:text-blue-500 transition-colors">${icon}</span>
+      </button>`;
+
+    const lockedNote = lockedCount > 0
+      ? `<p class="text-xs text-amber-600 mt-2">${lockedCount} locked element${lockedCount > 1 ? 's' : ''} excluded from group actions</p>`
+      : '';
+
+    return `
+      <div class="px-1">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="material-icons-round text-blue-500">select_all</span>
+          <h3 class="text-sm font-semibold text-slate-700">${count} elements selected</h3>
+        </div>
+
+        ${this.renderSection("Align", `
+          <div class="grid grid-cols-6 gap-2">
+            ${alignBtn('left', 'align_horizontal_left', 'Align Left')}
+            ${alignBtn('center-h', 'align_horizontal_center', 'Align Center')}
+            ${alignBtn('right', 'align_horizontal_right', 'Align Right')}
+            ${alignBtn('top', 'align_vertical_top', 'Align Top')}
+            ${alignBtn('middle', 'align_vertical_center', 'Align Middle')}
+            ${alignBtn('bottom', 'align_vertical_bottom', 'Align Bottom')}
+          </div>
+        `, { open: true })}
+
+        ${this.renderSection("Distribute", `
+          <div class="grid grid-cols-2 gap-2">
+            ${distributeBtn('horizontal', 'horizontal_distribute', 'Distribute Horizontally')}
+            ${distributeBtn('vertical', 'vertical_distribute', 'Distribute Vertically')}
+          </div>
+          ${distributeDisabled ? '<p class="text-xs text-slate-400 mt-2">Select 3+ elements to distribute</p>' : ''}
+        `, { open: true })}
+
+        ${this.renderSection("Align to label", `
+          <div class="grid grid-cols-2 gap-2">
+            ${labelAlignBtn('center-x', 'align_horizontal_center', 'Center group horizontally on label')}
+            ${labelAlignBtn('center-y', 'align_vertical_center', 'Center group vertically on label')}
+          </div>
+        `, { open: true })}
+
+        <button type="button" data-group-action="delete"
+          class="w-full mt-3 flex items-center justify-center gap-2 h-10 bg-white border border-red-200 text-red-600 rounded-md hover:border-red-500 hover:bg-red-50 transition-all">
+          <span class="material-icons-round text-base">delete</span>
+          <span class="text-sm font-medium">Delete ${count - lockedCount} element${count - lockedCount === 1 ? '' : 's'}</span>
+        </button>
+        ${lockedNote}
+      </div>`;
   }
 
   /**

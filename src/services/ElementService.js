@@ -226,6 +226,86 @@ export class ElementService {
   }
 
   /**
+   * Delete several elements as a single history entry. Locked elements are
+   * skipped. Selection is cleared afterwards.
+   * @param {Array<string|number>} ids - Element IDs to delete
+   */
+  deleteElements(ids) {
+    const idSet = new Set((ids || []).map(String));
+    const toDelete = this.state.elements.filter(el => idSet.has(String(el.id)) && !el.locked);
+    if (toDelete.length === 0) return;
+
+    if (toDelete.length === 1) {
+      // Defer to the single-element path so the history label stays specific.
+      this.deleteElement(toDelete[0].id);
+      return;
+    }
+
+    for (const el of toDelete) {
+      const idStr = String(el.id);
+      this.state.removeElement(idStr);
+      this.state.removeWarningsForElement(idStr);
+
+      const activeTransformSession = this.state.getActiveTransformSession();
+      if (activeTransformSession && activeTransformSession.id === idStr) {
+        this.state.setActiveTransformSession(null);
+      }
+      const keyboardMoveSession = this.state.getKeyboardMoveSession();
+      if (keyboardMoveSession && keyboardMoveSession.id === idStr) {
+        this.state.setKeyboardMoveSession(null);
+      }
+    }
+
+    this.state.clearSelection();
+
+    this.callbacks.onElementsChanged();
+    this.callbacks.onPushHistory(
+      `Deleted ${toDelete.length} elements`,
+      { kind: 'delete' }
+    );
+  }
+
+  /**
+   * Paste/duplicate several elements as a single history entry, selecting the
+   * pasted set.
+   * @param {Array<Object>} dataArray - Serialized element data
+   * @param {Function} createFromData
+   * @returns {Array<Object>} Created elements
+   */
+  pasteElements(dataArray, createFromData) {
+    const labelW = this.state.labelSettings.width * this.state.labelSettings.dpmm;
+    const labelH = this.state.labelSettings.height * this.state.labelSettings.dpmm;
+    const offset = 10;
+    const created = [];
+
+    for (const data of dataArray) {
+      const element = createFromData(data, { labelFontId: this.state.labelSettings?.fontId });
+      if (!element) continue;
+
+      element.x = Math.max(0, element.x + offset);
+      element.y = Math.max(0, element.y + offset);
+
+      const bounds = getElementBoundsResolved(element, this.state.labelSettings);
+      element.x = Math.max(0, Math.min(element.x, Math.max(0, labelW - bounds.width)));
+      element.y = Math.max(0, Math.min(element.y, Math.max(0, labelH - bounds.height)));
+
+      this.state.addElement(element);
+      created.push(element);
+    }
+
+    if (created.length === 0) return [];
+
+    this.state.setSelection(created);
+    this.callbacks.onElementsChanged();
+    this.callbacks.onPushHistory(
+      `Pasted ${created.length} elements`,
+      { kind: 'paste' }
+    );
+
+    return created;
+  }
+
+  /**
    * Move an element up or down in the rendering order
    * @param {number} index - Current index of element
    * @param {string} direction - 'up' or 'down'

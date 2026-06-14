@@ -21,21 +21,25 @@ export class ElementsListRenderer {
    * @param {Array} warnings - Current warnings array
    * @returns {string} HTML string
    */
-  render(elements, selectedElement, warnings = []) {
+  render(elements, selection, warnings = []) {
     if (elements.length === 0) {
       return '<p class="text-center text-slate-400 py-8 italic text-xs">No elements added yet</p>';
     }
 
+    // Accept a single element, an array, or null — highlight every selected row.
+    const list = Array.isArray(selection) ? selection : (selection ? [selection] : []);
+    const selectedIds = new Set(list.filter(Boolean).map(el => String(el.id)));
+
     return elements
-      .map((element, index) => this.renderElementItem(element, index, selectedElement, warnings))
+      .map((element, index) => this.renderElementItem(element, index, selectedIds, warnings))
       .join("");
   }
 
   /**
    * Render a single element item
    */
-  renderElementItem(element, index, selectedElement, warnings = []) {
-    const isActive = selectedElement && String(selectedElement.id) === String(element.id);
+  renderElementItem(element, index, selectedIds, warnings = []) {
+    const isActive = selectedIds.has(String(element.id));
 
     const activeClasses = isActive
       ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"

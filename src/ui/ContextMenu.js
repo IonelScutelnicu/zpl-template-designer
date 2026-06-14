@@ -57,6 +57,14 @@ export class ContextMenu {
   _buildItems(targetElement) {
     this.menuEl.innerHTML = '';
 
+    // When 2+ elements are selected and the right-click landed on a member,
+    // show group actions instead of the single-element menu.
+    const selection = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : [];
+    if (targetElement && selection.length > 1 && selection.some(el => String(el.id) === String(targetElement.id))) {
+      this._buildGroupItems(selection);
+      return;
+    }
+
     if (targetElement) {
       const elements = this.callbacks.getElements();
       const index = elements.findIndex(el => String(el.id) === String(targetElement.id));
@@ -87,6 +95,26 @@ export class ContextMenu {
       const hasClipboard = Boolean(this.callbacks.getClipboardData());
       this._addItem('content_paste', 'Paste', 'Ctrl+V', () => this.callbacks.onPaste(), !hasClipboard);
     }
+  }
+
+  _buildGroupItems(selection) {
+    const count = selection.length;
+    const distributeDisabled = count < 3;
+
+    this._addItem('align_horizontal_left', 'Align Left', null, () => this.callbacks.onGroupAlign('left'));
+    this._addItem('align_horizontal_center', 'Align Center', null, () => this.callbacks.onGroupAlign('center-h'));
+    this._addItem('align_horizontal_right', 'Align Right', null, () => this.callbacks.onGroupAlign('right'));
+    this._addItem('align_vertical_top', 'Align Top', null, () => this.callbacks.onGroupAlign('top'));
+    this._addItem('align_vertical_center', 'Align Middle', null, () => this.callbacks.onGroupAlign('middle'));
+    this._addItem('align_vertical_bottom', 'Align Bottom', null, () => this.callbacks.onGroupAlign('bottom'));
+    this._addSeparator();
+    this._addItem('horizontal_distribute', 'Distribute Horizontally', null, () => this.callbacks.onGroupDistribute('horizontal'), distributeDisabled);
+    this._addItem('vertical_distribute', 'Distribute Vertically', null, () => this.callbacks.onGroupDistribute('vertical'), distributeDisabled);
+    this._addSeparator();
+    this._addItem('align_horizontal_center', 'Center Horizontally on Label', null, () => this.callbacks.onGroupAlignLabel('center-x'));
+    this._addItem('align_vertical_center', 'Center Vertically on Label', null, () => this.callbacks.onGroupAlignLabel('center-y'));
+    this._addSeparator();
+    this._addItem('delete', 'Delete', 'Del', () => this.callbacks.onGroupDelete(selection));
   }
 
   _addItem(icon, label, shortcut, onClick, disabled = false, iconClass = '') {

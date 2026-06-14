@@ -570,6 +570,59 @@ export function initApp() {
     onKeyboardMoveEnd: (element) => {
       endKeyboardMoveSession(element);
     },
+    // ===== Multi-select callbacks =====
+    onSelectionChanged: (elements) => {
+      state.setSelection(elements);
+      updateElementsList();
+      renderPropertiesPanel();
+      renderCanvasPreview();
+    },
+    toggleSelection: (element) => {
+      state.toggleSelection(element);
+      updateElementsList();
+      renderPropertiesPanel();
+      renderCanvasPreview();
+    },
+    onSelectAll: () => {
+      state.selectAll();
+      updateElementsList();
+      renderPropertiesPanel();
+      renderCanvasPreview();
+    },
+    getSelectedElements: () => state.getSelectedElements(),
+    onMarqueeUpdate: (rect) => {
+      canvasRenderer.setMarquee(rect);
+      renderCanvasPreview();
+    },
+    onMarqueeSelect: (elements, rect) => {
+      // Live update during marquee drag: selection + canvas only (panels are
+      // refreshed once on release via onSelectionChanged).
+      state.setSelection(elements);
+      canvasRenderer.setMarquee(rect);
+      renderCanvasPreview();
+    },
+    onElementsDragging: () => {
+      renderCanvasPreview();
+    },
+    onGroupTransformStart: (elements) => startGroupTransformSession(elements),
+    onElementsDragEnd: (elements) => {
+      updateZPLOutput();
+      renderCanvasPreview();
+      renderPropertiesPanel();
+      finalizeGroupTransformSession(elements);
+    },
+    onGroupTransformCancel: (elements) => cancelGroupTransformSession(elements),
+    onElementsMoved: () => {
+      updateZPLOutput();
+      renderCanvasPreview();
+      renderPropertiesPanel();
+    },
+    onGroupMoveStart: (elements) => startGroupTransformSession(elements),
+    onGroupMoveEnd: (elements) => finalizeGroupTransformSession(elements),
+    onElementsDeleted: (elements) => {
+      if (previewMode === 'api') return;
+      elementService.deleteElements(elements.map(el => el.id));
+    },
     onUndo: () => undo(),
     onRedo: () => redo(),
     onNewTemplate: () => startNewTemplate(),
@@ -602,6 +655,14 @@ export function initApp() {
   // Initialize context menu
   contextMenu = new ContextMenu(document.getElementById('preview-container'), {
     getSelectedElement: () => state.selectedElement,
+    getSelectedElements: () => state.getSelectedElements(),
+    onGroupAlign: (action) => runGroupAlignment(action),
+    onGroupAlignLabel: (action) => runGroupAlignToLabel(action),
+    onGroupDistribute: (axis) => runGroupDistribute(axis),
+    onGroupDelete: (elements) => {
+      if (previewMode === 'api') return;
+      elementService.deleteElements(elements.map(el => el.id));
+    },
     getClipboardData: () => interactionHandler.clipboardData,
     getElements: () => state.elements,
     closeOtherMenus: () => closeZPLMoreMenu(),
@@ -1181,7 +1242,7 @@ export function renderCanvasPreview() {
   }
   canvasRenderer.setZoom(zoom);
   canvasRenderer.setTransparentBackground(previewMode === 'overlay');
-  canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.selectedElement);
+  canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.getSelectedElements());
   applyViewport();
 }
 
@@ -1947,6 +2008,95 @@ function endKeyboardMoveSession(element) {
   state.setKeyboardMoveSession(null);
 }
 
+// ============================================================
+// Group transform sessions — a multi-element drag or keyboard-move is recorded
+// as a single undo entry. Used for both pointer drag and arrow-key nudge.
+// ============================================================
+
+let groupTransformSession = null;
+
+function startGroupTransformSession(elements) {
+  if (!elements || elements.length === 0) return;
+  groupTransformSession = {
+    before: elements.map(el => ({ id: String(el.id), x: el.x, y: el.y }))
+  };
+}
+
+function finalizeGroupTransformSession() {
+  if (!groupTransformSession) return;
+  const { before } = groupTransformSession;
+  groupTransformSession = null;
+
+  const moved = before.some(b => {
+    const el = state.elements.find(e => String(e.id) === b.id);
+    return el && (el.x !== b.x || el.y !== b.y);
+  });
+  if (moved) {
+    pushHistory(`Moved ${before.length} elements`, { kind: "move" });
+  }
+}
+
+function cancelGroupTransformSession() {
+  if (!groupTransformSession) return;
+  for (const b of groupTransformSession.before) {
+    const el = state.elements.find(e => String(e.id) === b.id);
+    if (el) { el.x = b.x; el.y = b.y; }
+  }
+  groupTransformSession = null;
+  updateZPLOutput();
+  renderCanvasPreview();
+  renderPropertiesPanel();
+}
+
+// ============================================================
+// Group align / distribute / delete — each a single history entry.
+// ============================================================
+
+function runGroupAlignment(action) {
+  const elements = state.getSelectedElements();
+  if (!alignmentService.alignElements(action, elements, state.labelSettings, canvasRenderer)) return;
+  updateZPLOutput();
+  updateElementsList();
+  renderCanvasPreview();
+  renderPropertiesPanel();
+  const count = elements.filter(el => !el.locked).length;
+  pushHistory(`Aligned ${count} elements`, { kind: "align" });
+}
+
+function runGroupDistribute(axis) {
+  const elements = state.getSelectedElements();
+  if (!alignmentService.distributeElements(axis, elements, state.labelSettings, canvasRenderer)) return;
+  updateZPLOutput();
+  updateElementsList();
+  renderCanvasPreview();
+  renderPropertiesPanel();
+  const count = elements.filter(el => !el.locked).length;
+  pushHistory(`Distributed ${count} elements`, { kind: "align" });
+}
+
+function runGroupAlignToLabel(action) {
+  const elements = state.getSelectedElements();
+  if (!alignmentService.alignElementsToLabel(action, elements, state.labelSettings, canvasRenderer)) return;
+  updateZPLOutput();
+  updateElementsList();
+  renderCanvasPreview();
+  renderPropertiesPanel();
+  const count = elements.filter(el => !el.locked).length;
+  const dir = action === 'center-x' ? 'horizontally' : 'vertically';
+  pushHistory(`Centered ${count} elements on label ${dir}`, { kind: "align" });
+}
+
+function deleteSelectedElements() {
+  if (previewMode === 'api') return;
+  const elements = state.getSelectedElements().filter(el => !el.locked);
+  if (elements.length === 0) return;
+  if (elements.length === 1) {
+    deleteElement(String(elements[0].id));
+  } else {
+    elementService.deleteElements(elements.map(el => el.id));
+  }
+}
+
 // Add Element Functions (delegated to ElementService)
 function addTextBlockElement() {
   elementService.createElement('TEXTBLOCK', { text: 'Sample text block content', blockWidth: 200, blockHeight: 50 });
@@ -2122,6 +2272,15 @@ function createElementFromData(data, options = {}) {
 }
 
 function pasteElementFromData(data, options = {}) {
+  // The clipboard holds an array (multi-select copy) or a single object.
+  if (Array.isArray(data)) {
+    if (data.length === 1) {
+      elementService.pasteElement(data[0], createElementFromData, options);
+    } else if (data.length > 1) {
+      elementService.pasteElements(data, createElementFromData);
+    }
+    return;
+  }
   elementService.pasteElement(data, createElementFromData, options);
 }
 
@@ -2162,14 +2321,33 @@ function resolveZplDoc(element) {
 }
 
 function renderPropertiesPanel() {
-  const html = propertiesPanelRenderer.render(state.selectedElement);
+  const selected = state.getSelectedElements();
+  const html = propertiesPanelRenderer.render(selected);
   propertiesPanel.innerHTML = html;
 
-  if (state.selectedElement) {
-    attachPropertyListeners(state.selectedElement);
+  if (selected.length === 1) {
+    attachPropertyListeners(selected[0]);
+  } else if (selected.length > 1) {
+    attachGroupActionListeners();
   }
 
   updateZplDocLink();
+}
+
+// Wire the group action buttons (align/distribute/delete) shown in the
+// multi-selection summary panel.
+function attachGroupActionListeners() {
+  propertiesPanel.querySelectorAll('[data-group-align]').forEach(btn => {
+    btn.addEventListener('click', () => runGroupAlignment(btn.dataset.groupAlign));
+  });
+  propertiesPanel.querySelectorAll('[data-group-distribute]').forEach(btn => {
+    btn.addEventListener('click', () => runGroupDistribute(btn.dataset.groupDistribute));
+  });
+  propertiesPanel.querySelectorAll('[data-group-align-label]').forEach(btn => {
+    btn.addEventListener('click', () => runGroupAlignToLabel(btn.dataset.groupAlignLabel));
+  });
+  const del = propertiesPanel.querySelector('[data-group-action="delete"]');
+  if (del) del.addEventListener('click', () => deleteSelectedElements());
 }
 
 // Sync the ZPL doc link to the current selection. Kept separate from the panel
@@ -2178,7 +2356,8 @@ function renderPropertiesPanel() {
 function updateZplDocLink() {
   const docLink = document.getElementById('zpl-doc-link');
   if (!docLink) return;
-  const doc = resolveZplDoc(state.selectedElement);
+  // No single ZPL command applies to a multi-selection.
+  const doc = state.selectionCount > 1 ? null : resolveZplDoc(state.selectedElement);
   if (doc) {
     docLink.textContent = `${doc.command} docs`;
     docLink.href = doc.url;
@@ -2190,7 +2369,7 @@ function updateZplDocLink() {
 
 // Update Elements List
 function updateElementsList() {
-  const html = elementsListRenderer.render(state.elements, state.selectedElement, state.warnings);
+  const html = elementsListRenderer.render(state.elements, state.getSelectedElements(), state.warnings);
   elementsList.innerHTML = html;
 }
 

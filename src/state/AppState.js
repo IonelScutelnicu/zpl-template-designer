@@ -11,7 +11,9 @@ export class AppState {
   constructor() {
     // Core application state
     this.elements = [];
-    this.selectedElement = null;
+    // Selection is an ordered list of element ids (Strings). The first id is the
+    // "primary" element, exposed via the back-compat `selectedElement` getter.
+    this.selectedIds = [];
 
     // Label configuration
     this.labelSettings = {
@@ -137,12 +139,124 @@ export class AppState {
   // ===== Selection Management =====
 
   /**
-   * Set the selected element
+   * Primary selected element (first in the selection), or null.
+   * Back-compat accessor for the many single-selection call sites.
+   * @returns {Object|null}
+   */
+  get selectedElement() {
+    if (this.selectedIds.length === 0) return null;
+    return this.elements.find(el => String(el.id) === this.selectedIds[0]) || null;
+  }
+
+  /**
+   * Resolve the current selection to live element objects, preserving order
+   * and dropping ids that no longer exist.
+   * @returns {Array<Object>}
+   */
+  getSelectedElements() {
+    return this.selectedIds
+      .map(id => this.elements.find(el => String(el.id) === id))
+      .filter(Boolean);
+  }
+
+  /**
+   * Number of currently selected elements.
+   * @returns {number}
+   */
+  get selectionCount() {
+    return this.getSelectedElements().length;
+  }
+
+  /**
+   * Replace the entire selection.
+   * @param {Array<Object>|Object|null} elementsOrIds - Elements (or single element/null)
+   */
+  setSelection(elementsOrIds) {
+    const list = elementsOrIds == null
+      ? []
+      : (Array.isArray(elementsOrIds) ? elementsOrIds : [elementsOrIds]);
+    const ids = [];
+    list.forEach(item => {
+      if (!item) return;
+      const id = String(item.id ?? item);
+      if (!ids.includes(id)) ids.push(id);
+    });
+    this.selectedIds = ids;
+    this.notify('selectionChanged', this.getSelectedElements());
+  }
+
+  /**
+   * Set the selected element (single-selection back-compat wrapper).
    * @param {Object|null} element - Element to select (or null to deselect)
    */
   setSelectedElement(element) {
-    this.selectedElement = element;
-    this.notify('selectionChanged', element);
+    this.setSelection(element ? [element] : []);
+  }
+
+  /**
+   * Add an element to the selection (no-op if already selected).
+   * @param {Object} element
+   */
+  addToSelection(element) {
+    if (!element) return;
+    const id = String(element.id);
+    if (!this.selectedIds.includes(id)) {
+      this.selectedIds.push(id);
+      this.notify('selectionChanged', this.getSelectedElements());
+    }
+  }
+
+  /**
+   * Remove an element from the selection.
+   * @param {Object} element
+   */
+  removeFromSelection(element) {
+    if (!element) return;
+    const id = String(element.id);
+    const idx = this.selectedIds.indexOf(id);
+    if (idx > -1) {
+      this.selectedIds.splice(idx, 1);
+      this.notify('selectionChanged', this.getSelectedElements());
+    }
+  }
+
+  /**
+   * Toggle an element's membership in the selection.
+   * @param {Object} element
+   */
+  toggleSelection(element) {
+    if (!element) return;
+    if (this.isSelected(element)) {
+      this.removeFromSelection(element);
+    } else {
+      this.addToSelection(element);
+    }
+  }
+
+  /**
+   * Clear the selection.
+   */
+  clearSelection() {
+    if (this.selectedIds.length === 0) return;
+    this.selectedIds = [];
+    this.notify('selectionChanged', this.getSelectedElements());
+  }
+
+  /**
+   * Whether an element is currently selected.
+   * @param {Object} element
+   * @returns {boolean}
+   */
+  isSelected(element) {
+    return !!element && this.selectedIds.includes(String(element.id));
+  }
+
+  /**
+   * Select every element on the label.
+   */
+  selectAll() {
+    this.selectedIds = this.elements.map(el => String(el.id));
+    this.notify('selectionChanged', this.getSelectedElements());
   }
 
   // ===== Label Settings Management =====
@@ -373,7 +487,9 @@ export class AppState {
         data.id = element.id;
         return data;
       }),
-      selectedElementId: this.selectedElement ? String(this.selectedElement.id) : null
+      selectedIds: [...this.selectedIds],
+      // Keep the legacy single-id field so older serialized snapshots stay readable.
+      selectedElementId: this.selectedIds[0] ?? null
     };
   }
 
@@ -399,12 +515,12 @@ export class AppState {
       this.notify('labelSettingsChanged', this.labelSettings);
     }
 
-    // Restore selection
-    if (data.selectedElementId) {
-      this.selectedElement = this.elements.find(el => String(el.id) === String(data.selectedElementId)) || null;
-    } else {
-      this.selectedElement = null;
-    }
-    this.notify('selectionChanged', this.selectedElement);
+    // Restore selection (prefer the multi-id array, fall back to the legacy field).
+    const rawIds = Array.isArray(data.selectedIds)
+      ? data.selectedIds
+      : (data.selectedElementId != null ? [data.selectedElementId] : []);
+    const existing = new Set(this.elements.map(el => String(el.id)));
+    this.selectedIds = rawIds.map(String).filter(id => existing.has(id));
+    this.notify('selectionChanged', this.getSelectedElements());
   }
 }

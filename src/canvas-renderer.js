@@ -31,6 +31,7 @@ export class CanvasRenderer {
     this.transparentBackground = false;
     this.showGrid = false; // Hide grid to match API preview look
     this.smartGuides = []; // Active smart guide lines during drag
+    this.marqueeRect = null; // Active marquee rectangle during drag-select (label-dot coords)
 
     // Initialize specialized renderers
     this.renderers = {
@@ -59,8 +60,13 @@ export class CanvasRenderer {
    * @param {Array} elements - Array of ZPLElement objects
    * @param {Object} labelSettings - Label configuration
    */
-  renderCanvas(elements, labelSettings, selectedElement = null) {
+  renderCanvas(elements, labelSettings, selection = null) {
     const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N', printMirror = 'N' } = labelSettings;
+
+    // Normalize selection to a list so a single element, an array, or null all work.
+    const selectedList = Array.isArray(selection) ? selection : (selection ? [selection] : []);
+    this._selectedIds = new Set(selectedList.filter(Boolean).map(el => String(el.id)));
+    this._selectionCount = this._selectedIds.size;
 
     // Store offsets and orientation for use in element drawing and coordinate conversion
     this.homeX = homeX;
@@ -127,8 +133,13 @@ export class CanvasRenderer {
 
     // Render each element
     elements.forEach(element => {
-      this.drawElement(element, labelSettings, selectedElement);
+      this.drawElement(element, labelSettings);
     });
+
+    // Draw the marquee selection rectangle (if active) above elements.
+    if (this.marqueeRect) {
+      this.drawMarquee(this.marqueeRect);
+    }
 
     // Draw smart guide lines on top of elements in the same transformed space
     // so guides align with offsets/orientation/mirror.
@@ -146,7 +157,7 @@ export class CanvasRenderer {
       this.ctx.restore();
     }
 
-    prefetchFontsForElements(elements, labelSettings, () => this.renderCanvas(elements, labelSettings, selectedElement));
+    prefetchFontsForElements(elements, labelSettings, () => this.renderCanvas(elements, labelSettings, selectedList));
   }
 
   /**
@@ -299,8 +310,8 @@ export class CanvasRenderer {
   /**
    * Draw a single element on canvas
    */
-  drawElement(element, labelSettings, selectedElement) {
-    const isSelected = selectedElement && element.id === selectedElement.id;
+  drawElement(element, labelSettings) {
+    const isSelected = this._selectedIds && this._selectedIds.has(String(element.id));
 
     this.ctx.save();
 
@@ -437,6 +448,12 @@ export class CanvasRenderer {
       this.ctx.restore();
     }
 
+    // With a multi-selection, show outlines only — no per-element resize handles
+    // (group resize is out of scope; handles would be ambiguous).
+    if (this._selectionCount > 1) {
+      return;
+    }
+
     // Draw resize handles — constant on-screen size (~12px diameter).
     const handleRadius = 6;
 
@@ -549,6 +566,41 @@ export class CanvasRenderer {
    */
   clearSmartGuides() {
     this.smartGuides = [];
+  }
+
+  /**
+   * Set the active marquee rectangle (called by interaction handler during drag-select).
+   * @param {{x:number,y:number,width:number,height:number}|null} rect - In element-relative label dots
+   */
+  setMarquee(rect) {
+    this.marqueeRect = rect;
+  }
+
+  /**
+   * Clear the active marquee rectangle (called on drag-select end).
+   */
+  clearMarquee() {
+    this.marqueeRect = null;
+  }
+
+  /**
+   * Draw the marquee selection rectangle. Coordinates are element-relative label
+   * dots (same space as drawSelectionIndicator), so offsets/zoom apply identically.
+   */
+  drawMarquee(rect) {
+    const x = (rect.x + this.homeX) * this.scale;
+    const y = (rect.y + this.homeY + this.labelTop) * this.scale;
+    const w = rect.width * this.scale;
+    const h = rect.height * this.scale;
+
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
+    this.ctx.fillRect(x, y, w, h);
+    this.ctx.strokeStyle = '#3B82F6';
+    this.ctx.lineWidth = 1;
+    this.ctx.setLineDash([4, 3]);
+    this.ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+    this.ctx.restore();
   }
 
   /**

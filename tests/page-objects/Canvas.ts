@@ -218,6 +218,53 @@ export class Canvas {
         await this.canvas.click({ position: { x, y }, button: 'right' });
     }
 
+    // ===== Multi-select helpers (require ?e2e=1 for selection introspection) =====
+
+    /** Shift+Click at label coordinates (toggles selection membership). */
+    async shiftClickAtLabelCoords(labelX: number, labelY: number): Promise<void> {
+        const scale = await this.getScale();
+        await this.canvas.click({ position: { x: labelX * scale, y: labelY * scale }, modifiers: ['Shift'] });
+    }
+
+    /**
+     * Drag a marquee rectangle (label coords) over empty canvas. Pass
+     * additive=true to hold Shift and add to the existing selection.
+     */
+    async marqueeDrag(fromX: number, fromY: number, toX: number, toY: number, additive = false): Promise<void> {
+        const box = await this.getBoundingBox();
+        if (!box) throw new Error('Canvas not found');
+        const scale = await this.getScale();
+        if (additive) await this.page.keyboard.down('Shift');
+        await this.page.mouse.move(box.x + fromX * scale, box.y + fromY * scale);
+        await this.page.mouse.down();
+        await this.page.mouse.move(box.x + toX * scale, box.y + toY * scale, { steps: 10 });
+        await this.page.mouse.up();
+        if (additive) await this.page.keyboard.up('Shift');
+    }
+
+    /** Select all elements via Ctrl+A. */
+    async selectAll(): Promise<void> {
+        await this.page.keyboard.press('Control+a');
+    }
+
+    /** Number of currently selected elements (reads window.appState). */
+    async getSelectionCount(): Promise<number> {
+        return await this.page.evaluate(() =>
+            (window as unknown as { appState: { selectionCount: number } }).appState.selectionCount);
+    }
+
+    /** Currently selected element ids (reads window.appState). */
+    async getSelectionIds(): Promise<string[]> {
+        return await this.page.evaluate(() =>
+            [...(window as unknown as { appState: { selectedIds: string[] } }).appState.selectedIds]);
+    }
+
+    /** Number of undo/redo history entries (reads window.appState). */
+    async getHistoryCount(): Promise<number> {
+        return await this.page.evaluate(() =>
+            (window as unknown as { appState: { getHistoryEntries: () => unknown[] } }).appState.getHistoryEntries().length);
+    }
+
     /**
      * Drag using label coordinates
      */

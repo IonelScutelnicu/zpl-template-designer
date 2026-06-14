@@ -42,6 +42,132 @@ export class AlignmentService {
   }
 
   /**
+   * Resolve an element's bounds using the same rule as single-element alignment
+   * (measured glyph box for TEXT, resolved geometry otherwise).
+   */
+  _boundsFor(element, labelSettings, renderer) {
+    return (element.type === 'TEXT' && renderer)
+      ? renderer.measureTextBounds(element, labelSettings)
+      : getElementBoundsResolved(element, labelSettings);
+  }
+
+  /**
+   * Align two or more elements to each other, relative to the selection's
+   * bounding box. Position-only (never resizes). Locked elements are skipped.
+   * @param {string} action - left|center-h|right|top|middle|bottom
+   * @param {Array<Object>} elements - Selected elements
+   * @param {Object} labelSettings
+   * @param {Object} [renderer]
+   * @returns {boolean} Whether any element moved
+   */
+  alignElements(action, elements, labelSettings, renderer = null) {
+    const targets = (elements || []).filter(el => el && !el.locked);
+    if (targets.length < 2) return false;
+
+    const items = targets.map(el => ({ el, b: this._boundsFor(el, labelSettings, renderer) }));
+    const minX = Math.min(...items.map(i => i.b.x));
+    const minY = Math.min(...items.map(i => i.b.y));
+    const maxX = Math.max(...items.map(i => i.b.x + i.b.width));
+    const maxY = Math.max(...items.map(i => i.b.y + i.b.height));
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    for (const { el, b } of items) {
+      switch (action) {
+        case 'left':     el.x = Math.max(0, Math.round(el.x + (minX - b.x))); break;
+        case 'center-h': el.x = Math.max(0, Math.round(el.x + (centerX - (b.x + b.width / 2)))); break;
+        case 'right':    el.x = Math.max(0, Math.round(el.x + (maxX - (b.x + b.width)))); break;
+        case 'top':      el.y = Math.max(0, Math.round(el.y + (minY - b.y))); break;
+        case 'middle':   el.y = Math.max(0, Math.round(el.y + (centerY - (b.y + b.height / 2)))); break;
+        case 'bottom':   el.y = Math.max(0, Math.round(el.y + (maxY - (b.y + b.height)))); break;
+        default:
+          console.warn(`Unknown group alignment action: ${action}`);
+          return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Center a multi-selection on the label as a unit — the group's bounding box
+   * is centered on the chosen axis and every element shifts by the same delta,
+   * preserving their relative layout. Locked elements are skipped. Mirrors the
+   * single-element center-x / center-y, but for a whole group.
+   * @param {string} action - 'center-x' | 'center-y'
+   * @param {Array<Object>} elements
+   * @param {Object} labelSettings
+   * @param {Object} [renderer]
+   * @returns {boolean} Whether any element moved
+   */
+  alignElementsToLabel(action, elements, labelSettings, renderer = null) {
+    const targets = (elements || []).filter(el => el && !el.locked);
+    if (targets.length === 0) return false;
+
+    const labelSize = getLabelSizeDots(labelSettings);
+    const items = targets.map(el => ({ el, b: this._boundsFor(el, labelSettings, renderer) }));
+    const minX = Math.min(...items.map(i => i.b.x));
+    const minY = Math.min(...items.map(i => i.b.y));
+    const maxX = Math.max(...items.map(i => i.b.x + i.b.width));
+    const maxY = Math.max(...items.map(i => i.b.y + i.b.height));
+
+    if (action === 'center-x') {
+      const targetMinX = Math.max(0, Math.round((labelSize.width - (maxX - minX)) / 2));
+      const dx = targetMinX - minX;
+      for (const { el } of items) el.x = Math.max(0, Math.round(el.x + dx));
+    } else if (action === 'center-y') {
+      const targetMinY = Math.max(0, Math.round((labelSize.height - (maxY - minY)) / 2));
+      const dy = targetMinY - minY;
+      for (const { el } of items) el.y = Math.max(0, Math.round(el.y + dy));
+    } else {
+      console.warn(`Unknown group label-align action: ${action}`);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Distribute three or more elements so the gaps between them are even along
+   * one axis. The extreme elements stay put; the inner ones are repositioned.
+   * Locked elements are skipped.
+   * @param {string} axis - 'horizontal' | 'vertical'
+   * @param {Array<Object>} elements
+   * @param {Object} labelSettings
+   * @param {Object} [renderer]
+   * @returns {boolean} Whether any element moved
+   */
+  distributeElements(axis, elements, labelSettings, renderer = null) {
+    const targets = (elements || []).filter(el => el && !el.locked);
+    if (targets.length < 3) return false;
+
+    const horizontal = axis === 'horizontal';
+    const items = targets.map(el => {
+      const b = this._boundsFor(el, labelSettings, renderer);
+      return {
+        el,
+        min: horizontal ? b.x : b.y,
+        size: horizontal ? b.width : b.height,
+        offset: horizontal ? (b.x - el.x) : (b.y - el.y) // bound edge vs element origin
+      };
+    }).sort((a, b) => a.min - b.min);
+
+    const first = items[0];
+    const last = items[items.length - 1];
+    const span = (last.min + last.size) - first.min;
+    const sumSizes = items.reduce((sum, i) => sum + i.size, 0);
+    const gap = (span - sumSizes) / (items.length - 1);
+
+    let cursor = first.min + first.size + gap;
+    for (let i = 1; i < items.length - 1; i++) {
+      const item = items[i];
+      const newOrigin = Math.round(cursor - item.offset);
+      if (horizontal) item.el.x = Math.max(0, newOrigin);
+      else item.el.y = Math.max(0, newOrigin);
+      cursor += item.size + gap;
+    }
+    return true;
+  }
+
+  /**
    * Center element horizontally on label
    */
   centerHorizontally(element, labelSize, bounds) {

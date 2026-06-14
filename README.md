@@ -8,6 +8,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Editor + template gallery** — switch between the visual editor and a curated templates gallery
 - **Three preview modes** — Edit canvas, Overlay mode on top of Labelary output, and Labelary Preview mode
 - **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge, and layer cycling
+- **Multi-select** — Shift+Click, marquee drag (touch-select), or `Ctrl+A`; move/delete/duplicate the set, and align or distribute selected elements relative to each other
 - **Smart guides** — hold `Ctrl` while dragging or resizing to snap to label edges, centers, and nearby elements
 - **Canvas context menu** — right-click for copy, paste, duplicate, reorder, align, lock, and delete actions
 - **Undo/redo history** — full history panel with named entries
@@ -129,27 +130,31 @@ Where:
 
 ## Keyboard & Mouse Shortcuts
 
+Most actions operate on the current selection, which may be one or several elements (see Multi-select).
+
 | Action | Shortcut |
 |---|---|
-| Cycle elements | `Tab` |
-| Cycle reverse | `Shift` + `Tab` |
-| Nudge 1px | `Arrow keys` |
-| Nudge 10px | `Shift` + `Arrow keys` |
-| Delete element | `Del` |
-| Copy / Paste | `Ctrl` + `C` / `V` |
-| Duplicate element | `Ctrl` + `D` |
+| Select element | Click element |
+| Add / remove from selection | `Shift` + Click |
+| Marquee select | Drag on empty canvas |
+| Extend marquee selection | `Shift` + Drag on empty canvas |
+| Select all | `Ctrl` + `A` |
+| Deselect | Click empty area |
+| Cycle elements (forward / back) | `Tab` / `Shift` + `Tab` |
+| Cycle overlapping layers | `Alt` + Click |
+| Move selection | Drag element |
+| Nudge selection 1px / 10px | `Arrow keys` / `Shift` + `Arrow keys` |
+| Resize element (single selection) | Drag handles |
+| Show smart guides (single selection) | Hold `Ctrl` while dragging / resizing |
+| Copy / Paste selection | `Ctrl` + `C` / `V` |
+| Duplicate selection | `Ctrl` + `D` |
+| Delete selection | `Del` |
 | Undo | `Ctrl` + `Z` |
-| Redo | `Ctrl` + `Shift+Z` / `Y` |
-| Save to Drive | `Ctrl` + `S` |
-| Show smart guides | Hold `Ctrl` while dragging / resizing |
+| Redo | `Ctrl` + `Shift` + `Z` / `Ctrl` + `Y` |
+| Open context menu | Right-click canvas |
 | Cancel drag / resize | `Esc` |
 | Close history panel (idle) | `Esc` |
-| Select element | Click element |
-| Open context menu | Right-click canvas |
-| Deselect | Click empty area |
-| Move element | Drag element |
-| Resize element | Drag handles |
-| Cycle layers | `Alt` + Click |
+| Save to Drive | `Ctrl` + `S` |
 
 ## Architecture
 
@@ -235,31 +240,19 @@ The application uses a modular architecture for maintainability and testability:
 
 ## Testing
 
-The project uses Playwright for end-to-end testing with a dual-project setup optimized for performance and reliability.
-
-### Test Organization
-
-Tests are split into two projects to handle different execution requirements:
-
-- **Core Tests** (~90 tests): Fast, parallel execution
-  - Element creation/deletion, property updates, canvas rendering
-  - ZPL generation, import/export, visual regression
-
-- **API Integration Tests** (~25 tests): Sequential execution with rate limiting
-  - API preview mode, canvas vs API parity testing
-  - Respects Labelary API limits (3 requests/second)
+The project uses Playwright for end-to-end testing. All specs run under a single `chromium` project in parallel (`fullyParallel`).
 
 ### Running Tests
 
 ```bash
-# Run all tests (both core and API)
-npm test
+# Run all tests
+npx playwright test
 
-# Run only core tests (fast, parallel)
-npm run test:core
+# Run a single spec
+npx playwright test tests/e2e/canvas.spec.ts
 
-# Run only API tests (sequential with rate limiting)
-npm run test:api
+# Run tests by title
+npx playwright test -g "fragment of test name"
 
 # Run tests in UI mode
 npm run test:ui
@@ -270,10 +263,10 @@ npm run test:debug
 
 ### Test Files
 
-- Core tests: `*.spec.ts` (run in parallel)
-- API tests: `*-api.spec.ts` (run sequentially)
+- All specs are `*.spec.ts` under `tests/e2e/` and run in parallel.
+- The `*-api.spec.ts` naming (e.g. `preview-api.spec.ts`) is a historical convention from tests that hit the Labelary API; they no longer run in a separate project.
 
-API tests use automatic rate limiting (334ms between calls) to prevent hitting Labelary API limits.
+> `npm run test:core` and `npm run test:api` are stale scripts in `package.json` that reference Playwright projects which no longer exist — they fail with "Project not found". Run `npx playwright test` directly instead.
 
 ## Tech Stack
 
