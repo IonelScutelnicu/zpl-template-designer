@@ -64,6 +64,9 @@ export class PropertiesPanelRenderer {
     const count = elements.length;
     const lockedCount = elements.filter(el => el.locked).length;
     const distributeDisabled = count < 3;
+    // Match size only applies to resizable, unlocked elements; needs at least 2.
+    const matchableCount = elements.filter(el => !el.locked && el.canMatchLabelSize?.()).length;
+    const matchDisabled = matchableCount < 2;
 
     const alignBtn = (action, icon, tooltip) => `
       <button type="button" data-group-align="${action}"
@@ -82,6 +85,13 @@ export class PropertiesPanelRenderer {
     const labelAlignBtn = (action, icon, tooltip) => `
       <button type="button" data-group-align-label="${action}"
         class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all"
+        data-tooltip="${tooltip}">
+        <span class="material-icons-round text-slate-400 group-hover:text-blue-500 transition-colors">${icon}</span>
+      </button>`;
+
+    const matchBtn = (dimension, icon, tooltip) => `
+      <button type="button" data-group-match="${dimension}" ${matchDisabled ? 'disabled' : ''}
+        class="group flex items-center justify-center h-10 bg-white border border-slate-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-all ${matchDisabled ? 'opacity-50 cursor-not-allowed hover:border-slate-200 hover:bg-white' : ''}"
         data-tooltip="${tooltip}">
         <span class="material-icons-round text-slate-400 group-hover:text-blue-500 transition-colors">${icon}</span>
       </button>`;
@@ -117,10 +127,22 @@ export class PropertiesPanelRenderer {
         `, { open: true })}
 
         ${this.renderSection("Align to label", `
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-6 gap-2">
+            ${labelAlignBtn('left', 'align_horizontal_left', 'Align group to label left edge')}
             ${labelAlignBtn('center-x', 'align_horizontal_center', 'Center group horizontally on label')}
+            ${labelAlignBtn('right', 'align_horizontal_right', 'Align group to label right edge')}
+            ${labelAlignBtn('top', 'align_vertical_top', 'Align group to label top edge')}
             ${labelAlignBtn('center-y', 'align_vertical_center', 'Center group vertically on label')}
+            ${labelAlignBtn('bottom', 'align_vertical_bottom', 'Align group to label bottom edge')}
           </div>
+        `, { open: true })}
+
+        ${this.renderSection("Match size", `
+          <div class="grid grid-cols-2 gap-2">
+            ${matchBtn('width', 'swap_horiz', 'Match width to largest')}
+            ${matchBtn('height', 'swap_vert', 'Match height to largest')}
+          </div>
+          ${matchDisabled ? '<p class="text-xs text-slate-400 mt-2">Select 2+ resizable elements to match size</p>' : ''}
         `, { open: true })}
 
         <button type="button" data-group-action="delete"

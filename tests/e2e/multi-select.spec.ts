@@ -49,6 +49,30 @@ test.describe('Multi-select', () => {
             (window as unknown as { appState: { elements: Array<{ x: number }> } }).appState.elements.map(e => e.x));
     }
 
+    async function getYs(page: Page): Promise<number[]> {
+        return await page.evaluate(() =>
+            (window as unknown as { appState: { elements: Array<{ y: number }> } }).appState.elements.map(e => e.y));
+    }
+
+    async function getWidths(page: Page): Promise<number[]> {
+        return await page.evaluate(() =>
+            (window as unknown as { appState: { elements: Array<{ width: number }> } }).appState.elements.map(e => e.width));
+    }
+
+    // Set a BOX's width/height directly and re-render.
+    async function setSize(page: Page, index: number, width: number, height: number): Promise<void> {
+        await page.evaluate(({ index, width, height }) => {
+            const w = window as unknown as {
+                appState: { elements: Array<{ width: number; height: number }>; labelSettings: unknown; getSelectedElements: () => unknown[] };
+                canvasRenderer: { renderCanvas: (e: unknown[], l: unknown, s: unknown) => void };
+            };
+            w.appState.elements[index].width = width;
+            w.appState.elements[index].height = height;
+            w.canvasRenderer.renderCanvas(w.appState.elements, w.appState.labelSettings, w.appState.getSelectedElements());
+        }, { index, width, height });
+        await canvas.waitForReady();
+    }
+
     test('shift+click toggles elements in and out of the selection', async ({ page }) => {
         await addBoxAt(page, 50, 50);    // box 0 → center (100, 75)
         await addBoxAt(page, 300, 50);   // box 1 → center (350, 75)
@@ -219,6 +243,80 @@ test.describe('Multi-select', () => {
         const minX = Math.min(xs[0], xs[1]);
         const maxX = Math.max(xs[0], xs[1]) + 100;
         expect((minX + maxX) / 2).toBe(400);
+    });
+
+    test('align to label right edge pins the group to the right, preserving offsets', async ({ page }) => {
+        await addBoxAt(page, 50, 50);    // box 0
+        await addBoxAt(page, 300, 80);   // box 1 (offset +250 in x)
+
+        await canvas.selectAll();
+        await page.locator('[data-group-align-label="right"]').click();
+        await canvas.waitForReady();
+
+        const labelWidthDots = await page.evaluate(() =>
+            (window as unknown as { canvasRenderer: { labelWidthDots: number } }).canvasRenderer.labelWidthDots);
+        const xs = await getXs(page);
+        expect(xs[1] - xs[0]).toBe(250);                       // relative offset preserved
+        expect(Math.max(...xs) + 100).toBe(labelWidthDots);    // group's right edge at the label width
+    });
+
+    test('align to label top edge pins the group to the top, preserving offsets', async ({ page }) => {
+        await addBoxAt(page, 50, 80);    // box 0
+        await addBoxAt(page, 300, 200);  // box 1 (offset +120 in y)
+
+        await canvas.selectAll();
+        await page.locator('[data-group-align-label="top"]').click();
+        await canvas.waitForReady();
+
+        const ys = await getYs(page);
+        expect(Math.min(...ys)).toBe(0);   // group's top edge at y=0
+        expect(ys[1] - ys[0]).toBe(120);   // relative offset preserved
+    });
+
+    test('match width resizes resizable elements to the largest, leaving positions unchanged', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+        await addBoxAt(page, 300, 50);
+        await setSize(page, 0, 80, 50);
+        await setSize(page, 1, 150, 60);
+
+        await canvas.selectAll();
+        const xsBefore = await getXs(page);
+        await page.locator('[data-group-match="width"]').click();
+        await canvas.waitForReady();
+
+        const widths = await getWidths(page);
+        expect(widths[0]).toBe(150);
+        expect(widths[1]).toBe(150);
+        // Positions are untouched (resize in place).
+        expect(await getXs(page)).toEqual(xsBefore);
+    });
+
+    test('match size is disabled with fewer than 2 resizable elements', async ({ page }) => {
+        await addBoxAt(page, 50, 50);          // resizable
+        await elementsPanel.addTextElement();  // auto-sized → not resizable
+
+        await canvas.selectAll();
+        await expect(page.locator('#properties-panel')).toContainText('2 elements selected');
+        await expect(page.locator('[data-group-match="width"]')).toBeDisabled();
+    });
+
+    test('match size skips locked elements', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+        await addBoxAt(page, 300, 50);
+        await addBoxAt(page, 50, 200);
+        await setSize(page, 0, 80, 50);
+        await setSize(page, 1, 150, 50);
+        await setSize(page, 2, 60, 50);
+        await setLocked(page, 2, true); // locked box must not be resized
+
+        await canvas.selectAll();
+        await page.locator('[data-group-match="width"]').click();
+        await canvas.waitForReady();
+
+        const widths = await getWidths(page);
+        expect(widths[0]).toBe(150);
+        expect(widths[1]).toBe(150);
+        expect(widths[2]).toBe(60); // locked box unchanged
     });
 
     test('properties summary shows count and group actions, hides per-field editing', async ({ page }) => {

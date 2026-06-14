@@ -658,6 +658,7 @@ export function initApp() {
     getSelectedElements: () => state.getSelectedElements(),
     onGroupAlign: (action) => runGroupAlignment(action),
     onGroupAlignLabel: (action) => runGroupAlignToLabel(action),
+    onGroupMatchSize: (dimension) => runGroupMatchSize(dimension),
     onGroupDistribute: (axis) => runGroupDistribute(axis),
     onGroupDelete: (elements) => {
       if (previewMode === 'api') return;
@@ -2074,6 +2075,11 @@ function runGroupDistribute(axis) {
   pushHistory(`Distributed ${count} elements`, { kind: "align" });
 }
 
+const LABEL_ALIGN_NAMES = {
+  'left': 'left edge', 'center-x': 'horizontal center', 'right': 'right edge',
+  'top': 'top edge', 'center-y': 'vertical center', 'bottom': 'bottom edge'
+};
+
 function runGroupAlignToLabel(action) {
   const elements = state.getSelectedElements();
   if (!alignmentService.alignElementsToLabel(action, elements, state.labelSettings, canvasRenderer)) return;
@@ -2082,8 +2088,18 @@ function runGroupAlignToLabel(action) {
   renderCanvasPreview();
   renderPropertiesPanel();
   const count = elements.filter(el => !el.locked).length;
-  const dir = action === 'center-x' ? 'horizontally' : 'vertically';
-  pushHistory(`Centered ${count} elements on label ${dir}`, { kind: "align" });
+  pushHistory(`Aligned ${count} elements to label ${LABEL_ALIGN_NAMES[action] || action}`, { kind: "align" });
+}
+
+function runGroupMatchSize(dimension) {
+  const elements = state.getSelectedElements();
+  if (!alignmentService.matchSizeToLargest(dimension, elements, state.labelSettings, canvasRenderer)) return;
+  updateZPLOutput();
+  updateElementsList();
+  renderCanvasPreview();
+  renderPropertiesPanel();
+  const count = elements.filter(el => !el.locked && el.canMatchLabelSize?.()).length;
+  pushHistory(`Matched ${count} elements to largest ${dimension}`, { kind: "align" });
 }
 
 function deleteSelectedElements() {
@@ -2345,6 +2361,9 @@ function attachGroupActionListeners() {
   });
   propertiesPanel.querySelectorAll('[data-group-align-label]').forEach(btn => {
     btn.addEventListener('click', () => runGroupAlignToLabel(btn.dataset.groupAlignLabel));
+  });
+  propertiesPanel.querySelectorAll('[data-group-match]').forEach(btn => {
+    btn.addEventListener('click', () => runGroupMatchSize(btn.dataset.groupMatch));
   });
   const del = propertiesPanel.querySelector('[data-group-action="delete"]');
   if (del) del.addEventListener('click', () => deleteSelectedElements());

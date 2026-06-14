@@ -100,6 +100,7 @@ export class ContextMenu {
   _buildGroupItems(selection) {
     const count = selection.length;
     const distributeDisabled = count < 3;
+    const matchDisabled = selection.filter(el => !el.locked && el.canMatchLabelSize?.()).length < 2;
 
     this._addItem('align_horizontal_left', 'Align Left', null, () => this.callbacks.onGroupAlign('left'));
     this._addItem('align_horizontal_center', 'Align Center', null, () => this.callbacks.onGroupAlign('center-h'));
@@ -111,8 +112,15 @@ export class ContextMenu {
     this._addItem('horizontal_distribute', 'Distribute Horizontally', null, () => this.callbacks.onGroupDistribute('horizontal'), distributeDisabled);
     this._addItem('vertical_distribute', 'Distribute Vertically', null, () => this.callbacks.onGroupDistribute('vertical'), distributeDisabled);
     this._addSeparator();
-    this._addItem('align_horizontal_center', 'Center Horizontally on Label', null, () => this.callbacks.onGroupAlignLabel('center-x'));
-    this._addItem('align_vertical_center', 'Center Vertically on Label', null, () => this.callbacks.onGroupAlignLabel('center-y'));
+    this._addItem('align_horizontal_left', 'Label Left', null, () => this.callbacks.onGroupAlignLabel('left'));
+    this._addItem('align_horizontal_center', 'Label Center (H)', null, () => this.callbacks.onGroupAlignLabel('center-x'));
+    this._addItem('align_horizontal_right', 'Label Right', null, () => this.callbacks.onGroupAlignLabel('right'));
+    this._addItem('align_vertical_top', 'Label Top', null, () => this.callbacks.onGroupAlignLabel('top'));
+    this._addItem('align_vertical_center', 'Label Center (V)', null, () => this.callbacks.onGroupAlignLabel('center-y'));
+    this._addItem('align_vertical_bottom', 'Label Bottom', null, () => this.callbacks.onGroupAlignLabel('bottom'));
+    this._addSeparator();
+    this._addItem('swap_horiz', 'Match Width to Largest', null, () => this.callbacks.onGroupMatchSize('width'), matchDisabled);
+    this._addItem('swap_vert', 'Match Height to Largest', null, () => this.callbacks.onGroupMatchSize('height'), matchDisabled);
     this._addSeparator();
     this._addItem('delete', 'Delete', 'Del', () => this.callbacks.onGroupDelete(selection));
   }

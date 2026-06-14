@@ -92,8 +92,10 @@ export class AlignmentService {
    * Center a multi-selection on the label as a unit — the group's bounding box
    * is centered on the chosen axis and every element shifts by the same delta,
    * preserving their relative layout. Locked elements are skipped. Mirrors the
-   * single-element center-x / center-y, but for a whole group.
-   * @param {string} action - 'center-x' | 'center-y'
+   * single-element center / match, but for a whole group. The group's bounding
+   * box is centered or pinned to a label edge and every element shifts by the
+   * same delta, preserving their relative layout. Locked elements are skipped.
+   * @param {string} action - 'center-x' | 'center-y' | 'left' | 'right' | 'top' | 'bottom'
    * @param {Array<Object>} elements
    * @param {Object} labelSettings
    * @param {Object} [renderer]
@@ -110,17 +112,59 @@ export class AlignmentService {
     const maxX = Math.max(...items.map(i => i.b.x + i.b.width));
     const maxY = Math.max(...items.map(i => i.b.y + i.b.height));
 
-    if (action === 'center-x') {
-      const targetMinX = Math.max(0, Math.round((labelSize.width - (maxX - minX)) / 2));
-      const dx = targetMinX - minX;
-      for (const { el } of items) el.x = Math.max(0, Math.round(el.x + dx));
-    } else if (action === 'center-y') {
-      const targetMinY = Math.max(0, Math.round((labelSize.height - (maxY - minY)) / 2));
-      const dy = targetMinY - minY;
-      for (const { el } of items) el.y = Math.max(0, Math.round(el.y + dy));
-    } else {
-      console.warn(`Unknown group label-align action: ${action}`);
-      return false;
+    // Compute a single x- or y-delta to shift the whole group by.
+    let dx = null, dy = null;
+    switch (action) {
+      case 'left':     dx = -minX; break;
+      case 'right':    dx = labelSize.width - maxX; break;
+      case 'center-x': dx = Math.max(0, Math.round((labelSize.width - (maxX - minX)) / 2)) - minX; break;
+      case 'top':      dy = -minY; break;
+      case 'bottom':   dy = labelSize.height - maxY; break;
+      case 'center-y': dy = Math.max(0, Math.round((labelSize.height - (maxY - minY)) / 2)) - minY; break;
+      default:
+        console.warn(`Unknown group label-align action: ${action}`);
+        return false;
+    }
+
+    if (dx !== null) for (const { el } of items) el.x = Math.max(0, Math.round(el.x + dx));
+    if (dy !== null) for (const { el } of items) el.y = Math.max(0, Math.round(el.y + dy));
+    return true;
+  }
+
+  /**
+   * Resize the selected resizable elements so each matches the largest one's
+   * width or height. Reuses the per-type sizing of matchWidth / matchHeight
+   * (which target the supplied size) but resizes in place — the element's
+   * position is preserved. Auto-sized types (TEXT/QRCODE/GRAPHIC, where
+   * canMatchLabelSize() is false) and locked elements are skipped.
+   * @param {string} dimension - 'width' | 'height'
+   * @param {Array<Object>} elements
+   * @param {Object} labelSettings
+   * @param {Object} [renderer]
+   * @returns {boolean} Whether any element was resized
+   */
+  matchSizeToLargest(dimension, elements, labelSettings, renderer = null) {
+    const resizable = (elements || []).filter(el => el && !el.locked && el.canMatchLabelSize?.());
+    if (resizable.length < 2) return false;
+
+    const target = Math.max(...resizable.map(el => {
+      const b = this._boundsFor(el, labelSettings, renderer);
+      return dimension === 'width' ? b.width : b.height;
+    }));
+    // matchWidth/matchHeight read labelSize.width / labelSize.height as the
+    // target, so feed the group's largest dimension through that same path.
+    const pseudoLabel = { width: target, height: target };
+
+    for (const el of resizable) {
+      if (dimension === 'width') {
+        const x = el.x;
+        this.matchWidth(el, pseudoLabel, labelSettings);
+        el.x = x; // matchWidth pins x=0 for label-match; keep position here
+      } else {
+        const y = el.y;
+        this.matchHeight(el, pseudoLabel, labelSettings);
+        el.y = y;
+      }
     }
     return true;
   }
