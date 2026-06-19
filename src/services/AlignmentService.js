@@ -282,6 +282,12 @@ export class AlignmentService {
       case 'CIRCLE':
         element.width = labelSize.width;
         break;
+
+      case 'DIAGONALLINE':
+        // The band spans width + thickness (the +t overhang); size so the
+        // visible bounds fill the label width exactly.
+        element.width = Math.max(1, labelSize.width - element.thickness);
+        break;
     }
   }
 
@@ -339,6 +345,10 @@ export class AlignmentService {
         break;
 
       case 'CIRCLE':
+        element.height = labelSize.height;
+        break;
+
+      case 'DIAGONALLINE':
         element.height = labelSize.height;
         break;
     }

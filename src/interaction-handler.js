@@ -135,7 +135,7 @@ export class InteractionHandler {
     // (group resize is out of scope; handles aren't drawn for multi-selections).
     const selectedElement = this.callbacks.getSelectedElement();
     const selectionList = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : (selectedElement ? [selectedElement] : []);
-    if (selectionList.length === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
+    if (selectionList.length === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         if (selectedElement.locked) return;
@@ -155,7 +155,7 @@ export class InteractionHandler {
           const bounds = selectedElement.getBounds();
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
-        } else if (selectedElement.type === 'CIRCLE') {
+        } else if (selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE') {
           this.resizeStartWidth = selectedElement.width;
           this.resizeStartHeight = selectedElement.height;
         } else if (selectedElement.type === 'GRAPHIC') {
@@ -471,7 +471,7 @@ export class InteractionHandler {
         this.dragElement.fontWidth = snapped.width;
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'GRAPHIC') {
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'DIAGONALLINE' || this.dragElement.type === 'GRAPHIC') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -523,6 +523,10 @@ export class InteractionHandler {
         const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
+        const widthOverhang = this.dragElement.type === 'DIAGONALLINE'
+          ? this.dragElement.thickness
+          : 0;
+
         // Constrain X and Width
         if (this.resizeHandle.includes('l')) { // Modifying Left edge
           if (newX < 0) {
@@ -530,8 +534,8 @@ export class InteractionHandler {
             newWidth = (this.resizeStartX + this.resizeStartWidth) - newX;
           }
         } else { // Right edge moving or static
-          if (newX + newWidth > labelW) {
-            newWidth = labelW - newX;
+          if (newX + newWidth + widthOverhang > labelW) {
+            newWidth = labelW - newX - widthOverhang;
           }
         }
 
@@ -625,7 +629,7 @@ export class InteractionHandler {
         this.dragElement.x = Math.round(newX);
         this.dragElement.y = Math.round(newY);
 
-        if (this.dragElement.type === 'BOX' || this.dragElement.type === 'CIRCLE') {
+        if (this.dragElement.type === 'BOX' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'DIAGONALLINE') {
           this.dragElement.width = Math.round(newWidth);
           this.dragElement.height = Math.round(newHeight);
         } else if (this.dragElement.type === 'LINE') {
@@ -746,7 +750,7 @@ export class InteractionHandler {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
       const selCount = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements().length : (selectedElement ? 1 : 0);
-      if (selCount === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
+      if (selCount === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -1283,8 +1287,8 @@ export class InteractionHandler {
       return null;
     }
 
-    // For BOX, LINE, BARCODE, CIRCLE, and editable GRAPHIC elements, check all 8 handles
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'GRAPHIC') {
+    // For BOX, LINE, BARCODE, CIRCLE, DIAGONALLINE, and editable GRAPHIC elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'DIAGONALLINE' || element.type === 'GRAPHIC') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {

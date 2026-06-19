@@ -10,7 +10,7 @@ import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
-  'BQ', 'GB', 'GE', 'GC', 'GF', 'FX',
+  'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BE/^BU/^BX are two-letter.
   'B', 'BE', 'BU', 'BX'
@@ -538,6 +538,10 @@ export class ZPLParser {
       return this._parseCircle(group, getCommand('GE'), hasCommand('FR'));
     }
 
+    if (hasCommand('GD')) {
+      return this._parseDiagonalLine(group, getCommand('GD'), hasCommand('FR'));
+    }
+
     if (hasCommand('GB')) {
       return this._parseGraphicBox(group, getCommand('GB'), hasCommand('FR'));
     }
@@ -969,6 +973,28 @@ export class ZPLParser {
       thickness: gbThickness,
       color,
       rounding,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse DIAGONALLINE from ^GD command (^GDw,h,t,c,o).
+   * o = R (or /) right-leaning, L (or \) left-leaning; default R.
+   */
+  _parseDiagonalLine(group, gdToken, hasReverse) {
+    const parts = gdToken.params.split(',');
+    const rawOrientation = (parts[4] || 'R').trim();
+    const orientation = (rawOrientation === 'L' || rawOrientation === '\\') ? 'L' : 'R';
+
+    return {
+      type: 'DIAGONALLINE',
+      x: group.x,
+      y: group.y,
+      width: parseInt(parts[0]) || 3,
+      height: parseInt(parts[1]) || 3,
+      thickness: parseInt(parts[2]) || 1,
+      color: (parts[3] || 'B').trim(),
+      orientation,
       reverse: hasReverse
     };
   }

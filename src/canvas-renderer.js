@@ -9,6 +9,7 @@ import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
 import { QRCodeRenderer } from './rendering/QRCodeRenderer.js';
 import { BoxRenderer } from './rendering/BoxRenderer.js';
 import { LineRenderer } from './rendering/LineRenderer.js';
+import { DiagonalLineRenderer } from './rendering/DiagonalLineRenderer.js';
 import { CircleRenderer } from './rendering/CircleRenderer.js';
 import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
 import { GraphicFieldRenderer } from './rendering/GraphicFieldRenderer.js';
@@ -42,6 +43,7 @@ export class CanvasRenderer {
       QRCODE: new QRCodeRenderer(),
       BOX: new BoxRenderer(),
       LINE: new LineRenderer(),
+      DIAGONALLINE: new DiagonalLineRenderer(),
       CIRCLE: new CircleRenderer(),
       GRAPHIC: new GraphicFieldRenderer()
     };
@@ -480,8 +482,8 @@ export class CanvasRenderer {
       this.ctx.restore();
     };
 
-    // For BOX, LINE, BARCODE, and CIRCLE elements, show all 8 handles (4 corners + 4 edges)
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE') {
+    // For BOX, LINE, BARCODE, CIRCLE, and DIAGONALLINE elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'DIAGONALLINE') {
       // Corner handles
       drawHandle(x, y); // Top-left
       drawHandle(x + width, y); // Top-right

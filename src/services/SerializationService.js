@@ -7,6 +7,7 @@ import { BoxElement } from '../elements/BoxElement.js';
 import { FieldBlockElement } from '../elements/FieldBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
+import { DiagonalLineElement } from '../elements/DiagonalLineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
@@ -160,6 +161,19 @@ export class SerializationService {
         );
         break;
 
+      case 'DIAGONALLINE':
+        element = new DiagonalLineElement(
+          data.x,
+          data.y,
+          data.width,
+          data.height,
+          data.thickness,
+          data.color,
+          data.orientation,
+          data.reverse
+        );
+        break;
+
       case 'CIRCLE':
         element = new CircleElement(
           data.x,
@@ -291,7 +305,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC'];
+    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'DIAGONALLINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {

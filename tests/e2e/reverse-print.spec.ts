@@ -32,6 +32,7 @@ const elementSpecs: ElementSpec[] = [
     { type: 'QRCODE',     add: p => p.addQRCodeElement(),    foPrefix: /\^FO\d+,\d+/, primaryCmd: '^BQ' },
     { type: 'BOX',        add: p => p.addBoxElement(),       foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GB' },
     { type: 'LINE',       add: p => p.addLineElement(),      foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GB' },
+    { type: 'DIAGONALLINE', add: p => p.addDiagonalLineElement(), foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GD' },
     { type: 'CIRCLE',     add: p => p.addCircleElement(),    foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GC' },
     { type: 'GRAPHIC',    add: p => p.addGraphicElement(png),foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GFA' },
 ];
@@ -93,18 +94,19 @@ test.describe('^FR (Reverse Print) — JSON round-trip', () => {
                 { type: 'BOX',     x: 10, y: 160, width: 100, height: 50, thickness: 3, color: 'B', rounding: 0, reverse: true },
                 { type: 'LINE',    x: 10, y: 220, width: 100, thickness: 3, orientation: 'H', color: 'B', rounding: 0, reverse: true },
                 { type: 'CIRCLE',  x: 10, y: 260, width: 60, height: 60, thickness: 2, color: 'B', reverse: true },
+                { type: 'DIAGONALLINE', x: 10, y: 330, width: 100, height: 80, thickness: 3, color: 'B', orientation: 'R', reverse: true },
             ]
         };
         const tempPath = path.join(__dirname, '../fixtures/reverse-import.json');
         fs.writeFileSync(tempPath, JSON.stringify(template));
 
         await zplOutput.importTemplate(tempPath);
-        await expect(page.locator('#elements-list .element-item')).toHaveCount(5, { timeout: 5000 });
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(6, { timeout: 5000 });
 
         // Every element should emit ^FR in its ZPL line.
         const zpl = await zplOutput.getZPLCode();
         const frCount = (zpl.match(/\^FR/g) || []).length;
-        expect(frCount).toBe(5);
+        expect(frCount).toBe(6);
 
         // After re-export the reverse flag is preserved on each element.
         const reverseFlags = await page.evaluate(() => {
@@ -145,6 +147,7 @@ test.describe('^FR (Reverse Print) — ZPL paste round-trip', () => {
         { type: 'BOX',     zpl: '^XA^FO50,50^FR^GB100,50,3,B^FS^XZ' },
         { type: 'LINE',    zpl: '^XA^FO50,150^FR^GB100,3,3,B^FS^XZ' },
         { type: 'CIRCLE',  zpl: '^XA^FO50,200^FR^GE60,60,2,B^FS^XZ' },
+        { type: 'DIAGONALLINE', zpl: '^XA^FO50,250^FR^GD100,80,3,B,R^FS^XZ' },
         { type: 'BARCODE', zpl: '^XA^FO50,260^FR^BY2,2.0^BCN,50,Y^FD>:12345^FS^XZ' },
         { type: 'QRCODE',  zpl: '^XA^FO50,320^FR^BQN,2,5^FDQA,hello^FS^XZ' },
     ];

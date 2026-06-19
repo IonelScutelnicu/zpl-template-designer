@@ -7,6 +7,7 @@ import { BoxElement } from '../elements/BoxElement.js';
 import { FieldBlockElement } from '../elements/FieldBlockElement.js';
 import { QRCodeElement } from '../elements/QRCodeElement.js';
 import { LineElement } from '../elements/LineElement.js';
+import { DiagonalLineElement } from '../elements/DiagonalLineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
@@ -107,6 +108,18 @@ export class ElementService {
           props.orientation || 'H',
           props.color || 'B',
           props.rounding || 0,
+          props.reverse || false
+        );
+        break;
+
+      case 'DIAGONALLINE':
+        element = new DiagonalLineElement(
+          x, y,
+          props.width || 100,
+          props.height || 100,
+          props.thickness || 3,
+          props.color || 'B',
+          props.orientation || 'R',
           props.reverse || false
         );
         break;

@@ -165,6 +165,7 @@ export class PropertiesPanelRenderer {
       QRCODE: () => this.renderQRCodeProperties(element),
       BOX: () => this.renderBoxProperties(element),
       LINE: () => this.renderLineProperties(element),
+      DIAGONALLINE: () => this.renderDiagonalLineProperties(element),
       FIELDBLOCK: () => this.renderFieldBlockProperties(element),
       CIRCLE: () => this.renderCircleProperties(element),
       GRAPHIC: () => this.renderGraphicProperties(element)
@@ -351,6 +352,30 @@ export class PropertiesPanelRenderer {
             ${btn("R", "Rotated 90° (R)", "rotate-90")}
             ${btn("I", "Inverted 180° (I)", "rotate-180")}
             ${btn("B", "Bottom-Up 270° (B)", "-rotate-90")}
+          </div>
+        </div>`;
+  }
+
+  /**
+   * Render the diagonal-line orientation button group: R (/) right-leaning and
+   * L (\) left-leaning. Buttons carry data-orientation + data-tooltip so
+   * PropertyListenersManager wires them with the shared orientation-toggle code.
+   */
+  renderDiagonalOrientationButtons(orientation) {
+    const btn = (value, label, icon, tooltip) => `
+      <button type="button" data-orientation="${value}"
+        aria-label="${tooltip}"
+        aria-pressed="${orientation === value}"
+        data-tooltip="${tooltip}"
+        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1 text-xs rounded ${orientation === value ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors">
+        <span class="material-icons-round text-sm">${icon}</span>${label}
+      </button>`;
+    return `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
+          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+            ${btn("L", "Left", "south_east", "Left-leaning (\\)")}
+            ${btn("R", "Right", "north_east", "Right-leaning (/)")}
           </div>
         </div>`;
   }
@@ -737,6 +762,43 @@ export class PropertiesPanelRenderer {
           </div>
         </div>
         ${this.createInputGroup("Rounding", "prop-rounding", element.rounding, "number", { min: 0, max: 8 })}
+        <div class="mt-3">
+          ${this.renderReversePrintRow(element)}
+        </div>
+      `, { open: true, elementType: element.type })}
+    `;
+  }
+
+  /**
+   * Render DIAGONALLINE element properties
+   */
+  renderDiagonalLineProperties(element) {
+    return `
+      ${this.renderAlignmentControls(element)}
+      ${this.renderSection("Position &amp; Size", `
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+          ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 3, max: 32000 })}
+          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 3, max: 32000 })}
+          ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
+        </div>
+        ${this.renderDiagonalOrientationButtons(element.orientation)}
+      `, { elementType: element.type })}
+      ${this.renderSection("Appearance", `
+        <div class="flex items-center justify-between">
+          <label class="text-xs text-slate-700">Color</label>
+          <div class="flex gap-1 bg-slate-100 rounded p-1 border border-slate-200">
+            <button type="button" data-color="B"
+              class="px-3 py-1 text-xs rounded ${element.color === 'B' ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'} transition-colors">
+              Black
+            </button>
+            <button type="button" data-color="W"
+              class="px-3 py-1 text-xs rounded ${element.color === 'W' ? 'bg-white text-blue-600 shadow' : 'text-slate-500 hover:bg-slate-200'} transition-colors">
+              White
+            </button>
+          </div>
+        </div>
         <div class="mt-3">
           ${this.renderReversePrintRow(element)}
         </div>

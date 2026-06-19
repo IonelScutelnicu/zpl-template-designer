@@ -68,6 +68,9 @@ export class PropertyListenersManager {
       case "LINE":
         this.attachLineProperties(element, attach);
         break;
+      case "DIAGONALLINE":
+        this.attachDiagonalLineProperties(element, attach);
+        break;
       case "CIRCLE":
         this.attachCircleProperties(element, attach);
         break;
@@ -437,6 +440,45 @@ export class PropertyListenersManager {
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
     this._attachReverseToggle(element);
+  }
+
+  attachDiagonalLineProperties(element, attach) {
+    attach("prop-width", "width", (v) => parseInt(v) || 100);
+    attach("prop-height", "height", (v) => parseInt(v) || 100);
+    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    this._attachOrientationToggle(element);
+    this._attachColorToggle(element);
+    this._attachReverseToggle(element);
+  }
+
+  /**
+   * Attach orientation toggle button listeners (data-orientation + data-tooltip).
+   * Mirrors _attachColorToggle's active/inactive classes so the diagonal-line
+   * orientation control reads identically to the Color and Reverse Print toggles.
+   */
+  _attachOrientationToggle(element) {
+    const orientationButtons = document.querySelectorAll('[data-orientation][data-tooltip]');
+    const setOrientationActive = (value) => {
+      orientationButtons.forEach((button) => {
+        const isActive = button.getAttribute('data-orientation') === value;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+    };
+    setOrientationActive(element.orientation || "R");
+    orientationButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-orientation');
+        if (!value) return;
+        element.orientation = value;
+        setOrientationActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
   }
 
   /**

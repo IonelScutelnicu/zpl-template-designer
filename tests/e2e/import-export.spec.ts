@@ -368,6 +368,48 @@ test.describe('Import/Export - Template Persistence', () => {
             fs.unlinkSync(tempPath);
         });
 
+        test('should import DIAGONALLINE elements', async ({ page }) => {
+            const template = {
+                labelSettings: { width: 100, height: 50, dpmm: 8 },
+                elements: [
+                    { type: 'DIAGONALLINE', x: 50, y: 60, width: 200, height: 150, thickness: 4, color: 'B', orientation: 'L', reverse: false }
+                ]
+            };
+
+            const tempPath = path.join(__dirname, '../fixtures/import-diagonalline.json');
+            fs.writeFileSync(tempPath, JSON.stringify(template));
+
+            await zplOutput.importTemplate(tempPath);
+            await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+
+            const el = await page.evaluate(() => {
+                const element = (window as any).appState?.elements?.[0];
+                return element ? {
+                    type: element.type,
+                    x: element.x,
+                    y: element.y,
+                    width: element.width,
+                    height: element.height,
+                    thickness: element.thickness,
+                    color: element.color,
+                    orientation: element.orientation,
+                } : null;
+            });
+            expect(el).toMatchObject({
+                type: 'DIAGONALLINE',
+                x: 50,
+                y: 60,
+                width: 200,
+                height: 150,
+                thickness: 4,
+                color: 'B',
+                orientation: 'L',
+            });
+            await zplOutput.verifyZPLContains('^FO50,60^GD200,150,4,B,L');
+
+            fs.unlinkSync(tempPath);
+        });
+
         test('should update ZPL output after import', async ({ page }) => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
