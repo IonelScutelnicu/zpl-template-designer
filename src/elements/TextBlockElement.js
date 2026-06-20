@@ -1,8 +1,9 @@
 import { ZPLElement } from './ZPLElement.js';
+import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // Text Block Element Class (^TB command)
 export class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, blockHeight = 50, placeholder = '', fontId = '', reverse = false, orientation = 'N') {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, blockHeight = 50, placeholder = '', fontId = '', reverse = false, orientation = 'N', fieldHex = false) {
         super(x, y);
         this.type = 'TEXTBLOCK';
         this.previewText = previewText;
@@ -14,6 +15,7 @@ export class TextBlockElement extends ZPLElement {
         this.blockHeight = blockHeight;
         this.reverse = reverse; // ^FR (reverse print)
         this.orientation = orientation; // N, R, I, B
+        this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
     render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
@@ -24,7 +26,7 @@ export class TextBlockElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}^FD${content}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
     }
 
     renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
@@ -33,7 +35,7 @@ export class TextBlockElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}^FD${this.previewText}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(this.previewText, '_', this.fieldHex)}^FS`;
     }
 
     getDisplayName() {

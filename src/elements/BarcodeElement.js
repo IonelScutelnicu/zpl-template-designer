@@ -1,10 +1,11 @@
 import { ZPLElement } from './ZPLElement.js';
 import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeometry.js';
+import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  EAN13 -> ^BE,  UPCA -> ^BU
 export class BarcodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false) {
+    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false) {
         super(x, y);
         this.type = 'BARCODE';
         this.symbology = symbology;
@@ -18,6 +19,7 @@ export class BarcodeElement extends ZPLElement {
         this.reverse = reverse; // ^FR (reverse print)
         this.orientation = orientation; // N, R, I, B
         this.printTextAbove = printTextAbove; // interpretation line above the bars (g param)
+        this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
     _render(content) {
@@ -32,16 +34,16 @@ export class BarcodeElement extends ZPLElement {
         switch (this.symbology) {
             case 'CODE39': {
                 const e = this.checkDigit ? 'Y' : 'N';
-                return `${pos}${by}^B3${o},${e},${this.height},${f}${g}^FD${content}^FS`;
+                return `${pos}${by}^B3${o},${e},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'EAN13':
-                return `${pos}${by}^BE${o},${this.height},${f}${g}^FD${content}^FS`;
+                return `${pos}${by}^BE${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'UPCA':
-                return `${pos}${by}^BU${o},${this.height},${f}${g}^FD${content}^FS`;
+                return `${pos}${by}^BU${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'CODE128':
             default:
                 // >: forces Code 128 Subset B (the canvas mirrors this — see barcodeGeometry).
-                return `${pos}${by}^BC${o},${this.height},${f}${g}^FD>:${content}^FS`;
+                return `${pos}${by}^BC${o},${this.height},${f}${g}${renderFieldDataCommand(`>:${content}`, '_', this.fieldHex)}^FS`;
         }
     }
 

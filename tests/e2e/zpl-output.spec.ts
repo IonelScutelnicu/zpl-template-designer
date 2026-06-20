@@ -191,6 +191,76 @@ test.describe('ZPL Output - Generation and Validation', () => {
         });
     });
 
+    // ============== FIELD HEX ESCAPES ==============
+    test.describe('^FH field hex escapes', () => {
+        test('should emit ^FH only when field data needs escaping and parse it back', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const [{ SerializationService }, { ZPLGenerator }, { ZPLParser }] = await Promise.all([
+                    import('/src/services/SerializationService.js'),
+                    import('/src/services/ZPLGenerator.js'),
+                    import('/src/services/ZPLParser.js'),
+                ]);
+
+                const settings = { width: 50, height: 30, dpmm: 8 };
+                const svc = new SerializationService();
+                const elements = [
+                    svc.createElementFromData({ type: 'TEXT', x: 10, y: 10, previewText: 'Plain ASCII', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false }),
+                    svc.createElementFromData({ type: 'TEXT', x: 10, y: 50, previewText: 'A^B~C_D °é', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false }),
+                ];
+                const zpl = new ZPLGenerator().generatePreviewZPL(elements, settings);
+                const parsed = new ZPLParser().parse(zpl, settings);
+
+                return {
+                    zpl,
+                    parsedTexts: parsed.elements
+                        .filter((el) => el.type === 'TEXT')
+                        .map((el) => el.previewText),
+                };
+            });
+
+            expect(result.zpl).toContain('^FDPlain ASCII^FS');
+            expect(result.zpl).toContain('^FH^FDA_5EB_7EC_5FD _C2_B0_C3_A9^FS');
+            expect(result.parsedTexts).toEqual(['Plain ASCII', 'A^B~C_D °é']);
+        });
+
+        test('should decode imported default and custom ^FH indicators for text and barcodes', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const zpl = '^XA' +
+                    '^FO10,10^A0N,30,30^FH^FD_5E_C2_B0_zz^FS' +
+                    '^FO10,60^A0N,30,30^FH\\^FDTilde \\7E Inserted^FS' +
+                    '^FO10,110^BY2,2^BCN,50,Y^FH^FD>:_5E_7E_5F^FS' +
+                    '^FO10,180^BQN,2,5^FH^FDQA,URL_5E_C3_A9^FS' +
+                    '^XZ';
+                return new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 30 }).elements.map((el) => ({
+                    type: el.type,
+                    text: el.previewText ?? null,
+                    data: el.previewData ?? null,
+                    symbology: el.symbology ?? null,
+                }));
+            });
+
+            expect(result).toEqual([
+                { type: 'TEXT', text: '^°_zz', data: null, symbology: null },
+                { type: 'TEXT', text: 'Tilde ~ Inserted', data: null, symbology: null },
+                { type: 'BARCODE', text: null, data: '^~_', symbology: 'CODE128' },
+                { type: 'QRCODE', text: null, data: 'URL^é', symbology: 'QR' },
+            ]);
+        });
+
+        test('should force ^FH for placeholder fields when the UI toggle is enabled', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-placeholder').fill('name');
+            await page.locator('#prop-placeholder').dispatchEvent('input');
+            await page.getByText('Hex-escaped field data (^FH)').click();
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^FH^FD%name%^FS');
+        });
+    });
+
     // ============== MULTIPLE ELEMENTS ==============
     test.describe('Multiple Elements', () => {
         test('should generate ZPL for multiple elements in correct order', async () => {

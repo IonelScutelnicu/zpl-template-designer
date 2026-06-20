@@ -1,8 +1,9 @@
 import { ZPLElement } from './ZPLElement.js';
+import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // TEXT Element Class
 export class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, placeholder = '', fontId = '', orientation = 'N', reverse = false) {
+    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, placeholder = '', fontId = '', orientation = 'N', reverse = false, fieldHex = false) {
         super(x, y);
         this.type = 'TEXT';
         this.previewText = previewText;
@@ -12,6 +13,7 @@ export class TextElement extends ZPLElement {
         this.fontWidth = fontWidth; // 0 = use label default
         this.orientation = orientation; // N, R, I, B
         this.reverse = reverse; // ^FR (reverse print)
+        this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
     getEstimatedWidth() {
@@ -30,7 +32,7 @@ export class TextElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FD${content}^FS`;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
     }
 
     renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
@@ -40,7 +42,7 @@ export class TextElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FD${this.previewText}^FS`;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(this.previewText, '_', this.fieldHex)}^FS`;
     }
 
     getDisplayName() {

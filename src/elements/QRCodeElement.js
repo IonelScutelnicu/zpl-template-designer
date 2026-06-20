@@ -1,12 +1,13 @@
 import { ZPLElement } from './ZPLElement.js';
 import { getBarcodeGeometry, matrixModuleDots, normalizeAztecRune } from '../utils/barcodeGeometry.js';
+import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  AZTEC -> ^B0
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0) {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false) {
         super(x, y);
         this.type = 'QRCODE';
         this.symbology = symbology;
@@ -31,6 +32,7 @@ export class QRCodeElement extends ZPLElement {
         this.aztecErrorControl = aztecErrorControl; // 0 (default) or 1-99 (% minimum)
         this.aztecLayers = aztecLayers;           // 0 = auto, 1-4 compact / 1-32 full
         this.reverse = reverse; // ^FR (reverse print)
+        this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
     // Map the Aztec size fields to the ^B0 'd' parameter (error control + symbol
@@ -50,10 +52,10 @@ export class QRCodeElement extends ZPLElement {
         const pos = `^FO${this.x},${this.y}${reverseCmd}`;
         switch (this.symbology) {
             case 'DATAMATRIX':
-                return `${pos}^BXN,${this.moduleSize},${this.quality}^FD${content}^FS`;
+                return `${pos}^BXN,${this.moduleSize},${this.quality}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'PDF417': {
                 const cols = this.columns > 0 ? `,${this.columns}` : '';
-                return `${pos}^BY${this.moduleWidth}^B7N,${this.rowHeight},${this.securityLevel}${cols}^FD${content}^FS`;
+                return `${pos}^BY${this.moduleWidth}^B7N,${this.rowHeight},${this.securityLevel}${cols}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'AZTEC': {
                 // A rune encodes a single 0–255 byte; coerce real data so the ZPL
@@ -64,11 +66,11 @@ export class QRCodeElement extends ZPLElement {
                 // 1-99/101-104/201-232/300); omit it so the default is implied.
                 const d = this._aztecD();
                 const dParam = d > 0 ? `,${d}` : '';
-                return `${pos}^B0N,${this.magnification},N${dParam}^FD${data}^FS`;
+                return `${pos}^B0N,${this.magnification},N${dParam}${renderFieldDataCommand(data, '_', this.fieldHex)}^FS`;
             }
             case 'QR':
             default:
-                return `${pos}^BQN,${this.model},${this.magnification}^FD${this.errorCorrection}A,${content}^FS`;
+                return `${pos}^BQN,${this.model},${this.magnification}${renderFieldDataCommand(`${this.errorCorrection}A,${content}`, '_', this.fieldHex)}^FS`;
         }
     }
 

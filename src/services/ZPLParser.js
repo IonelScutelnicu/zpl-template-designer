@@ -3,13 +3,14 @@
 
 import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
+import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
  */
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FS', 'FR', 'BC', 'BY',
+  'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BE/^BU/^BX are two-letter.
@@ -525,6 +526,7 @@ export class ZPLParser {
     const commands = group.commands;
     const hasCommand = (cmd) => commands.some(c => c.command === cmd);
     const getCommand = (cmd) => commands.find(c => c.command === cmd);
+    const fhToken = getCommand('FH');
 
     // Determine element type based on commands present
     if (hasCommand('GF')) {
@@ -548,23 +550,23 @@ export class ZPLParser {
     }
 
     if (hasCommand('BQ')) {
-      return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), hasCommand('FR'), state, fhToken);
     }
 
     if (hasCommand('BX')) {
-      return this._parseDataMatrix(group, getCommand('BX'), getCommand('FD'), hasCommand('FR'));
+      return this._parseDataMatrix(group, getCommand('BX'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
     if (hasCommand('BE')) {
-      return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13');
+      return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
     }
 
     if (hasCommand('BU')) {
-      return this._parseBarcode(group, getCommand('BU'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCA');
+      return this._parseBarcode(group, getCommand('BU'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCA', fhToken);
     }
 
     if (hasCommand('BC')) {
-      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE128');
+      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE128', fhToken);
     }
 
     // ^B3 (Code 39) and ^B7 (PDF417) tokenize as command 'B' with the digit
@@ -574,10 +576,10 @@ export class ZPLParser {
       const sub = bToken.params.charAt(0);
       const shifted = { ...bToken, params: bToken.params.slice(1) };
       if (sub === '3') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE39');
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE39', fhToken);
       }
       if (sub === '7') {
-        return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'));
+        return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
       }
       if (sub === '0') {
         return this._parseAztec(group, shifted, getCommand('FD'), hasCommand('FR'));
@@ -585,15 +587,15 @@ export class ZPLParser {
     }
 
     if (hasCommand('A') && hasCommand('TB')) {
-      return this._parseTextBlock(group, getCommand('A'), getCommand('TB'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseTextBlock(group, getCommand('A'), getCommand('TB'), getCommand('FD'), hasCommand('FR'), state, fhToken);
     }
 
     if (hasCommand('A') && hasCommand('FB')) {
-      return this._parseFieldBlock(group, getCommand('A'), getCommand('FB'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseFieldBlock(group, getCommand('A'), getCommand('FB'), getCommand('FD'), hasCommand('FR'), state, fhToken);
     }
 
     if (hasCommand('A')) {
-      return this._parseText(group, getCommand('A'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseText(group, getCommand('A'), getCommand('FD'), hasCommand('FR'), state, fhToken);
     }
 
     // Unknown element group - skip
@@ -647,10 +649,17 @@ export class ZPLParser {
    * Parse ^FD content, detecting placeholder patterns
    * @returns {{ text: string, placeholder: string }}
    */
-  _parseFieldData(fdToken) {
+  _decodeFieldDataToken(fdToken, fhToken = null) {
+    if (!fdToken) return '';
+    const content = fdToken.params;
+    if (!fhToken) return content;
+    return decodeFieldData(content, getFieldHexIndicator(fhToken.params));
+  }
+
+  _parseFieldData(fdToken, fhToken = null) {
     if (!fdToken) return { text: '', placeholder: '' };
 
-    const content = fdToken.params;
+    const content = this._decodeFieldDataToken(fdToken, fhToken);
     const match = content.match(/^%([^%]+)%$/);
     if (match) {
       return { text: match[1], placeholder: match[1] };
@@ -661,9 +670,9 @@ export class ZPLParser {
   /**
    * Parse TEXT element from ^A + ^FD
    */
-  _parseText(group, aToken, fdToken, hasReverse, state) {
+  _parseText(group, aToken, fdToken, hasReverse, state, fhToken = null) {
     const font = this._parseFontCommand(aToken);
-    const { text, placeholder } = this._parseFieldData(fdToken);
+    const { text, placeholder } = this._parseFieldData(fdToken, fhToken);
 
     return {
       type: 'TEXT',
@@ -671,6 +680,7 @@ export class ZPLParser {
       y: group.y,
       previewText: text,
       placeholder,
+      fieldHex: Boolean(fhToken),
       ...this._resolveFontSize(font, state),
       orientation: font.orientation,
       reverse: hasReverse
@@ -680,7 +690,7 @@ export class ZPLParser {
   /**
    * Parse FIELDBLOCK element from ^A + ^FB + ^FD
    */
-  _parseFieldBlock(group, aToken, fbToken, fdToken, hasReverse, state) {
+  _parseFieldBlock(group, aToken, fbToken, fdToken, hasReverse, state, fhToken = null) {
     const font = this._parseFontCommand(aToken);
 
     // Parse ^FB params: blockWidth,maxLines,lineSpacing,justification,hangingIndent
@@ -692,7 +702,7 @@ export class ZPLParser {
     const hangingIndent = parseInt(fbParts[4]) || 0;
 
     // Parse ^FD content - strip trailing \& for center-justified text blocks
-    let fdContent = fdToken ? fdToken.params : '';
+    let fdContent = this._decodeFieldDataToken(fdToken, fhToken);
     if (fdContent.endsWith('\\&')) {
       fdContent = fdContent.slice(0, -2);
     }
@@ -708,6 +718,7 @@ export class ZPLParser {
       y: group.y,
       previewText: text,
       placeholder,
+      fieldHex: Boolean(fhToken),
       ...this._resolveFontSize(font, state),
       blockWidth,
       maxLines,
@@ -722,7 +733,7 @@ export class ZPLParser {
   /**
    * Parse TEXTBLOCK element from ^A + ^TB + ^FD
    */
-  _parseTextBlock(group, aToken, tbToken, fdToken, hasReverse, state) {
+  _parseTextBlock(group, aToken, tbToken, fdToken, hasReverse, state, fhToken = null) {
     const font = this._parseFontCommand(aToken);
 
     // Parse ^TB params: orientation,blockWidth,blockHeight
@@ -741,7 +752,7 @@ export class ZPLParser {
     // Use ^A orientation if available, fall back to ^TB orientation
     const orientation = font.orientation !== 'N' ? font.orientation : tbOrientation;
 
-    const { text, placeholder } = this._parseFieldData(fdToken);
+    const { text, placeholder } = this._parseFieldData(fdToken, fhToken);
 
     return {
       type: 'TEXTBLOCK',
@@ -749,6 +760,7 @@ export class ZPLParser {
       y: group.y,
       previewText: text,
       placeholder,
+      fieldHex: Boolean(fhToken),
       ...this._resolveFontSize(font, state),
       blockWidth,
       blockHeight,
@@ -762,7 +774,7 @@ export class ZPLParser {
    * Handles ^BC (Code 128), ^B3 (Code 39), ^BE (EAN-13), ^BU (UPC-A); the
    * height/interpretation parameter positions differ for Code 39.
    */
-  _parseBarcode(group, token, byToken, fdToken, hasReverse, state, symbology = 'CODE128') {
+  _parseBarcode(group, token, byToken, fdToken, hasReverse, state, symbology = 'CODE128', fhToken = null) {
     const parts = token.params.split(',');
 
     // Orientation is always the first param; default N for an empty/invalid value.
@@ -798,7 +810,7 @@ export class ZPLParser {
     // Strip Code 128 Subset B start character (>:) before detecting the
     // placeholder — the placeholder pattern is anchored, so the prefix would
     // otherwise prevent a match.
-    let rawData = fdToken ? fdToken.params : '';
+    let rawData = this._decodeFieldDataToken(fdToken, fhToken);
     if (symbology === 'CODE128' && rawData.startsWith('>:')) {
       rawData = rawData.slice(2);
     }
@@ -813,6 +825,7 @@ export class ZPLParser {
       y: group.y,
       previewData: cleanText,
       placeholder,
+      fieldHex: Boolean(fhToken),
       height,
       width,
       ratio,
@@ -827,13 +840,13 @@ export class ZPLParser {
   /**
    * Parse a Data Matrix element from ^BX + ^FD
    */
-  _parseDataMatrix(group, bxToken, fdToken, hasReverse) {
+  _parseDataMatrix(group, bxToken, fdToken, hasReverse, fhToken = null) {
     // ^BX params: orientation,height(module size),quality,columns,rows,...
     const parts = bxToken.params.split(',');
     const moduleSize = parseInt(parts[1]) || 4;
     const quality = parseInt(parts[2]) || 200;
 
-    const rawData = fdToken ? fdToken.params : '';
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
     const match = rawData.match(/^%([^%]+)%$/);
 
     return {
@@ -843,6 +856,7 @@ export class ZPLParser {
       y: group.y,
       previewData: match ? match[1] : rawData,
       placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
       moduleSize,
       quality,
       reverse: hasReverse
@@ -852,7 +866,7 @@ export class ZPLParser {
   /**
    * Parse a PDF417 element from ^B7 + ^FD (with optional ^BY for module width)
    */
-  _parsePDF417(group, b7Token, byToken, fdToken, hasReverse) {
+  _parsePDF417(group, b7Token, byToken, fdToken, hasReverse, fhToken = null) {
     // ^B7 params: orientation,rowHeight,securityLevel,columns,rows,truncate
     const parts = b7Token.params.split(',');
     const rowHeight = parseInt(parts[1]) || 4;
@@ -865,7 +879,7 @@ export class ZPLParser {
       if (byParts[0]) moduleWidth = parseInt(byParts[0]) || 2;
     }
 
-    const rawData = fdToken ? fdToken.params : '';
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
     const match = rawData.match(/^%([^%]+)%$/);
 
     return {
@@ -875,6 +889,7 @@ export class ZPLParser {
       y: group.y,
       previewData: match ? match[1] : rawData,
       placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
       moduleWidth,
       rowHeight,
       securityLevel: Number.isNaN(securityLevel) ? 5 : securityLevel,
@@ -886,7 +901,7 @@ export class ZPLParser {
   /**
    * Parse QRCODE element from ^BQ + ^FD
    */
-  _parseQRCode(group, bqToken, fdToken, hasReverse, state) {
+  _parseQRCode(group, bqToken, fdToken, hasReverse, state, fhToken = null) {
     // ^BQ params: orientation,model,magnification
     const bqParts = bqToken.params.split(',');
     const model = parseInt(bqParts[1]) || 2;
@@ -897,7 +912,7 @@ export class ZPLParser {
     let rawData = '';
 
     if (fdToken) {
-      const fdContent = fdToken.params;
+      const fdContent = this._decodeFieldDataToken(fdToken, fhToken);
       const ecMatch = fdContent.match(/^([HQML])A,(.*)$/s);
       if (ecMatch) {
         errorCorrection = ecMatch[1];
@@ -919,6 +934,7 @@ export class ZPLParser {
       y: group.y,
       previewData,
       placeholder,
+      fieldHex: Boolean(fhToken),
       model,
       magnification,
       errorCorrection,

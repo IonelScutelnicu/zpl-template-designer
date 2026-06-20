@@ -5,6 +5,7 @@ CONTEXT.md
 /docs
 .*
 !/.gitignore
+!/.gitattributes
 
 # Test artifacts
 /test-results/

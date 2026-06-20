@@ -65,7 +65,8 @@ export class SerializationService {
           data.placeholder,
           data.fontId,
           data.orientation,
-          data.reverse
+          data.reverse,
+          data.fieldHex
         );
         break;
 
@@ -83,7 +84,8 @@ export class SerializationService {
           data.symbology,
           data.checkDigit,
           data.orientation,
-          data.printTextAbove
+          data.printTextAbove,
+          data.fieldHex
         );
         break;
 
@@ -106,7 +108,8 @@ export class SerializationService {
           data.columns,
           data.aztecSizeMode,
           data.aztecErrorControl,
-          data.aztecLayers
+          data.aztecLayers,
+          data.fieldHex
         );
         break;
 
@@ -138,7 +141,8 @@ export class SerializationService {
           data.placeholder,
           data.fontId,
           data.reverse,
-          data.orientation
+          data.orientation,
+          data.fieldHex
         );
         break;
 
@@ -154,7 +158,8 @@ export class SerializationService {
           data.placeholder,
           data.fontId,
           data.reverse,
-          data.orientation
+          data.orientation,
+          data.fieldHex
         );
         break;
 

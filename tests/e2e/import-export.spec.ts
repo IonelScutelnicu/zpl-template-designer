@@ -658,4 +658,52 @@ test.describe('Import/Export - Template Persistence', () => {
             });
         }
     });
+
+    test.describe('JSON import/export field data escaping', () => {
+        test('should preserve special characters as plain JSON and regenerate escaped ZPL', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const [{ SerializationService }, { ZPLGenerator }, { ZPLParser }] = await Promise.all([
+                    import('/src/services/SerializationService.js'),
+                    import('/src/services/ZPLGenerator.js'),
+                    import('/src/services/ZPLParser.js'),
+                ]);
+
+                const settings = { width: 50, height: 30, dpmm: 8 };
+                const svc = new SerializationService();
+                const source = [
+                    { type: 'TEXT', x: 10, y: 10, previewText: 'Text ^~_ °é', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'TEXT', x: 10, y: 30, previewText: 'Name', placeholder: 'name', fieldHex: true, fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'FIELDBLOCK', x: 10, y: 50, previewText: 'Block ^~_ °é', fontSize: 30, fontWidth: 30, blockWidth: 200, maxLines: 2, lineSpacing: 0, justification: 'L', hangingIndent: 0, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'TEXTBLOCK', x: 10, y: 90, previewText: 'TB ^~_ °é', fontSize: 30, fontWidth: 30, blockWidth: 200, blockHeight: 50, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'BARCODE', x: 10, y: 130, previewData: 'BC^~_', height: 50, width: 2, ratio: 2, showText: true, reverse: false, symbology: 'CODE128', orientation: 'N' },
+                    { type: 'QRCODE', x: 10, y: 200, previewData: 'QR^~_é', model: 2, magnification: 5, errorCorrection: 'Q', reverse: false, symbology: 'QR' },
+                ];
+                const elements = source.map((data) => svc.createElementFromData(data, { keepId: true }));
+                const json = svc.exportTemplate(elements, settings);
+                const imported = svc.importTemplate(json);
+                const rehydrated = imported.elements.map((data) => svc.createElementFromData(data, { keepId: true }));
+                const generator = new ZPLGenerator();
+                const zpl = generator.generatePreviewZPL(rehydrated, imported.labelSettings);
+                const productionZpl = generator.generateZPL(rehydrated, imported.labelSettings);
+                const parsed = new ZPLParser().parse(zpl, settings);
+
+                return {
+                    json,
+                    values: rehydrated.map((el) => el.previewText ?? el.previewData),
+                    zpl,
+                    productionZpl,
+                    parsedValues: parsed.elements.map((el) => el.previewText ?? el.previewData),
+                };
+            });
+
+            expect(result.json).toContain('Text ^~_ °é');
+            expect(result.json).toContain('"fieldHex": true');
+            expect(result.json).toContain('QR^~_é');
+            expect(result.json).not.toContain('_5E_7E_5F');
+            expect(result.values).toEqual(['Text ^~_ °é', 'Name', 'Block ^~_ °é', 'TB ^~_ °é', 'BC^~_', 'QR^~_é']);
+            expect(result.zpl).toContain('^FH');
+            expect(result.productionZpl).toContain('^FH^FD%name%^FS');
+            expect(result.parsedValues).toEqual(result.values);
+        });
+    });
 });

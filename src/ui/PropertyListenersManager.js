@@ -116,6 +116,7 @@ export class PropertyListenersManager {
   attachTextProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
+    this._attachToggle("prop-field-hex", element, "fieldHex");
     this._attachFontControls(element, attach);
     this._attachOrientationButtons(element);
 
@@ -210,6 +211,9 @@ export class PropertyListenersManager {
     el.addEventListener("change", (e) => {
       element[field] = e.target.checked;
       this.callbacks.onPropertyChange(element);
+      if (id === "prop-field-hex") {
+        this.callbacks.onRerenderProperties?.();
+      }
     });
   }
 
@@ -251,6 +255,7 @@ export class PropertyListenersManager {
     this._attachSymbologyPicker(element);
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
+    this._attachToggle("prop-field-hex", element, "fieldHex");
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-width", "width", (v) => parseInt(v) || 2);
     // ^B3 wide:narrow ratio — Zebra supports 2.0:1 to 3.0:1, so clamp to that range.
@@ -303,6 +308,7 @@ export class PropertyListenersManager {
     this._attachSymbologyPicker(element);
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
+    this._attachToggle("prop-field-hex", element, "fieldHex");
     // QR
     attach("prop-model", "model", (v) => parseInt(v) || 2);
     attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
@@ -668,6 +674,7 @@ export class PropertyListenersManager {
   attachFieldBlockProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
+    this._attachToggle("prop-field-hex", element, "fieldHex");
     this._attachFontControls(element, attach);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
     attach("prop-max-lines", "maxLines", (v) => parseInt(v) || 1);
@@ -731,6 +738,7 @@ export class PropertyListenersManager {
   attachTextBlockProperties(element, attach) {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-text", "previewText");
+    this._attachToggle("prop-field-hex", element, "fieldHex");
     this._attachFontControls(element, attach);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 300);
     attach("prop-block-height", "blockHeight", (v) => parseInt(v) || 200);

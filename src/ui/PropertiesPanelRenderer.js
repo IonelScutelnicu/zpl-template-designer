@@ -479,6 +479,35 @@ export class PropertiesPanelRenderer {
     `;
   }
 
+  renderFieldHexToggle(element) {
+    const fieldHexEnabled = element.fieldHex === true;
+    const alignmentClass = fieldHexEnabled ? "items-start" : "items-center";
+    return `
+      <div class="mb-4 flex ${alignmentClass} justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
+        <span class="min-w-0">
+          <span class="flex items-center gap-2 text-xs font-medium text-slate-800">
+            <span>Hex escapes in data</span>
+            <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-fh.html"
+              target="_blank"
+              class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-500 hover:bg-blue-50 hover:text-blue-600">
+              ^FH
+            </a>
+          </span>
+          ${fieldHexEnabled ? `
+            <span class="mt-2 block text-[11px] leading-4 text-slate-500">
+              Replaces _XX sequences in the placeholder value with hex bytes at print time.
+            </span>
+          ` : ""}
+        </span>
+        <label class="relative shrink-0 cursor-pointer" aria-label="Hex escapes in data">
+          <input type="checkbox" id="prop-field-hex" class="sr-only peer" ${fieldHexEnabled ? "checked" : ""}>
+          <span class="block h-6 w-11 rounded-full bg-slate-200 transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:bg-blue-600"></span>
+          <span class="absolute left-[2px] top-[2px] h-5 w-5 rounded-full border border-slate-300 bg-white transition-transform peer-checked:translate-x-full peer-checked:border-white"></span>
+        </label>
+      </div>
+    `;
+  }
+
   /**
    * Render font selection dropdown
    */
@@ -578,6 +607,7 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Text Content", `
         ${this.createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderFieldHexToggle(element)}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
@@ -609,6 +639,7 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Content", `
         ${this.createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Barcode Settings", `
         ${this.createInputGroup("Module Width", "prop-width", element.width, "number", { min: 1, max: 10 })}
@@ -698,6 +729,7 @@ export class PropertiesPanelRenderer {
           >${element.previewData}</textarea>
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("2D Barcode Settings", this.renderQRCodeSettings(element), { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
@@ -938,6 +970,7 @@ export class PropertiesPanelRenderer {
             class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(element.previewText)}</textarea>
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}
@@ -1007,6 +1040,7 @@ export class PropertiesPanelRenderer {
             class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(element.previewText)}</textarea>
         </div>
         ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Font Settings", `
         ${this.renderFontSelect(element)}

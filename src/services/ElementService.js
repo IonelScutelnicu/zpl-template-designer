@@ -50,7 +50,8 @@ export class ElementService {
           props.placeholder || '',
           props.fontId || '',
           props.orientation || 'N',
-          props.reverse || false
+          props.reverse || false,
+          props.fieldHex || false
         );
         break;
 
@@ -68,7 +69,8 @@ export class ElementService {
           symbology,
           props.checkDigit || false,
           props.orientation || 'N',
-          props.printTextAbove || false
+          props.printTextAbove || false,
+          props.fieldHex || false
         );
         break;
       }
@@ -92,7 +94,8 @@ export class ElementService {
           props.columns || 0,
           props.aztecSizeMode || 'auto',
           props.aztecErrorControl || 0,
-          props.aztecLayers || 0
+          props.aztecLayers || 0,
+          props.fieldHex || false
         );
         break;
       }
@@ -155,7 +158,12 @@ export class ElementService {
           props.maxLines || 3,
           props.lineSpacing || 0,
           props.justification || 'L',
-          props.hangingIndent || 0
+          props.hangingIndent || 0,
+          props.placeholder || '',
+          props.fontId || '',
+          props.reverse || false,
+          props.orientation || 'N',
+          props.fieldHex || false
         );
         break;
 
@@ -170,7 +178,8 @@ export class ElementService {
           props.placeholder || '',
           props.fontId || '',
           props.reverse || false,
-          props.orientation || 'N'
+          props.orientation || 'N',
+          props.fieldHex || false
         );
         break;
 
