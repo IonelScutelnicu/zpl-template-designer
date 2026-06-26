@@ -2332,6 +2332,34 @@
     </div>
   </dialog>
 
+  <!-- Density rescale modal -->
+  <dialog id="density-rescale-modal"
+    class="p-0 bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md backdrop:bg-black/50">
+    <form method="dialog">
+      <div class="px-6 pt-6 pb-4 flex items-start gap-3">
+        <span class="material-icons-round text-blue-500 text-2xl mt-0.5 shrink-0">aspect_ratio</span>
+        <div class="space-y-2">
+          <p id="density-rescale-message" class="text-sm text-slate-700 leading-relaxed"></p>
+          <p id="density-rescale-notes" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded px-2 py-1.5 leading-relaxed"></p>
+        </div>
+      </div>
+      <div class="border-t border-slate-100 px-6 py-4 flex justify-end gap-2 rounded-b-xl">
+        <button id="density-rescale-cancel-btn" value="cancel"
+          class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg transition-colors">
+          Cancel
+        </button>
+        <button id="density-rescale-keep-btn" value="keep"
+          class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg transition-colors">
+          Keep as-is
+        </button>
+        <button id="density-rescale-scale-btn" value="scale"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors shadow-sm">
+          Scale elements
+        </button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Confirmation modal (replaces window.confirm for destructive actions) -->
   <dialog id="confirm-modal"
     class="p-0 bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm backdrop:bg-black/50">

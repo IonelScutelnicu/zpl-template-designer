@@ -24,6 +24,8 @@ import { ContextMenu } from './ui/ContextMenu.js';
 import { OnboardingWalkthrough } from './ui/OnboardingWalkthrough.js';
 import { FullscreenController } from './ui/FullscreenController.js';
 import { ConfirmModal } from './ui/ConfirmModal.js';
+import { DensityRescaleModal } from './ui/DensityRescaleModal.js';
+import { analyzeRescale, applyRescale } from './services/DensityRescaleService.js';
 import { imageToBitmap } from './utils/graphicField.js';
 import { escapeHtml, escapeAttr } from './utils/dom-helpers.js';
 import { DriveTemplateService } from './services/DriveTemplateService.js';
@@ -386,6 +388,7 @@ export function initApp() {
 
   // Initialize confirmation modal
   const confirmModal = new ConfirmModal();
+  const densityRescaleModal = new DensityRescaleModal();
 
   // Start a fresh blank label. Confirms first when there's work to lose
   // (any elements, or an in-progress Drive doc), then resets to the boot
@@ -920,11 +923,100 @@ export function initApp() {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
-  labelDpmm.addEventListener("change", (e) => {
-    state.updateLabelSettings({ dpmm: parseInt(e.target.value) || 8 });
+  labelDpmm.addEventListener("change", async (e) => {
+    const oldDpmm = state.labelSettings.dpmm || 8;
+    const newDpmm = parseInt(e.target.value) || 8;
+    if (oldDpmm === newDpmm) return;
+
+    // The combined density+rescale is committed as a single history entry, so
+    // the pending debounced "label-settings" commit must not also fire. But a
+    // recent width/height/font edit is still sitting in that timer — flush it as
+    // its own entry first so it isn't lost from history (and dirty tracking) if
+    // the user cancels below.
+    if (state.getHistoryCommitTimer("label-settings")) {
+      state.clearHistoryCommitTimer("label-settings");
+      pushHistory("Updated label settings", { kind: "settings" });
+    }
+
+    const analysis = analyzeRescale({
+      elements: state.elements,
+      labelSettings: state.labelSettings,
+      oldDpmm,
+      newDpmm,
+    });
+
+    if (!analysis.hasWorkToDo) {
+      state.updateLabelSettings({ dpmm: newDpmm });
+      updateZPLOutput();
+      renderCanvasPreview();
+      pushHistory(`Changed density ${oldDpmm} → ${newDpmm} dpmm`, { kind: "settings" });
+      return;
+    }
+
+    const choice = await densityRescaleModal.show({
+      oldDpmm,
+      newDpmm,
+      unscalableGraphicCount: analysis.unscalableGraphicCount,
+      clampedBarcodeCount: analysis.clampedBarcodeCount,
+    });
+
+    if (choice === 'cancel') {
+      labelDpmm.value = String(oldDpmm);
+      return;
+    }
+
+    if (choice === 'keep') {
+      state.updateLabelSettings({ dpmm: newDpmm });
+      updateZPLOutput();
+      renderCanvasPreview();
+      pushHistory(`Changed density ${oldDpmm} → ${newDpmm} dpmm`, { kind: "settings" });
+      return;
+    }
+
+    // 'scale' — mutate elements + label settings, then re-rasterize any
+    // editable graphics before committing a single history entry.
+    const { labelSettingsPatch, editableGraphicsToReencode } = applyRescale({
+      elements: state.elements,
+      labelSettings: state.labelSettings,
+      oldDpmm,
+      newDpmm,
+    });
+    state.updateLabelSettings(labelSettingsPatch);
+
+    if (editableGraphicsToReencode.length > 0) {
+      // Inline the re-raster so it doesn't trigger per-element history
+      // commits via onGraphicElementUpdated — the whole rescale is a
+      // single history entry.
+      await Promise.all(
+        editableGraphicsToReencode.map(async ({ element, widthDots, heightDots }) => {
+          element._reencodeSeq = (element._reencodeSeq || 0) + 1;
+          const seq = element._reencodeSeq;
+          try {
+            const result = await imageToBitmap(
+              element.sourceDataUrl,
+              widthDots,
+              element.threshold ?? 128,
+              heightDots
+            );
+            if (element._reencodeSeq !== seq) return;
+            element.setBitmap(result);
+          } catch (err) {
+            console.error('Failed to re-rasterize graphic during density rescale:', err);
+          }
+        })
+      );
+    }
+
+    updateElementsList();
+    renderPropertiesPanel();
     updateZPLOutput();
     renderCanvasPreview();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+
+    const scaledCount = state.elements.length;
+    const label = scaledCount > 0
+      ? `Changed density ${oldDpmm} → ${newDpmm} dpmm and scaled ${scaledCount} element${scaledCount === 1 ? '' : 's'}`
+      : `Changed density ${oldDpmm} → ${newDpmm} dpmm and rescaled settings`;
+    pushHistory(label, { kind: "settings" });
   });
 
   orientationButtons.forEach(btn => {

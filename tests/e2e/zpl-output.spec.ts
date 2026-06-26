@@ -317,6 +317,9 @@ test.describe('ZPL Output - Generation and Validation', () => {
             // label-dpmm is a SELECT in Label Setup (open by default); select 12 dpmm
             // Default label width is 100mm; floor((100/25.4) * floor(12*25.4)) = floor((100/25.4)*304) = 1196 dots
             await page.locator('#label-dpmm').selectOption('12');
+            // A Text element is present, so changing density now prompts to rescale.
+            // Keep elements as-is — this test only asserts ^PW tracks the new density.
+            await page.locator('#density-rescale-keep-btn').click();
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain('^PW1196');
         });
