@@ -1,0 +1,7 @@
+# Default to LF line endings for all text files, in the repository and on
+# checkout, on every platform. Git auto-detects text vs binary.
+* text=auto eol=lf
+
+# Binary assets — never touch their bytes.
+*.png binary
+*.ttf binary
