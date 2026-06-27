@@ -454,8 +454,8 @@ export class ZPLParser {
       }
       case 'LH': {
         const parts = token.params.split(',');
-        state.labelSettings.homeX = parseInt(parts[0]) || 0;
-        state.labelSettings.homeY = parseInt(parts[1]) || 0;
+        state.labelSettings.homeX = Math.abs(parseInt(parts[0]) || 0);
+        state.labelSettings.homeY = Math.abs(parseInt(parts[1]) || 0);
         break;
       }
       case 'LT': {

@@ -254,7 +254,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
 
             await page.locator('#prop-placeholder').fill('name');
             await page.locator('#prop-placeholder').dispatchEvent('input');
-            await page.getByText('Hex-escaped field data (^FH)').click();
+            await page.locator('#prop-field-hex').check({ force: true });
 
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).toContain('^FH^FD%name%^FS');

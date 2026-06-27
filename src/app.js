@@ -1143,14 +1143,18 @@ export function initApp() {
 
   // Position offset event listeners
   homeX.addEventListener("input", (e) => {
-    state.updateLabelSettings({ homeX: parseInt(e.target.value) || 0 });
+    let value = parseInt(e.target.value) || 0;
+    if (value < 0) { value = -value; e.target.value = value; }
+    state.updateLabelSettings({ homeX: value });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   homeY.addEventListener("input", (e) => {
-    state.updateLabelSettings({ homeY: parseInt(e.target.value) || 0 });
+    let value = parseInt(e.target.value) || 0;
+    if (value < 0) { value = -value; e.target.value = value; }
+    state.updateLabelSettings({ homeY: value });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
