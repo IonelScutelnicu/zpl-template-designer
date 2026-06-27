@@ -1,7 +1,7 @@
 // Barcode Renderer
 // Renders 1D BARCODE elements on canvas using real bwip-js geometry.
 
-import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, interleaved2of5Digits } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
@@ -59,9 +59,14 @@ export class BarcodeRenderer {
     // Code 39's interpretation line shows the start/stop `*` delimiters (matches
     // Labelary/Zebra ^B3); with the mod-43 check digit on, the computed check
     // character is appended before the closing `*` (e.g. *CODE39* -> *CODE39W*).
-    const displayText = sym === 'CODE39'
-      ? `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`
-      : data;
+    // Interleaved 2 of 5 shows the actually-encoded digits (mod-10 check + even-length
+    // leading-zero pad), so the HRI matches the bars.
+    let displayText = data;
+    if (sym === 'CODE39') {
+      displayText = `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
+    } else if (sym === 'INTERLEAVED2OF5') {
+      displayText = interleaved2of5Digits(data, element.checkDigit);
+    }
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;
     // HRI line config (per symbology + position); null when no HRI is shown.

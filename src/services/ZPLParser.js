@@ -226,13 +226,14 @@ export class ZPLParser {
     };
 
     for (const token of tokens) {
-      // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B3
-      // (Code 39) and ^B7 (PDF417); other numeric variants (^B1/^B2/^B8/^B9, …)
-      // have no dispatch branch and would otherwise be dropped silently, so they
-      // must still warn.
+      // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B2
+      // (Interleaved 2 of 5), ^B3 (Code 39) and ^B7 (PDF417); other numeric
+      // variants (^B1/^B8/^B9, …) have no dispatch branch and would otherwise be
+      // dropped silently, so they must still warn.
       const isKnown = KNOWN_COMMANDS.has(token.command)
         && (token.command !== 'B'
           || token.params.charAt(0) === '0'
+          || token.params.charAt(0) === '2'
           || token.params.charAt(0) === '3'
           || token.params.charAt(0) === '7');
       if (!isKnown) {
@@ -575,6 +576,9 @@ export class ZPLParser {
       const bToken = getCommand('B');
       const sub = bToken.params.charAt(0);
       const shifted = { ...bToken, params: bToken.params.slice(1) };
+      if (sub === '2') {
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'INTERLEAVED2OF5', fhToken);
+      }
       if (sub === '3') {
         return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE39', fhToken);
       }
@@ -793,6 +797,10 @@ export class ZPLParser {
     const showText = (parts[showIdx] || 'Y').trim() !== 'N';
     // "Print interpretation line above code" (g) sits right after f in all four commands.
     const printTextAbove = (parts[showIdx + 1] || 'N').trim() === 'Y';
+    // ^B2 (Interleaved 2 of 5) carries a mod-10 check-digit flag (e) after g.
+    if (symbology === 'INTERLEAVED2OF5') {
+      checkDigit = (parts[showIdx + 2] || 'N').trim() === 'Y';
+    }
 
     // Use ^BY from this group if present, otherwise from state
     let width = state.barcodeDefaults.width;

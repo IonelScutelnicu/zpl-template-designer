@@ -17,6 +17,7 @@ const THUMB_AZTEC = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor
 const SYMBOLOGY_THUMBS = {
   CODE128: THUMB_LINEAR,
   CODE39: THUMB_LINEAR,
+  INTERLEAVED2OF5: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
   UPCA: THUMB_LINEAR,
   QR: THUMB_QR,
@@ -625,6 +626,11 @@ export class PropertiesPanelRenderer {
   renderBarcodeProperties(element) {
     const symbology = element.symbology || "CODE128";
     const isCode39 = symbology === "CODE39";
+    const isI2of5 = symbology === "INTERLEAVED2OF5";
+    // Code 39 and Interleaved 2 of 5 both derive their wide:narrow ratio from ^BY and
+    // support an optional check digit (mod-43 vs mod-10).
+    const hasRatio = isCode39 || isI2of5;
+    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : "Mod-43 Check Digit";
     return `
       ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, BARCODE_SYMBOLOGIES), { open: true, elementType: element.type })}
       ${this.renderAlignmentControls(element)}
@@ -643,8 +649,8 @@ export class PropertiesPanelRenderer {
       `, { elementType: element.type })}
       ${this.renderSection("Barcode Settings", `
         ${this.createInputGroup("Module Width", "prop-width", element.width, "number", { min: 1, max: 10 })}
-        ${isCode39 ? this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 2, max: 3, step: 0.1 }) : ""}
-        ${isCode39 ? this.createToggleGroup("Mod-43 Check Digit", "prop-check-digit", element.checkDigit === true) : ""}
+        ${hasRatio ? this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 2, max: 3, step: 0.1 }) : ""}
+        ${hasRatio ? this.createToggleGroup(checkDigitLabel, "prop-check-digit", element.checkDigit === true) : ""}
         ${this.renderHriControl(element)}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}

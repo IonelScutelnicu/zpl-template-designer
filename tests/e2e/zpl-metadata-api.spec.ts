@@ -144,11 +144,11 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
         expect(result.ignored).toEqual({ w: Math.round(808 / 8), h: 50, dpmm: 8 });
     });
 
-    // ^B tokenizes as command 'B' (the digit goes into params). Only ^B3 (Code 39)
-    // and ^B7 (PDF417) have a dispatch branch; other numeric variants have none and
-    // are dropped, so they must still surface an "Unsupported command" warning
-    // instead of vanishing silently.
-    test('unsupported numeric ^B variants warn; ^B3/^B7 do not', async ({ page }) => {
+    // ^B tokenizes as command 'B' (the digit goes into params). Only ^B0 (Aztec),
+    // ^B2 (Interleaved 2 of 5), ^B3 (Code 39) and ^B7 (PDF417) have a dispatch branch;
+    // other numeric variants have none and are dropped, so they must still surface an
+    // "Unsupported command" warning instead of vanishing silently.
+    test('unsupported numeric ^B variants warn; supported ones do not', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
             const parser = new (ZPLParser as any)();
@@ -158,15 +158,17 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
                 parser.parse(base(bc), { dpmm: 8, labelHeight: 50 })
                     .warnings.some((w: { message: string }) => /Unsupported command/i.test(w.message));
             return {
-                b2: warns('^B2N,50,Y,N'),  // Interleaved 2 of 5 — unsupported
-                b8: warns('^B8N,50,Y,N'),  // EAN-8 — unsupported
+                b1: warns('^B1N,50,Y,N'),   // Code 11 — unsupported
+                b8: warns('^B8N,50,Y,N'),   // EAN-8 — unsupported
+                b2: warns('^B2N,50,Y,N'),   // Interleaved 2 of 5 — supported
                 b3: warns('^B3N,N,50,Y,N'), // Code 39 — supported
                 b7: warns('^B7N,2,50'),     // PDF417 — supported
             };
         });
 
-        expect(result.b2).toBe(true);
+        expect(result.b1).toBe(true);
         expect(result.b8).toBe(true);
+        expect(result.b2).toBe(false);
         expect(result.b3).toBe(false);
         expect(result.b7).toBe(false);
     });

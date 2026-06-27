@@ -5,6 +5,7 @@ import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 const ONE_D = [
     { symbology: 'CODE128', command: '^BCN' },
     { symbology: 'CODE39', command: '^B3N' },
+    { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'UPCA', command: '^BUN' },
 ];
@@ -119,6 +120,75 @@ test.describe('Barcode symbology', () => {
         expect(r.checkChar).toBe('W');
         expect(r.withCheck).toBeGreaterThan(r.noCheck);
         expect(r.invalid).toBe('');
+    });
+
+    // ============== INTERLEAVED 2 OF 5 (^B2) ==============
+    test('Interleaved 2 of 5 emits ^BY ratio and a mod-10 check-digit flag', async () => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'INTERLEAVED2OF5');
+        // ^BY ratio is shared with Code 39; default width 2, ratio 2.0.
+        await zplOutput.verifyZPLContains('^BY2,2^B2N');
+        // The check-digit (e) param trails the g slot once enabled (o,h,f,g,e).
+        await propertiesPanel.panel.locator('#prop-check-digit').check({ force: true });
+        await zplOutput.verifyZPLContains('^B2N,50,Y,N,Y');
+    });
+
+    test('Interleaved 2 of 5 ratio quantizes the wide bar like Code 39 (native 2:1)', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const wideDots = (w: number, ratio: number) => {
+                const g = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INTERLEAVED2OF5', previewData: '1234', ratio, width: w, showText: false } as any) as any;
+                return Math.round(Math.max(...g.sbs) * w);
+            };
+            return { w2_r20: wideDots(2, 2.0), w2_r30: wideDots(2, 3.0), w3_r24: wideDots(3, 2.4) };
+        });
+        expect(r.w2_r20).toBe(4); // floor(2*2.0)=4 -> 2:1
+        expect(r.w2_r30).toBe(6); // floor(2*3.0)=6 -> 3:1
+        expect(r.w3_r24).toBe(7); // floor(3*2.4)=7
+    });
+
+    test('Interleaved 2 of 5 resolves digits: mod-10 check + even-length leading-zero pad', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { mod10CheckChar, interleaved2of5Digits, getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const geom = (previewData: string, checkDigit: boolean) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'INTERLEAVED2OF5', previewData, showText: true, ratio: 2, width: 2, checkDigit } as any) as any).modules;
+            return {
+                check1234: mod10CheckChar('1234'),
+                evenNoPad: interleaved2of5Digits('1234', false),     // already even
+                oddPad: interleaved2of5Digits('12345', false),       // odd -> leading 0
+                checkPad: interleaved2of5Digits('1234', true),       // +check -> odd -> pad
+                noCheck: geom('1234', false),
+                withCheck: geom('1234', true),
+            };
+        });
+        expect(r.check1234).toBe('8');
+        expect(r.evenNoPad).toBe('1234');
+        expect(r.oddPad).toBe('012345');
+        expect(r.checkPad).toBe('012348');
+        expect(r.withCheck).toBeGreaterThan(r.noCheck);
+    });
+
+    test('Interleaved 2 of 5 round-trips orientation, printTextAbove and check digit', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'INTERLEAVED2OF5', true, 'I', true);
+            const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
+            return {
+                sym: parsed?.symbology,
+                orientation: parsed?.orientation,
+                above: parsed?.printTextAbove,
+                checkDigit: parsed?.checkDigit,
+            };
+        });
+        expect(r.sym).toBe('INTERLEAVED2OF5');
+        expect(r.orientation).toBe('I');
+        expect(r.above).toBe(true);
+        expect(r.checkDigit).toBe(true);
     });
 
     // ============== ORIENTATION + INTERPRETATION LINE ABOVE ==============

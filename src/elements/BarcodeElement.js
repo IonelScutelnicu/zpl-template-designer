@@ -36,6 +36,13 @@ export class BarcodeElement extends ZPLElement {
                 const e = this.checkDigit ? 'Y' : 'N';
                 return `${pos}${by}^B3${o},${e},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
+            case 'INTERLEAVED2OF5': {
+                // ^B2 param order is o,h,f,g,e. When the mod-10 check digit (e) is on,
+                // the g slot must be filled so e lands in the right position.
+                const gVal = this.printTextAbove ? 'Y' : 'N';
+                const tail = this.checkDigit ? `,${gVal},Y` : g;
+                return `${pos}${by}^B2${o},${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
             case 'EAN13':
                 return `${pos}${by}^BE${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'UPCA':

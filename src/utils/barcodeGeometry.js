@@ -9,6 +9,7 @@ import bwipjs from '../vendor/bwip-js.mjs';
 const BWIP_BCID = {
   CODE128: 'code128',
   CODE39: 'code39',
+  INTERLEAVED2OF5: 'interleaved2of5',
   EAN13: 'ean13',
   UPCA: 'upca',
   QR: 'qrcode',
@@ -18,13 +19,14 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'EAN13', 'UPCA'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'INTERLEAVED2OF5', 'EAN13', 'UPCA'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
   CODE128: 'Code 128',
   CODE39: 'Code 39',
+  INTERLEAVED2OF5: 'Interleaved 2 of 5',
   EAN13: 'EAN-13',
   UPCA: 'UPC-A',
   QR: 'QR Code',
@@ -38,6 +40,7 @@ export const SYMBOLOGY_LABELS = {
 export const SYMBOLOGY_META = {
   CODE128: { code: '^BC', desc: 'Alphanumeric · variable length', dim: '1D' },
   CODE39: { code: '^B3', desc: 'A–Z, 0–9, symbols · variable', dim: '1D' },
+  INTERLEAVED2OF5: { code: '^B2', desc: 'Numeric only · even length', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
   QR: { code: '^BQ', desc: 'Matrix · URLs, high capacity', dim: '2D' },
@@ -51,6 +54,7 @@ export const SYMBOLOGY_META = {
 export const DEFAULT_PREVIEW_DATA = {
   CODE128: '1234567890',
   CODE39: 'CODE39',
+  INTERLEAVED2OF5: '1234567890',
   EAN13: '123456789012',
   UPCA: '12345678901',
   QR: 'https://example.com',
@@ -229,6 +233,7 @@ export const HRI_CONFIG = {
   UPCA: hriFontConfig.EAN,
   CODE128: hriFontConfig.CODE,
   CODE39: hriFontConfig.CODE,
+  INTERLEAVED2OF5: hriFontConfig.CODE,
 };
 
 /** Resolve the HRI line config for a symbology + position, or null if none. */
@@ -254,10 +259,51 @@ export function code39CheckChar(data) {
   return CODE39_CHARS[sum % 43];
 }
 
+/**
+ * Compute the Interleaved 2 of 5 mod-10 check digit for `digits` (the char Zebra
+ * appends when ^B2's check-digit flag is on). Weights alternate 3,1 from the
+ * rightmost data digit; check = (10 − sum%10) % 10. Non-digits are ignored.
+ */
+export function mod10CheckChar(digits) {
+  const s = String(digits ?? '').replace(/\D/g, '');
+  let sum = 0;
+  // Rightmost data digit is weighted 3, then 1, alternating leftward.
+  for (let i = 0; i < s.length; i++) {
+    const d = s.charCodeAt(s.length - 1 - i) - 48;
+    sum += (i % 2 === 0) ? d * 3 : d;
+  }
+  return String((10 - (sum % 10)) % 10);
+}
+
+/**
+ * Resolve the digit string an Interleaved 2 of 5 symbol actually encodes, mirroring
+ * the ZPL ^B2 printer rules: strip to digits, append the mod-10 check digit when
+ * enabled, then left-pad a '0' if the total count is odd (I2of5 needs an even number
+ * of digits). Single source of truth for both the encoded text (buildBwipOptions) and
+ * the HRI line (BarcodeRenderer), so the bars and the readable text always agree.
+ */
+export function interleaved2of5Digits(data, checkDigit) {
+  let s = String(data ?? '').replace(/\D/g, '');
+  if (checkDigit) s += mod10CheckChar(s);
+  if (s.length % 2 === 1) s = '0' + s;
+  return s;
+}
+
+// bwip-js' native wide:narrow element value per ratio-bearing symbology. Code 39 is
+// encoded at a fixed 3:1, Interleaved 2 of 5 at 2:1; getBarcodeGeometry rescales these
+// wide elements to the element's effective ^BY ratio so the canvas matches Labelary.
+const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2 };
+
 /** Build the bwip-js options object for an element's current symbology + data. */
 function buildBwipOptions(element) {
   const symbology = resolveSymbology(element);
   const opts = { bcid: BWIP_BCID[symbology] || 'code128', text: normalizeBarcodeData(symbology, element.previewData) };
+  if (symbology === 'INTERLEAVED2OF5') {
+    // Resolve the encoded digits ourselves (mod-10 check + even-length leading-zero
+    // pad) and feed bwip the literal string with no implicit check digit — bwip's own
+    // includecheck/even-padding behaviour doesn't match Zebra's. (See interleaved2of5Digits.)
+    opts.text = interleaved2of5Digits(element.previewData, element.checkDigit);
+  }
   if (POSITIONED_TEXT_SYMBOLOGIES.has(symbology)) {
     // Always request text geometry: bwip only emits EAN/UPC's extended guard bars
     // (the taller bars at the start/middle/end) when includetext is on. We want
@@ -409,12 +455,13 @@ function pdf417PreferredColumns(opts) {
 export function getBarcodeGeometry(element) {
   const opts = buildBwipOptions(element);
   const symbology = resolveSymbology(element);
-  // Code 39's wide:narrow ratio comes from the element (^BY ratio), not bwip. The
-  // printer can only print whole dots, so the wide bar is floor(w·r) dots and the
-  // *effective* ratio is floor(w·r)/w — not the literal r (see ^BY "Module Width
-  // Ratios in Dots"). Using the effective ratio keeps the canvas width in sync with
-  // Labelary (e.g. w=2, r=2.3 prints at 2:1, not 2.3:1).
-  const wnRatio = symbology === 'CODE39'
+  // Code 39 & Interleaved 2 of 5 take their wide:narrow ratio from the element (^BY
+  // ratio), not bwip. The printer can only print whole dots, so the wide bar is
+  // floor(w·r) dots and the *effective* ratio is floor(w·r)/w — not the literal r (see
+  // ^BY "Module Width Ratios in Dots"). Using the effective ratio keeps the canvas
+  // width in sync with Labelary (e.g. w=2, r=2.3 prints at 2:1, not 2.3:1).
+  const nativeWide = NATIVE_WIDE[symbology] || 0;
+  const wnRatio = nativeWide
     ? Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2)
     : 0;
   const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
@@ -434,12 +481,12 @@ export function getBarcodeGeometry(element) {
       const cols = +o.pixx;
       result = { kind: 'matrix', cols, rows: o.pixs.length / cols, pixs: o.pixs };
     } else if (o && o.sbs) {
-      // bwip-js encodes Code 39 at a fixed 3:1 wide:narrow ratio. Rescale the wide
-      // elements (value 3) to the element's effective ^BY ratio (wnRatio, quantized
-      // above) so the canvas width matches Labelary; other linear symbologies
-      // (Code 128, EAN/UPC) keep bwip's widths.
-      const sbs = wnRatio && wnRatio !== 3
-        ? Array.from(o.sbs, (v) => (v === 3 ? wnRatio : v))
+      // bwip-js encodes Code 39 at a fixed 3:1 and Interleaved 2 of 5 at 2:1
+      // wide:narrow ratio. Rescale the wide elements (value nativeWide) to the
+      // element's effective ^BY ratio (wnRatio, quantized above) so the canvas width
+      // matches Labelary; other linear symbologies (Code 128, EAN/UPC) keep bwip's widths.
+      const sbs = wnRatio && wnRatio !== nativeWide
+        ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
         : o.sbs;
       let modules = 0;
       for (let i = 0; i < sbs.length; i++) modules += sbs[i];
