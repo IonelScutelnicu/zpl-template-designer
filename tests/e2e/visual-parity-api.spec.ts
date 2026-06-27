@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, Canvas, PreviewPanel } from '../page-objects';
+import { ElementsPanel, Canvas, PreviewPanel, PropertiesPanel } from '../page-objects';
 import { compareImages, findContentBounds, getImageDimensions } from '../fixtures/image-comparison';
 
 /**
@@ -11,12 +11,14 @@ test.describe('Visual Parity - Canvas vs API', () => {
     let elementsPanel: ElementsPanel;
     let canvas: Canvas;
     let previewPanel: PreviewPanel;
+    let propertiesPanel: PropertiesPanel;
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
         elementsPanel = new ElementsPanel(page);
         canvas = new Canvas(page);
         previewPanel = new PreviewPanel(page);
+        propertiesPanel = new PropertiesPanel(page);
         await canvas.waitForReady();
     });
 
@@ -252,68 +254,76 @@ test.describe('Visual Parity - Canvas vs API', () => {
         expect(result.diffPercentage).toBeLessThan(50);
     });
 
-    test('should have matching QR code bounding box between canvas and API', async ({ page }) => {
-        // Label is 100mm x 50mm at 8dpmm = 800 x 400 dots
-        const labelWidthDots = 800;
-        const labelHeightDots = 400;
+    // Each 2D symbology must place its symbol at the same spot and size as the
+    // Labelary render (the canvas geometry comes from bwip-js; this confirms our
+    // ^BQ/^BX/^B7/^B0 emission and module sizing track the printer).
+    const TWO_D_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'] as const;
 
-        await elementsPanel.addQRCodeElement();
-        await elementsPanel.selectElementByIndex(0);
+    for (const symbology of TWO_D_SYMBOLOGIES) {
+        test(`should have matching ${symbology} bounding box between canvas and API`, async ({ page }) => {
+            // Label is 100mm x 50mm at 8dpmm = 800 x 400 dots
+            const labelWidthDots = 800;
+            const labelHeightDots = 400;
 
-        await page.locator('#prop-x').fill('50');
-        await page.locator('#prop-x').dispatchEvent('input');
-        await page.locator('#prop-y').fill('50');
-        await page.locator('#prop-y').dispatchEvent('input');
+            await elementsPanel.addQRCodeElement();
+            await elementsPanel.selectElementByIndex(0);
+            await propertiesPanel.setSelectValue('prop-symbology', symbology);
 
-        await canvas.waitForReady();
-        const canvasImage = await canvas.takeFullResolutionScreenshot();
+            await page.locator('#prop-x').fill('50');
+            await page.locator('#prop-x').dispatchEvent('input');
+            await page.locator('#prop-y').fill('50');
+            await page.locator('#prop-y').dispatchEvent('input');
 
-        await previewPanel.switchToAPIMode();
-        await previewPanel.waitForAPIPreviewLoaded();
-        const apiImage = await previewPanel.getAPIPreviewFullResolution();
+            await canvas.waitForReady();
+            const canvasImage = await canvas.takeFullResolutionScreenshot();
 
-        // Find dark pixels only (QR code modules), ignoring label border/background
-        const canvasBounds = findContentBounds(canvasImage);
-        const apiBounds = findContentBounds(apiImage);
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const apiImage = await previewPanel.getAPIPreviewFullResolution();
 
-        const canvasDims = getImageDimensions(canvasImage);
-        const apiDims = getImageDimensions(apiImage);
+            // Find dark pixels only (barcode modules), ignoring label border/background
+            const canvasBounds = findContentBounds(canvasImage);
+            const apiBounds = findContentBounds(apiImage);
 
-        // Convert pixel bounds to dot-space using image dimensions
-        const canvasDots = {
-            left: canvasBounds.left * labelWidthDots / canvasDims.width,
-            top: canvasBounds.top * labelHeightDots / canvasDims.height,
-            width: canvasBounds.width * labelWidthDots / canvasDims.width,
-            height: canvasBounds.height * labelHeightDots / canvasDims.height,
-        };
-        const apiDots = {
-            left: apiBounds.left * labelWidthDots / apiDims.width,
-            top: apiBounds.top * labelHeightDots / apiDims.height,
-            width: apiBounds.width * labelWidthDots / apiDims.width,
-            height: apiBounds.height * labelHeightDots / apiDims.height,
-        };
+            const canvasDims = getImageDimensions(canvasImage);
+            const apiDims = getImageDimensions(apiImage);
 
-        const xDiff = Math.abs(canvasDots.left - apiDots.left);
-        const yDiff = Math.abs(canvasDots.top - apiDots.top);
-        const wDiff = Math.abs(canvasDots.width - apiDots.width);
-        const hDiff = Math.abs(canvasDots.height - apiDots.height);
+            // Convert pixel bounds to dot-space using image dimensions
+            const canvasDots = {
+                left: canvasBounds.left * labelWidthDots / canvasDims.width,
+                top: canvasBounds.top * labelHeightDots / canvasDims.height,
+                width: canvasBounds.width * labelWidthDots / canvasDims.width,
+                height: canvasBounds.height * labelHeightDots / canvasDims.height,
+            };
+            const apiDots = {
+                left: apiBounds.left * labelWidthDots / apiDims.width,
+                top: apiBounds.top * labelHeightDots / apiDims.height,
+                width: apiBounds.width * labelWidthDots / apiDims.width,
+                height: apiBounds.height * labelHeightDots / apiDims.height,
+            };
 
-        if (xDiff >= 10 || yDiff >= 10 || wDiff >= 10 || hDiff >= 10) {
-            console.log('Canvas image size:', canvasDims);
-            console.log('API image size:', apiDims);
-            console.log('Canvas pixel bounds:', canvasBounds);
-            console.log('API pixel bounds:', apiBounds);
-            console.log('Canvas dot-space:', canvasDots);
-            console.log('API dot-space:', apiDots);
-            console.log('Dot-space diff - X:', (canvasDots.left - apiDots.left).toFixed(1), 'Y:', (canvasDots.top - apiDots.top).toFixed(1));
-            console.log('Dot-space diff - W:', (canvasDots.width - apiDots.width).toFixed(1), 'H:', (canvasDots.height - apiDots.height).toFixed(1));
-        }
+            const xDiff = Math.abs(canvasDots.left - apiDots.left);
+            const yDiff = Math.abs(canvasDots.top - apiDots.top);
+            const wDiff = Math.abs(canvasDots.width - apiDots.width);
+            const hDiff = Math.abs(canvasDots.height - apiDots.height);
 
-        // Width and height should match within 10 dots
-        expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(10);
-        expect(Math.abs(canvasDots.height - apiDots.height)).toBeLessThan(10);
-        // Position should match within 10 dots
-        expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(10);
-        expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(10);
-    });
+            if (xDiff >= 10 || yDiff >= 10 || wDiff >= 10 || hDiff >= 10) {
+                console.log(`[${symbology}] Canvas image size:`, canvasDims);
+                console.log(`[${symbology}] API image size:`, apiDims);
+                console.log(`[${symbology}] Canvas pixel bounds:`, canvasBounds);
+                console.log(`[${symbology}] API pixel bounds:`, apiBounds);
+                console.log(`[${symbology}] Canvas dot-space:`, canvasDots);
+                console.log(`[${symbology}] API dot-space:`, apiDots);
+                console.log(`[${symbology}] Dot-space diff - X:`, (canvasDots.left - apiDots.left).toFixed(1), 'Y:', (canvasDots.top - apiDots.top).toFixed(1));
+                console.log(`[${symbology}] Dot-space diff - W:`, (canvasDots.width - apiDots.width).toFixed(1), 'H:', (canvasDots.height - apiDots.height).toFixed(1));
+            }
+
+            // Width and height should match within 10 dots
+            expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(10);
+            expect(Math.abs(canvasDots.height - apiDots.height)).toBeLessThan(10);
+            // Position should match within 10 dots
+            expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(10);
+            expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(10);
+        });
+    }
 });

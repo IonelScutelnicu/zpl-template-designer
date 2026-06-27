@@ -315,6 +315,10 @@ export class PropertyListenersManager {
     attach("prop-row-height", "rowHeight", (v) => parseInt(v) || 4);
     attach("prop-security-level", "securityLevel", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
     attach("prop-columns", "columns", (v) => Math.max(0, parseInt(v) || 0));
+    // Aztec
+    attach("prop-aztec-size-mode", "aztecSizeMode");
+    attach("prop-aztec-error-control", "aztecErrorControl", (v) => Math.max(0, Math.min(99, parseInt(v) || 0)));
+    attach("prop-aztec-layers", "aztecLayers", (v) => Math.max(0, Math.min(32, parseInt(v) || 0)));
 
     this._attachReverseToggle(element);
   }

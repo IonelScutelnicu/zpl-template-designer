@@ -225,12 +225,13 @@ export class ZPLParser {
     };
 
     for (const token of tokens) {
-      // Check for unknown commands. ^B is only "known" for ^B3 (Code 39) and
-      // ^B7 (PDF417); other numeric variants (^B1/^B2/^B8/^B9, …) have no
-      // dispatch branch and would otherwise be dropped silently, so they must
-      // still warn.
+      // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B3
+      // (Code 39) and ^B7 (PDF417); other numeric variants (^B1/^B2/^B8/^B9, …)
+      // have no dispatch branch and would otherwise be dropped silently, so they
+      // must still warn.
       const isKnown = KNOWN_COMMANDS.has(token.command)
         && (token.command !== 'B'
+          || token.params.charAt(0) === '0'
           || token.params.charAt(0) === '3'
           || token.params.charAt(0) === '7');
       if (!isKnown) {
@@ -578,6 +579,9 @@ export class ZPLParser {
       if (sub === '7') {
         return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'));
       }
+      if (sub === '0') {
+        return this._parseAztec(group, shifted, getCommand('FD'), hasCommand('FR'));
+      }
     }
 
     if (hasCommand('A') && hasCommand('TB')) {
@@ -918,6 +922,57 @@ export class ZPLParser {
       model,
       magnification,
       errorCorrection,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse AZTEC element from ^B0 + ^FD.
+   * ^B0 params: orientation,magnification,eci,d  — where d (error control /
+   * symbol size/type) inverts QRCodeElement._aztecD:
+   *   300        -> rune
+   *   201-232    -> full,    layers = d-200
+   *   101-104    -> compact, layers = d-100
+   *   0-99       -> auto,    errorControl = d (0 = printer default)
+   */
+  _parseAztec(group, b0Token, fdToken, hasReverse) {
+    const parts = b0Token.params.split(',');
+    const magnification = parseInt(parts[1]) || 5;
+    const d = parseInt(parts[3]) || 0;
+
+    let aztecSizeMode = 'auto';
+    let aztecErrorControl = 0;
+    let aztecLayers = 0;
+    if (d === 300) {
+      aztecSizeMode = 'rune';
+    } else if (d >= 201 && d <= 232) {
+      aztecSizeMode = 'full';
+      aztecLayers = d - 200;
+    } else if (d >= 101 && d <= 104) {
+      aztecSizeMode = 'compact';
+      aztecLayers = d - 100;
+    } else {
+      aztecSizeMode = 'auto';
+      aztecErrorControl = d >= 0 && d <= 99 ? d : 0;
+    }
+
+    // ^FD carries the raw data (no error-correction prefix, unlike ^BQ).
+    const rawData = fdToken ? fdToken.params : '';
+    const placeholderMatch = rawData.match(/^%([^%]+)%$/);
+    const previewData = placeholderMatch ? placeholderMatch[1] : rawData;
+    const placeholder = placeholderMatch ? placeholderMatch[1] : '';
+
+    return {
+      type: 'QRCODE',
+      symbology: 'AZTEC',
+      x: group.x,
+      y: group.y,
+      previewData,
+      placeholder,
+      magnification,
+      aztecSizeMode,
+      aztecErrorControl,
+      aztecLayers,
       reverse: hasReverse
     };
   }

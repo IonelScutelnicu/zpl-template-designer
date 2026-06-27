@@ -83,7 +83,16 @@ export class ElementService {
           props.errorCorrection || 'Q',
           props.placeholder || '',
           props.reverse || false,
-          symbology
+          symbology,
+          props.moduleSize || 4,
+          props.quality || 200,
+          props.moduleWidth || 2,
+          props.rowHeight || 4,
+          props.securityLevel || 5,
+          props.columns || 0,
+          props.aztecSizeMode || 'auto',
+          props.aztecErrorControl || 0,
+          props.aztecLayers || 0
         );
         break;
       }

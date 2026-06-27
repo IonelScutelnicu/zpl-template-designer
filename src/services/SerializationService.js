@@ -96,7 +96,17 @@ export class SerializationService {
           data.magnification,
           data.errorCorrection,
           data.placeholder,
-          data.reverse
+          data.reverse,
+          data.symbology,
+          data.moduleSize,
+          data.quality,
+          data.moduleWidth,
+          data.rowHeight,
+          data.securityLevel,
+          data.columns,
+          data.aztecSizeMode,
+          data.aztecErrorControl,
+          data.aztecLayers
         );
         break;
 

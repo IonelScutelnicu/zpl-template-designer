@@ -14,11 +14,12 @@ const BWIP_BCID = {
   QR: 'qrcode',
   DATAMATRIX: 'datamatrix',
   PDF417: 'pdf417',
+  AZTEC: 'azteccode',
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'EAN13', 'UPCA'];
-export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
@@ -29,6 +30,7 @@ export const SYMBOLOGY_LABELS = {
   QR: 'QR Code',
   DATAMATRIX: 'Data Matrix',
   PDF417: 'PDF417',
+  AZTEC: 'Aztec',
 };
 
 // Rich metadata for the symbology picker UI: ZPL command, one-line description
@@ -41,6 +43,7 @@ export const SYMBOLOGY_META = {
   QR: { code: '^BQ', desc: 'Matrix · URLs, high capacity', dim: '2D' },
   DATAMATRIX: { code: '^BX', desc: 'Matrix · tiny marks, GS1', dim: '2D' },
   PDF417: { code: '^B7', desc: 'Stacked · IDs, large payloads', dim: '2D' },
+  AZTEC: { code: '^B0', desc: 'Matrix · compact, no quiet zone', dim: '2D' },
 };
 
 // Default preview data per symbology (valid for each so a fresh element renders
@@ -53,6 +56,7 @@ export const DEFAULT_PREVIEW_DATA = {
   QR: 'https://example.com',
   DATAMATRIX: 'Data Matrix',
   PDF417: 'PDF417',
+  AZTEC: 'Aztec',
 };
 
 // Fixed-length numeric symbologies: ZPL auto-truncates / left-pads with zeros to
@@ -71,6 +75,19 @@ export function normalizeBarcodeData(symbology, data) {
   return s.length > len ? s.slice(-len) : s.padStart(len, '0');
 }
 
+/**
+ * An Aztec "rune" (^B0 d=300) encodes a single integer 0–255. bwip-js and the
+ * printer both reject non-numeric / out-of-range / empty data, so coerce any
+ * input to a valid rune value — keeping digits, clamping to 255, defaulting
+ * empty to 0. Mirrors normalizeBarcodeData's silent coercion so the canvas
+ * preview, the Labelary preview and the print all stay in sync.
+ */
+export function normalizeAztecRune(data) {
+  const digits = String(data ?? '').replace(/\D/g, '');
+  if (!digits) return '0';
+  return String(Math.min(255, parseInt(digits, 10)));
+}
+
 /** Resolve an element's symbology, defaulting by element type for legacy data. */
 export function resolveSymbology(element) {
   return element.symbology || (element.type === 'QRCODE' ? 'QR' : 'CODE128');
@@ -86,7 +103,8 @@ export function resolveSymbology(element) {
 export const BARCODE_2D_SIZE_BOUNDS = {
   PDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
   DATAMATRIX: { moduleSize: { min: 1, max: 30 } },
-  QR: { magnification: { min: 1, max: 10 } }
+  QR: { magnification: { min: 1, max: 10 } },
+  AZTEC: { magnification: { min: 1, max: 10 } }
 };
 
 /** Pixel size (in dots) of a single matrix module for a 2D element. */
@@ -97,6 +115,7 @@ export function matrixModuleDots(element) {
     case 'PDF417':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
     case 'QR':
+    case 'AZTEC':
     default:
       return { mx: element.magnification || 5, my: element.magnification || 5 };
   }
@@ -263,6 +282,31 @@ function buildBwipOptions(element) {
   }
   if (symbology === 'QR') {
     opts.eclevel = element.errorCorrection || 'Q';
+  } else if (symbology === 'AZTEC') {
+    // Mirror the ^B0 'd' parameter (see QRCodeElement._render / ZPLParser._parseAztec):
+    // 'rune' / 'compact' / 'full' select bwip's format; explicit layers size the
+    // symbol; otherwise 'auto' uses an error-correction percentage (bwip eclevel,
+    // valid 5–95). errorControl 0 = printer default → omit eclevel (bwip default 23).
+    const mode = element.aztecSizeMode || 'auto';
+    const layers = element.aztecLayers || 0;
+    if (mode === 'rune') {
+      opts.format = 'rune';
+      opts.text = normalizeAztecRune(element.previewData); // rune = single 0–255 byte
+    } else if (mode === 'compact') {
+      opts.format = 'compact';
+      if (layers > 0) opts.layers = Math.min(layers, 4);
+    } else if (mode === 'full') {
+      opts.format = 'full';
+      if (layers > 0) opts.layers = Math.min(layers, 32);
+    } else {
+      const ec = element.aztecErrorControl || 0;
+      if (ec >= 5) opts.eclevel = Math.min(ec, 95);
+      // Zebra/Labelary pick the smallest symbol for d=0 (auto): a compact Aztec
+      // when the data fits, else full-range. bwip defaults to 'full', so probe
+      // compact explicitly — otherwise the canvas symbol is one ring (4 modules)
+      // larger than the API preview for small payloads.
+      opts.format = aztecAutoFormat(opts);
+    }
   } else if (symbology === 'PDF417') {
     if (element.securityLevel != null) opts.eclevel = element.securityLevel;
     if (element.columns > 0) {
@@ -278,6 +322,35 @@ function buildBwipOptions(element) {
 
 const geomCache = new Map();
 const CACHE_MAX = 256;
+
+// Chosen Aztec auto-format ('compact'|'full'), keyed by `text|eclevel`. Probing a
+// compact encode runs on every buildBwipOptions call (before the geometry cache),
+// so memoise it to keep the extra encode off the hot path.
+const aztecFormatCache = new Map();
+
+/**
+ * Pick the Aztec symbol format Zebra/Labelary would choose for an auto (d=0)
+ * symbol: the smaller compact form when the data fits within its 1–4 layers,
+ * otherwise full-range. bwip defaults to full, so we probe a compact encode and
+ * fall back to full if it throws (data/eclevel too large for compact).
+ */
+function aztecAutoFormat(opts) {
+  const key = `${opts.text}|${opts.eclevel ?? ''}`;
+  const cached = aztecFormatCache.get(key);
+  if (cached) return cached;
+
+  let format = 'full';
+  try {
+    bwipjs.raw({ ...opts, format: 'compact' });
+    format = 'compact';
+  } catch {
+    format = 'full';
+  }
+
+  if (aztecFormatCache.size >= CACHE_MAX) aztecFormatCache.clear();
+  aztecFormatCache.set(key, format);
+  return format;
+}
 
 // Predicted PDF417 column counts, keyed by `text|eclevel`. buildBwipOptions runs
 // before the geometry cache is consulted, so memoising here keeps the extra probe
@@ -344,7 +417,7 @@ export function getBarcodeGeometry(element) {
   const wnRatio = symbology === 'CODE39'
     ? Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2)
     : 0;
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 

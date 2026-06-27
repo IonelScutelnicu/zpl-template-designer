@@ -12,6 +12,8 @@ const THUMB_LINEAR = `<svg viewBox="0 0 40 32" class="w-7 h-7" fill="currentColo
 const THUMB_QR = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4.5" y="4.5" width="3" height="3"/><rect x="22" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="24.5" y="4.5" width="3" height="3"/><rect x="2" y="22" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="4.5" y="24.5" width="3" height="3"/><rect x="14" y="3" width="2" height="2"/><rect x="17" y="6" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/><rect x="16" y="13" width="2" height="2"/><rect x="20" y="16" width="2" height="2"/><rect x="24" y="20" width="2" height="2"/><rect x="27" y="24" width="2" height="2"/><rect x="22" y="26" width="2" height="2"/><rect x="16" y="22" width="2" height="2"/><rect x="13" y="19" width="2" height="2"/></svg>`;
 const THUMB_DATAMATRIX = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="2" height="26"/><rect x="3" y="27" width="26" height="2"/><rect x="5" y="3" width="2" height="2"/><rect x="9" y="3" width="2" height="2"/><rect x="13" y="3" width="2" height="2"/><rect x="17" y="3" width="2" height="2"/><rect x="21" y="3" width="2" height="2"/><rect x="25" y="3" width="2" height="2"/><rect x="27" y="5" width="2" height="2"/><rect x="27" y="9" width="2" height="2"/><rect x="27" y="13" width="2" height="2"/><rect x="27" y="17" width="2" height="2"/><rect x="27" y="21" width="2" height="2"/><rect x="27" y="25" width="2" height="2"/><rect x="7" y="7" width="2" height="2"/><rect x="11" y="9" width="2" height="2"/><rect x="15" y="7" width="2" height="2"/><rect x="19" y="11" width="2" height="2"/><rect x="9" y="15" width="2" height="2"/><rect x="13" y="17" width="2" height="2"/><rect x="17" y="15" width="2" height="2"/><rect x="21" y="19" width="2" height="2"/><rect x="11" y="21" width="2" height="2"/><rect x="19" y="23" width="2" height="2"/><rect x="15" y="23" width="2" height="2"/><rect x="23" y="15" width="2" height="2"/></svg>`;
 const THUMB_PDF417 = `<svg viewBox="0 0 40 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="5" width="3" height="22"/><rect x="8" y="5" width="1" height="22"/><rect x="11" y="5" width="2" height="22"/><rect x="15" y="5" width="1" height="22"/><rect x="18" y="5" width="3" height="22"/><rect x="23" y="5" width="1" height="22"/><rect x="26" y="5" width="2" height="22"/><rect x="30" y="5" width="1" height="22"/><rect x="34" y="5" width="3" height="22"/><rect x="0" y="10" width="40" height="1.2" fill="white"/><rect x="0" y="16" width="40" height="1.2" fill="white"/><rect x="0" y="22" width="40" height="1.2" fill="white"/></svg>`;
+// Aztec: concentric central bullseye finder with scattered data modules.
+const THUMB_AZTEC = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="10" y="10" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="13" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="15" y="15" width="2" height="2"/><rect x="3" y="3" width="2" height="2"/><rect x="7" y="3" width="2" height="2"/><rect x="11" y="3" width="2" height="2"/><rect x="19" y="3" width="2" height="2"/><rect x="27" y="3" width="2" height="2"/><rect x="3" y="7" width="2" height="2"/><rect x="3" y="15" width="2" height="2"/><rect x="3" y="23" width="2" height="2"/><rect x="3" y="27" width="2" height="2"/><rect x="27" y="7" width="2" height="2"/><rect x="27" y="11" width="2" height="2"/><rect x="27" y="19" width="2" height="2"/><rect x="27" y="27" width="2" height="2"/><rect x="7" y="27" width="2" height="2"/><rect x="15" y="27" width="2" height="2"/><rect x="23" y="27" width="2" height="2"/><rect x="23" y="7" width="2" height="2"/></svg>`;
 const SYMBOLOGY_THUMBS = {
   CODE128: THUMB_LINEAR,
   CODE39: THUMB_LINEAR,
@@ -20,6 +22,7 @@ const SYMBOLOGY_THUMBS = {
   QR: THUMB_QR,
   DATAMATRIX: THUMB_DATAMATRIX,
   PDF417: THUMB_PDF417,
+  AZTEC: THUMB_AZTEC,
 };
 
 /**
@@ -640,6 +643,18 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.PDF417.rowHeight)}
           ${this.createInputGroup("Security Level", "prop-security-level", element.securityLevel, "number", { min: 0, max: 8 })}
           ${this.createInputGroup("Columns (0 = auto)", "prop-columns", element.columns, "number", { min: 0, max: 30 })}
+        `;
+      case "AZTEC":
+        return `
+          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.AZTEC.magnification)}
+          ${this.createSelectGroup("Symbol Type", "prop-aztec-size-mode", element.aztecSizeMode || "auto", [
+            ["auto", "Auto (error %)"],
+            ["full", "Full-range (layers)"],
+            ["compact", "Compact (layers)"],
+            ["rune", "Rune"],
+          ])}
+          ${this.createInputGroup("Error Control % (0 = default)", "prop-aztec-error-control", element.aztecErrorControl, "number", { min: 0, max: 99 })}
+          ${this.createInputGroup("Layers (0 = auto)", "prop-aztec-layers", element.aztecLayers, "number", { min: 0, max: 32 })}
         `;
       case "QR":
       default:

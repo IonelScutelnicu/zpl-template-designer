@@ -12,6 +12,7 @@ const TWO_D = [
     { symbology: 'QR', command: '^BQN' },
     { symbology: 'DATAMATRIX', command: '^BXN' },
     { symbology: 'PDF417', command: '^B7N' },
+    { symbology: 'AZTEC', command: '^B0N' },
 ];
 
 test.describe('Barcode symbology', () => {
@@ -184,6 +185,93 @@ test.describe('Barcode symbology', () => {
         await zplOutput.verifyZPLContains('^B7N');
     });
 
+    // ============== AZTEC (^B0) ==============
+    test('Aztec defaults emit ^B0N,{mag},N (d omitted) with raw ^FD (no EC prefix)', async () => {
+        await elementsPanel.addQRCodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'AZTEC');
+        // d=0 ("printer default") isn't a valid ^B0 size, so it is omitted.
+        await zplOutput.verifyZPLContains('^B0N,5,N^FDAztec^FS');
+    });
+
+    test('Aztec symbol type maps to the ^B0 d parameter', async ({ page }) => {
+        const cases = await page.evaluate(async () => {
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            const d = (mode: string, ec = 0, layers = 0) => {
+                const el: any = new QRCodeElement(0, 0, 'X', 2, 5, 'Q', '', false, 'AZTEC', 4, 200, 2, 4, 5, 0, mode, ec, layers);
+                // d=0 (default) is omitted entirely; treat a missing d as '0'.
+                return el.render().match(/\^B0N,5,N(?:,(\d+))?\^FD/)?.[1] ?? '0';
+            };
+            return {
+                autoDefault: d('auto', 0),
+                autoEc: d('auto', 50),
+                compact: d('compact', 0, 2),
+                full: d('full', 0, 10),
+                rune: d('rune'),
+            };
+        });
+        expect(cases.autoDefault).toBe('0');
+        expect(cases.autoEc).toBe('50');
+        expect(cases.compact).toBe('102');
+        expect(cases.full).toBe('210');
+        expect(cases.rune).toBe('300');
+    });
+
+    test('Aztec encodes to a matrix geometry (auto, compact, rune)', async ({ page }) => {
+        const kinds = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const kind = (mode: string, data: string) =>
+                (getBarcodeGeometry({ type: 'QRCODE', symbology: 'AZTEC', previewData: data, magnification: 5, aztecSizeMode: mode, aztecErrorControl: 0, aztecLayers: 0 } as any) as any).kind;
+            return {
+                auto: kind('auto', 'Aztec'),
+                compact: kind('compact', 'Hi'),
+                rune: kind('rune', '42'),
+                // Rune requires a 0–255 number; non-numeric / default data must
+                // still render (coerced) rather than fall back to a placeholder.
+                runeNonNumeric: kind('rune', 'Aztec'),
+                runeEmpty: kind('rune', ''),
+            };
+        });
+        expect(kinds.auto).toBe('matrix');
+        expect(kinds.compact).toBe('matrix');
+        expect(kinds.rune).toBe('matrix');
+        expect(kinds.runeNonNumeric).toBe('matrix');
+        expect(kinds.runeEmpty).toBe('matrix');
+    });
+
+    test('Aztec rune data is coerced to a valid 0–255 byte (canvas + ZPL)', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ normalizeAztecRune }, { QRCodeElement }] = await Promise.all([
+                import('/src/utils/barcodeGeometry.js'),
+                import('/src/elements/QRCodeElement.js'),
+            ]);
+            const rune = (data: string, placeholder = '') =>
+                new QRCodeElement(0, 0, data, 2, 5, 'Q', placeholder, false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'rune', 0, 0);
+            return {
+                norm: ['Aztec', '300', '42', '', '7x9'].map((d) => normalizeAztecRune(d)),
+                zplNonNumeric: rune('Aztec').render(),
+                zplInRange: rune('200').render(),
+                // A placeholder token is left intact for the templating system.
+                zplPlaceholder: rune('Aztec', 'tok').render(),
+            };
+        });
+        expect(r.norm).toEqual(['0', '255', '42', '0', '79']); // '7x9' -> digits '79'
+        expect(r.zplNonNumeric).toContain('^B0N,5,N,300^FD0^FS');
+        expect(r.zplInRange).toContain('^B0N,5,N,300^FD200^FS');
+        expect(r.zplPlaceholder).toContain('^FD%tok%^FS');
+    });
+
+    test('Aztec exposes its symbol-type / error / layers controls', async () => {
+        await elementsPanel.addQRCodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'AZTEC');
+        await expect(propertiesPanel.panel.locator('#prop-aztec-size-mode')).toBeVisible();
+        await expect(propertiesPanel.panel.locator('#prop-aztec-error-control')).toBeVisible();
+        await expect(propertiesPanel.panel.locator('#prop-aztec-layers')).toBeVisible();
+        // No QR-only error-correction select for Aztec.
+        await expect(propertiesPanel.panel.locator('#prop-error-correction')).toHaveCount(0);
+    });
+
     // ============== SYMBOLOGY SWITCH BEHAVIOUR (decision C) ==============
     test('switching symbology swaps the default data only when untouched', async () => {
         await elementsPanel.addBarcodeElement();
@@ -272,6 +360,7 @@ test.describe('Barcode symbology', () => {
                 make2D('https://example.com', 'QR'),
                 make2D('Data Matrix', 'DATAMATRIX'),
                 make2D('PDF417', 'PDF417'),
+                make2D('Aztec', 'AZTEC'),
             ];
 
             return samples.map((el: any) => {
@@ -288,5 +377,118 @@ test.describe('Barcode symbology', () => {
             expect(r.gotSymbology, `symbology ${r.expected}`).toBe(r.expected);
             expect(r.dataOk, `data for ${r.expected}`).toBe(true);
         }
+    });
+
+    test('Aztec size fields round-trip through ZPLParser', async ({ page }) => {
+        const results = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            const make = (mode: string, ec: number, layers: number) =>
+                new QRCodeElement(10, 10, 'Aztec', 2, 5, 'Q', '', false, 'AZTEC', 4, 200, 2, 4, 5, 0, mode, ec, layers);
+            const samples = [
+                make('auto', 0, 0),
+                make('auto', 50, 0),
+                make('compact', 0, 2),
+                make('full', 0, 10),
+                make('rune', 0, 0),
+            ];
+            return samples.map((el: any) => {
+                const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
+                return {
+                    mode: el.aztecSizeMode,
+                    modeOk: parsed?.aztecSizeMode === el.aztecSizeMode,
+                    ecOk: parsed?.aztecErrorControl === el.aztecErrorControl,
+                    layersOk: parsed?.aztecLayers === el.aztecLayers,
+                };
+            });
+        });
+        for (const r of results) {
+            expect(r.modeOk, `mode ${r.mode}`).toBe(true);
+            expect(r.ecOk, `errorControl ${r.mode}`).toBe(true);
+            expect(r.layersOk, `layers ${r.mode}`).toBe(true);
+        }
+    });
+
+    // Template export → import (JSON serialize/deserialize), the path used by the
+    // download/upload buttons and by saved app state.
+    test('Aztec fields survive template serialize → deserialize', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { SerializationService }] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/SerializationService.js'),
+            ]);
+            const svc = new SerializationService();
+            const el = new QRCodeElement(10, 10, 'Aztec', 2, 5, 'Q', 'tok', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'compact', 33, 3);
+            // Round-trip through the same JSON the export writes.
+            const data = JSON.parse(JSON.stringify(svc.serializeElement(el)));
+            const restored: any = svc.createElementFromData(data, { keepId: false });
+            return {
+                type: restored?.type,
+                symbology: restored?.symbology,
+                mode: restored?.aztecSizeMode,
+                ec: restored?.aztecErrorControl,
+                layers: restored?.aztecLayers,
+                data: restored?.previewData,
+                placeholder: restored?.placeholder,
+            };
+        });
+        expect(r.type).toBe('QRCODE');
+        expect(r.symbology).toBe('AZTEC');
+        expect(r.mode).toBe('compact');
+        expect(r.ec).toBe(33);
+        expect(r.layers).toBe(3);
+        expect(r.data).toBe('Aztec');
+        expect(r.placeholder).toBe('tok');
+    });
+
+    // ZPL paste/import path: parser output → createElementFromData (as app.js
+    // importTemplate does), confirming Aztec fields survive into a real element.
+    test('Aztec survives ZPL import (parse → createElementFromData)', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, { SerializationService }] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/services/SerializationService.js'),
+            ]);
+            const src = new QRCodeElement(20, 30, 'Aztec', 2, 7, 'Q', '', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'full', 0, 5);
+            const parsed = new ZPLParser().parse('^XA' + src.render() + '^XZ').elements[0];
+            const el: any = new SerializationService().createElementFromData(parsed, { keepId: false });
+            return {
+                symbology: el?.symbology,
+                x: el?.x, y: el?.y,
+                magnification: el?.magnification,
+                mode: el?.aztecSizeMode,
+                layers: el?.aztecLayers,
+                // Re-render must reproduce the same ^B0 command.
+                zpl: el?.render?.(),
+            };
+        });
+        expect(r.symbology).toBe('AZTEC');
+        expect(r.x).toBe(20);
+        expect(r.y).toBe(30);
+        expect(r.magnification).toBe(7);
+        expect(r.mode).toBe('full');
+        expect(r.layers).toBe(5);
+        expect(r.zpl).toContain('^B0N,7,N,205');
+    });
+
+    // Density (DPI) rescale: Aztec sizes via magnification, scaled by the QRCODE
+    // branch of applyRescale (clamped to the shared 2D magnification bound).
+    test('Aztec magnification scales on density change', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { applyRescale } = await import('/src/services/DensityRescaleService.js');
+            const el: any = { type: 'QRCODE', symbology: 'AZTEC', x: 10, y: 20, magnification: 4 };
+            applyRescale({ elements: [el], labelSettings: {}, oldDpmm: 8, newDpmm: 12 }); // s = 1.5
+            const elClamp: any = { type: 'QRCODE', symbology: 'AZTEC', x: 0, y: 0, magnification: 8 };
+            applyRescale({ elements: [elClamp], labelSettings: {}, oldDpmm: 8, newDpmm: 16 }); // s = 2 → 16 clamps to 10
+            return { x: el.x, y: el.y, mag: el.magnification, clampedMag: elClamp.magnification };
+        });
+        expect(r.x).toBe(15);            // 10 * 1.5
+        expect(r.y).toBe(30);            // 20 * 1.5
+        expect(r.mag).toBe(6);           // round(4 * 1.5)
+        expect(r.clampedMag).toBe(10);   // round(8 * 2)=16 clamped to max 10
     });
 });

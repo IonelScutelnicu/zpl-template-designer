@@ -157,6 +157,7 @@ test.describe('Visual Regression Tests', () => {
             { kind: '2d', symbology: 'QR', data: 'https://test.com' },
             { kind: '2d', symbology: 'DATAMATRIX', data: 'Data Matrix' },
             { kind: '2d', symbology: 'PDF417', data: 'PDF417 sample' },
+            { kind: '2d', symbology: 'AZTEC', data: 'Aztec sample' },
         ] as const;
 
         for (const c of cases) {
