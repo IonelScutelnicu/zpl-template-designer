@@ -4,8 +4,8 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
-//   INTERLEAVED2OF5 -> ^B2,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,
-//   UPCEANEXT -> ^BS (2/5-digit add-on)
+//   INTERLEAVED2OF5 -> ^B2,  INDUSTRIAL2OF5 -> ^BI,  EAN13 -> ^BE,  EAN8 -> ^B8,
+//   UPCA -> ^BU,  UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
     constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A') {
         super(x, y);
@@ -53,6 +53,10 @@ export class BarcodeElement extends ZPLElement {
                 const tail = this.checkDigit ? `,${gVal},Y` : g;
                 return `${pos}${by}^B2${o},${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
+            case 'INDUSTRIAL2OF5':
+                // ^BIo,h,f,g — plain o,h,f,g layout (no e/check-digit param). Industrial
+                // 2 of 5 is numeric-only and self-checking; all data is carried in the bars.
+                return `${pos}${by}^BI${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'CODE93': {
                 // ^BA param order is o,h,f,g,e — same layout as ^B2. Code 93 always
                 // encodes its two check chars in the bars; e only prints them in the
