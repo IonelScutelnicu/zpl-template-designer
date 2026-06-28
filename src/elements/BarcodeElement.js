@@ -3,7 +3,7 @@ import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeome
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
-//   CODE128 -> ^BC,  CODE39 -> ^B3,  INTERLEAVED2OF5 -> ^B2,
+//   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  INTERLEAVED2OF5 -> ^B2,
 //   EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9
 export class BarcodeElement extends ZPLElement {
     constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false) {
@@ -43,6 +43,14 @@ export class BarcodeElement extends ZPLElement {
                 const gVal = this.printTextAbove ? 'Y' : 'N';
                 const tail = this.checkDigit ? `,${gVal},Y` : g;
                 return `${pos}${by}^B2${o},${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
+            case 'CODE93': {
+                // ^BA param order is o,h,f,g,e — same layout as ^B2. Code 93 always
+                // encodes its two check chars in the bars; e only prints them in the
+                // HRI. As with ^B2, fill the g slot when e is on so e lands correctly.
+                const gVal = this.printTextAbove ? 'Y' : 'N';
+                const tail = this.checkDigit ? `,${gVal},Y` : g;
+                return `${pos}${by}^BA${o},${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'EAN13':
                 return `${pos}${by}^BE${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;

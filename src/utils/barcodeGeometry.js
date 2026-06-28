@@ -9,6 +9,7 @@ import bwipjs from '../vendor/bwip-js.mjs';
 const BWIP_BCID = {
   CODE128: 'code128',
   CODE39: 'code39',
+  CODE93: 'code93',
   INTERLEAVED2OF5: 'interleaved2of5',
   EAN13: 'ean13',
   EAN8: 'ean8',
@@ -21,13 +22,14 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
   CODE128: 'Code 128',
   CODE39: 'Code 39',
+  CODE93: 'Code 93',
   INTERLEAVED2OF5: 'Interleaved 2 of 5',
   EAN13: 'EAN-13',
   EAN8: 'EAN-8',
@@ -44,6 +46,7 @@ export const SYMBOLOGY_LABELS = {
 export const SYMBOLOGY_META = {
   CODE128: { code: '^BC', desc: 'Alphanumeric · variable length', dim: '1D' },
   CODE39: { code: '^B3', desc: 'A–Z, 0–9, symbols · variable', dim: '1D' },
+  CODE93: { code: '^BA', desc: 'Full ASCII · compact Code 39', dim: '1D' },
   INTERLEAVED2OF5: { code: '^B2', desc: 'Numeric only · even length', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
@@ -60,6 +63,7 @@ export const SYMBOLOGY_META = {
 export const DEFAULT_PREVIEW_DATA = {
   CODE128: '1234567890',
   CODE39: 'CODE39',
+  CODE93: 'CODE93',
   INTERLEAVED2OF5: '1234567890',
   EAN13: '123456789012',
   EAN8: '1234567',
@@ -243,6 +247,7 @@ export const HRI_CONFIG = {
   UPCE: hriFontConfig.EAN,
   CODE128: hriFontConfig.CODE,
   CODE39: hriFontConfig.CODE,
+  CODE93: hriFontConfig.CODE,
   INTERLEAVED2OF5: hriFontConfig.CODE,
 };
 
@@ -267,6 +272,41 @@ export function code39CheckChar(data) {
     sum += idx;
   }
   return CODE39_CHARS[sum % 43];
+}
+
+// Code 93's 47-value alphabet for the two mandatory check characters (C, K). The
+// first 43 entries match the Code 39 data set; values 43–46 are the shift symbols,
+// which Zebra/Labelary render as 'a'–'d' in the HRI (confirmed live: a check value
+// of 44 prints as 'b').
+const CODE93_CHECK_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%abcd';
+
+/**
+ * Compute Code 93's two check characters (C then K) for `data` — the chars Zebra
+ * appends to the HRI when ^BA's print-check-digit flag (e) is on. The check chars
+ * are always encoded in the bars regardless; this only affects the readable line.
+ * Returns '' if any char is outside the Code 93 set (bwip couldn't encode it either).
+ */
+export function code93CheckChars(data) {
+  const s = String(data ?? '');
+  const vals = [];
+  for (const ch of s) {
+    const idx = CODE93_CHECK_CHARS.indexOf(ch);
+    // Only the first 43 entries are valid input characters; 43–46 are check-only.
+    if (idx < 0 || idx > 42) return '';
+    vals.push(idx);
+  }
+  const n = vals.length;
+  // C: weights cycle 1..20 from the right; K: weights cycle 1..15 from the right
+  // and include C in its sum. (Both taken mod 47.)
+  let c = 0;
+  let k = 0;
+  for (let i = 0; i < n; i++) {
+    c += ((n - i - 1) % 20 + 1) * vals[i];
+    k += ((n - i) % 15 + 1) * vals[i];
+  }
+  c %= 47;
+  k = (k + c) % 47;
+  return CODE93_CHECK_CHARS[c] + CODE93_CHECK_CHARS[k];
 }
 
 /**
@@ -332,6 +372,13 @@ function buildBwipOptions(element) {
     // computed check character, widening the symbol by one Code 39 character. Mirror
     // that on the canvas so the bar count matches Labelary. (The check char is added
     // to the HRI line by BarcodeRenderer via code39CheckChar.)
+    opts.includecheck = true;
+  }
+  if (symbology === 'CODE93') {
+    // Code 93's two check characters (C, K) are mandatory — Zebra always encodes
+    // them in the bars (verified on Labelary: the bar count is identical whether
+    // ^BA's e flag is N or Y). The e flag only toggles their HRI display, which the
+    // renderer handles via code93CheckChars; the bars must always include them.
     opts.includecheck = true;
   }
   if (symbology === 'CODE128') {

@@ -5,6 +5,7 @@ import { ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 const ONE_D = [
     { symbology: 'CODE128', command: '^BCN' },
     { symbology: 'CODE39', command: '^B3N' },
+    { symbology: 'CODE93', command: '^BAN' },
     { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
@@ -193,6 +194,60 @@ test.describe('Barcode symbology', () => {
         expect(r.checkDigit).toBe(true);
     });
 
+    // ============== CODE 93 (^BA) ==============
+    test('Code 93 emits ^BA with the check-digit flag last (o,h,f,g,e)', async () => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'CODE93');
+        // No ratio param for Code 93 (fixed ratio); default emits N with no g/e.
+        await zplOutput.verifyZPLContains('^BAN,50,Y^FD');
+        // Enabling "print check digits" fills the g slot so e lands in position.
+        await propertiesPanel.panel.locator('#prop-check-digit').check({ force: true });
+        await zplOutput.verifyZPLContains('^BAN,50,Y,N,Y');
+    });
+
+    test('Code 93 check chars are always in the bars; e only adds them to the HRI', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry, code93CheckChars } = await import('/src/utils/barcodeGeometry.js');
+            const geom = (checkDigit: boolean) =>
+                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE93', previewData: '12345ABC', showText: true, width: 2, checkDigit } as any) as any;
+            return {
+                checkChars: code93CheckChars('12345ABC'),
+                shiftCheck: code93CheckChars('M0'),  // exercises the 'a'–'d' check values
+                invalid: code93CheckChars('code93'), // lowercase isn't Code 93 input -> ''
+                // Mandatory C+K are encoded regardless of the flag, so module count is equal.
+                modulesNoFlag: geom(false).modules,
+                modulesWithFlag: geom(true).modules,
+            };
+        });
+        expect(r.checkChars).toBe('37');     // Labelary: ^FD12345ABC -> HRI "12345ABC37"
+        expect(r.shiftCheck).toBe('bG');     // Labelary: ^FDM0 -> HRI "M0bG"
+        expect(r.invalid).toBe('');
+        expect(r.modulesWithFlag).toBe(r.modulesNoFlag);
+    });
+
+    test('Code 93 round-trips orientation, printTextAbove and check digit', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            const el: any = new BarcodeElement(10, 10, 'CODE93', 50, 2, 3, '', true, false, 'CODE93', true, 'I', true);
+            const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
+            return {
+                sym: parsed?.symbology,
+                orientation: parsed?.orientation,
+                above: parsed?.printTextAbove,
+                checkDigit: parsed?.checkDigit,
+            };
+        });
+        expect(r.sym).toBe('CODE93');
+        expect(r.orientation).toBe('I');
+        expect(r.above).toBe(true);
+        expect(r.checkDigit).toBe(true);
+    });
+
     // ============== ORIENTATION + INTERPRETATION LINE ABOVE ==============
     test.describe('orientation and interpretation line above', () => {
         // Per symbology, the expected command once orientation=R and
@@ -200,6 +255,7 @@ test.describe('Barcode symbology', () => {
         const cases = [
             { symbology: 'CODE128', expected: '^BCR,50,Y,Y' },
             { symbology: 'CODE39', expected: '^B3R,N,50,Y,Y' },
+            { symbology: 'CODE93', expected: '^BAR,50,Y,Y' },
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -456,6 +512,7 @@ test.describe('Barcode symbology', () => {
             const samples = [
                 make1D('1234567890', 'CODE128'),
                 make1D('CODE39', 'CODE39', true),
+                make1D('CODE93', 'CODE93'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),

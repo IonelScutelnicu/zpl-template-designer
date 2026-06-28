@@ -17,6 +17,7 @@ const THUMB_AZTEC = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor
 const SYMBOLOGY_THUMBS = {
   CODE128: THUMB_LINEAR,
   CODE39: THUMB_LINEAR,
+  CODE93: THUMB_LINEAR,
   INTERLEAVED2OF5: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
   EAN8: THUMB_LINEAR,
@@ -628,11 +629,14 @@ export class PropertiesPanelRenderer {
   renderBarcodeProperties(element) {
     const symbology = element.symbology || "CODE128";
     const isCode39 = symbology === "CODE39";
+    const isCode93 = symbology === "CODE93";
     const isI2of5 = symbology === "INTERLEAVED2OF5";
-    // Code 39 and Interleaved 2 of 5 both derive their wide:narrow ratio from ^BY and
-    // support an optional check digit (mod-43 vs mod-10).
+    // Code 39 and Interleaved 2 of 5 derive their wide:narrow ratio from ^BY; Code 93
+    // has a fixed ratio. All three expose a check-digit toggle (mod-43 / mod-10 / the
+    // mandatory Code 93 C+K chars, which ^BA's e flag prints into the HRI).
     const hasRatio = isCode39 || isI2of5;
-    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : "Mod-43 Check Digit";
+    const hasCheckDigit = isCode39 || isI2of5 || isCode93;
+    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : "Mod-43 Check Digit";
     return `
       ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, BARCODE_SYMBOLOGIES), { open: true, elementType: element.type })}
       ${this.renderAlignmentControls(element)}
@@ -652,7 +656,7 @@ export class PropertiesPanelRenderer {
       ${this.renderSection("Barcode Settings", `
         ${this.createInputGroup("Module Width", "prop-width", element.width, "number", { min: 1, max: 10 })}
         ${hasRatio ? this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 2, max: 3, step: 0.1 }) : ""}
-        ${hasRatio ? this.createToggleGroup(checkDigitLabel, "prop-check-digit", element.checkDigit === true) : ""}
+        ${hasCheckDigit ? this.createToggleGroup(checkDigitLabel, "prop-check-digit", element.checkDigit === true) : ""}
         ${this.renderHriControl(element)}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}

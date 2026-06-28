@@ -1,7 +1,7 @@
 // Barcode Renderer
 // Renders 1D BARCODE elements on canvas using real bwip-js geometry.
 
-import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, interleaved2of5Digits } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, interleaved2of5Digits } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
@@ -66,6 +66,10 @@ export class BarcodeRenderer {
       displayText = `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
     } else if (sym === 'INTERLEAVED2OF5') {
       displayText = interleaved2of5Digits(data, element.checkDigit);
+    } else if (sym === 'CODE93' && element.checkDigit) {
+      // Code 93's two check chars are always in the bars; ^BA's e flag adds them to
+      // the HRI (e.g. 12345ABC -> 12345ABC37). Matches Labelary/Zebra.
+      displayText = `${data}${code93CheckChars(data)}`;
     }
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;

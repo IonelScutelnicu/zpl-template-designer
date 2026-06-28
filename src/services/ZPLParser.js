@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BE/^BU/^BX are two-letter.
-  'B', 'BE', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BU/^BX are two-letter.
+  'B', 'BA', 'BE', 'BU', 'BX'
 ]);
 
 /**
@@ -572,6 +572,10 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE128', fhToken);
     }
 
+    if (hasCommand('BA')) {
+      return this._parseBarcode(group, getCommand('BA'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE93', fhToken);
+    }
+
     // ^B3 (Code 39) and ^B7 (PDF417) tokenize as command 'B' with the digit
     // pushed into params, since the tokenizer only captures letters.
     if (hasCommand('B')) {
@@ -805,8 +809,8 @@ export class ZPLParser {
     const showText = (parts[showIdx] || 'Y').trim() !== 'N';
     // "Print interpretation line above code" (g) sits right after f in all four commands.
     const printTextAbove = (parts[showIdx + 1] || 'N').trim() === 'Y';
-    // ^B2 (Interleaved 2 of 5) carries a mod-10 check-digit flag (e) after g.
-    if (symbology === 'INTERLEAVED2OF5') {
+    // ^B2 (Interleaved 2 of 5) and ^BA (Code 93) carry a check-digit flag (e) after g.
+    if (symbology === 'INTERLEAVED2OF5' || symbology === 'CODE93') {
       checkDigit = (parts[showIdx + 2] || 'N').trim() === 'Y';
     }
 
