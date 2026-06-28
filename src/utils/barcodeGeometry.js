@@ -10,6 +10,7 @@ const BWIP_BCID = {
   CODE128: 'code128',
   CODE39: 'code39',
   CODE93: 'code93',
+  CODE11: 'code11',
   CODABAR: 'rationalizedCodabar',
   INTERLEAVED2OF5: 'interleaved2of5',
   EAN13: 'ean13',
@@ -26,7 +27,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODABAR', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -34,6 +35,7 @@ export const SYMBOLOGY_LABELS = {
   CODE128: 'Code 128',
   CODE39: 'Code 39',
   CODE93: 'Code 93',
+  CODE11: 'Code 11',
   CODABAR: 'Codabar',
   INTERLEAVED2OF5: 'Interleaved 2 of 5',
   EAN13: 'EAN-13',
@@ -54,6 +56,7 @@ export const SYMBOLOGY_META = {
   CODE128: { code: '^BC', desc: 'Alphanumeric · variable length', dim: '1D' },
   CODE39: { code: '^B3', desc: 'A–Z, 0–9, symbols · variable', dim: '1D' },
   CODE93: { code: '^BA', desc: 'Full ASCII · compact Code 39', dim: '1D' },
+  CODE11: { code: '^B1', desc: 'Digits + hyphen · telecom (USD-8)', dim: '1D' },
   CODABAR: { code: '^BK', desc: 'Digits + -$:/.+ · libraries, medical', dim: '1D' },
   INTERLEAVED2OF5: { code: '^B2', desc: 'Numeric only · even length', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
@@ -74,6 +77,7 @@ export const DEFAULT_PREVIEW_DATA = {
   CODE128: '1234567890',
   CODE39: 'CODE39',
   CODE93: 'CODE93',
+  CODE11: '123456',
   CODABAR: '1234567890',
   INTERLEAVED2OF5: '1234567890',
   EAN13: '123456789012',
@@ -277,6 +281,7 @@ export const HRI_CONFIG = {
   CODE128: hriFontConfig.CODE,
   CODE39: hriFontConfig.CODE,
   CODE93: hriFontConfig.CODE,
+  CODE11: hriFontConfig.CODE,
   CODABAR: hriFontConfig.CODE,
   INTERLEAVED2OF5: hriFontConfig.CODE,
   UPCEANEXT: hriFontConfig.CODE,
@@ -340,6 +345,30 @@ export function code93CheckChars(data) {
   return CODE93_CHECK_CHARS[c] + CODE93_CHECK_CHARS[k];
 }
 
+// Code 11 character set (values 0–10); the check digit can itself be the hyphen (10).
+const CODE11_CHARS = '0123456789-';
+
+/**
+ * Compute Code 11's check digit(s) for `data` — the chars Zebra always appends to the
+ * symbol/HRI. ^B1's e flag picks the count: `single` (e=Y) → one C digit; otherwise
+ * (e=N, the default) → two digits C+K. C weights cycle 1..10 from the right; K weights
+ * cycle 1..9 over data+C; both mod 11. Returns '' if any char is outside the Code 11
+ * set (bwip couldn't encode it either). (Verified on Labelary: 123456 → C=1, K=1.)
+ */
+export function code11CheckDigits(data, single = false) {
+  const s = String(data ?? '');
+  for (const ch of s) if (CODE11_CHARS.indexOf(ch) < 0) return '';
+  const checkChar = (str, cycle) => {
+    let sum = 0;
+    for (let i = 0; i < str.length; i++) {
+      sum += CODE11_CHARS.indexOf(str[str.length - 1 - i]) * ((i % cycle) + 1);
+    }
+    return CODE11_CHARS[sum % 11];
+  };
+  const c = checkChar(s, 10);
+  return single ? c : c + checkChar(s + c, 9);
+}
+
 /**
  * Compute the Interleaved 2 of 5 mod-10 check digit for `digits` (the char Zebra
  * appends when ^B2's check-digit flag is on). Weights alternate 3,1 from the
@@ -373,7 +402,7 @@ export function interleaved2of5Digits(data, checkDigit) {
 // bwip-js' native wide:narrow element value per ratio-bearing symbology. Code 39 is
 // encoded at a fixed 3:1, Interleaved 2 of 5 at 2:1; getBarcodeGeometry rescales these
 // wide elements to the element's effective ^BY ratio so the canvas matches Labelary.
-const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3 };
+const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3, CODE11: 3 };
 
 // ZPL ^BF mode (0–33) → fixed Micro-PDF417 [dataColumns, rows] variant. Each mode is
 // a fixed size (not auto-fit): data that doesn't fit fails to encode (Labelary renders
@@ -435,6 +464,12 @@ function buildBwipOptions(element) {
     const start = (element.startChar || 'A').toUpperCase();
     const stop = (element.stopChar || 'A').toUpperCase();
     opts.text = start + normalizeBarcodeData(symbology, element.previewData) + stop;
+  }
+  if (symbology === 'CODE11') {
+    // ^B1 always appends check digit(s): e=N → 2 (C+K), e=Y → 1 (C). bwip's own
+    // includecheck picks the count from data length, which doesn't match Zebra, so we
+    // compute the digits and feed the literal string with bwip's check disabled.
+    opts.text = (element.previewData || '') + code11CheckDigits(element.previewData, element.checkDigit);
   }
   if (symbology === 'CODE93') {
     // Code 93's two check characters (C, K) are mandatory — Zebra always encodes

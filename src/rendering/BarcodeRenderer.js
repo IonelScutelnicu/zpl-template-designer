@@ -1,7 +1,7 @@
 // Barcode Renderer
 // Renders 1D BARCODE elements on canvas using real bwip-js geometry.
 
-import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, interleaved2of5Digits, normalizeUpcEanExt } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, code11CheckDigits, interleaved2of5Digits, normalizeUpcEanExt } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
@@ -64,6 +64,10 @@ export class BarcodeRenderer {
     let displayText = data;
     if (sym === 'CODE39') {
       displayText = `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
+    } else if (sym === 'CODE11') {
+      // Code 11 always carries check digit(s) in the bars; show them in the HRI like
+      // Labelary (123456 -> 12345611 for 2 digits, 1234561 for the single-digit flag).
+      displayText = `${data}${code11CheckDigits(data, element.checkDigit)}`;
     } else if (sym === 'INTERLEAVED2OF5') {
       displayText = interleaved2of5Digits(data, element.checkDigit);
     } else if (sym === 'CODE93' && element.checkDigit) {

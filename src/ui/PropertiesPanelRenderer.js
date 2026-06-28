@@ -18,6 +18,7 @@ const SYMBOLOGY_THUMBS = {
   CODE128: THUMB_LINEAR,
   CODE39: THUMB_LINEAR,
   CODE93: THUMB_LINEAR,
+  CODE11: THUMB_LINEAR,
   CODABAR: THUMB_LINEAR,
   INTERLEAVED2OF5: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
@@ -633,15 +634,16 @@ export class PropertiesPanelRenderer {
     const symbology = element.symbology || "CODE128";
     const isCode39 = symbology === "CODE39";
     const isCode93 = symbology === "CODE93";
+    const isCode11 = symbology === "CODE11";
     const isI2of5 = symbology === "INTERLEAVED2OF5";
     const isCodabar = symbology === "CODABAR";
-    // Code 39, Interleaved 2 of 5 and Codabar derive their wide:narrow ratio from ^BY;
-    // Code 93 has a fixed ratio. Code 39 / I2of5 / Code 93 expose a check-digit toggle
-    // (mod-43 / mod-10 / the mandatory Code 93 C+K chars); Codabar's check digit is
-    // fixed off, but it instead exposes selectable start/stop characters (^BK k/l).
-    const hasRatio = isCode39 || isI2of5 || isCodabar;
-    const hasCheckDigit = isCode39 || isI2of5 || isCode93;
-    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : "Mod-43 Check Digit";
+    // Code 39, Interleaved 2 of 5, Codabar and Code 11 derive their wide:narrow ratio
+    // from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 / Code 93 / Code 11 expose a
+    // check-digit toggle (mod-43 / mod-10 / mandatory Code 93 C+K / Code 11 1-vs-2
+    // digits); Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
+    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11;
+    const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11;
+    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : "Mod-43 Check Digit";
     const startStopOptions = [["A", "A"], ["B", "B"], ["C", "C"], ["D", "D"]];
     return `
       ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, BARCODE_SYMBOLOGIES), { open: true, elementType: element.type })}

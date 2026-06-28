@@ -3,7 +3,7 @@ import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeome
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
-//   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODABAR -> ^BK,
+//   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
 //   INTERLEAVED2OF5 -> ^B2,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,
 //   UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
@@ -39,6 +39,12 @@ export class BarcodeElement extends ZPLElement {
             case 'CODE39': {
                 const e = this.checkDigit ? 'Y' : 'N';
                 return `${pos}${by}^B3${o},${e},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
+            case 'CODE11': {
+                // ^B1o,e,h,f,g — same layout as ^B3. e is Y=1 check digit / N=2 check
+                // digits (default N), so model checkDigit as "single check digit".
+                const e = this.checkDigit ? 'Y' : 'N';
+                return `${pos}${by}^B1${o},${e},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'INTERLEAVED2OF5': {
                 // ^B2 param order is o,h,f,g,e. When the mod-10 check digit (e) is on,

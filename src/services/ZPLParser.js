@@ -226,13 +226,14 @@ export class ZPLParser {
     };
 
     for (const token of tokens) {
-      // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B2
-      // (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417), ^B8 (EAN-8) and ^B9
-      // (UPC-E); other numeric variants (^B1/^B4, …) have no dispatch branch and would
+      // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B1 (Code 11),
+      // ^B2 (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417), ^B8 (EAN-8) and ^B9
+      // (UPC-E); other numeric variants (^B4, ^B5, …) have no dispatch branch and would
       // otherwise be dropped silently, so they must still warn.
       const isKnown = KNOWN_COMMANDS.has(token.command)
         && (token.command !== 'B'
           || token.params.charAt(0) === '0'
+          || token.params.charAt(0) === '1'
           || token.params.charAt(0) === '2'
           || token.params.charAt(0) === '3'
           || token.params.charAt(0) === '7'
@@ -594,6 +595,9 @@ export class ZPLParser {
       const bToken = getCommand('B');
       const sub = bToken.params.charAt(0);
       const shifted = { ...bToken, params: bToken.params.slice(1) };
+      if (sub === '1') {
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE11', fhToken);
+      }
       if (sub === '2') {
         return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'INTERLEAVED2OF5', fhToken);
       }
@@ -809,13 +813,14 @@ export class ZPLParser {
     const rawOrientation = (parts[0] || 'N').trim().toUpperCase();
     const orientation = ['N', 'R', 'I', 'B'].includes(rawOrientation) ? rawOrientation : 'N';
 
-    // Code 39 (^B3o,e,h,f) and Codabar (^BKo,e,h,f,g,k,l) carry an e param before
-    // height — a real check digit for Code 39, fixed N (ignored) for Codabar.
+    // Code 39 (^B3o,e,h,f), Code 11 (^B1o,e,h,f,g) and Codabar (^BKo,e,h,f,g,k,l) carry
+    // an e param before height: a check-digit flag for Code 39 (on/off) and Code 11
+    // (Y=1 / N=2 digits, modelled as "single"), fixed N (ignored) for Codabar.
     let heightIdx = 1;
     let showIdx = 2;
     let checkDigit = false;
-    if (symbology === 'CODE39' || symbology === 'CODABAR') {
-      if (symbology === 'CODE39') checkDigit = (parts[1] || 'N').trim() === 'Y';
+    if (symbology === 'CODE39' || symbology === 'CODE11' || symbology === 'CODABAR') {
+      if (symbology === 'CODE39' || symbology === 'CODE11') checkDigit = (parts[1] || 'N').trim() === 'Y';
       heightIdx = 2;
       showIdx = 3;
     }

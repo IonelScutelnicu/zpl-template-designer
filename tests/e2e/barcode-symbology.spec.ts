@@ -6,6 +6,7 @@ const ONE_D = [
     { symbology: 'CODE128', command: '^BCN' },
     { symbology: 'CODE39', command: '^B3N' },
     { symbology: 'CODE93', command: '^BAN' },
+    { symbology: 'CODE11', command: '^B1N' },
     { symbology: 'CODABAR', command: '^BKN' },
     { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'EAN13', command: '^BEN' },
@@ -251,6 +252,52 @@ test.describe('Barcode symbology', () => {
         expect(r.checkDigit).toBe(true);
     });
 
+    // ============== CODE 11 (^B1) ==============
+    test('Code 11 appends 1 or 2 check digits (^B1 e flag) to the bars and HRI', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { code11CheckDigits, getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const modules = (single: boolean) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE11', previewData: '123456', checkDigit: single, ratio: 3, width: 2, showText: true } as any) as any).modules;
+            return {
+                two: code11CheckDigits('123456', false), // e=N -> C+K
+                one: code11CheckDigits('123456', true),  // e=Y -> C
+                invalid: code11CheckDigits('12.34', false), // '.' not in the Code 11 set -> ''
+                modTwo: modules(false),
+                modOne: modules(true),
+            };
+        });
+        expect(r.two).toBe('11');  // Labelary: ^FD123456 (e=N) -> "12345611"
+        expect(r.one).toBe('1');   // Labelary: ^FD123456 (e=Y) -> "1234561"
+        expect(r.invalid).toBe('');
+        expect(r.modTwo).toBeGreaterThan(r.modOne); // 2 check digits widen the symbol vs 1
+    });
+
+    test('Code 11 emits ^B1 e=Y for a single check digit and round-trips', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            // checkDigit=true (single), orientation I, printTextAbove true.
+            const el: any = new BarcodeElement(10, 10, '123456', 50, 2, 3, '', true, false, 'CODE11', true, 'I', true);
+            const zpl = el.render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            return {
+                emitsSingle: zpl.includes('^B1I,Y,50,Y,Y'),
+                sym: parsed?.symbology,
+                orientation: parsed?.orientation,
+                above: parsed?.printTextAbove,
+                checkDigit: parsed?.checkDigit,
+            };
+        });
+        expect(r.emitsSingle).toBe(true);
+        expect(r.sym).toBe('CODE11');
+        expect(r.orientation).toBe('I');
+        expect(r.above).toBe(true);
+        expect(r.checkDigit).toBe(true);
+    });
+
     // ============== CODABAR (^BK) ==============
     test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
         await elementsPanel.addBarcodeElement();
@@ -362,6 +409,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'CODE128', expected: '^BCR,50,Y,Y' },
             { symbology: 'CODE39', expected: '^B3R,N,50,Y,Y' },
             { symbology: 'CODE93', expected: '^BAR,50,Y,Y' },
+            { symbology: 'CODE11', expected: '^B1R,N,50,Y,Y' },
             { symbology: 'CODABAR', expected: '^BKR,N,50,Y,Y' },
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
@@ -661,6 +709,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567890', 'CODE128'),
                 make1D('CODE39', 'CODE39', true),
                 make1D('CODE93', 'CODE93'),
+                make1D('123456', 'CODE11'),
                 make1D('1234567890', 'CODABAR'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
