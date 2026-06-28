@@ -69,8 +69,6 @@ export const ZPL_FONTS = {
     charRules: {
       '-': { type: 'bar', padRatio: 0.16, lineRatio: 0.58, heightRatio: 0.10, yRatio: 0.40 },
       '—': { type: 'bar', padRatio: 0.16, lineRatio: 0.58, heightRatio: 0.10, yRatio: 0.40 },
-      '_': { type: 'bar', padRatio: 0, lineRatio: 0.40, heightRatio: 0.10, yRatio: 0.93 },
-      '|': { type: 'bar', padRatio: 0.215, lineRatio: 0.10, heightRatio: 0.80, yRatio: 0.06 },
       // Real glyph. advanceRatio = cell pitch (match Zebra's digit spacing);
       // widthRatio < 1 condenses the glyph itself. Centered in the cell.
       '0': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
@@ -157,6 +155,12 @@ export const ZPL_FONTS = {
       'm': { type: 'glyph', advanceRatio: 0.754, widthRatio: 1 },
       'y': { type: 'glyph', advanceRatio: 0.444, widthRatio: 1 },
       ' ': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+      '~': { type: 'glyph', advanceRatio: 1, widthRatio: 1.7 },
+      '^': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.3 },
+      '{': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
+      '}': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
+      '|': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
+      '_': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
     }
   },
   'A': {
