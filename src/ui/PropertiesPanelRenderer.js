@@ -22,6 +22,7 @@ const SYMBOLOGY_THUMBS = {
   CODABAR: THUMB_LINEAR,
   INTERLEAVED2OF5: THUMB_LINEAR,
   INDUSTRIAL2OF5: THUMB_LINEAR,
+  STANDARD2OF5: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
   EAN8: THUMB_LINEAR,
   UPCA: THUMB_LINEAR,
@@ -638,13 +639,14 @@ export class PropertiesPanelRenderer {
     const isCode11 = symbology === "CODE11";
     const isI2of5 = symbology === "INTERLEAVED2OF5";
     const isIndustrial2of5 = symbology === "INDUSTRIAL2OF5";
+    const isStandard2of5 = symbology === "STANDARD2OF5";
     const isCodabar = symbology === "CODABAR";
-    // Code 39, Interleaved 2 of 5, Codabar, Code 11 and Industrial 2 of 5 derive their
-    // wide:narrow ratio from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 / Code 93 /
-    // Code 11 expose a check-digit toggle (mod-43 / mod-10 / mandatory Code 93 C+K /
-    // Code 11 1-vs-2 digits); Industrial 2 of 5 is self-checking with no check-digit
-    // param; Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
-    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5;
+    // Code 39, Interleaved 2 of 5, Codabar, Code 11, Industrial 2 of 5 and Standard 2 of 5
+    // derive their wide:narrow ratio from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 /
+    // Code 93 / Code 11 expose a check-digit toggle (mod-43 / mod-10 / mandatory Code 93
+    // C+K / Code 11 1-vs-2 digits); Industrial & Standard 2 of 5 are self-checking with no
+    // check-digit param; Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
+    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5;
     const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11;
     const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : "Mod-43 Check Digit";
     const startStopOptions = [["A", "A"], ["B", "B"], ["C", "C"], ["D", "D"]];

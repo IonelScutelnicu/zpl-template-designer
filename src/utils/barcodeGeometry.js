@@ -14,6 +14,7 @@ const BWIP_BCID = {
   CODABAR: 'rationalizedCodabar',
   INTERLEAVED2OF5: 'interleaved2of5',
   INDUSTRIAL2OF5: 'industrial2of5',
+  STANDARD2OF5: 'iata2of5', // ZPL ^BJ "Standard 2 of 5" uses the short 2-bar start/stop (bwip's iata2of5)
   EAN13: 'ean13',
   EAN8: 'ean8',
   UPCA: 'upca',
@@ -28,7 +29,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -40,6 +41,7 @@ export const SYMBOLOGY_LABELS = {
   CODABAR: 'Codabar',
   INTERLEAVED2OF5: 'Interleaved 2 of 5',
   INDUSTRIAL2OF5: 'Industrial 2 of 5',
+  STANDARD2OF5: 'Standard 2 of 5',
   EAN13: 'EAN-13',
   EAN8: 'EAN-8',
   UPCA: 'UPC-A',
@@ -62,6 +64,7 @@ export const SYMBOLOGY_META = {
   CODABAR: { code: '^BK', desc: 'Digits + -$:/.+ · libraries, medical', dim: '1D' },
   INTERLEAVED2OF5: { code: '^B2', desc: 'Numeric only · even length', dim: '1D' },
   INDUSTRIAL2OF5: { code: '^BI', desc: 'Numeric only · all data in bars', dim: '1D' },
+  STANDARD2OF5: { code: '^BJ', desc: 'Numeric only · all data in bars', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
@@ -84,6 +87,7 @@ export const DEFAULT_PREVIEW_DATA = {
   CODABAR: '1234567890',
   INTERLEAVED2OF5: '1234567890',
   INDUSTRIAL2OF5: '1234567890',
+  STANDARD2OF5: '1234567890',
   EAN13: '123456789012',
   EAN8: '1234567',
   UPCE: '123456',
@@ -361,6 +365,7 @@ export const HRI_CONFIG = {
   CODABAR: hriFontConfig.CODE,
   INTERLEAVED2OF5: hriFontConfig.CODE,
   INDUSTRIAL2OF5: hriFontConfig.CODE,
+  STANDARD2OF5: hriFontConfig.CODE,
   UPCEANEXT: hriFontConfig.UPCEANEXT,
 };
 
@@ -504,7 +509,7 @@ export function interleaved2of5Digits(data, checkDigit) {
 // bwip-js' native wide:narrow element value per ratio-bearing symbology. Code 39 is
 // encoded at a fixed 3:1, Interleaved 2 of 5 at 2:1; getBarcodeGeometry rescales these
 // wide elements to the element's effective ^BY ratio so the canvas matches Labelary.
-const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3, CODE11: 3, INDUSTRIAL2OF5: 3 };
+const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3, CODE11: 3, INDUSTRIAL2OF5: 3, STANDARD2OF5: 3 };
 
 // ZPL ^BF mode (0–33) → fixed Micro-PDF417 [dataColumns, rows] variant. Each mode is
 // a fixed size (not auto-fit): data that doesn't fit fails to encode (Labelary renders

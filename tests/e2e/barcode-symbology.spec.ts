@@ -10,6 +10,7 @@ const ONE_D = [
     { symbology: 'CODABAR', command: '^BKN' },
     { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'INDUSTRIAL2OF5', command: '^BIN' },
+    { symbology: 'STANDARD2OF5', command: '^BJN' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
@@ -334,6 +335,44 @@ test.describe('Barcode symbology', () => {
         expect(r.modules).toBeGreaterThan(0);
     });
 
+    // ============== STANDARD 2 OF 5 (^BJ) ==============
+    test('Standard 2 of 5 emits ^BJo,h,f,g (no check digit) and round-trips', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }, { getBarcodeGeometry }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const parser = new ZPLParser();
+            // orientation I, printTextAbove true. ^BJ has no e/check-digit param.
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'STANDARD2OF5', false, 'I', true);
+            const zpl = el.render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'STANDARD2OF5', previewData: '1234567890', ratio: 3, width: 2, showText: true } as any);
+            // Standard 2 of 5 has shorter start/stop bars than Industrial, so the same
+            // data encodes to fewer modules (Labelary: 149 vs 159 for "1234567890").
+            const industrial: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INDUSTRIAL2OF5', previewData: '1234567890', ratio: 3, width: 2, showText: true } as any);
+            return {
+                emits: zpl.includes('^BJI,50,Y,Y'),
+                sym: parsed?.symbology,
+                orientation: parsed?.orientation,
+                above: parsed?.printTextAbove,
+                checkDigit: parsed?.checkDigit,
+                kind: geom?.kind,
+                modules: geom?.modules,
+                industrialModules: industrial?.modules,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.sym).toBe('STANDARD2OF5');
+        expect(r.orientation).toBe('I');
+        expect(r.above).toBe(true);
+        expect(r.checkDigit).toBe(false);
+        expect(r.kind).toBe('linear');
+        expect(r.modules).toBe(149); // matches Labelary ^BJ for "1234567890"
+        expect(r.modules).toBeLessThan(r.industrialModules); // shorter start/stop than ^BI
+    });
+
     // ============== CODABAR (^BK) ==============
     test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
         await elementsPanel.addBarcodeElement();
@@ -448,6 +487,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'CODE11', expected: '^B1R,N,50,Y,Y' },
             { symbology: 'CODABAR', expected: '^BKR,N,50,Y,Y' },
             { symbology: 'INDUSTRIAL2OF5', expected: '^BIR,50,Y,Y' },
+            { symbology: 'STANDARD2OF5', expected: '^BJR,50,Y,Y' },
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -770,6 +810,7 @@ test.describe('Barcode symbology', () => {
                 make1D('123456', 'CODE11'),
                 make1D('1234567890', 'CODABAR'),
                 make1D('1234567890', 'INDUSTRIAL2OF5'),
+                make1D('1234567890', 'STANDARD2OF5'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),

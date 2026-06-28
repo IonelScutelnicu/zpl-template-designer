@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BK/^BS/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BF', 'BI', 'BK', 'BS', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BS/^BU/^BX are two-letter.
+  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BS', 'BU', 'BX'
 ]);
 
 /**
@@ -587,6 +587,10 @@ export class ZPLParser {
 
     if (hasCommand('BI')) {
       return this._parseBarcode(group, getCommand('BI'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'INDUSTRIAL2OF5', fhToken);
+    }
+
+    if (hasCommand('BJ')) {
+      return this._parseBarcode(group, getCommand('BJ'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'STANDARD2OF5', fhToken);
     }
 
     if (hasCommand('BS')) {
