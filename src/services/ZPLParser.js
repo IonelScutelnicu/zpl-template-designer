@@ -227,16 +227,17 @@ export class ZPLParser {
 
     for (const token of tokens) {
       // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B2
-      // (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417) and ^B8 (EAN-8); other
-      // numeric variants (^B1/^B9, …) have no dispatch branch and would otherwise be
-      // dropped silently, so they must still warn.
+      // (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417), ^B8 (EAN-8) and ^B9
+      // (UPC-E); other numeric variants (^B1/^B4, …) have no dispatch branch and would
+      // otherwise be dropped silently, so they must still warn.
       const isKnown = KNOWN_COMMANDS.has(token.command)
         && (token.command !== 'B'
           || token.params.charAt(0) === '0'
           || token.params.charAt(0) === '2'
           || token.params.charAt(0) === '3'
           || token.params.charAt(0) === '7'
-          || token.params.charAt(0) === '8');
+          || token.params.charAt(0) === '8'
+          || token.params.charAt(0) === '9');
       if (!isKnown) {
         state.warnings.push({
           command: `${token.prefix}${token.command}`,
@@ -588,6 +589,9 @@ export class ZPLParser {
       }
       if (sub === '8') {
         return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN8', fhToken);
+      }
+      if (sub === '9') {
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCE', fhToken);
       }
       if (sub === '0') {
         return this._parseAztec(group, shifted, getCommand('FD'), hasCommand('FR'));

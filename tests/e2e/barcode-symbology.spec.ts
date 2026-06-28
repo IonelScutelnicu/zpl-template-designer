@@ -9,6 +9,7 @@ const ONE_D = [
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
+    { symbology: 'UPCE', command: '^B9N' },
 ];
 const TWO_D = [
     { symbology: 'QR', command: '^BQN' },
@@ -202,6 +203,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
+            { symbology: 'UPCE', expected: '^B9R,50,Y,Y' },
         ];
         for (const { symbology, expected } of cases) {
             test(`1D ${symbology} -> ${expected}`, async () => {
@@ -402,6 +404,8 @@ test.describe('Barcode symbology', () => {
                 ean8Pad: normalizeBarcodeData('EAN8', '12'),
                 ean8Truncate: normalizeBarcodeData('EAN8', '123456789'),
                 upcaPad: normalizeBarcodeData('UPCA', '12'),
+                upcePad: normalizeBarcodeData('UPCE', '12'),
+                upceTruncate: normalizeBarcodeData('UPCE', '1234567'),
                 passthrough: normalizeBarcodeData('CODE128', 'abc'),
             };
         });
@@ -411,7 +415,28 @@ test.describe('Barcode symbology', () => {
         expect(cases.ean8Pad).toBe('0000012');     // 7-digit field, left-padded
         expect(cases.ean8Truncate).toBe('3456789'); // keeps the trailing 7
         expect(cases.upcaPad).toBe('00000000012');
+        expect(cases.upcePad).toBe('000012');      // 6-digit field, left-padded
+        expect(cases.upceTruncate).toBe('234567'); // keeps the trailing 6
         expect(cases.passthrough).toBe('abc');
+    });
+
+    test('UPC-E prepends the fixed 0 number-system digit and encodes guard bars + HRI', async ({ page }) => {
+        // ^B9 takes 6 digits; the number system is fixed at 0 and the printer computes
+        // the trailing check digit. Labelary renders ^FD123456 as "0 123456 5"; bwip's
+        // `upce` needs the 7-digit form, so buildBwipOptions prepends the 0. Assert the
+        // geometry is a guard-bar linear symbol whose HRI fragments are exactly that.
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCE', previewData: '123456', showText: true, width: 2 });
+            return {
+                kind: g.kind,
+                hasGuardBars: Array.isArray(g.bhs) && g.bhs.some((v: number) => v > 1),
+                fragments: Array.isArray(g.txt) ? g.txt.map((t: any[]) => t[0]).join('') : null,
+            };
+        });
+        expect(r.kind).toBe('linear');
+        expect(r.hasGuardBars).toBe(true);
+        expect(r.fragments).toBe('01234565'); // number-system 0 + 123456 + check 5
     });
 
     // ============== PARSER ROUND-TRIP ==============
@@ -434,6 +459,7 @@ test.describe('Barcode symbology', () => {
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),
+                make1D('123456', 'UPCE'),
                 make2D('https://example.com', 'QR'),
                 make2D('Data Matrix', 'DATAMATRIX'),
                 make2D('PDF417', 'PDF417'),

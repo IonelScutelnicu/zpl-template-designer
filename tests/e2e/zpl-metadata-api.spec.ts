@@ -145,9 +145,9 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
     });
 
     // ^B tokenizes as command 'B' (the digit goes into params). Only ^B0 (Aztec),
-    // ^B2 (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417) and ^B8 (EAN-8) have a
-    // dispatch branch; other numeric variants have none and are dropped, so they must
-    // still surface an "Unsupported command" warning instead of vanishing silently.
+    // ^B2 (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417), ^B8 (EAN-8) and ^B9 (UPC-E)
+    // have a dispatch branch; other numeric variants have none and are dropped, so they
+    // must still surface an "Unsupported command" warning instead of vanishing silently.
     test('unsupported numeric ^B variants warn; supported ones do not', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
@@ -159,19 +159,21 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
                     .warnings.some((w: { message: string }) => /Unsupported command/i.test(w.message));
             return {
                 b1: warns('^B1N,50,Y,N'),   // Code 11 — unsupported
-                b9: warns('^B9N,50,Y,N'),   // UPC-E — unsupported
+                b4: warns('^B4N,50,Y,N'),   // Code 49 — unsupported
                 b2: warns('^B2N,50,Y,N'),   // Interleaved 2 of 5 — supported
                 b3: warns('^B3N,N,50,Y,N'), // Code 39 — supported
                 b7: warns('^B7N,2,50'),     // PDF417 — supported
                 b8: warns('^B8N,50,Y,N'),   // EAN-8 — supported
+                b9: warns('^B9N,50,Y,N'),   // UPC-E — supported
             };
         });
 
         expect(result.b1).toBe(true);
-        expect(result.b9).toBe(true);
+        expect(result.b4).toBe(true);
         expect(result.b2).toBe(false);
         expect(result.b3).toBe(false);
         expect(result.b7).toBe(false);
         expect(result.b8).toBe(false);
+        expect(result.b9).toBe(false);
     });
 });
