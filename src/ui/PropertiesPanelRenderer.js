@@ -28,6 +28,7 @@ const SYMBOLOGY_THUMBS = {
   QR: THUMB_QR,
   DATAMATRIX: THUMB_DATAMATRIX,
   PDF417: THUMB_PDF417,
+  MICROPDF417: THUMB_PDF417,
   AZTEC: THUMB_AZTEC,
 };
 
@@ -695,6 +696,12 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.PDF417.rowHeight)}
           ${this.createInputGroup("Security Level", "prop-security-level", element.securityLevel, "number", { min: 0, max: 8 })}
           ${this.createInputGroup("Columns (0 = auto)", "prop-columns", element.columns, "number", { min: 0, max: 30 })}
+        `;
+      case "MICROPDF417":
+        return `
+          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.MICROPDF417.moduleWidth)}
+          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.MICROPDF417.rowHeight)}
+          ${this.createInputGroup("Mode (0-33)", "prop-micropdf-mode", element.microPdfMode || 0, "number", { min: 0, max: 33 })}
         `;
       case "AZTEC":
         return `

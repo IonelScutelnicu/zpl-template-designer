@@ -23,9 +23,9 @@ function boundedBarcodeFields(el) {
   if (el.type === 'BARCODE') return [['width', BARCODE_1D_WIDTH_BOUNDS]];
   if (el.type === 'QRCODE') {
     if (el.symbology === 'DATAMATRIX') return [['moduleSize', BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize]];
-    if (el.symbology === 'PDF417') return [
-      ['moduleWidth', BARCODE_2D_SIZE_BOUNDS.PDF417.moduleWidth],
-      ['rowHeight', BARCODE_2D_SIZE_BOUNDS.PDF417.rowHeight],
+    if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417') return [
+      ['moduleWidth', BARCODE_2D_SIZE_BOUNDS[el.symbology].moduleWidth],
+      ['rowHeight', BARCODE_2D_SIZE_BOUNDS[el.symbology].rowHeight],
     ];
     return [['magnification', BARCODE_2D_SIZE_BOUNDS.QR.magnification]]; // QR (or default)
   }
@@ -166,9 +166,9 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         // clamping each to its bound so we never emit out-of-range modules.
         if (el.symbology === 'DATAMATRIX') {
           el.moduleSize = scaleClamped(el.moduleSize, s, BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize);
-        } else if (el.symbology === 'PDF417') {
-          el.moduleWidth = scaleClamped(el.moduleWidth, s, BARCODE_2D_SIZE_BOUNDS.PDF417.moduleWidth);
-          el.rowHeight = scaleClamped(el.rowHeight, s, BARCODE_2D_SIZE_BOUNDS.PDF417.rowHeight);
+        } else if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417') {
+          el.moduleWidth = scaleClamped(el.moduleWidth, s, BARCODE_2D_SIZE_BOUNDS[el.symbology].moduleWidth);
+          el.rowHeight = scaleClamped(el.rowHeight, s, BARCODE_2D_SIZE_BOUNDS[el.symbology].rowHeight);
         } else {
           el.magnification = scaleClamped(el.magnification || 1, s, BARCODE_2D_SIZE_BOUNDS.QR.magnification);
         }

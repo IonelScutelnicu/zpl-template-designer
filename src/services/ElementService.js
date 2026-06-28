@@ -97,7 +97,8 @@ export class ElementService {
           props.aztecSizeMode || 'auto',
           props.aztecErrorControl || 0,
           props.aztecLayers || 0,
-          props.fieldHex || false
+          props.fieldHex || false,
+          props.microPdfMode || 0
         );
         break;
       }

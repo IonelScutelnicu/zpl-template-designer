@@ -21,12 +21,13 @@ const BWIP_BCID = {
   QR: 'qrcode',
   DATAMATRIX: 'datamatrix',
   PDF417: 'pdf417',
+  MICROPDF417: 'micropdf417',
   AZTEC: 'azteccode',
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODABAR', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
-export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
@@ -43,6 +44,7 @@ export const SYMBOLOGY_LABELS = {
   QR: 'QR Code',
   DATAMATRIX: 'Data Matrix',
   PDF417: 'PDF417',
+  MICROPDF417: 'Micro-PDF417',
   AZTEC: 'Aztec',
 };
 
@@ -62,6 +64,7 @@ export const SYMBOLOGY_META = {
   QR: { code: '^BQ', desc: 'Matrix · URLs, high capacity', dim: '2D' },
   DATAMATRIX: { code: '^BX', desc: 'Matrix · tiny marks, GS1', dim: '2D' },
   PDF417: { code: '^B7', desc: 'Stacked · IDs, large payloads', dim: '2D' },
+  MICROPDF417: { code: '^BF', desc: 'Compact stacked · small payloads', dim: '2D' },
   AZTEC: { code: '^B0', desc: 'Matrix · compact, no quiet zone', dim: '2D' },
 };
 
@@ -81,6 +84,7 @@ export const DEFAULT_PREVIEW_DATA = {
   QR: 'https://example.com',
   DATAMATRIX: 'Data Matrix',
   PDF417: 'PDF417',
+  MICROPDF417: '12345', // must fit the default mode 0 (1 col × 11 rows)
   AZTEC: 'Aztec',
 };
 
@@ -141,6 +145,7 @@ export function resolveSymbology(element) {
  */
 export const BARCODE_2D_SIZE_BOUNDS = {
   PDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
+  MICROPDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
   DATAMATRIX: { moduleSize: { min: 1, max: 30 } },
   QR: { magnification: { min: 1, max: 10 } },
   AZTEC: { magnification: { min: 1, max: 10 } }
@@ -152,6 +157,7 @@ export function matrixModuleDots(element) {
     case 'DATAMATRIX':
       return { mx: element.moduleSize || 4, my: element.moduleSize || 4 };
     case 'PDF417':
+    case 'MICROPDF417':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
     case 'QR':
     case 'AZTEC':
@@ -369,6 +375,23 @@ export function interleaved2of5Digits(data, checkDigit) {
 // wide elements to the element's effective ^BY ratio so the canvas matches Labelary.
 const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3 };
 
+// ZPL ^BF mode (0–33) → fixed Micro-PDF417 [dataColumns, rows] variant. Each mode is
+// a fixed size (not auto-fit): data that doesn't fit fails to encode (Labelary renders
+// nothing), so the canvas must request the same fixed bwip `version` to match. Mirrors
+// Zebra Table 9 / bwip's micropdf417 nonccametrics. version string is `rows x columns`.
+const MICROPDF417_MODES = [
+  [1, 11], [1, 14], [1, 17], [1, 20], [1, 24], [1, 28],            // modes 0–5  (1 col)
+  [2, 8], [2, 11], [2, 14], [2, 17], [2, 20], [2, 23], [2, 26],    // modes 6–12 (2 cols)
+  [3, 6], [3, 8], [3, 10], [3, 12], [3, 15], [3, 20], [3, 26], [3, 32], [3, 38], [3, 44], // 13–22 (3 cols)
+  [4, 4], [4, 6], [4, 8], [4, 10], [4, 12], [4, 15], [4, 20], [4, 26], [4, 32], [4, 38], [4, 44], // 23–33 (4 cols)
+];
+
+/** Resolve the ^BF mode (0–33) to bwip's `version` string ("rows x columns"). */
+export function microPdf417Version(mode) {
+  const [cols, rows] = MICROPDF417_MODES[Math.max(0, Math.min(33, mode | 0))];
+  return `${rows}x${cols}`;
+}
+
 /** Build the bwip-js options object for an element's current symbology + data. */
 function buildBwipOptions(element) {
   const symbology = resolveSymbology(element);
@@ -464,6 +487,10 @@ function buildBwipOptions(element) {
       const cols = pdf417PreferredColumns(opts);
       if (cols > 0) opts.columns = cols;
     }
+  } else if (symbology === 'MICROPDF417') {
+    // ^BF's mode fixes the rows×cols variant; request the matching bwip version so
+    // the canvas mirrors Labelary (including encode failure when data overflows it).
+    opts.version = microPdf417Version(element.microPdfMode || 0);
   }
   return opts;
 }
@@ -566,7 +593,7 @@ export function getBarcodeGeometry(element) {
   const wnRatio = nativeWide
     ? Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2)
     : 0;
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 

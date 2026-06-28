@@ -3,11 +3,11 @@ import { getBarcodeGeometry, matrixModuleDots, normalizeAztecRune } from '../uti
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
-//   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  AZTEC -> ^B0
+//   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false) {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0) {
         super(x, y);
         this.type = 'QRCODE';
         this.symbology = symbology;
@@ -25,6 +25,9 @@ export class QRCodeElement extends ZPLElement {
         this.rowHeight = rowHeight;      // row height in dots
         this.securityLevel = securityLevel; // 0-8
         this.columns = columns;          // 0 = auto
+        // Micro-PDF417 (^BF). Mode 0-33 selects a fixed rows×columns variant; reuses
+        // moduleWidth (^BY) and rowHeight above for sizing.
+        this.microPdfMode = microPdfMode;
         // Aztec (^B0). The 'd' param (error control / symbol size/type) is modelled
         // by three fields: sizeMode 'auto' uses aztecErrorControl (% min, 0 = printer
         // default); 'compact'/'full' use aztecLayers (0 = auto); 'rune' = ^B0 d=300.
@@ -56,6 +59,11 @@ export class QRCodeElement extends ZPLElement {
             case 'PDF417': {
                 const cols = this.columns > 0 ? `,${this.columns}` : '';
                 return `${pos}^BY${this.moduleWidth}^B7N,${this.rowHeight},${this.securityLevel}${cols}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
+            case 'MICROPDF417': {
+                // ^BFo,h,m — module width from ^BY, h = row height, m = mode (0-33).
+                const mode = Math.max(0, Math.min(33, this.microPdfMode || 0));
+                return `${pos}^BY${this.moduleWidth}^BFN,${this.rowHeight},${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'AZTEC': {
                 // A rune encodes a single 0–255 byte; coerce real data so the ZPL

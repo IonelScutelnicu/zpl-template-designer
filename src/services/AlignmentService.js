@@ -383,9 +383,10 @@ export class AlignmentService {
     if (geom.kind !== 'matrix') return;
     const target = dimension === 'width' ? labelSize.width : labelSize.height;
     const b = BARCODE_2D_SIZE_BOUNDS;
-    if (element.symbology === 'PDF417') {
-      if (dimension === 'width') element.moduleWidth = clampNumber(Math.round(target / geom.cols), b.PDF417.moduleWidth.min, b.PDF417.moduleWidth.max);
-      else element.rowHeight = clampNumber(Math.round(target / geom.rows), b.PDF417.rowHeight.min, b.PDF417.rowHeight.max);
+    if (element.symbology === 'PDF417' || element.symbology === 'MICROPDF417') {
+      const bounds = b[element.symbology];
+      if (dimension === 'width') element.moduleWidth = clampNumber(Math.round(target / geom.cols), bounds.moduleWidth.min, bounds.moduleWidth.max);
+      else element.rowHeight = clampNumber(Math.round(target / geom.rows), bounds.rowHeight.min, bounds.rowHeight.max);
     } else if (element.symbology === 'DATAMATRIX') {
       const modules = dimension === 'width' ? geom.cols : geom.rows;
       element.moduleSize = clampNumber(Math.round(target / modules), b.DATAMATRIX.moduleSize.min, b.DATAMATRIX.moduleSize.max);

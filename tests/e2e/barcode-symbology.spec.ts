@@ -18,6 +18,7 @@ const TWO_D = [
     { symbology: 'QR', command: '^BQN' },
     { symbology: 'DATAMATRIX', command: '^BXN' },
     { symbology: 'PDF417', command: '^B7N' },
+    { symbology: 'MICROPDF417', command: '^BFN' },
     { symbology: 'AZTEC', command: '^B0N' },
 ];
 
@@ -602,6 +603,46 @@ test.describe('Barcode symbology', () => {
         expect(r.fragments).toBe('01234565'); // number-system 0 + 123456 + check 5
     });
 
+    // ============== MICRO-PDF417 (^BF) ==============
+    test('Micro-PDF417 maps the ^BF mode to a fixed rows×columns variant and round-trips', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
+            //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode
+            const make = (mode: number) =>
+                new QRCodeElement(10, 10, '12345', 2, 5, 'Q', '', false, 'MICROPDF417', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, mode);
+            const cols = (mode: number) => {
+                const g: any = geo.getBarcodeGeometry(make(mode));
+                return g.kind === 'matrix' ? g.cols : -1;
+            };
+            const parser = new ZPLParser();
+            const zpl = make(7).render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            return {
+                versionMode0: geo.microPdf417Version(0),   // 1 col × 11 rows
+                versionMode33: geo.microPdf417Version(33), // 4 cols × 44 rows
+                zplHasMode: zpl.includes('^BY2^BFN,4,7'),
+                cols1: cols(0),   // 1 data column (narrowest)
+                cols4: cols(33),  // 4 data columns (widest)
+                sym: parsed?.symbology,
+                mode: parsed?.microPdfMode,
+                data: parsed?.previewData,
+            };
+        });
+        expect(r.versionMode0).toBe('11x1');
+        expect(r.versionMode33).toBe('44x4');
+        expect(r.zplHasMode).toBe(true);
+        expect(r.cols1).toBeGreaterThan(0);
+        expect(r.cols4).toBeGreaterThan(r.cols1); // more data columns -> wider symbol
+        expect(r.sym).toBe('MICROPDF417');
+        expect(r.mode).toBe(7);
+        expect(r.data).toBe('12345');
+    });
+
     // ============== PARSER ROUND-TRIP ==============
     test('all symbologies round-trip through ZPLParser', async ({ page }) => {
         const results = await page.evaluate(async () => {
@@ -629,6 +670,7 @@ test.describe('Barcode symbology', () => {
                 make2D('https://example.com', 'QR'),
                 make2D('Data Matrix', 'DATAMATRIX'),
                 make2D('PDF417', 'PDF417'),
+                make2D('12345', 'MICROPDF417'),
                 make2D('Aztec', 'AZTEC'),
             ];
 

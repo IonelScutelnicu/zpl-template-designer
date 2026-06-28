@@ -437,9 +437,9 @@ export class InteractionHandler {
         const geom = getBarcodeGeometry(el);
         const b = BARCODE_2D_SIZE_BOUNDS;
         if (geom.kind === 'matrix') {
-          if (el.symbology === 'PDF417') {
-            el.moduleWidth = clampNumber(Math.round(newWidth / geom.cols), b.PDF417.moduleWidth.min, b.PDF417.moduleWidth.max);
-            el.rowHeight = clampNumber(Math.round(newHeight / geom.rows), b.PDF417.rowHeight.min, b.PDF417.rowHeight.max);
+          if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417') {
+            el.moduleWidth = clampNumber(Math.round(newWidth / geom.cols), b[el.symbology].moduleWidth.min, b[el.symbology].moduleWidth.max);
+            el.rowHeight = clampNumber(Math.round(newHeight / geom.rows), b[el.symbology].rowHeight.min, b[el.symbology].rowHeight.max);
           } else if (el.symbology === 'DATAMATRIX') {
             el.moduleSize = clampNumber(Math.round(Math.min(newWidth, newHeight) / geom.cols), b.DATAMATRIX.moduleSize.min, b.DATAMATRIX.moduleSize.max);
           } else {

@@ -14,7 +14,7 @@ const KNOWN_COMMANDS = new Set([
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BK/^BS/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BK', 'BS', 'BU', 'BX'
+  'B', 'BA', 'BE', 'BF', 'BK', 'BS', 'BU', 'BX'
 ]);
 
 /**
@@ -560,6 +560,10 @@ export class ZPLParser {
       return this._parseDataMatrix(group, getCommand('BX'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
+    if (hasCommand('BF')) {
+      return this._parseMicroPDF417(group, getCommand('BF'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
+    }
+
     if (hasCommand('BE')) {
       return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
     }
@@ -936,6 +940,39 @@ export class ZPLParser {
       rowHeight,
       securityLevel: Number.isNaN(securityLevel) ? 5 : securityLevel,
       columns,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse Micro-PDF417 element from ^BF + ^FD
+   */
+  _parseMicroPDF417(group, bfToken, byToken, fdToken, hasReverse, fhToken = null) {
+    // ^BF params: orientation,height(rowHeight),mode(0-33)
+    const parts = bfToken.params.split(',');
+    const rowHeight = parseInt(parts[1]) || 4;
+    const mode = Math.max(0, Math.min(33, parseInt(parts[2]) || 0));
+
+    let moduleWidth = 2;
+    if (byToken) {
+      const byParts = byToken.params.split(',');
+      if (byParts[0]) moduleWidth = parseInt(byParts[0]) || 2;
+    }
+
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'MICROPDF417',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
+      moduleWidth,
+      rowHeight,
+      microPdfMode: mode,
       reverse: hasReverse
     };
   }
