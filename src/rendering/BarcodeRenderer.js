@@ -78,7 +78,7 @@ export class BarcodeRenderer {
     const textBounds = hriConfig
       ? measureHriLine(ctx, geom, { config: hriConfig, displayText, moduleWidthDots, scale, x: 0, y: 0, height, totalWidth, above })
       : null;
-    const isEanUpc = sym === 'EAN13' || sym === 'UPCA';
+    const isEanUpc = sym === 'EAN13' || sym === 'EAN8' || sym === 'UPCA';
     const barBottom = this.getLinearBarBottom(0, height, geom);
     let left0 = 0;
     let right0 = totalWidth;

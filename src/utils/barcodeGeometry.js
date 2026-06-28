@@ -11,6 +11,7 @@ const BWIP_BCID = {
   CODE39: 'code39',
   INTERLEAVED2OF5: 'interleaved2of5',
   EAN13: 'ean13',
+  EAN8: 'ean8',
   UPCA: 'upca',
   QR: 'qrcode',
   DATAMATRIX: 'datamatrix',
@@ -19,7 +20,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'INTERLEAVED2OF5', 'EAN13', 'UPCA'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -28,6 +29,7 @@ export const SYMBOLOGY_LABELS = {
   CODE39: 'Code 39',
   INTERLEAVED2OF5: 'Interleaved 2 of 5',
   EAN13: 'EAN-13',
+  EAN8: 'EAN-8',
   UPCA: 'UPC-A',
   QR: 'QR Code',
   DATAMATRIX: 'Data Matrix',
@@ -42,6 +44,7 @@ export const SYMBOLOGY_META = {
   CODE39: { code: '^B3', desc: 'A–Z, 0–9, symbols · variable', dim: '1D' },
   INTERLEAVED2OF5: { code: '^B2', desc: 'Numeric only · even length', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
+  EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
   QR: { code: '^BQ', desc: 'Matrix · URLs, high capacity', dim: '2D' },
   DATAMATRIX: { code: '^BX', desc: 'Matrix · tiny marks, GS1', dim: '2D' },
@@ -56,6 +59,7 @@ export const DEFAULT_PREVIEW_DATA = {
   CODE39: 'CODE39',
   INTERLEAVED2OF5: '1234567890',
   EAN13: '123456789012',
+  EAN8: '1234567',
   UPCA: '12345678901',
   QR: 'https://example.com',
   DATAMATRIX: 'Data Matrix',
@@ -67,7 +71,7 @@ export const DEFAULT_PREVIEW_DATA = {
 // exactly this many ^FD chars (printer computes the trailing check digit). These
 // barcodes are digit-only, so any disallowed character is mapped to '0' first.
 // Mirror that here so the canvas (bwip-js) matches Labelary/printer output. (^BE doc)
-const FIXED_FD_LENGTH = { EAN13: 12, UPCA: 11 };
+const FIXED_FD_LENGTH = { EAN13: 12, EAN8: 7, UPCA: 11 };
 
 export function normalizeBarcodeData(symbology, data) {
   const len = FIXED_FD_LENGTH[symbology];
@@ -130,7 +134,7 @@ export function linearFallbackModules(dataLength) {
   return 35 + 11 * dataLength;
 }
 
-const POSITIONED_TEXT_SYMBOLOGIES = new Set(['EAN13', 'UPCA']);
+const POSITIONED_TEXT_SYMBOLOGIES = new Set(['EAN13', 'EAN8', 'UPCA']);
 
 // HRI (human-readable interpretation) line config. `hriFontConfig` is the single
 // source of truth, grouped by barcode family (`EAN` covers EAN-13/UPC-A, `CODE`
@@ -230,6 +234,7 @@ const hriFontConfig = {
 // Symbology → HRI family. EAN-13/UPC-A share one entry; Code 128/39 share another.
 export const HRI_CONFIG = {
   EAN13: hriFontConfig.EAN,
+  EAN8: hriFontConfig.EAN,
   UPCA: hriFontConfig.EAN,
   CODE128: hriFontConfig.CODE,
   CODE39: hriFontConfig.CODE,

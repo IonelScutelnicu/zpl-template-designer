@@ -7,6 +7,7 @@ const ONE_D = [
     { symbology: 'CODE39', command: '^B3N' },
     { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'EAN13', command: '^BEN' },
+    { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
 ];
 const TWO_D = [
@@ -199,6 +200,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'CODE128', expected: '^BCR,50,Y,Y' },
             { symbology: 'CODE39', expected: '^B3R,N,50,Y,Y' },
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
+            { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
         ];
         for (const { symbology, expected } of cases) {
@@ -390,13 +392,15 @@ test.describe('Barcode symbology', () => {
     });
 
     // ============== FIXED-LENGTH FIELD-DATA NORMALIZATION (^BE / ^BU) ==============
-    test('EAN-13 / UPC-A field data is truncated or left-padded with zeros', async ({ page }) => {
+    test('EAN-13 / EAN-8 / UPC-A field data is truncated or left-padded with zeros', async ({ page }) => {
         const cases = await page.evaluate(async () => {
             const { normalizeBarcodeData } = await import('/src/utils/barcodeGeometry.js');
             return {
                 ean13Pad: normalizeBarcodeData('EAN13', '123'),
                 ean13Truncate: normalizeBarcodeData('EAN13', '1234567890123456'),
                 ean13NonDigit: normalizeBarcodeData('EAN13', '12-45-78-01a'),
+                ean8Pad: normalizeBarcodeData('EAN8', '12'),
+                ean8Truncate: normalizeBarcodeData('EAN8', '123456789'),
                 upcaPad: normalizeBarcodeData('UPCA', '12'),
                 passthrough: normalizeBarcodeData('CODE128', 'abc'),
             };
@@ -404,6 +408,8 @@ test.describe('Barcode symbology', () => {
         expect(cases.ean13Pad).toBe('000000000123');
         expect(cases.ean13Truncate).toBe('567890123456');
         expect(cases.ean13NonDigit).toBe('120450780010');
+        expect(cases.ean8Pad).toBe('0000012');     // 7-digit field, left-padded
+        expect(cases.ean8Truncate).toBe('3456789'); // keeps the trailing 7
         expect(cases.upcaPad).toBe('00000000012');
         expect(cases.passthrough).toBe('abc');
     });
@@ -426,6 +432,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567890', 'CODE128'),
                 make1D('CODE39', 'CODE39', true),
                 make1D('123456789012', 'EAN13'),
+                make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),
                 make2D('https://example.com', 'QR'),
                 make2D('Data Matrix', 'DATAMATRIX'),
