@@ -267,6 +267,10 @@ export class PropertyListenersManager {
     // Codabar start/stop characters (^BK k/l). No-op when the selects aren't rendered.
     attach("prop-codabar-start", "startChar");
     attach("prop-codabar-stop", "stopChar");
+    // MSI check-digit mode (^BM e) and "show check digit in HRI" (^BM e2). No-ops when
+    // the controls aren't rendered.
+    attach("prop-msi-check-mode", "msiCheckMode");
+    this._attachToggle("prop-msi-check-intext", element, "msiCheckInText");
     this._attachHriControl(element);
     this._attachOrientationButtons(element);
 

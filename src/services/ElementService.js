@@ -72,7 +72,9 @@ export class ElementService {
           props.printTextAbove || false,
           props.fieldHex || false,
           props.startChar || 'A',
-          props.stopChar || 'A'
+          props.stopChar || 'A',
+          props.msiCheckMode || 'B',
+          props.msiCheckInText || false
         );
         break;
       }

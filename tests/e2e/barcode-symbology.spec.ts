@@ -12,6 +12,7 @@ const ONE_D = [
     { symbology: 'INDUSTRIAL2OF5', command: '^BIN' },
     { symbology: 'STANDARD2OF5', command: '^BJN' },
     { symbology: 'LOGMARS', command: '^BLN' },
+    { symbology: 'MSI', command: '^BMN' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
@@ -423,6 +424,64 @@ test.describe('Barcode symbology', () => {
         expect(r.modules).toBeGreaterThan(r.code39NoCheckModules); // wider than Code 39 without it
     });
 
+    // ============== MSI (^BM) ==============
+    test('MSI emits ^BMo,e,h,f with the check-digit mode and round-trips e + e2', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }, { msiCheckDigits }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const parser = new ZPLParser();
+            // mode C (2× mod-10), e2 (show check in HRI) on, orientation I, above true.
+            const el: any = new BarcodeElement(10, 10, '1234567', 80, 2, 3, '', true, false, 'MSI', false, 'I', true, false, 'A', 'A', 'C', true);
+            const zpl = el.render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            // default element (mode B, e2 off) emits a clean o,e,h,f with no trailing params.
+            const def: any = new BarcodeElement(10, 10, '1234567', 50, 2, 3, '', true, false, 'MSI');
+            return {
+                emitsC: zpl.includes('^BMI,C,80,Y,Y,Y'), // o=I,e=C,h=80,f=Y,g=Y,e2=Y
+                defEmit: def.render().includes('^BMN,B,50,Y^FD'),
+                sym: parsed?.symbology,
+                mode: parsed?.msiCheckMode,
+                e2: parsed?.msiCheckInText,
+                above: parsed?.printTextAbove,
+                // check digits per mode (verified against bwip + Labelary)
+                ckB: msiCheckDigits('1234567', 'B'),
+                ckC: msiCheckDigits('1234567', 'C'),
+                ckD: msiCheckDigits('80523', 'D'),
+                ckA: msiCheckDigits('1234567', 'A'),
+            };
+        });
+        expect(r.emitsC).toBe(true);
+        expect(r.defEmit).toBe(true);
+        expect(r.sym).toBe('MSI');
+        expect(r.mode).toBe('C');
+        expect(r.e2).toBe(true);
+        expect(r.above).toBe(true);
+        expect(r.ckB).toBe('4');    // 1 mod-10
+        expect(r.ckC).toBe('41');   // 2 mod-10
+        expect(r.ckD).toBe('83');   // mod-11 + mod-10 for "80523"
+        expect(r.ckA).toBe('');     // no check digit
+    });
+
+    test('MSI check-digit mode widens the bars; e2 only changes the HRI', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const mod = (mode: string, checkInText = false) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'MSI', previewData: '1234567', msiCheckMode: mode, msiCheckInText: checkInText, ratio: 3, width: 2 } as any) as any).modules;
+            return { a: mod('A'), b: mod('B'), c: mod('C'), d: mod('D'), bE2: mod('B', true) };
+        });
+        // Verified against Labelary for "1234567": A=121, B=137, C=D=153.
+        expect(r.a).toBe(121);
+        expect(r.b).toBe(137);
+        expect(r.c).toBe(153);
+        expect(r.d).toBe(153);
+        expect(r.a).toBeLessThan(r.b);
+        expect(r.b).toBeLessThan(r.c);
+        expect(r.bE2).toBe(r.b); // e2 (HRI insertion) does not change the bars
+    });
+
     // ============== CODABAR (^BK) ==============
     test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
         await elementsPanel.addBarcodeElement();
@@ -539,6 +598,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'INDUSTRIAL2OF5', expected: '^BIR,50,Y,Y' },
             { symbology: 'STANDARD2OF5', expected: '^BJR,50,Y,Y' },
             { symbology: 'LOGMARS', expected: '^BLR,50,Y' }, // ^BL has no f param: o,h,g
+            { symbology: 'MSI', expected: '^BMR,B,50,Y,Y' }, // o,e,h,f,g — e defaults B
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -714,6 +774,19 @@ test.describe('Barcode symbology', () => {
         await expect(propertiesPanel.panel.locator('#prop-security-level')).toBeVisible();
     });
 
+    test('MSI exposes the check-digit mode select + HRI-insertion toggle (not the generic check toggle)', async () => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'MSI');
+        // MSI uses a 4-way mode select + an e2 toggle, not the boolean check-digit toggle.
+        await expect(propertiesPanel.panel.locator('#prop-msi-check-mode')).toBeVisible();
+        await expect(propertiesPanel.panel.locator('#prop-msi-check-intext')).toHaveCount(1);
+        await expect(propertiesPanel.panel.locator('#prop-check-digit')).toHaveCount(0);
+        // Selecting mode C (2× mod-10) flows into the emitted ^BM e param.
+        await propertiesPanel.setSelectValue('prop-msi-check-mode', 'C');
+        await zplOutput.verifyZPLContains('^BMN,C,');
+    });
+
     // ============== PLACEHOLDER FALLBACK (encode failure) ==============
     test('invalid data does not crash the renderer', async ({ page }) => {
         const pageErrors: string[] = [];
@@ -863,6 +936,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567890', 'INDUSTRIAL2OF5'),
                 make1D('1234567890', 'STANDARD2OF5'),
                 make1D('LOGMARS', 'LOGMARS'),
+                make1D('1234567', 'MSI'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),

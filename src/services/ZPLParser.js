@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BS/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BS', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BS/^BU/^BX are two-letter.
+  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BS', 'BU', 'BX'
 ]);
 
 /**
@@ -597,6 +597,10 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BL'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'LOGMARS', fhToken);
     }
 
+    if (hasCommand('BM')) {
+      return this._parseBarcode(group, getCommand('BM'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'MSI', fhToken);
+    }
+
     if (hasCommand('BS')) {
       return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCEANEXT', fhToken);
     }
@@ -825,13 +829,14 @@ export class ZPLParser {
     const rawOrientation = (parts[0] || 'N').trim().toUpperCase();
     const orientation = ['N', 'R', 'I', 'B'].includes(rawOrientation) ? rawOrientation : 'N';
 
-    // Code 39 (^B3o,e,h,f), Code 11 (^B1o,e,h,f,g) and Codabar (^BKo,e,h,f,g,k,l) carry
-    // an e param before height: a check-digit flag for Code 39 (on/off) and Code 11
-    // (Y=1 / N=2 digits, modelled as "single"), fixed N (ignored) for Codabar.
+    // Code 39 (^B3o,e,h,f), Code 11 (^B1o,e,h,f,g), Codabar (^BKo,e,h,f,g,k,l) and MSI
+    // (^BMo,e,h,f,g,e2) carry an e param before height: a check-digit flag for Code 39
+    // (on/off) and Code 11 (Y=1 / N=2 digits, modelled as "single"), fixed N (ignored) for
+    // Codabar, and a check-digit MODE (A/B/C/D) for MSI (handled separately below).
     let heightIdx = 1;
     let showIdx = 2;
     let checkDigit = false;
-    if (symbology === 'CODE39' || symbology === 'CODE11' || symbology === 'CODABAR') {
+    if (symbology === 'CODE39' || symbology === 'CODE11' || symbology === 'CODABAR' || symbology === 'MSI') {
       if (symbology === 'CODE39' || symbology === 'CODE11') checkDigit = (parts[1] || 'N').trim() === 'Y';
       heightIdx = 2;
       showIdx = 3;
@@ -859,6 +864,15 @@ export class ZPLParser {
       const l = (parts[showIdx + 3] || 'A').trim().toUpperCase();
       startChar = ['A', 'B', 'C', 'D'].includes(k) ? k : 'A';
       stopChar = ['A', 'B', 'C', 'D'].includes(l) ? l : 'A';
+    }
+    // ^BM (MSI) carries the check-digit mode (e, A–D) before height and the e2 flag (insert
+    // the check digit into the HRI) after g.
+    let msiCheckMode = 'B';
+    let msiCheckInText = false;
+    if (symbology === 'MSI') {
+      const e = (parts[1] || 'B').trim().toUpperCase();
+      msiCheckMode = ['A', 'B', 'C', 'D'].includes(e) ? e : 'B';
+      msiCheckInText = (parts[showIdx + 2] || 'N').trim() === 'Y';
     }
 
     // Use ^BY from this group if present, otherwise from state
@@ -902,6 +916,8 @@ export class ZPLParser {
       printTextAbove,
       startChar,
       stopChar,
+      msiCheckMode,
+      msiCheckInText,
       reverse: hasReverse
     };
   }

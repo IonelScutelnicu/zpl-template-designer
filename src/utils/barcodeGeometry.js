@@ -16,6 +16,7 @@ const BWIP_BCID = {
   INDUSTRIAL2OF5: 'industrial2of5',
   STANDARD2OF5: 'iata2of5', // ZPL ^BJ "Standard 2 of 5" uses the short 2-bar start/stop (bwip's iata2of5)
   LOGMARS: 'code39', // ZPL ^BL is Code 39 with a mandatory mod-43 check digit (US DoD)
+  MSI: 'msi',
   EAN13: 'ean13',
   EAN8: 'ean8',
   UPCA: 'upca',
@@ -30,7 +31,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -44,6 +45,7 @@ export const SYMBOLOGY_LABELS = {
   INDUSTRIAL2OF5: 'Industrial 2 of 5',
   STANDARD2OF5: 'Standard 2 of 5',
   LOGMARS: 'LOGMARS',
+  MSI: 'MSI',
   EAN13: 'EAN-13',
   EAN8: 'EAN-8',
   UPCA: 'UPC-A',
@@ -68,6 +70,7 @@ export const SYMBOLOGY_META = {
   INDUSTRIAL2OF5: { code: '^BI', desc: 'Numeric only · all data in bars', dim: '1D' },
   STANDARD2OF5: { code: '^BJ', desc: 'Numeric only · all data in bars', dim: '1D' },
   LOGMARS: { code: '^BL', desc: 'Code 39 · US DoD (mod-43 check)', dim: '1D' },
+  MSI: { code: '^BM', desc: 'Numeric · Plessey variant (retail)', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
@@ -92,6 +95,7 @@ export const DEFAULT_PREVIEW_DATA = {
   INDUSTRIAL2OF5: '1234567890',
   STANDARD2OF5: '1234567890',
   LOGMARS: 'LOGMARS',
+  MSI: '1234567',
   EAN13: '123456789012',
   EAN8: '1234567',
   UPCE: '123456',
@@ -371,6 +375,7 @@ export const HRI_CONFIG = {
   INDUSTRIAL2OF5: hriFontConfig.CODE,
   STANDARD2OF5: hriFontConfig.CODE,
   LOGMARS: hriFontConfig.CODE,
+  MSI: hriFontConfig.CODE,
   UPCEANEXT: hriFontConfig.UPCEANEXT,
 };
 
@@ -511,10 +516,53 @@ export function interleaved2of5Digits(data, checkDigit) {
   return s;
 }
 
+// MSI's mod-10 check digit (the standard MSI/Plessey algorithm bwip's `msi` encodes):
+// the odd-position digits from the right form one number that is doubled and its digits
+// summed; the even-position digits are added; check = (10 − sum%10) % 10. (Matches bwip.)
+function msiMod10(s) {
+  let oddStr = '';
+  let evenSum = 0;
+  for (let i = 0; i < s.length; i++) {
+    const posFromRight = s.length - i;
+    if (posFromRight % 2 === 1) oddStr += s[i];
+    else evenSum += s.charCodeAt(i) - 48;
+  }
+  const doubled = String(parseInt(oddStr || '0', 10) * 2);
+  let oddSum = 0;
+  for (const c of doubled) oddSum += c.charCodeAt(0) - 48;
+  return String((10 - ((oddSum + evenSum) % 10)) % 10);
+}
+
+// MSI's mod-11 check digit (IBM weighting): weights cycle 2..7 from the rightmost digit;
+// check = (11 − sum%11) % 11. A check of 10 takes two characters (bwip's badmod11). (Matches bwip.)
+function msiMod11(s) {
+  let sum = 0;
+  for (let i = 0; i < s.length; i++) {
+    const weight = ((s.length - i - 1) % 6) + 2;
+    sum += (s.charCodeAt(i) - 48) * weight;
+  }
+  const c = (11 - (sum % 11)) % 11;
+  return c === 10 ? '10' : String(c);
+}
+
+/**
+ * Compute the MSI check digit(s) Zebra appends for ^BM's `e` mode: A → none,
+ * B → 1 mod-10 (default), C → 2 mod-10, D → 1 mod-11 + 1 mod-10. The digits are always
+ * encoded in the bars (buildBwipOptions); ^BM's e2 flag controls whether the HRI shows
+ * them (BarcodeRenderer). Returns '' for empty data. (Verified against bwip + Labelary.)
+ */
+export function msiCheckDigits(data, mode = 'B') {
+  const s = String(data ?? '').replace(/\D/g, '');
+  if (!s || mode === 'A') return '';
+  if (mode === 'C') { const a = msiMod10(s); return a + msiMod10(s + a); }
+  if (mode === 'D') { const a = msiMod11(s); return a + msiMod10(s + a); }
+  return msiMod10(s);
+}
+
 // bwip-js' native wide:narrow element value per ratio-bearing symbology. Code 39 is
 // encoded at a fixed 3:1, Interleaved 2 of 5 at 2:1; getBarcodeGeometry rescales these
 // wide elements to the element's effective ^BY ratio so the canvas matches Labelary.
-const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3, CODE11: 3, INDUSTRIAL2OF5: 3, STANDARD2OF5: 3, LOGMARS: 3 };
+const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3, CODE11: 3, INDUSTRIAL2OF5: 3, STANDARD2OF5: 3, LOGMARS: 3, MSI: 2 };
 
 // ZPL ^BF mode (0–33) → fixed Micro-PDF417 [dataColumns, rows] variant. Each mode is
 // a fixed size (not auto-fit): data that doesn't fit fails to encode (Labelary renders
@@ -568,6 +616,17 @@ function buildBwipOptions(element) {
     // with includecheck on so the canvas bar count matches Labelary.
     opts.text = (element.previewData || '').toUpperCase();
     opts.includecheck = true;
+  }
+  if (symbology === 'MSI') {
+    // ^BM's check-digit mode (e) decides what bwip encodes in the bars: A → none,
+    // B → 1 mod-10, C → 2 mod-10 (mod1010), D → 1 mod-11 + 1 mod-10 (mod1110). The e2
+    // (HRI insertion) flag only affects the readable line, handled by the renderer.
+    const mode = element.msiCheckMode || 'B';
+    if (mode !== 'A') {
+      opts.includecheck = true;
+      opts.checktype = mode === 'C' ? 'mod1010' : mode === 'D' ? 'mod1110' : 'mod10';
+      if (mode === 'D') opts.badmod11 = true; // tolerate the rare mod-11 == 10 case ("10")
+    }
   }
   if (symbology === 'CODE39' && element.checkDigit) {
     // ^B3 with the mod-43 check digit enabled (e param Y): the printer appends one
@@ -747,7 +806,7 @@ export function getBarcodeGeometry(element) {
   const wnRatio = nativeWide
     ? Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2)
     : 0;
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${wnRatio}`;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${wnRatio}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 

@@ -87,7 +87,9 @@ export class SerializationService {
           data.printTextAbove,
           data.fieldHex,
           data.startChar,
-          data.stopChar
+          data.stopChar,
+          data.msiCheckMode,
+          data.msiCheckInText
         );
         break;
 

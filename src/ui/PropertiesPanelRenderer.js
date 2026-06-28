@@ -24,6 +24,7 @@ const SYMBOLOGY_THUMBS = {
   INDUSTRIAL2OF5: THUMB_LINEAR,
   STANDARD2OF5: THUMB_LINEAR,
   LOGMARS: THUMB_LINEAR,
+  MSI: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
   EAN8: THUMB_LINEAR,
   UPCA: THUMB_LINEAR,
@@ -646,6 +647,7 @@ export class PropertiesPanelRenderer {
     const isIndustrial2of5 = symbology === "INDUSTRIAL2OF5";
     const isStandard2of5 = symbology === "STANDARD2OF5";
     const isLogmars = symbology === "LOGMARS";
+    const isMsi = symbology === "MSI";
     const isCodabar = symbology === "CODABAR";
     // Code 39, Interleaved 2 of 5, Codabar, Code 11, Industrial/Standard 2 of 5 and LOGMARS
     // derive their wide:narrow ratio from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 /
@@ -654,8 +656,11 @@ export class PropertiesPanelRenderer {
     // check-digit param; LOGMARS is Code 39 with a forced mod-43 check digit and an
     // always-on HRI (no f param), so it exposes neither a check-digit nor an HRI-off toggle;
     // Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
-    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5 || isLogmars;
+    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5 || isLogmars || isMsi;
+    // MSI (^BM) has a 4-way check-digit mode (e) rather than an on/off toggle, plus an e2
+    // flag for whether to show the check digit in the HRI — both handled by dedicated controls.
     const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11;
+    const msiCheckOptions = [["A", "None"], ["B", "1 × Mod 10"], ["C", "2 × Mod 10"], ["D", "Mod 11 + Mod 10"]];
     const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : "Mod-43 Check Digit";
     const startStopOptions = [["A", "A"], ["B", "B"], ["C", "C"], ["D", "D"]];
     return `
@@ -682,6 +687,10 @@ export class PropertiesPanelRenderer {
           ${this.createSelectGroup("Start Character", "prop-codabar-start", element.startChar || "A", startStopOptions)}
           ${this.createSelectGroup("Stop Character", "prop-codabar-stop", element.stopChar || "A", startStopOptions)}
         </div>` : ""}
+        ${isMsi ? `
+          ${this.createSelectGroup("Check Digit", "prop-msi-check-mode", element.msiCheckMode || "B", msiCheckOptions)}
+          ${this.createToggleGroup("Show Check Digit in HRI", "prop-msi-check-intext", element.msiCheckInText === true)}
+        ` : ""}
         ${this.renderHriControl(element, { allowOff: !isLogmars })}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}

@@ -5,9 +5,10 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
 //   INTERLEAVED2OF5 -> ^B2,  INDUSTRIAL2OF5 -> ^BI,  STANDARD2OF5 -> ^BJ,  LOGMARS -> ^BL,
-//   EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
+//   MSI -> ^BM,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,
+//   UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A') {
+    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A', msiCheckMode = 'B', msiCheckInText = false) {
         super(x, y);
         this.type = 'BARCODE';
         this.symbology = symbology;
@@ -24,6 +25,8 @@ export class BarcodeElement extends ZPLElement {
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
         this.startChar = startChar; // Codabar start character (^BK k param: A–D)
         this.stopChar = stopChar; // Codabar stop character (^BK l param: A–D)
+        this.msiCheckMode = msiCheckMode; // MSI check-digit mode (^BM e param: A/B/C/D)
+        this.msiCheckInText = msiCheckInText; // MSI insert check digit into HRI (^BM e2 param)
     }
 
     _render(content) {
@@ -61,6 +64,15 @@ export class BarcodeElement extends ZPLElement {
                 // ^BJo,h,f,g — same plain layout as ^BI. Standard 2 of 5 differs from
                 // Industrial only in its (shorter) start/stop bars; numeric-only, no check digit.
                 return `${pos}${by}^BJ${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            case 'MSI': {
+                // ^BMo,e,h,f,g,e2 — e = check-digit mode (A/B/C/D, default B); e2 = insert
+                // the computed check digit(s) into the HRI. e2 needs the g slot filled so it
+                // lands in position (same pattern as ^B2/^BA's trailing e flag).
+                const e = this.msiCheckMode || 'B';
+                const gVal = this.printTextAbove ? 'Y' : 'N';
+                const tail = this.msiCheckInText ? `,${gVal},Y` : g;
+                return `${pos}${by}^BM${o},${e},${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
             case 'LOGMARS':
                 // ^BLo,h,g — Code 39 for the US DoD. Unlike the others there is NO f
                 // (print-interpretation) param: the HRI is always printed. The mod-43 check
