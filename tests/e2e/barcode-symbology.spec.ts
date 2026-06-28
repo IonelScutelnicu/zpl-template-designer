@@ -6,6 +6,7 @@ const ONE_D = [
     { symbology: 'CODE128', command: '^BCN' },
     { symbology: 'CODE39', command: '^B3N' },
     { symbology: 'CODE93', command: '^BAN' },
+    { symbology: 'CODABAR', command: '^BKN' },
     { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
@@ -248,6 +249,59 @@ test.describe('Barcode symbology', () => {
         expect(r.checkDigit).toBe(true);
     });
 
+    // ============== CODABAR (^BK) ==============
+    test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'CODABAR');
+        // e is fixed N before height; default start/stop (A/A) omit the k/l params.
+        await zplOutput.verifyZPLContains('^BKN,N,50,Y^FD');
+        // Non-default start/stop emit k/l, which requires the g slot to be filled.
+        await propertiesPanel.setSelectValue('prop-codabar-start', 'B');
+        await propertiesPanel.setSelectValue('prop-codabar-stop', 'C');
+        await zplOutput.verifyZPLContains('^BKN,N,50,Y,N,B,C');
+    });
+
+    test('Codabar encodes a linear symbol wrapped by its start/stop chars', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const geom = (startChar: string, stopChar: string) =>
+                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', previewData: '12345', startChar, stopChar, showText: true, ratio: 3, width: 2 } as any) as any;
+            const ok = geom('A', 'A');
+            // The body must be digits / - $ : / . + only; letters can't encode -> fallback.
+            const bad = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', previewData: 'AB', startChar: 'A', stopChar: 'A', showText: true } as any) as any;
+            return { kind: ok.kind, modules: ok.modules, badKind: bad.kind };
+        });
+        expect(r.kind).toBe('linear');
+        expect(r.modules).toBeGreaterThan(0);
+        expect(r.badKind).not.toBe('linear'); // invalid body falls back, doesn't throw
+    });
+
+    test('Codabar round-trips orientation, printTextAbove and start/stop chars', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            // ctor: ...symbology, checkDigit, orientation, printTextAbove, fieldHex, startChar, stopChar
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'CODABAR', false, 'I', true, false, 'B', 'C');
+            const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
+            return {
+                sym: parsed?.symbology,
+                orientation: parsed?.orientation,
+                above: parsed?.printTextAbove,
+                startChar: parsed?.startChar,
+                stopChar: parsed?.stopChar,
+            };
+        });
+        expect(r.sym).toBe('CODABAR');
+        expect(r.orientation).toBe('I');
+        expect(r.above).toBe(true);
+        expect(r.startChar).toBe('B');
+        expect(r.stopChar).toBe('C');
+    });
+
     // ============== ORIENTATION + INTERPRETATION LINE ABOVE ==============
     test.describe('orientation and interpretation line above', () => {
         // Per symbology, the expected command once orientation=R and
@@ -256,6 +310,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'CODE128', expected: '^BCR,50,Y,Y' },
             { symbology: 'CODE39', expected: '^B3R,N,50,Y,Y' },
             { symbology: 'CODE93', expected: '^BAR,50,Y,Y' },
+            { symbology: 'CODABAR', expected: '^BKR,N,50,Y,Y' },
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -513,6 +568,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567890', 'CODE128'),
                 make1D('CODE39', 'CODE39', true),
                 make1D('CODE93', 'CODE93'),
+                make1D('1234567890', 'CODABAR'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),

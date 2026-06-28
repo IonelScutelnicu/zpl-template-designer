@@ -70,7 +70,9 @@ export class ElementService {
           props.checkDigit || false,
           props.orientation || 'N',
           props.printTextAbove || false,
-          props.fieldHex || false
+          props.fieldHex || false,
+          props.startChar || 'A',
+          props.stopChar || 'A'
         );
         break;
       }

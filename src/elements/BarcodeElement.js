@@ -3,10 +3,10 @@ import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeome
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
-//   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  INTERLEAVED2OF5 -> ^B2,
-//   EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9
+//   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODABAR -> ^BK,
+//   INTERLEAVED2OF5 -> ^B2,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9
 export class BarcodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false) {
+    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A') {
         super(x, y);
         this.type = 'BARCODE';
         this.symbology = symbology;
@@ -21,6 +21,8 @@ export class BarcodeElement extends ZPLElement {
         this.orientation = orientation; // N, R, I, B
         this.printTextAbove = printTextAbove; // interpretation line above the bars (g param)
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
+        this.startChar = startChar; // Codabar start character (^BK k param: A–D)
+        this.stopChar = stopChar; // Codabar stop character (^BK l param: A–D)
     }
 
     _render(content) {
@@ -51,6 +53,16 @@ export class BarcodeElement extends ZPLElement {
                 const gVal = this.printTextAbove ? 'Y' : 'N';
                 const tail = this.checkDigit ? `,${gVal},Y` : g;
                 return `${pos}${by}^BA${o},${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
+            case 'CODABAR': {
+                // ^BK param order is o,e,h,f,g,k,l. The check digit (e) is fixed at N.
+                // k/l are the start/stop chars (A–D); only emit them when non-default,
+                // which requires the g slot to be filled so they land in position.
+                const startCh = this.startChar || 'A';
+                const stopCh = this.stopChar || 'A';
+                const gVal = this.printTextAbove ? 'Y' : 'N';
+                const tail = (startCh !== 'A' || stopCh !== 'A') ? `,${gVal},${startCh},${stopCh}` : g;
+                return `${pos}${by}^BK${o},N,${this.height},${f}${tail}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'EAN13':
                 return `${pos}${by}^BE${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;

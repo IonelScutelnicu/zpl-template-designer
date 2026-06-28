@@ -264,6 +264,9 @@ export class PropertyListenersManager {
       return Number.isNaN(r) ? 2.0 : Math.min(3, Math.max(2, r));
     });
     this._attachToggle("prop-check-digit", element, "checkDigit");
+    // Codabar start/stop characters (^BK k/l). No-op when the selects aren't rendered.
+    attach("prop-codabar-start", "startChar");
+    attach("prop-codabar-stop", "stopChar");
     this._attachHriControl(element);
     this._attachOrientationButtons(element);
 

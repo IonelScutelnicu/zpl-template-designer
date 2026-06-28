@@ -85,7 +85,9 @@ export class SerializationService {
           data.checkDigit,
           data.orientation,
           data.printTextAbove,
-          data.fieldHex
+          data.fieldHex,
+          data.startChar,
+          data.stopChar
         );
         break;
 

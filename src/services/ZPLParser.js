@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BK/^BU/^BX are two-letter.
+  'B', 'BA', 'BE', 'BK', 'BU', 'BX'
 ]);
 
 /**
@@ -576,6 +576,10 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BA'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE93', fhToken);
     }
 
+    if (hasCommand('BK')) {
+      return this._parseBarcode(group, getCommand('BK'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODABAR', fhToken);
+    }
+
     // ^B3 (Code 39) and ^B7 (PDF417) tokenize as command 'B' with the digit
     // pushed into params, since the tokenizer only captures letters.
     if (hasCommand('B')) {
@@ -797,12 +801,13 @@ export class ZPLParser {
     const rawOrientation = (parts[0] || 'N').trim().toUpperCase();
     const orientation = ['N', 'R', 'I', 'B'].includes(rawOrientation) ? rawOrientation : 'N';
 
-    // Code 39 (^B3o,e,h,f) carries a check-digit param before height.
+    // Code 39 (^B3o,e,h,f) and Codabar (^BKo,e,h,f,g,k,l) carry an e param before
+    // height — a real check digit for Code 39, fixed N (ignored) for Codabar.
     let heightIdx = 1;
     let showIdx = 2;
     let checkDigit = false;
-    if (symbology === 'CODE39') {
-      checkDigit = (parts[1] || 'N').trim() === 'Y';
+    if (symbology === 'CODE39' || symbology === 'CODABAR') {
+      if (symbology === 'CODE39') checkDigit = (parts[1] || 'N').trim() === 'Y';
       heightIdx = 2;
       showIdx = 3;
     }
@@ -812,6 +817,15 @@ export class ZPLParser {
     // ^B2 (Interleaved 2 of 5) and ^BA (Code 93) carry a check-digit flag (e) after g.
     if (symbology === 'INTERLEAVED2OF5' || symbology === 'CODE93') {
       checkDigit = (parts[showIdx + 2] || 'N').trim() === 'Y';
+    }
+    // ^BK (Codabar) carries the start (k) and stop (l) chars after g; valid values A–D.
+    let startChar = 'A';
+    let stopChar = 'A';
+    if (symbology === 'CODABAR') {
+      const k = (parts[showIdx + 2] || 'A').trim().toUpperCase();
+      const l = (parts[showIdx + 3] || 'A').trim().toUpperCase();
+      startChar = ['A', 'B', 'C', 'D'].includes(k) ? k : 'A';
+      stopChar = ['A', 'B', 'C', 'D'].includes(l) ? l : 'A';
     }
 
     // Use ^BY from this group if present, otherwise from state
@@ -853,6 +867,8 @@ export class ZPLParser {
       checkDigit,
       orientation,
       printTextAbove,
+      startChar,
+      stopChar,
       reverse: hasReverse
     };
   }

@@ -10,6 +10,7 @@ const BWIP_BCID = {
   CODE128: 'code128',
   CODE39: 'code39',
   CODE93: 'code93',
+  CODABAR: 'rationalizedCodabar',
   INTERLEAVED2OF5: 'interleaved2of5',
   EAN13: 'ean13',
   EAN8: 'ean8',
@@ -22,7 +23,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODABAR', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -30,6 +31,7 @@ export const SYMBOLOGY_LABELS = {
   CODE128: 'Code 128',
   CODE39: 'Code 39',
   CODE93: 'Code 93',
+  CODABAR: 'Codabar',
   INTERLEAVED2OF5: 'Interleaved 2 of 5',
   EAN13: 'EAN-13',
   EAN8: 'EAN-8',
@@ -47,6 +49,7 @@ export const SYMBOLOGY_META = {
   CODE128: { code: '^BC', desc: 'Alphanumeric · variable length', dim: '1D' },
   CODE39: { code: '^B3', desc: 'A–Z, 0–9, symbols · variable', dim: '1D' },
   CODE93: { code: '^BA', desc: 'Full ASCII · compact Code 39', dim: '1D' },
+  CODABAR: { code: '^BK', desc: 'Digits + -$:/.+ · libraries, medical', dim: '1D' },
   INTERLEAVED2OF5: { code: '^B2', desc: 'Numeric only · even length', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
@@ -64,6 +67,7 @@ export const DEFAULT_PREVIEW_DATA = {
   CODE128: '1234567890',
   CODE39: 'CODE39',
   CODE93: 'CODE93',
+  CODABAR: '1234567890',
   INTERLEAVED2OF5: '1234567890',
   EAN13: '123456789012',
   EAN8: '1234567',
@@ -248,6 +252,7 @@ export const HRI_CONFIG = {
   CODE128: hriFontConfig.CODE,
   CODE39: hriFontConfig.CODE,
   CODE93: hriFontConfig.CODE,
+  CODABAR: hriFontConfig.CODE,
   INTERLEAVED2OF5: hriFontConfig.CODE,
 };
 
@@ -342,7 +347,7 @@ export function interleaved2of5Digits(data, checkDigit) {
 // bwip-js' native wide:narrow element value per ratio-bearing symbology. Code 39 is
 // encoded at a fixed 3:1, Interleaved 2 of 5 at 2:1; getBarcodeGeometry rescales these
 // wide elements to the element's effective ^BY ratio so the canvas matches Labelary.
-const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2 };
+const NATIVE_WIDE = { CODE39: 3, INTERLEAVED2OF5: 2, CODABAR: 3 };
 
 /** Build the bwip-js options object for an element's current symbology + data. */
 function buildBwipOptions(element) {
@@ -373,6 +378,14 @@ function buildBwipOptions(element) {
     // that on the canvas so the bar count matches Labelary. (The check char is added
     // to the HRI line by BarcodeRenderer via code39CheckChar.)
     opts.includecheck = true;
+  }
+  if (symbology === 'CODABAR') {
+    // ZPL ^BK encodes the start/stop characters (k/l params, A–D) around the ^FD
+    // body; bwip's `rationalizedCodabar` expects them as the first/last chars of the
+    // text (e.g. A12345A). The body accepts digits and - $ : / . + only.
+    const start = (element.startChar || 'A').toUpperCase();
+    const stop = (element.stopChar || 'A').toUpperCase();
+    opts.text = start + normalizeBarcodeData(symbology, element.previewData) + stop;
   }
   if (symbology === 'CODE93') {
     // Code 93's two check characters (C, K) are mandatory — Zebra always encodes

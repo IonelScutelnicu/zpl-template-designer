@@ -70,6 +70,12 @@ export class BarcodeRenderer {
       // Code 93's two check chars are always in the bars; ^BA's e flag adds them to
       // the HRI (e.g. 12345ABC -> 12345ABC37). Matches Labelary/Zebra.
       displayText = `${data}${code93CheckChars(data)}`;
+    } else if (sym === 'CODABAR') {
+      // Codabar's HRI wraps the data with the start/stop chars (e.g. A12345A),
+      // matching Labelary/Zebra and the bars bwip encodes via start+data+stop.
+      const start = (element.startChar || 'A').toUpperCase();
+      const stop = (element.stopChar || 'A').toUpperCase();
+      displayText = `${start}${data}${stop}`;
     }
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;
