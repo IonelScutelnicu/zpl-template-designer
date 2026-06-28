@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BS/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BS', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BS/^BU/^BX are two-letter.
+  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BS', 'BU', 'BX'
 ]);
 
 /**
@@ -593,6 +593,10 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BJ'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'STANDARD2OF5', fhToken);
     }
 
+    if (hasCommand('BL')) {
+      return this._parseBarcode(group, getCommand('BL'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'LOGMARS', fhToken);
+    }
+
     if (hasCommand('BS')) {
       return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCEANEXT', fhToken);
     }
@@ -832,11 +836,17 @@ export class ZPLParser {
       heightIdx = 2;
       showIdx = 3;
     }
-    const showText = (parts[showIdx] || 'Y').trim() !== 'N';
-    // "Print interpretation line above code" (g) sits right after f. It defaults N for
-    // every barcode except ^BS (UPC/EAN extension), whose g default is Y (HRI above).
+    // ^BL (LOGMARS) is special: its format is o,h,g — there is NO f param, the HRI is
+    // always printed, and the mod-43 check digit is mandatory. g sits right after height.
+    const isLogmars = symbology === 'LOGMARS';
+    if (isLogmars) checkDigit = true;
+    const showText = isLogmars ? true : (parts[showIdx] || 'Y').trim() !== 'N';
+    // "Print interpretation line above code" (g) sits right after f (or after h for
+    // LOGMARS). It defaults N for every barcode except ^BS (UPC/EAN extension), whose g
+    // default is Y (HRI above).
+    const gIdx = isLogmars ? heightIdx + 1 : showIdx + 1;
     const gDefault = symbology === 'UPCEANEXT' ? 'Y' : 'N';
-    const printTextAbove = (parts[showIdx + 1] || gDefault).trim() === 'Y';
+    const printTextAbove = (parts[gIdx] || gDefault).trim() === 'Y';
     // ^B2 (Interleaved 2 of 5) and ^BA (Code 93) carry a check-digit flag (e) after g.
     if (symbology === 'INTERLEAVED2OF5' || symbology === 'CODE93') {
       checkDigit = (parts[showIdx + 2] || 'N').trim() === 'Y';

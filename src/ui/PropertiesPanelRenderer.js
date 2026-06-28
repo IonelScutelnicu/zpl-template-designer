@@ -23,6 +23,7 @@ const SYMBOLOGY_THUMBS = {
   INTERLEAVED2OF5: THUMB_LINEAR,
   INDUSTRIAL2OF5: THUMB_LINEAR,
   STANDARD2OF5: THUMB_LINEAR,
+  LOGMARS: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
   EAN8: THUMB_LINEAR,
   UPCA: THUMB_LINEAR,
@@ -399,8 +400,12 @@ export class PropertiesPanelRenderer {
    * Below → text under the bars, Above → text over the bars. Buttons carry
    * data-hri so PropertyListenersManager can wire them.
    */
-  renderHriControl(element) {
-    const current = !element.showText ? "off" : (element.printTextAbove ? "above" : "below");
+  renderHriControl(element, { allowOff = true } = {}) {
+    // LOGMARS (^BL) has no print-interpretation param — the HRI is always printed — so
+    // its control omits "Off" and the current position ignores showText.
+    const current = !allowOff
+      ? (element.printTextAbove ? "above" : "below")
+      : (!element.showText ? "off" : (element.printTextAbove ? "above" : "below"));
     const btn = (value, label) => `
       <button type="button" data-hri="${value}"
         aria-pressed="${current === value}"
@@ -411,7 +416,7 @@ export class PropertiesPanelRenderer {
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Human-readable (HRI)</label>
           <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
-            ${btn("off", "Off")}
+            ${allowOff ? btn("off", "Off") : ""}
             ${btn("below", "Below")}
             ${btn("above", "Above")}
           </div>
@@ -640,13 +645,16 @@ export class PropertiesPanelRenderer {
     const isI2of5 = symbology === "INTERLEAVED2OF5";
     const isIndustrial2of5 = symbology === "INDUSTRIAL2OF5";
     const isStandard2of5 = symbology === "STANDARD2OF5";
+    const isLogmars = symbology === "LOGMARS";
     const isCodabar = symbology === "CODABAR";
-    // Code 39, Interleaved 2 of 5, Codabar, Code 11, Industrial 2 of 5 and Standard 2 of 5
+    // Code 39, Interleaved 2 of 5, Codabar, Code 11, Industrial/Standard 2 of 5 and LOGMARS
     // derive their wide:narrow ratio from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 /
     // Code 93 / Code 11 expose a check-digit toggle (mod-43 / mod-10 / mandatory Code 93
     // C+K / Code 11 1-vs-2 digits); Industrial & Standard 2 of 5 are self-checking with no
-    // check-digit param; Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
-    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5;
+    // check-digit param; LOGMARS is Code 39 with a forced mod-43 check digit and an
+    // always-on HRI (no f param), so it exposes neither a check-digit nor an HRI-off toggle;
+    // Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
+    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5 || isLogmars;
     const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11;
     const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : "Mod-43 Check Digit";
     const startStopOptions = [["A", "A"], ["B", "B"], ["C", "C"], ["D", "D"]];
@@ -674,7 +682,7 @@ export class PropertiesPanelRenderer {
           ${this.createSelectGroup("Start Character", "prop-codabar-start", element.startChar || "A", startStopOptions)}
           ${this.createSelectGroup("Stop Character", "prop-codabar-stop", element.stopChar || "A", startStopOptions)}
         </div>` : ""}
-        ${this.renderHriControl(element)}
+        ${this.renderHriControl(element, { allowOff: !isLogmars })}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;

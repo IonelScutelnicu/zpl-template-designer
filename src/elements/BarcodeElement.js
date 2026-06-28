@@ -4,7 +4,7 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
-//   INTERLEAVED2OF5 -> ^B2,  INDUSTRIAL2OF5 -> ^BI,  STANDARD2OF5 -> ^BJ,
+//   INTERLEAVED2OF5 -> ^B2,  INDUSTRIAL2OF5 -> ^BI,  STANDARD2OF5 -> ^BJ,  LOGMARS -> ^BL,
 //   EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
     constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A') {
@@ -61,6 +61,11 @@ export class BarcodeElement extends ZPLElement {
                 // ^BJo,h,f,g — same plain layout as ^BI. Standard 2 of 5 differs from
                 // Industrial only in its (shorter) start/stop bars; numeric-only, no check digit.
                 return `${pos}${by}^BJ${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            case 'LOGMARS':
+                // ^BLo,h,g — Code 39 for the US DoD. Unlike the others there is NO f
+                // (print-interpretation) param: the HRI is always printed. The mod-43 check
+                // digit is mandatory. g (interpretation line above) is emitted only when on.
+                return `${pos}${by}^BL${o},${this.height}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'CODE93': {
                 // ^BA param order is o,h,f,g,e — same layout as ^B2. Code 93 always
                 // encodes its two check chars in the bars; e only prints them in the

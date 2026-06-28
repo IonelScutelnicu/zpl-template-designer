@@ -65,6 +65,11 @@ export class BarcodeRenderer {
     let displayText = data;
     if (sym === 'CODE39') {
       displayText = `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
+    } else if (sym === 'LOGMARS') {
+      // ^BL prints the HRI as uppercased data + the mandatory mod-43 check char, with no
+      // Code 39-style `*` delimiters (verified on Labelary: ^FD12345 -> "12345F").
+      const up = data.toUpperCase();
+      displayText = `${up}${code39CheckChar(up)}`;
     } else if (sym === 'CODE11') {
       // Code 11 always carries check digit(s) in the bars; show them in the HRI like
       // Labelary (123456 -> 12345611 for 2 digits, 1234561 for the single-digit flag).
@@ -93,8 +98,9 @@ export class BarcodeRenderer {
     }
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;
-    // HRI line config (per symbology + position); null when no HRI is shown.
-    const hriConfig = element.showText ? getHriConfig(sym, above) : null;
+    // HRI line config (per symbology + position); null when no HRI is shown. ^BL LOGMARS
+    // has no print-interpretation toggle — the HRI is always printed, so force it on.
+    const hriConfig = (element.showText || sym === 'LOGMARS') ? getHriConfig(sym, above) : null;
 
     // Content extents in LOCAL space (bars top-left at origin 0,0). Mapped to
     // screen via the orientation transform so rotation + the reverse-print

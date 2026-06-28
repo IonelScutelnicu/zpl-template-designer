@@ -11,6 +11,7 @@ const ONE_D = [
     { symbology: 'INTERLEAVED2OF5', command: '^B2N' },
     { symbology: 'INDUSTRIAL2OF5', command: '^BIN' },
     { symbology: 'STANDARD2OF5', command: '^BJN' },
+    { symbology: 'LOGMARS', command: '^BLN' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
@@ -373,6 +374,55 @@ test.describe('Barcode symbology', () => {
         expect(r.modules).toBeLessThan(r.industrialModules); // shorter start/stop than ^BI
     });
 
+    // ============== LOGMARS (^BL) ==============
+    test('LOGMARS emits ^BLo,h,g (no f), forces the HRI on and the mandatory mod-43 check', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }, { getBarcodeGeometry, code39CheckChar }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const parser = new ZPLParser();
+            // orientation I, printTextAbove true. ^BL has no f param; check digit mandatory.
+            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, '', true, false, 'LOGMARS', false, 'I', true);
+            const zpl = el.render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            // Lowercase ^FD round-trips (printer uppercases); HRI is always on (no f to omit).
+            const lower: any = parser.parse('^XA^FO0,0^BLN,80^FDlogmars^FS^XZ').elements[0];
+            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'LOGMARS', previewData: '12345', ratio: 3, width: 2 } as any);
+            // LOGMARS bars are identical to Code 39 with the mod-43 check digit on.
+            const c39: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', previewData: '12345', checkDigit: true, ratio: 3, width: 2 } as any);
+            const c39NoCheck: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', previewData: '12345', checkDigit: false, ratio: 3, width: 2 } as any);
+            return {
+                emits: zpl.includes('^BLI,80,Y'),
+                hasNoFParam: !/\^BLI,80,Y,/.test(zpl), // only o,h,g — no trailing param after g
+                sym: parsed?.symbology,
+                orientation: parsed?.orientation,
+                above: parsed?.printTextAbove,
+                showText: parsed?.showText,
+                checkDigit: parsed?.checkDigit,
+                lowerShowText: lower?.showText,
+                lowerAbove: lower?.printTextAbove,
+                checkChar: code39CheckChar('12345'),
+                modules: geom?.modules,
+                code39CheckModules: c39?.modules,
+                code39NoCheckModules: c39NoCheck?.modules,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.hasNoFParam).toBe(true);
+        expect(r.sym).toBe('LOGMARS');
+        expect(r.orientation).toBe('I');
+        expect(r.above).toBe(true);
+        expect(r.showText).toBe(true);   // HRI always on
+        expect(r.checkDigit).toBe(true); // mod-43 check mandatory
+        expect(r.lowerShowText).toBe(true);
+        expect(r.lowerAbove).toBe(false);
+        expect(r.checkChar).toBe('F');   // mod-43 check digit for "12345"
+        expect(r.modules).toBe(r.code39CheckModules);       // identical to Code 39 + check
+        expect(r.modules).toBeGreaterThan(r.code39NoCheckModules); // wider than Code 39 without it
+    });
+
     // ============== CODABAR (^BK) ==============
     test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
         await elementsPanel.addBarcodeElement();
@@ -488,6 +538,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'CODABAR', expected: '^BKR,N,50,Y,Y' },
             { symbology: 'INDUSTRIAL2OF5', expected: '^BIR,50,Y,Y' },
             { symbology: 'STANDARD2OF5', expected: '^BJR,50,Y,Y' },
+            { symbology: 'LOGMARS', expected: '^BLR,50,Y' }, // ^BL has no f param: o,h,g
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -811,6 +862,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567890', 'CODABAR'),
                 make1D('1234567890', 'INDUSTRIAL2OF5'),
                 make1D('1234567890', 'STANDARD2OF5'),
+                make1D('LOGMARS', 'LOGMARS'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),
