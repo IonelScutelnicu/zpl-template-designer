@@ -12,6 +12,7 @@ const ONE_D = [
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
     { symbology: 'UPCE', command: '^B9N' },
+    { symbology: 'UPCEANEXT', command: '^BSN' },
 ];
 const TWO_D = [
     { symbology: 'QR', command: '^BQN' },
@@ -302,6 +303,56 @@ test.describe('Barcode symbology', () => {
         expect(r.stopChar).toBe('C');
     });
 
+    // ============== UPC/EAN EXTENSION (^BS) ==============
+    test('UPC/EAN extension picks the 2- vs 5-digit add-on by data length and left-pads/truncates', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { normalizeUpcEanExt, getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const modules = (d: string) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCEANEXT', previewData: d, showText: true, width: 2 } as any) as any).modules;
+            return {
+                pad1: normalizeUpcEanExt('7'),        // ≤2 -> 2-digit, left-padded
+                keep2: normalizeUpcEanExt('12'),
+                pad3: normalizeUpcEanExt('123'),      // ≥3 -> 5-digit, left-padded
+                keep5: normalizeUpcEanExt('12345'),
+                trunc6: normalizeUpcEanExt('123456'), // overflow keeps the leftmost 5
+                letters: normalizeUpcEanExt('1a'),    // non-digits -> '0'
+                mod2: modules('12'),
+                mod5: modules('12345'),
+            };
+        });
+        expect(r.pad1).toBe('07');
+        expect(r.keep2).toBe('12');
+        expect(r.pad3).toBe('00123');
+        expect(r.keep5).toBe('12345');
+        expect(r.trunc6).toBe('12345');
+        expect(r.letters).toBe('10');
+        expect(r.mod5).toBeGreaterThan(r.mod2); // the 5-digit add-on is wider than the 2-digit
+    });
+
+    test('^BS interpretation line defaults above (g=Y) when omitted; round-trips otherwise', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            const aboveOmitted: any = parser.parse('^XA^FO10,10^BY2^BSN,80,Y^FD12345^FS^XZ').elements[0];
+            const belowExplicit: any = parser.parse('^XA^FO10,10^BY2^BSN,80,Y,N^FD12345^FS^XZ').elements[0];
+            // Element render() always emits g explicitly, so canvas and Labelary agree.
+            const el: any = new BarcodeElement(10, 10, '12', 50, 2, 2, '', true, false, 'UPCEANEXT', false, 'N', false);
+            return {
+                sym: aboveOmitted?.symbology,
+                omittedAbove: aboveOmitted?.printTextAbove,
+                belowExplicit: belowExplicit?.printTextAbove,
+                emittedG: el.render().includes('^BSN,50,Y,N'),
+            };
+        });
+        expect(r.sym).toBe('UPCEANEXT');
+        expect(r.omittedAbove).toBe(true);   // ^BS g default is Y (above)
+        expect(r.belowExplicit).toBe(false); // explicit ,N keeps it below
+        expect(r.emittedG).toBe(true);       // g is always emitted for ^BS
+    });
+
     // ============== ORIENTATION + INTERPRETATION LINE ABOVE ==============
     test.describe('orientation and interpretation line above', () => {
         // Per symbology, the expected command once orientation=R and
@@ -315,6 +366,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
             { symbology: 'UPCE', expected: '^B9R,50,Y,Y' },
+            { symbology: 'UPCEANEXT', expected: '^BSR,50,Y,Y' },
         ];
         for (const { symbology, expected } of cases) {
             test(`1D ${symbology} -> ${expected}`, async () => {
@@ -573,6 +625,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),
                 make1D('123456', 'UPCE'),
+                make1D('12345', 'UPCEANEXT'),
                 make2D('https://example.com', 'QR'),
                 make2D('Data Matrix', 'DATAMATRIX'),
                 make2D('PDF417', 'PDF417'),

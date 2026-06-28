@@ -16,6 +16,8 @@ const BWIP_BCID = {
   EAN8: 'ean8',
   UPCA: 'upca',
   UPCE: 'upce',
+  UPCEANEXT: 'ean5', // 2-digit data switches this to 'ean2' in buildBwipOptions
+
   QR: 'qrcode',
   DATAMATRIX: 'datamatrix',
   PDF417: 'pdf417',
@@ -23,7 +25,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODABAR', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODABAR', 'INTERLEAVED2OF5', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -37,6 +39,7 @@ export const SYMBOLOGY_LABELS = {
   EAN8: 'EAN-8',
   UPCA: 'UPC-A',
   UPCE: 'UPC-E',
+  UPCEANEXT: 'UPC/EAN Extension',
   QR: 'QR Code',
   DATAMATRIX: 'Data Matrix',
   PDF417: 'PDF417',
@@ -55,6 +58,7 @@ export const SYMBOLOGY_META = {
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
   UPCE: { code: '^B9', desc: 'Enter 6 digits · zero-suppressed', dim: '1D' },
+  UPCEANEXT: { code: '^BS', desc: '2 or 5 digit add-on · ISBN/price', dim: '1D' },
   QR: { code: '^BQ', desc: 'Matrix · URLs, high capacity', dim: '2D' },
   DATAMATRIX: { code: '^BX', desc: 'Matrix · tiny marks, GS1', dim: '2D' },
   PDF417: { code: '^B7', desc: 'Stacked · IDs, large payloads', dim: '2D' },
@@ -73,6 +77,7 @@ export const DEFAULT_PREVIEW_DATA = {
   EAN8: '1234567',
   UPCE: '123456',
   UPCA: '12345678901',
+  UPCEANEXT: '12345',
   QR: 'https://example.com',
   DATAMATRIX: 'Data Matrix',
   PDF417: 'PDF417',
@@ -93,6 +98,20 @@ export function normalizeBarcodeData(symbology, data) {
   // Right-aligned: keep the trailing `len` chars (Labelary truncates leading
   // overflow) / left-pad short data with zeros.
   return s.length > len ? s.slice(-len) : s.padStart(len, '0');
+}
+
+/**
+ * Resolve the digits a ^BS UPC/EAN extension actually encodes. The add-on is a
+ * 2-digit (ean2) or 5-digit (ean5) symbol chosen by data length: ≤2 digits → the
+ * 2-digit variant, ≥3 → the 5-digit variant. Like the other UPC/EAN symbologies it
+ * is digit-only (disallowed chars become '0') and ZPL left-pads with zeros; overflow
+ * is truncated keeping the leftmost digits (Labelary: ^FD123456 → "12345"). Single
+ * source of truth for buildBwipOptions (bars) and BarcodeRenderer (HRI).
+ */
+export function normalizeUpcEanExt(data) {
+  const s = String(data ?? '').replace(/\D/g, '0');
+  const target = s.length <= 2 ? 2 : 5;
+  return s.length > target ? s.slice(0, target) : s.padStart(target, '0');
 }
 
 /**
@@ -254,6 +273,7 @@ export const HRI_CONFIG = {
   CODE93: hriFontConfig.CODE,
   CODABAR: hriFontConfig.CODE,
   INTERLEAVED2OF5: hriFontConfig.CODE,
+  UPCEANEXT: hriFontConfig.CODE,
 };
 
 /** Resolve the HRI line config for a symbology + position, or null if none. */
@@ -364,6 +384,12 @@ function buildBwipOptions(element) {
     // confirmed on Labelary: ^FD123456 -> "0 123456 5"). bwip's `upce` needs the
     // 7-digit number-system + 6 form, so prepend the fixed 0; bwip computes the check.
     opts.text = '0' + normalizeBarcodeData(symbology, element.previewData);
+  }
+  if (symbology === 'UPCEANEXT') {
+    // ^BS is a 2- or 5-digit add-on; the data length selects bwip's ean2/ean5 bcid.
+    const text = normalizeUpcEanExt(element.previewData);
+    opts.text = text;
+    opts.bcid = text.length === 2 ? 'ean2' : 'ean5';
   }
   if (POSITIONED_TEXT_SYMBOLOGIES.has(symbology)) {
     // Always request text geometry: bwip only emits EAN/UPC's extended guard bars

@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BK/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BK', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BK/^BS/^BU/^BX are two-letter.
+  'B', 'BA', 'BE', 'BK', 'BS', 'BU', 'BX'
 ]);
 
 /**
@@ -580,6 +580,10 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BK'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODABAR', fhToken);
     }
 
+    if (hasCommand('BS')) {
+      return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCEANEXT', fhToken);
+    }
+
     // ^B3 (Code 39) and ^B7 (PDF417) tokenize as command 'B' with the digit
     // pushed into params, since the tokenizer only captures letters.
     if (hasCommand('B')) {
@@ -812,8 +816,10 @@ export class ZPLParser {
       showIdx = 3;
     }
     const showText = (parts[showIdx] || 'Y').trim() !== 'N';
-    // "Print interpretation line above code" (g) sits right after f in all four commands.
-    const printTextAbove = (parts[showIdx + 1] || 'N').trim() === 'Y';
+    // "Print interpretation line above code" (g) sits right after f. It defaults N for
+    // every barcode except ^BS (UPC/EAN extension), whose g default is Y (HRI above).
+    const gDefault = symbology === 'UPCEANEXT' ? 'Y' : 'N';
+    const printTextAbove = (parts[showIdx + 1] || gDefault).trim() === 'Y';
     // ^B2 (Interleaved 2 of 5) and ^BA (Code 93) carry a check-digit flag (e) after g.
     if (symbology === 'INTERLEAVED2OF5' || symbology === 'CODE93') {
       checkDigit = (parts[showIdx + 2] || 'N').trim() === 'Y';

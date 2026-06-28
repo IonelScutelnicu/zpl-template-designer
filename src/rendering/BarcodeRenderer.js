@@ -1,7 +1,7 @@
 // Barcode Renderer
 // Renders 1D BARCODE elements on canvas using real bwip-js geometry.
 
-import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, interleaved2of5Digits } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, interleaved2of5Digits, normalizeUpcEanExt } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
@@ -76,6 +76,10 @@ export class BarcodeRenderer {
       const start = (element.startChar || 'A').toUpperCase();
       const stop = (element.stopChar || 'A').toUpperCase();
       displayText = `${start}${data}${stop}`;
+    } else if (sym === 'UPCEANEXT') {
+      // Show the actually-encoded 2/5 digits (length-padded/truncated) so the HRI
+      // matches the bars. ^BS defaults the HRI above (see BarcodeElement/ZPLParser).
+      displayText = normalizeUpcEanExt(data);
     }
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;

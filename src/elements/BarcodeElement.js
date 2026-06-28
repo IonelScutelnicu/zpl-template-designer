@@ -4,7 +4,8 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODABAR -> ^BK,
-//   INTERLEAVED2OF5 -> ^B2,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9
+//   INTERLEAVED2OF5 -> ^B2,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,
+//   UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
     constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A') {
         super(x, y);
@@ -72,6 +73,14 @@ export class BarcodeElement extends ZPLElement {
                 return `${pos}${by}^B9${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'UPCA':
                 return `${pos}${by}^BU${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            case 'UPCEANEXT': {
+                // ^BS 2/5-digit add-on (^BSo,h,f,g). The data length picks the variant.
+                // g (interpretation line above) defaults Y for ^BS — the opposite of the
+                // other barcodes — so always emit it explicitly to keep canvas and
+                // Labelary in agreement regardless of the toggle.
+                const gVal = this.printTextAbove ? 'Y' : 'N';
+                return `${pos}${by}^BS${o},${this.height},${f},${gVal}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
             case 'CODE128':
             default:
                 // >: forces Code 128 Subset B (the canvas mirrors this — see barcodeGeometry).
