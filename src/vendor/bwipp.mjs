@@ -22883,7 +22883,7 @@ function bwipp_micropdf417() {
                     $_.seqlen = $f(_8R + _8Q) //#24348
                 } else { //#24379
                     $_.n = $get($_.numdigits, $_.p); //#24350
-                    if (($_.n >= 13) || (($_.n == $_.msglen) && ($_.n >= 8))) { //#24379
+                    if (($_.n >= 13) || (($_.n == $_.msglen) && ($_.n >= 1))) { //#24379 PATCHED 8->1: Zebra ^BF uses numeric compaction for any all-digit field (matches Labelary); upstream bwip needs >=8
                         $k[$j++] = $_.micropdf417_nl; //#24353
                         $k[$j++] = Infinity; //#24353
                         $aload($geti($_.msg, $_.p, $_.n)); //#24353

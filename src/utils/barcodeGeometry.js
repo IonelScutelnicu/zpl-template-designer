@@ -9,7 +9,7 @@ import bwipjs from '../vendor/bwip-js.mjs';
 const BWIP_BCID = {
   CODE128: 'code128',
   CODE39: 'code39',
-  CODE93: 'code93',
+  CODE93: 'code93ext', // full-ASCII Code 93 — Zebra ^BA accepts lowercase/control chars
   CODE11: 'code11',
   CODABAR: 'rationalizedCodabar',
   INTERLEAVED2OF5: 'interleaved2of5',
@@ -269,7 +269,79 @@ const hriFontConfig = {
         10:{ height: 90, width: 50, gap: 6, xOffset: -6 },
       }
     }
-  }
+  },
+  UPCEANEXT: {
+    top: {
+      font: { id: 'E', family: HRI_OCRB },
+      placement: 'center',
+      letterSpacing: -0.01,
+      module: {
+        1: { fontSize: 9, gap: 2, xOffset: 1 },
+        2: { fontSize: 18, gap: 4, xOffset: 0 },
+        3: { fontSize: 28, gap: 3, xOffset: -2 },
+        4: { fontSize: 28, gap: 3, xOffset: -2 },
+        5: { fontSize: 28, gap: 3, xOffset: -2 },
+        6: { fontSize: 28, gap: 3, xOffset: -2 },
+        7: { fontSize: 28, gap: 3, xOffset: -2 },
+        8: { fontSize: 56, gap: 5, xOffset: -5 },
+        9: { fontSize: 56, gap: 5, xOffset: -5 },
+        10:{ fontSize: 56, gap: 5, xOffset: -5 },
+      }
+    },
+    bottom: {
+      font: { id: 'A', model: true },
+      placement: 'center',
+      letterSpacing: 0.12,
+      module: {
+        1: { height: 9, width: 5, gap: 6, xOffset: -1 },
+        2: { height: 18, width: 10, gap: 6, xOffset: -1 },
+        3: { height: 27, width: 15, gap: 6, xOffset: -2 },
+        4: { height: 36, width: 20, gap: 6, xOffset: -3 },
+        5: { height: 45, width: 25, gap: 6, xOffset: -4 },
+        6: { height: 54, width: 30, gap: 6, xOffset: -5 },
+        7: { height: 63, width: 35, gap: 6, xOffset: -5 },
+        8: { height: 72, width: 40, gap: 6, xOffset: -5 },
+        9: { height: 81, width: 45, gap: 6, xOffset: -5 },
+        10:{ height: 90, width: 50, gap: 6, xOffset: -6 },
+      }
+    }
+  },
+  CODE11: {
+    top: {
+      font: { id: 'A', model: true },
+      placement: 'center',
+      letterSpacing: 0.12,
+      module: {
+        1: { height: 9, width: 5, gap: 10, xOffset: 0 },
+        2: { height: 18, width: 10, gap: 12, xOffset: 0 },
+        3: { height: 27, width: 15, gap: 14, xOffset: 0 },
+        4: { height: 36, width: 20, gap: 16, xOffset: -1 },
+        5: { height: 45, width: 25, gap: 18, xOffset: -1 },
+        6: { height: 54, width: 30, gap: 20, xOffset: -2 },
+        7: { height: 63, width: 35, gap: 22, xOffset: -2 },
+        8: { height: 72, width: 40, gap: 24, xOffset: -2 },
+        9: { height: 81, width: 45, gap: 26, xOffset: -2 },
+        10:{ height: 90, width: 50, gap: 28, xOffset: -3 },
+      }
+    },
+    bottom: {
+      font: { id: 'A', model: true },
+      placement: 'center',
+      letterSpacing: 0.12,
+      module: {
+        1: { height: 9, width: 5, gap: 6, xOffset: 0 },
+        2: { height: 18, width: 10, gap: 6, xOffset: 0 },
+        3: { height: 27, width: 15, gap: 6, xOffset: 0 },
+        4: { height: 36, width: 20, gap: 6, xOffset: 0 },
+        5: { height: 45, width: 25, gap: 6, xOffset: -1 },
+        6: { height: 54, width: 30, gap: 6, xOffset: -2 },
+        7: { height: 63, width: 35, gap: 6, xOffset: -2 },
+        8: { height: 72, width: 40, gap: 6, xOffset: -2 },
+        9: { height: 81, width: 45, gap: 6, xOffset: -2 },
+        10:{ height: 90, width: 50, gap: 6, xOffset: -2 },
+      }
+    }
+  },
 }
 
 // Symbology → HRI family. EAN-13/UPC-A share one entry; Code 128/39 share another.
@@ -281,10 +353,10 @@ export const HRI_CONFIG = {
   CODE128: hriFontConfig.CODE,
   CODE39: hriFontConfig.CODE,
   CODE93: hriFontConfig.CODE,
-  CODE11: hriFontConfig.CODE,
+  CODE11: hriFontConfig.CODE11,
   CODABAR: hriFontConfig.CODE,
   INTERLEAVED2OF5: hriFontConfig.CODE,
-  UPCEANEXT: hriFontConfig.CODE,
+  UPCEANEXT: hriFontConfig.UPCEANEXT,
 };
 
 /** Resolve the HRI line config for a symbology + position, or null if none. */
@@ -316,20 +388,45 @@ export function code39CheckChar(data) {
 // of 44 prints as 'b').
 const CODE93_CHECK_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%abcd';
 
+// Full-ASCII (Code 93 Extended) expansion, indexed by ASCII code 0–127. Mirrors
+// bwip-js's `code93ext` encoder: every character becomes either one base symbol or
+// a shift symbol ($,%,/,+ → values 43–46) followed by a base letter. The check
+// characters are computed over this expanded symbol sequence — the same bytes bwip
+// feeds through its mandatory-check pass — so the HRI matches the printed bars.
+const CODE93_EXT_TOKENS = [
+  '%U', '$A', '$B', '$C', '$D', '$E', '$F', '$G', '$H', '$I', '$J', '$K', '$L',
+  '$M', '$N', '$O', '$P', '$Q', '$R', '$S', '$T', '$U', '$V', '$W', '$X', '$Y',
+  '$Z', '%A', '%B', '%C', '%D', '%E', ' ', '/A', '/B', '/C', '$', '%', '/F',
+  '/G', '/H', '/I', '/J', '+', '/L', '-', '.', '/', '0', '1', '2', '3', '4', '5',
+  '6', '7', '8', '9', '/Z', '%F', '%G', '%H', '%I', '%J', '%V', 'A', 'B', 'C',
+  'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+  'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '%K', '%L', '%M', '%N', '%O', '%W', '+A',
+  '+B', '+C', '+D', '+E', '+F', '+G', '+H', '+I', '+J', '+K', '+L', '+M', '+N',
+  '+O', '+P', '+Q', '+R', '+S', '+T', '+U', '+V', '+W', '+X', '+Y', '+Z', '%P',
+  '%Q', '%R', '%S', '%T',
+];
+// The four shift symbols $ % / + carry check values 43–46 (rendered a–d in the HRI).
+const CODE93_SHIFTS = { $: 43, '%': 44, '/': 45, '+': 46 };
+const CODE93_EXT_VALS = CODE93_EXT_TOKENS.map((tok) => {
+  if (tok.length === 1) return [CODE93_CHECK_CHARS.indexOf(tok)];
+  return [CODE93_SHIFTS[tok[0]], CODE93_CHECK_CHARS.indexOf(tok[1])];
+});
+
 /**
  * Compute Code 93's two check characters (C then K) for `data` — the chars Zebra
  * appends to the HRI when ^BA's print-check-digit flag (e) is on. The check chars
  * are always encoded in the bars regardless; this only affects the readable line.
- * Returns '' if any char is outside the Code 93 set (bwip couldn't encode it either).
+ * Returns '' if any char is outside Code 93's full-ASCII set (bwip couldn't encode
+ * it either), so non-ASCII data shows no appended check characters.
  */
 export function code93CheckChars(data) {
   const s = String(data ?? '');
   const vals = [];
   for (const ch of s) {
-    const idx = CODE93_CHECK_CHARS.indexOf(ch);
-    // Only the first 43 entries are valid input characters; 43–46 are check-only.
-    if (idx < 0 || idx > 42) return '';
-    vals.push(idx);
+    const code = ch.codePointAt(0);
+    // Code 93 Extended covers ASCII 0–127 only; anything above can't be encoded.
+    if (code > 127) return '';
+    vals.push(...CODE93_EXT_VALS[code]);
   }
   const n = vals.length;
   // C: weights cycle 1..20 from the right; K: weights cycle 1..15 from the right
@@ -654,12 +751,17 @@ export function getBarcodeGeometry(element) {
         : o.sbs;
       let modules = 0;
       for (let i = 0; i < sbs.length; i++) modules += sbs[i];
+      // ean2/ean5 add-ons: bwip uniformly shrinks every bar (bhs≈0.77, bbs≈-0.07) to
+      // reserve space above the bars for the digits. Zebra/Labelary instead treat
+      // ^BS's h as the full bar height and place the HRI outside it (verified on
+      // Labelary: h=100 → 100-dot bars), so drop the shrink and render full-height bars.
+      const isUpcEanExt = symbology === 'UPCEANEXT';
       result = {
         kind: 'linear',
         sbs,
         modules,
-        bhs: Array.isArray(o.bhs) ? o.bhs : null,
-        bbs: Array.isArray(o.bbs) ? o.bbs : null,
+        bhs: !isUpcEanExt && Array.isArray(o.bhs) ? o.bhs : null,
+        bbs: !isUpcEanExt && Array.isArray(o.bbs) ? o.bbs : null,
         // Only trust bwip's text positions when we asked for them (includetext,
         // i.e. EAN13/UPCA). Without it bwip still emits a degenerate entry with a
         // null y-offset for Code 128/39; treating that as positioned text draws it

@@ -4,6 +4,7 @@
 import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, code11CheckDigits, interleaved2of5Digits, normalizeUpcEanExt } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { CODE93_GUARD_CHAR, CODE11_GUARD_START_CHAR, CODE11_GUARD_STOP_CHAR } from '../config/constants.js';
 
 // EAN-13/UPC-A guard bars extend this many dots below the barcode height
 // (e.g. a 50-dot symbol gets 63-dot guard bars).
@@ -67,13 +68,18 @@ export class BarcodeRenderer {
     } else if (sym === 'CODE11') {
       // Code 11 always carries check digit(s) in the bars; show them in the HRI like
       // Labelary (123456 -> 12345611 for 2 digits, 1234561 for the single-digit flag).
-      displayText = `${data}${code11CheckDigits(data, element.checkDigit)}`;
+      // Labelary/Zebra also wrap the line in start/stop guards drawn as small hollow
+      // triangles (△12345611△); the stop triangle is larger than the start one.
+      const checks = code11CheckDigits(data, element.checkDigit);
+      displayText = `${CODE11_GUARD_START_CHAR}${data}${checks}${CODE11_GUARD_STOP_CHAR}`;
     } else if (sym === 'INTERLEAVED2OF5') {
       displayText = interleaved2of5Digits(data, element.checkDigit);
-    } else if (sym === 'CODE93' && element.checkDigit) {
-      // Code 93's two check chars are always in the bars; ^BA's e flag adds them to
-      // the HRI (e.g. 12345ABC -> 12345ABC37). Matches Labelary/Zebra.
-      displayText = `${data}${code93CheckChars(data)}`;
+    } else if (sym === 'CODE93') {
+      // Labelary/Zebra wrap Code 93's HRI in the start/stop guard, drawn as an empty
+      // box at each end (□CODE93□). The two check chars are always in the bars; ^BA's
+      // e flag adds them inside the closing guard (e.g. □12345ABC37□). Matches Labelary.
+      const checks = element.checkDigit ? code93CheckChars(data) : '';
+      displayText = `${CODE93_GUARD_CHAR}${data}${checks}${CODE93_GUARD_CHAR}`;
     } else if (sym === 'CODABAR') {
       // Codabar's HRI wraps the data with the start/stop chars (e.g. A12345A),
       // matching Labelary/Zebra and the bars bwip encodes via start+data+stop.

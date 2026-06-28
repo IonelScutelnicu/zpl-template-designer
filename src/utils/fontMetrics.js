@@ -91,6 +91,61 @@ const CHAR_RULE_HANDLERS = {
       draw: (ctx, x, y) => ctx.fillRect(x + pad, y + fontSize * rule.yRatio, lineW, lineH),
     };
   },
+  // Hollow rectangle outline — replaces a glyph with a drawn box (e.g. Code 93's
+  // start/stop guard, which Labelary/Zebra render as an empty box in the HRI). The
+  // box bottom sits at `yRatio` below the (alphabetic) baseline and is `heightRatio`
+  // tall; `widthRatio` sets the box width and `padRatio` the space on each side.
+  // Only fillStyle is set by the caller, so the outline is four fillRects.
+  box(rule, fontSize) {
+    const w = rule.widthRatio * fontSize;
+    const h = rule.heightRatio * fontSize;
+    const top = rule.yRatio * fontSize;
+    const lineW = Math.max(1, Math.round(rule.lineRatio * fontSize));
+    const pad = (rule.padRatio || 0) * fontSize;
+    return {
+      advance: pad * 2 + w,
+      draw: (ctx, x, y) => {
+        const left = x + pad;
+        const t = y + top;
+        ctx.fillRect(left, t, w, lineW);
+        ctx.fillRect(left, t + h - lineW, w, lineW);
+        ctx.fillRect(left, t, lineW, h);
+        ctx.fillRect(left + w - lineW, t, lineW, h);
+      },
+    };
+  },
+  // Hollow up-pointing triangle — replaces a glyph with a drawn triangle (e.g. Code
+  // 11's start/stop guard, △ in the HRI). The triangle is `widthRatio` wide and
+  // `heightRatio` tall, vertically centered at `yRatio` from the (alphabetic) baseline
+  // (negative = above) — so a larger stop triangle stays centered on the smaller start
+  // one. `xRatio` nudges it horizontally within its cell (positive = right) without
+  // changing the advance, so the digits don't shift. The outline is an even-odd fill
+  // (outer triangle minus an inner one shrunk toward the centroid), so only fillStyle
+  // is needed and it survives the caller's non-uniform scaleX frame.
+  triangle(rule, fontSize) {
+    const w = rule.widthRatio * fontSize;
+    const h = rule.heightRatio * fontSize;
+    const centerY = (rule.yRatio || 0) * fontSize;
+    const xOff = (rule.xRatio || 0) * fontSize;
+    const lineW = Math.max(1, rule.lineRatio * fontSize);
+    const pad = (rule.padRatio || 0) * fontSize;
+    return {
+      advance: pad * 2 + w,
+      draw: (ctx, x, y) => {
+        const lx = x + pad + xOff, rx = lx + w, cx = (lx + rx) / 2;
+        const by = y + centerY + h / 2, ty = by - h;
+        // centroid; shrink the inner triangle toward it to leave a ~lineW border.
+        const gx = cx, gy = (by + by + ty) / 3;
+        const k = Math.max(0, 1 - (3 * lineW) / h);
+        const inner = (px, py) => [gx + (px - gx) * k, gy + (py - gy) * k];
+        const [iax, iay] = inner(cx, ty), [ilx, ily] = inner(lx, by), [irx, iry] = inner(rx, by);
+        ctx.beginPath();
+        ctx.moveTo(cx, ty); ctx.lineTo(lx, by); ctx.lineTo(rx, by); ctx.closePath();
+        ctx.moveTo(iax, iay); ctx.lineTo(ilx, ily); ctx.lineTo(irx, iry); ctx.closePath();
+        ctx.fill('evenodd');
+      },
+    };
+  },
   // Real glyph in a custom cell. `advanceRatio` sets the cell width (pitch);
   // `widthRatio` horizontally scales the glyph itself (<1 condenses it, >1 widens).
   // The glyph is drawn centered in the cell. advanceRatio defaults to the scaled

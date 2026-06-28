@@ -134,9 +134,11 @@ export function drawHriLine(ctx, geom, { config, displayText, moduleWidthDots, s
   // direct family, centered.
   ctx.textAlign = 'center';
   if (above) {
-    // Top baseline a fixed gap above the bars (the em box is fontPx tall).
-    ctx.textBaseline = 'top';
-    ctx.fillText(text, centerX, y - f.gap - f.fontPx);
+    // Alphabetic baseline placed from the measured descent so the gap above the bars
+    // is the real ink-to-bars distance, not inflated by the font's em padding.
+    ctx.textBaseline = 'alphabetic';
+    const descent = ctx.measureText(text).actualBoundingBoxDescent || 0;
+    ctx.fillText(text, centerX, y - f.gap - descent);
   } else {
     // Alphabetic baseline placed from the measured ascent so the gap under the bars
     // stays constant regardless of the font's internal padding.
@@ -186,7 +188,9 @@ export function measureHriLine(ctx, geom, { config, displayText, moduleWidthDots
       const m = ctx.measureText(text);
       const halfW = Math.max(m.width / 2, m.actualBoundingBoxRight || 0);
       if (above) {
-        res = { left: centerX - halfW, top: y - f.gap - f.fontPx, right: centerX + halfW, bottom: y - f.gap };
+        // Ink bottom sits f.gap above the bars (matches drawHriLine's measured-descent placement).
+        const inkBottom = y - f.gap;
+        res = { left: centerX - halfW, top: inkBottom - (m.actualBoundingBoxAscent || f.fontPx * 0.7), right: centerX + halfW, bottom: inkBottom };
       } else {
         const ascent = m.actualBoundingBoxAscent || f.fontPx * 0.7;
         res = {

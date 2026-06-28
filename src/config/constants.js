@@ -11,6 +11,24 @@ export const HISTORY_LIMIT = 100;
 export const BUILTIN_FONTS = ['0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 /**
+ * Sentinel character used to render Code 93's start/stop guard in the HRI line.
+ * Labelary/Zebra draw an empty box at each end of the readable text (□CODE93□);
+ * a private-use codepoint maps to the `box` charRule on font A so the renderer
+ * draws that box. It never appears in real ZPL data.
+ */
+export const CODE93_GUARD_CHAR = '\uE000';
+
+/**
+ * Sentinel characters used to render Code 11's start/stop guards in the HRI line.
+ * Labelary/Zebra draw a small hollow triangle at each end of the readable text
+ * (\u25B312345611\u25B3) \u2014 the stop triangle is larger than the start one (0.75 vs 0.5 of
+ * the cap height). Each private-use codepoint maps to a `triangle` charRule on font A
+ * and never appears in real ZPL data.
+ */
+export const CODE11_GUARD_START_CHAR = '\uE001';
+export const CODE11_GUARD_STOP_CHAR = '\uE002';
+
+/**
  * Font ID to descriptive label mapping (matches label-level dropdown)
  */
 export const FONT_LABELS = {
@@ -151,7 +169,17 @@ export const ZPL_FONTS = {
     advanceRatio: 0.60205,
     lineHeightRatio: 1.286,
     textBlockLineHeightRatio: 1,
-    bitmap: { magStep: 9, magWidthStep: 5, capStep: 7, advStep: 6, maxMag: 10 }
+    bitmap: { magStep: 9, magWidthStep: 5, capStep: 7, advStep: 6, maxMag: 10 },
+    // Code 93's start/stop guard: an empty box at each end of the HRI, sized to the
+    // cap height (capRatio) and sitting on the baseline, matching Labelary/Zebra.
+    charRules: {
+      [CODE93_GUARD_CHAR]: { type: 'box', widthRatio: 0.37, heightRatio: 0.63, yRatio: -0.58, lineRatio: 0.06, padRatio: 0.10 },
+      // Code 11's start/stop guards: small hollow up-pointing triangles, both centered
+      // at the same height (yRatio) so the larger stop triangle stays aligned with the
+      // start one. Sizes follow Labelary: start ≈ 0.5·cap tall, stop ≈ 0.75·cap.
+      [CODE11_GUARD_START_CHAR]: { type: 'triangle', widthRatio: 0.35, heightRatio: 0.37, yRatio: -0.26, xRatio: 0.025, lineRatio: 0.05, padRatio: 0.11 },
+      [CODE11_GUARD_STOP_CHAR]: { type: 'triangle', widthRatio: 0.58, heightRatio: 0.58, yRatio: -0.26, xRatio: -0.025, lineRatio: 0.05, padRatio: 0.11 },
+    },
   },
   'B': {
     family: '"Bitstream Vera Sans Mono Bold", "Lucida Console", "Courier New", monospace',

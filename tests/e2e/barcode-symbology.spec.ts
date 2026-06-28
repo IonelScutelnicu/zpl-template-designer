@@ -218,7 +218,8 @@ test.describe('Barcode symbology', () => {
             return {
                 checkChars: code93CheckChars('12345ABC'),
                 shiftCheck: code93CheckChars('M0'),  // exercises the 'a'–'d' check values
-                invalid: code93CheckChars('code93'), // lowercase isn't Code 93 input -> ''
+                fullAscii: code93CheckChars('abc'),  // ^BA is full-ASCII: lowercase encodes
+                invalid: code93CheckChars('café'),   // non-ASCII (é > 127) can't encode -> ''
                 // Mandatory C+K are encoded regardless of the flag, so module count is equal.
                 modulesNoFlag: geom(false).modules,
                 modulesWithFlag: geom(true).modules,
@@ -226,6 +227,7 @@ test.describe('Barcode symbology', () => {
         });
         expect(r.checkChars).toBe('37');     // Labelary: ^FD12345ABC -> HRI "12345ABC37"
         expect(r.shiftCheck).toBe('bG');     // Labelary: ^FDM0 -> HRI "M0bG"
+        expect(r.fullAscii).toBe('-8');      // ^FDabc -> check chars over the extended encoding
         expect(r.invalid).toBe('');
         expect(r.modulesWithFlag).toBe(r.modulesNoFlag);
     });
@@ -689,6 +691,27 @@ test.describe('Barcode symbology', () => {
         expect(r.sym).toBe('MICROPDF417');
         expect(r.mode).toBe(7);
         expect(r.data).toBe('12345');
+    });
+
+    // Guards the local bwip-js patch (see src/vendor/PATCHES.md): bwipp_micropdf417's
+    // numeric-compaction threshold is lowered so an all-digit ^FD uses numeric
+    // compaction like Zebra/Labelary. Stock bwip uses text compaction for short
+    // all-digit data, which both mis-encodes the bars AND overflows the 1-column
+    // variant for 7 digits (encode error -> kind !== 'matrix'). If a future re-vendor
+    // drops the patch, this test fails.
+    test('Micro-PDF417 uses numeric compaction for all-digit data (vendor patch guard)', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const geo = await import('/src/utils/barcodeGeometry.js');
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            // mode 0 = 1 data column × 11 rows (the narrowest, lowest-capacity variant).
+            const make = (data: string) =>
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'MICROPDF417', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0);
+            const kind = (data: string) => (geo.getBarcodeGeometry(make(data)) as any).kind;
+            return { sevenDigits: kind('1234567'), alpha: kind('ABCDE') };
+        });
+        // Numeric compaction packs 7 digits into the 1-column variant; text would overflow.
+        expect(r.sevenDigits).toBe('matrix');
+        expect(r.alpha).toBe('matrix');
     });
 
     // ============== PARSER ROUND-TRIP ==============
