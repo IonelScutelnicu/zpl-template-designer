@@ -1,7 +1,7 @@
 // Barcode Renderer
 // Renders 1D BARCODE elements on canvas using real bwip-js geometry.
 
-import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, code11CheckDigits, interleaved2of5Digits, normalizeUpcEanExt, msiCheckDigits } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, code11CheckDigits, interleaved2of5Digits, normalizeUpcEanExt, msiCheckDigits, plesseyCheckDigits } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { CODE93_GUARD_CHAR, CODE11_GUARD_START_CHAR, CODE11_GUARD_STOP_CHAR } from '../config/constants.js';
@@ -81,6 +81,10 @@ export class BarcodeRenderer {
       // ^BM's HRI shows the ^FD data; the e2 flag appends the mode's check digit(s)
       // (verified on Labelary: e2=N -> "1234567", e2=Y -> "12345674" for the default mod-10).
       displayText = `${data}${element.msiCheckInText ? msiCheckDigits(data, element.msiCheckMode) : ''}`;
+    } else if (sym === 'PLESSEY') {
+      // ^BP always carries the two hex CRC check chars in the bars; the e flag appends them
+      // to the HRI (verified on Labelary: e=N -> "12345", e=Y -> "123456E").
+      displayText = `${data}${element.checkDigit ? plesseyCheckDigits(data) : ''}`;
     } else if (sym === 'INTERLEAVED2OF5') {
       displayText = interleaved2of5Digits(data, element.checkDigit);
     } else if (sym === 'CODE93') {

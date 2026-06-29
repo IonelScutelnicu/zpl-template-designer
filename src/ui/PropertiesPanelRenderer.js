@@ -25,6 +25,7 @@ const SYMBOLOGY_THUMBS = {
   STANDARD2OF5: THUMB_LINEAR,
   LOGMARS: THUMB_LINEAR,
   MSI: THUMB_LINEAR,
+  PLESSEY: THUMB_LINEAR,
   EAN13: THUMB_LINEAR,
   EAN8: THUMB_LINEAR,
   UPCA: THUMB_LINEAR,
@@ -648,6 +649,7 @@ export class PropertiesPanelRenderer {
     const isStandard2of5 = symbology === "STANDARD2OF5";
     const isLogmars = symbology === "LOGMARS";
     const isMsi = symbology === "MSI";
+    const isPlessey = symbology === "PLESSEY";
     const isCodabar = symbology === "CODABAR";
     // Code 39, Interleaved 2 of 5, Codabar, Code 11, Industrial/Standard 2 of 5 and LOGMARS
     // derive their wide:narrow ratio from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 /
@@ -656,12 +658,14 @@ export class PropertiesPanelRenderer {
     // check-digit param; LOGMARS is Code 39 with a forced mod-43 check digit and an
     // always-on HRI (no f param), so it exposes neither a check-digit nor an HRI-off toggle;
     // Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
-    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5 || isLogmars || isMsi;
+    // Plessey (^BP) is ratio-bearing too and exposes an on/off "print check digit" toggle:
+    // its two hex CRC check chars are always in the bars; the e flag only adds them to the HRI.
+    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5 || isLogmars || isMsi || isPlessey;
     // MSI (^BM) has a 4-way check-digit mode (e) rather than an on/off toggle, plus an e2
     // flag for whether to show the check digit in the HRI — both handled by dedicated controls.
-    const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11;
+    const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11 || isPlessey;
     const msiCheckOptions = [["A", "None"], ["B", "1 × Mod 10"], ["C", "2 × Mod 10"], ["D", "Mod 11 + Mod 10"]];
-    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : "Mod-43 Check Digit";
+    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : isPlessey ? "Print Check Digit" : "Mod-43 Check Digit";
     const startStopOptions = [["A", "A"], ["B", "B"], ["C", "C"], ["D", "D"]];
     return `
       ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, BARCODE_SYMBOLOGIES), { open: true, elementType: element.type })}

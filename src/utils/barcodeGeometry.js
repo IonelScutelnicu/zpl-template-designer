@@ -17,6 +17,7 @@ const BWIP_BCID = {
   STANDARD2OF5: 'iata2of5', // ZPL ^BJ "Standard 2 of 5" uses the short 2-bar start/stop (bwip's iata2of5)
   LOGMARS: 'code39', // ZPL ^BL is Code 39 with a mandatory mod-43 check digit (US DoD)
   MSI: 'msi',
+  PLESSEY: 'plessey',
   EAN13: 'ean13',
   EAN8: 'ean8',
   UPCA: 'upca',
@@ -31,7 +32,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -46,6 +47,7 @@ export const SYMBOLOGY_LABELS = {
   STANDARD2OF5: 'Standard 2 of 5',
   LOGMARS: 'LOGMARS',
   MSI: 'MSI',
+  PLESSEY: 'Plessey',
   EAN13: 'EAN-13',
   EAN8: 'EAN-8',
   UPCA: 'UPC-A',
@@ -71,6 +73,7 @@ export const SYMBOLOGY_META = {
   STANDARD2OF5: { code: '^BJ', desc: 'Numeric only · all data in bars', dim: '1D' },
   LOGMARS: { code: '^BL', desc: 'Code 39 · US DoD (mod-43 check)', dim: '1D' },
   MSI: { code: '^BM', desc: 'Numeric · Plessey variant (retail)', dim: '1D' },
+  PLESSEY: { code: '^BP', desc: 'Hex (0–9 A–F) · CRC check in bars', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
@@ -96,6 +99,7 @@ export const DEFAULT_PREVIEW_DATA = {
   STANDARD2OF5: '1234567890',
   LOGMARS: 'LOGMARS',
   MSI: '1234567',
+  PLESSEY: '12345',
   EAN13: '123456789012',
   EAN8: '1234567',
   UPCE: '123456',
@@ -376,6 +380,7 @@ export const HRI_CONFIG = {
   STANDARD2OF5: hriFontConfig.CODE,
   LOGMARS: hriFontConfig.CODE,
   MSI: hriFontConfig.CODE,
+  PLESSEY: hriFontConfig.CODE,
   UPCEANEXT: hriFontConfig.UPCEANEXT,
 };
 
@@ -557,6 +562,38 @@ export function msiCheckDigits(data, mode = 'B') {
   if (mode === 'C') { const a = msiMod10(s); return a + msiMod10(s + a); }
   if (mode === 'D') { const a = msiMod11(s); return a + msiMod10(s + a); }
   return msiMod10(s);
+}
+
+const PLESSEY_BARCHARS = '0123456789ABCDEF';
+// Plessey's 9-bit CRC polynomial (the salt XOR-folded across the data bits) — the exact
+// algorithm bwip's `plessey` encodes; mirrored here so we can render the HRI ourselves.
+const PLESSEY_CHECKSALT = [1, 1, 1, 1, 0, 1, 0, 0, 1];
+
+/**
+ * Compute the two hexadecimal check characters Plessey (^BP) always encodes in the bars.
+ * Zebra/bwip always carry them in the symbol; ^BP's `e` flag only decides whether the HRI
+ * shows them (BarcodeRenderer). Returns '' for empty data. (Verified against bwip + Labelary:
+ * "12345" -> "6E", "1234567" -> "0A".)
+ */
+export function plesseyCheckDigits(data) {
+  const s = String(data ?? '').toUpperCase().replace(/[^0-9A-F]/g, '');
+  if (!s) return '';
+  const checkbits = new Array(s.length * 4 + 8).fill(0);
+  for (let i = 0; i < s.length; i++) {
+    const indx = PLESSEY_BARCHARS.indexOf(s[i]); // 4 data bits, least-significant first
+    checkbits[i * 4] = indx & 1;
+    checkbits[i * 4 + 1] = (indx >> 1) & 1;
+    checkbits[i * 4 + 2] = (indx >> 2) & 1;
+    checkbits[i * 4 + 3] = (indx >> 3) & 1;
+  }
+  for (let i = 0; i < s.length * 4; i++) {
+    if (checkbits[i] === 1) {
+      for (let j = 0; j <= 8; j++) checkbits[i + j] ^= PLESSEY_CHECKSALT[j];
+    }
+  }
+  let checkval = 0;
+  for (let i = 0; i <= 7; i++) checkval += Math.pow(2, i) * checkbits[s.length * 4 + i];
+  return PLESSEY_BARCHARS[checkval & 15] + PLESSEY_BARCHARS[Math.floor(checkval / 16)];
 }
 
 // bwip-js' native wide:narrow element value per ratio-bearing symbology. Code 39 is
@@ -803,10 +840,15 @@ export function getBarcodeGeometry(element) {
   // ^BY "Module Width Ratios in Dots"). Using the effective ratio keeps the canvas
   // width in sync with Labelary (e.g. w=2, r=2.3 prints at 2:1, not 2.3:1).
   const nativeWide = NATIVE_WIDE[symbology] || 0;
-  const wnRatio = nativeWide
-    ? Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2)
-    : 0;
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${wnRatio}`;
+  // Effective wide:narrow ratio, quantized to whole dots (the printer can only print
+  // whole dots, so the wide bar is floor(w·r) dots — see ^BY "Module Width Ratios in
+  // Dots"). Drives the NATIVE_WIDE rescale below and Plessey's custom width remap.
+  const effRatio = Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2);
+  const wnRatio = nativeWide ? effRatio : 0;
+  // Plessey isn't in NATIVE_WIDE (its bars use several widths, not one wide value) but is
+  // still ratio-sensitive, so fold its effective ratio into the cache key explicitly.
+  const ratioKey = symbology === 'PLESSEY' ? effRatio : wnRatio;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${ratioKey}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 
@@ -827,9 +869,20 @@ export function getBarcodeGeometry(element) {
       // wide:narrow ratio. Rescale the wide elements (value nativeWide) to the
       // element's effective ^BY ratio (wnRatio, quantized above) so the canvas width
       // matches Labelary; other linear symbologies (Code 128, EAN/UPC) keep bwip's widths.
-      const sbs = wnRatio && wnRatio !== nativeWide
-        ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
-        : o.sbs;
+      let sbs;
+      if (symbology === 'PLESSEY') {
+        // bwip renders Plessey at a fixed multi-width scheme that's wider than Zebra's;
+        // remap each element to Zebra's clean narrow/wide model at the effective ^BY ratio:
+        // narrow (bwip 1–2) -> 1, wide (bwip 3–4) -> R, and the lone start/stop element
+        // (bwip 5) -> R+1. (Verified against Labelary: "12345" = 148 modules @ratio3 /
+        // 111 @ratio2; "1234567" = 180 @ratio3; "ABCDEF" = 164 @ratio3.)
+        const R = effRatio;
+        sbs = Array.from(o.sbs, (v) => (v <= 2 ? 1 : v <= 4 ? R : R + 1));
+      } else {
+        sbs = wnRatio && wnRatio !== nativeWide
+          ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
+          : o.sbs;
+      }
       let modules = 0;
       for (let i = 0; i < sbs.length; i++) modules += sbs[i];
       // ean2/ean5 add-ons: bwip uniformly shrinks every bar (bhs≈0.77, bbs≈-0.07) to

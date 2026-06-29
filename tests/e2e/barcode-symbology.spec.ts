@@ -13,6 +13,7 @@ const ONE_D = [
     { symbology: 'STANDARD2OF5', command: '^BJN' },
     { symbology: 'LOGMARS', command: '^BLN' },
     { symbology: 'MSI', command: '^BMN' },
+    { symbology: 'PLESSEY', command: '^BPN' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
@@ -482,6 +483,63 @@ test.describe('Barcode symbology', () => {
         expect(r.bE2).toBe(r.b); // e2 (HRI insertion) does not change the bars
     });
 
+    // ============== PLESSEY (^BP) ==============
+    test('Plessey emits ^BPo,e,h,f,g and round-trips the print-check-digit (e) flag', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }, { plesseyCheckDigits }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const parser = new ZPLParser();
+            // e (print check digit) on, orientation R, interpretation line above on.
+            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, '', true, false, 'PLESSEY', true, 'R', true);
+            const zpl = el.render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            // default element (e off) emits a clean o,e,h,f with no trailing g.
+            const def: any = new BarcodeElement(10, 10, '12345', 50, 2, 3, '', true, false, 'PLESSEY');
+            return {
+                emitsE: zpl.includes('^BPR,Y,80,Y,Y'), // o=R,e=Y,h=80,f=Y,g=Y
+                defEmit: def.render().includes('^BPN,N,50,Y^FD'),
+                sym: parsed?.symbology,
+                check: parsed?.checkDigit,
+                above: parsed?.printTextAbove,
+                defCheck: parser.parse('^XA' + def.render() + '^XZ').elements[0]?.checkDigit,
+                // hex CRC check chars (verified against bwip + Labelary)
+                ck5: plesseyCheckDigits('12345'),
+                ck7: plesseyCheckDigits('1234567'),
+            };
+        });
+        expect(r.emitsE).toBe(true);
+        expect(r.defEmit).toBe(true);
+        expect(r.sym).toBe('PLESSEY');
+        expect(r.check).toBe(true);
+        expect(r.above).toBe(true);
+        expect(r.defCheck).toBe(false);
+        expect(r.ck5).toBe('6E'); // "12345" -> 6E
+        expect(r.ck7).toBe('0A'); // "1234567" -> 0A
+    });
+
+    test('Plessey honours the ^BY ratio; the check-digit (e) flag only changes the HRI', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const mod = (data: string, ratio: number, checkDigit = false) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLESSEY', previewData: data, ratio, width: 2, checkDigit } as any) as any).modules;
+            return {
+                r3: mod('12345', 3), r2: mod('12345', 2),
+                seven: mod('1234567', 3), abc: mod('ABCDEF', 3),
+                withCheck: mod('12345', 3, true),
+            };
+        });
+        // Verified against Labelary: bar count scales with the ^BY ratio (the CRC check
+        // chars are always in the bars, so e doesn't change the geometry).
+        expect(r.r3).toBe(148);
+        expect(r.r2).toBe(111);
+        expect(r.seven).toBe(180);
+        expect(r.abc).toBe(164);
+        expect(r.withCheck).toBe(r.r3); // e (HRI insertion) does not change the bars
+    });
+
     // ============== CODABAR (^BK) ==============
     test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
         await elementsPanel.addBarcodeElement();
@@ -599,6 +657,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'STANDARD2OF5', expected: '^BJR,50,Y,Y' },
             { symbology: 'LOGMARS', expected: '^BLR,50,Y' }, // ^BL has no f param: o,h,g
             { symbology: 'MSI', expected: '^BMR,B,50,Y,Y' }, // o,e,h,f,g — e defaults B
+            { symbology: 'PLESSEY', expected: '^BPR,N,50,Y,Y' }, // o,e,h,f,g — e defaults N
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -787,6 +846,20 @@ test.describe('Barcode symbology', () => {
         await zplOutput.verifyZPLContains('^BMN,C,');
     });
 
+    test('Plessey exposes the ratio input + a print-check-digit toggle that drives the ^BP e param', async () => {
+        await elementsPanel.addBarcodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'PLESSEY');
+        // Plessey is ratio-bearing and uses the generic boolean check-digit toggle (not MSI's mode select).
+        await expect(propertiesPanel.panel.locator('#prop-ratio')).toBeVisible();
+        await expect(propertiesPanel.panel.locator('#prop-check-digit')).toHaveCount(1);
+        await expect(propertiesPanel.panel.locator('#prop-msi-check-mode')).toHaveCount(0);
+        // Off by default -> e=N; toggling it on flips the e param to Y.
+        await zplOutput.verifyZPLContains('^BPN,N,');
+        await propertiesPanel.panel.locator('#prop-check-digit').check({ force: true });
+        await zplOutput.verifyZPLContains('^BPN,Y,');
+    });
+
     // ============== PLACEHOLDER FALLBACK (encode failure) ==============
     test('invalid data does not crash the renderer', async ({ page }) => {
         const pageErrors: string[] = [];
@@ -937,6 +1010,7 @@ test.describe('Barcode symbology', () => {
                 make1D('1234567890', 'STANDARD2OF5'),
                 make1D('LOGMARS', 'LOGMARS'),
                 make1D('1234567', 'MSI'),
+                make1D('12345', 'PLESSEY'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),
