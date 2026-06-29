@@ -13,8 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
-  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX are two-letter.
-  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX'
+  // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
+  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX', 'BZ'
 ]);
 
 /**
@@ -608,6 +608,10 @@ export class ZPLParser {
 
     if (hasCommand('BS')) {
       return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCEANEXT', fhToken);
+    }
+
+    if (hasCommand('BZ')) {
+      return this._parseBarcode(group, getCommand('BZ'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'POSTNET', fhToken);
     }
 
     // ^B3 (Code 39), ^B5 (Planet Code) and ^B7 (PDF417) tokenize as command 'B' with the
