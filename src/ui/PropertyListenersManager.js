@@ -330,6 +330,8 @@ export class PropertyListenersManager {
     attach("prop-columns", "columns", (v) => Math.max(0, parseInt(v) || 0));
     // Micro-PDF417 (reuses module-width/row-height above)
     attach("prop-micropdf-mode", "microPdfMode", (v) => Math.max(0, Math.min(33, parseInt(v) || 0)));
+    // Code 49 (reuses module-width/row-height above)
+    attach("prop-code49-mode", "code49Mode");
     // Aztec
     attach("prop-aztec-size-mode", "aztecSizeMode");
     attach("prop-aztec-error-control", "aztecErrorControl", (v) => Math.max(0, Math.min(99, parseInt(v) || 0)));

@@ -23,7 +23,7 @@ function boundedBarcodeFields(el) {
   if (el.type === 'BARCODE') return [['width', BARCODE_1D_WIDTH_BOUNDS]];
   if (el.type === 'QRCODE') {
     if (el.symbology === 'DATAMATRIX') return [['moduleSize', BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize]];
-    if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417') return [
+    if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417' || el.symbology === 'CODE49') return [
       ['moduleWidth', BARCODE_2D_SIZE_BOUNDS[el.symbology].moduleWidth],
       ['rowHeight', BARCODE_2D_SIZE_BOUNDS[el.symbology].rowHeight],
     ];
@@ -166,7 +166,7 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         // clamping each to its bound so we never emit out-of-range modules.
         if (el.symbology === 'DATAMATRIX') {
           el.moduleSize = scaleClamped(el.moduleSize, s, BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize);
-        } else if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417') {
+        } else if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417' || el.symbology === 'CODE49') {
           el.moduleWidth = scaleClamped(el.moduleWidth, s, BARCODE_2D_SIZE_BOUNDS[el.symbology].moduleWidth);
           el.rowHeight = scaleClamped(el.rowHeight, s, BARCODE_2D_SIZE_BOUNDS[el.symbology].rowHeight);
         } else {

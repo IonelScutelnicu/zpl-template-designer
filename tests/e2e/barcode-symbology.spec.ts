@@ -28,6 +28,7 @@ const TWO_D = [
     { symbology: 'PDF417', command: '^B7N' },
     { symbology: 'MICROPDF417', command: '^BFN' },
     { symbology: 'AZTEC', command: '^B0N' },
+    { symbology: 'CODE49', command: '^B4N' },
 ];
 
 test.describe('Barcode symbology', () => {
@@ -1081,6 +1082,54 @@ test.describe('Barcode symbology', () => {
         expect(r.data).toBe('12345');
     });
 
+    // ============== CODE 49 (^B4) ==============
+    test('Code 49 emits ^B4o,h,f,m (f fixed N), encodes a stacked matrix, and round-trips mode', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
+            //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode
+            const make = (mode: string, data = 'CODE 49') =>
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'CODE49', 4, 200, 3, 6, 5, 0, 'auto', 0, 0, false, 0, mode);
+            const parser = new ZPLParser();
+            const zpl = make('2').render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const def: any = make('A');
+            const g: any = geo.getBarcodeGeometry(make('A'));
+            const gBad: any = geo.getBarcodeGeometry(make('A', ''));
+            return {
+                // ^BY module width then ^B4 with o=N, h=rowHeight, f=N, m=2
+                emits: zpl.includes('^BY3^B4N,6,N,2'),
+                defEmits: def.render().includes('^BY3^B4N,6,N,A'), // default starting mode A
+                kind: g.kind,
+                cols: g.cols,
+                rows: g.rows,
+                badKind: gBad.kind, // empty data fails to encode
+                type: parsed?.type,
+                sym: parsed?.symbology,
+                mode: parsed?.code49Mode,
+                mw: parsed?.moduleWidth,
+                rh: parsed?.rowHeight,
+                data: parsed?.previewData,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.defEmits).toBe(true);
+        expect(r.kind).toBe('matrix'); // Code 49 is stacked: bwip emits a module matrix
+        expect(r.cols).toBeGreaterThan(0);
+        expect(r.rows).toBeGreaterThan(1); // multiple stacked rows
+        expect(r.badKind).toBe('error');
+        expect(r.type).toBe('QRCODE');
+        expect(r.sym).toBe('CODE49');
+        expect(r.mode).toBe('2');
+        expect(r.mw).toBe(3);
+        expect(r.rh).toBe(6);
+        expect(r.data).toBe('CODE 49');
+    });
+
     // Guards the local bwip-js patch (see src/vendor/PATCHES.md): bwipp_micropdf417's
     // numeric-compaction threshold is lowered so an all-digit ^FD uses numeric
     // compaction like Zebra/Labelary. Stock bwip uses text compaction for short
@@ -1139,6 +1188,7 @@ test.describe('Barcode symbology', () => {
                 make2D('PDF417', 'PDF417'),
                 make2D('12345', 'MICROPDF417'),
                 make2D('Aztec', 'AZTEC'),
+                make2D('CODE 49', 'CODE49'),
             ];
 
             return samples.map((el: any) => {

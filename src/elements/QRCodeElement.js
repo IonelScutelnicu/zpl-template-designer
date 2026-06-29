@@ -3,11 +3,12 @@ import { getBarcodeGeometry, matrixModuleDots, normalizeAztecRune } from '../uti
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
-//   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0
+//   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
+//   CODE49 -> ^B4 (stacked)
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0) {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A') {
         super(x, y);
         this.type = 'QRCODE';
         this.symbology = symbology;
@@ -28,6 +29,11 @@ export class QRCodeElement extends ZPLElement {
         // Micro-PDF417 (^BF). Mode 0-33 selects a fixed rows×columns variant; reuses
         // moduleWidth (^BY) and rowHeight above for sizing.
         this.microPdfMode = microPdfMode;
+        // Code 49 (^B4). Stacked alphanumeric symbology; reuses moduleWidth (^BY) and
+        // rowHeight above for sizing. m = starting mode (0–5 / A=auto). NOTE: Labelary
+        // does not render Code 49 (it shows the raw data as text), so the on-canvas
+        // bwip-js encoding is the design reference for this symbology, not the preview pane.
+        this.code49Mode = code49Mode; // '0'–'5' or 'A' (automatic, default)
         // Aztec (^B0). The 'd' param (error control / symbol size/type) is modelled
         // by three fields: sizeMode 'auto' uses aztecErrorControl (% min, 0 = printer
         // default); 'compact'/'full' use aztecLayers (0 = auto); 'rune' = ^B0 d=300.
@@ -64,6 +70,13 @@ export class QRCodeElement extends ZPLElement {
                 // ^BFo,h,m — module width from ^BY, h = row height, m = mode (0-33).
                 const mode = Math.max(0, Math.min(33, this.microPdfMode || 0));
                 return `${pos}^BY${this.moduleWidth}^BFN,${this.rowHeight},${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
+            case 'CODE49': {
+                // ^B4o,h,f,m — module width from ^BY, h = row height, f = interpretation
+                // line, m = starting mode. f is fixed at N (no HRI): the 2D canvas and
+                // Labelary don't render Code 49's interpretation line. m defaults A (auto).
+                const mode = ['0', '1', '2', '3', '4', '5', 'A'].includes(this.code49Mode) ? this.code49Mode : 'A';
+                return `${pos}^BY${this.moduleWidth}^B4N,${this.rowHeight},N,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'AZTEC': {
                 // A rune encodes a single 0–255 byte; coerce real data so the ZPL

@@ -100,7 +100,8 @@ export class ElementService {
           props.aztecErrorControl || 0,
           props.aztecLayers || 0,
           props.fieldHex || false,
-          props.microPdfMode || 0
+          props.microPdfMode || 0,
+          props.code49Mode || 'A'
         );
         break;
       }

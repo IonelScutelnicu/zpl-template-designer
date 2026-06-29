@@ -37,6 +37,7 @@ const SYMBOLOGY_THUMBS = {
   DATAMATRIX: THUMB_DATAMATRIX,
   PDF417: THUMB_PDF417,
   MICROPDF417: THUMB_PDF417,
+  CODE49: THUMB_PDF417,
   AZTEC: THUMB_AZTEC,
 };
 
@@ -732,6 +733,20 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.MICROPDF417.moduleWidth)}
           ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.MICROPDF417.rowHeight)}
           ${this.createInputGroup("Mode (0-33)", "prop-micropdf-mode", element.microPdfMode || 0, "number", { min: 0, max: 33 })}
+        `;
+      case "CODE49":
+        return `
+          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.CODE49.moduleWidth)}
+          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.CODE49.rowHeight)}
+          ${this.createSelectGroup("Starting Mode", "prop-code49-mode", element.code49Mode || "A", [
+            ["A", "Automatic"],
+            ["0", "0 - Regular Alphanumeric"],
+            ["1", "1 - Multiple Read Alphanumeric"],
+            ["2", "2 - Regular Numeric"],
+            ["3", "3 - Group Alphanumeric"],
+            ["4", "4 - Regular Alphanumeric Shift 1"],
+            ["5", "5 - Regular Alphanumeric Shift 2"],
+          ])}
         `;
       case "AZTEC":
         return `

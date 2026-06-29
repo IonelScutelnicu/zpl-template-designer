@@ -114,7 +114,8 @@ export class SerializationService {
           data.aztecErrorControl,
           data.aztecLayers,
           data.fieldHex,
-          data.microPdfMode
+          data.microPdfMode,
+          data.code49Mode
         );
         break;
 

@@ -31,11 +31,12 @@ const BWIP_BCID = {
   PDF417: 'pdf417',
   MICROPDF417: 'micropdf417',
   AZTEC: 'azteccode',
+  CODE49: 'code49',
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'PLANET', 'POSTNET', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
-export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
@@ -62,6 +63,7 @@ export const SYMBOLOGY_LABELS = {
   PDF417: 'PDF417',
   MICROPDF417: 'Micro-PDF417',
   AZTEC: 'Aztec',
+  CODE49: 'Code 49',
 };
 
 // Rich metadata for the symbology picker UI: ZPL command, one-line description
@@ -90,6 +92,7 @@ export const SYMBOLOGY_META = {
   PDF417: { code: '^B7', desc: 'Stacked · IDs, large payloads', dim: '2D' },
   MICROPDF417: { code: '^BF', desc: 'Compact stacked · small payloads', dim: '2D' },
   AZTEC: { code: '^B0', desc: 'Matrix · compact, no quiet zone', dim: '2D' },
+  CODE49: { code: '^B4', desc: 'Stacked · alphanumeric (2–8 rows)', dim: '2D' },
 };
 
 // Default preview data per symbology (valid for each so a fresh element renders
@@ -118,6 +121,7 @@ export const DEFAULT_PREVIEW_DATA = {
   PDF417: 'PDF417',
   MICROPDF417: '12345', // must fit the default mode 0 (1 col × 11 rows)
   AZTEC: 'Aztec',
+  CODE49: 'CODE 49',
 };
 
 // Fixed-length numeric symbologies: ZPL auto-truncates / left-pads with zeros to
@@ -178,6 +182,7 @@ export function resolveSymbology(element) {
 export const BARCODE_2D_SIZE_BOUNDS = {
   PDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
   MICROPDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
+  CODE49: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
   DATAMATRIX: { moduleSize: { min: 1, max: 30 } },
   QR: { magnification: { min: 1, max: 10 } },
   AZTEC: { magnification: { min: 1, max: 10 } }
@@ -190,6 +195,7 @@ export function matrixModuleDots(element) {
       return { mx: element.moduleSize || 4, my: element.moduleSize || 4 };
     case 'PDF417':
     case 'MICROPDF417':
+    case 'CODE49':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
     case 'QR':
     case 'AZTEC':
