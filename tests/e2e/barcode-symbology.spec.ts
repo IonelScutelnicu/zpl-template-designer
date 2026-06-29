@@ -14,6 +14,7 @@ const ONE_D = [
     { symbology: 'LOGMARS', command: '^BLN' },
     { symbology: 'MSI', command: '^BMN' },
     { symbology: 'PLESSEY', command: '^BPN' },
+    { symbology: 'PLANET', command: '^B5N' },
     { symbology: 'EAN13', command: '^BEN' },
     { symbology: 'EAN8', command: '^B8N' },
     { symbology: 'UPCA', command: '^BUN' },
@@ -540,6 +541,60 @@ test.describe('Barcode symbology', () => {
         expect(r.withCheck).toBe(r.r3); // e (HRI insertion) does not change the bars
     });
 
+    // ============== PLANET CODE (^B5) ==============
+    test('Planet Code emits ^B5o,h,f,g and round-trips orientation + interpretation-above', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ BarcodeElement }, { ZPLParser }] = await Promise.all([
+                import('/src/elements/BarcodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+            ]);
+            const parser = new ZPLParser();
+            // orientation R, interpretation line above on; plain o,h,f,g layout (no ratio/check).
+            const el: any = new BarcodeElement(10, 10, '12345678901', 80, 2, 3, '', true, false, 'PLANET', false, 'R', true);
+            const zpl = el.render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const def: any = new BarcodeElement(10, 10, '12345678901', 50, 2, 3, '', true, false, 'PLANET');
+            return {
+                emits: zpl.includes('^B5R,80,Y,Y'), // o=R,h=80,f=Y,g=Y
+                defEmit: def.render().includes('^B5N,50,Y^FD'),
+                sym: parsed?.symbology,
+                orient: parsed?.orientation,
+                above: parsed?.printTextAbove,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.defEmit).toBe(true);
+        expect(r.sym).toBe('PLANET');
+        expect(r.orient).toBe('R');
+        expect(r.above).toBe(true);
+    });
+
+    test('Planet Code is height-modulated: uniform-width bars at two heights (tall + 0.4·h short)', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '12345678901', width: 2, ratio: 3 } as any);
+            const round = (a: number[]) => [...new Set(a.map((v) => +v.toFixed(4)))].sort((x, y) => x - y);
+            const g13: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '1234567890123', width: 2, ratio: 3 } as any);
+            const gBad: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '12345', width: 2, ratio: 3 } as any);
+            return {
+                kind: g.kind,
+                bars: g.bhs?.length,
+                barHeights: round(g.bhs),  // tall vs short ratios
+                barWidths: round(g.sbs),   // bar vs space module widths
+                bars13: g13.bhs?.length,
+                badKind: gBad.kind,        // 5 digits is invalid for Planet
+            };
+        });
+        // Verified against Labelary for "12345678901": 62 bars, short bars = 0.4·tall,
+        // bar width = ^BY width with the inter-bar space ~1.3× wider.
+        expect(r.kind).toBe('linear');
+        expect(r.bars).toBe(62);
+        expect(r.barHeights).toEqual([0.4, 1]);
+        expect(r.barWidths).toEqual([1, 1.3]);
+        expect(r.bars13).toBe(72); // 13-digit variant
+        expect(r.badKind).toBe('error'); // must be 11 or 13 digits
+    });
+
     // ============== CODABAR (^BK) ==============
     test('Codabar emits ^BK with a fixed-N check digit and start/stop chars (o,e,h,f,g,k,l)', async () => {
         await elementsPanel.addBarcodeElement();
@@ -658,6 +713,7 @@ test.describe('Barcode symbology', () => {
             { symbology: 'LOGMARS', expected: '^BLR,50,Y' }, // ^BL has no f param: o,h,g
             { symbology: 'MSI', expected: '^BMR,B,50,Y,Y' }, // o,e,h,f,g — e defaults B
             { symbology: 'PLESSEY', expected: '^BPR,N,50,Y,Y' }, // o,e,h,f,g — e defaults N
+            { symbology: 'PLANET', expected: '^B5R,50,Y,Y' }, // o,h,f,g — no ratio/check param
             { symbology: 'EAN13', expected: '^BER,50,Y,Y' },
             { symbology: 'EAN8', expected: '^B8R,50,Y,Y' },
             { symbology: 'UPCA', expected: '^BUR,50,Y,Y' },
@@ -1011,6 +1067,7 @@ test.describe('Barcode symbology', () => {
                 make1D('LOGMARS', 'LOGMARS'),
                 make1D('1234567', 'MSI'),
                 make1D('12345', 'PLESSEY'),
+                make1D('12345678901', 'PLANET'),
                 make1D('123456789012', 'EAN13'),
                 make1D('1234567', 'EAN8'),
                 make1D('12345678901', 'UPCA'),

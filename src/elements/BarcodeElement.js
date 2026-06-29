@@ -5,8 +5,8 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
 //   INTERLEAVED2OF5 -> ^B2,  INDUSTRIAL2OF5 -> ^BI,  STANDARD2OF5 -> ^BJ,  LOGMARS -> ^BL,
-//   MSI -> ^BM,  PLESSEY -> ^BP,  EAN13 -> ^BE,  EAN8 -> ^B8,  UPCA -> ^BU,
-//   UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
+//   MSI -> ^BM,  PLESSEY -> ^BP,  PLANET -> ^B5,  EAN13 -> ^BE,  EAN8 -> ^B8,
+//   UPCA -> ^BU,  UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
     constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A', msiCheckMode = 'B', msiCheckInText = false) {
         super(x, y);
@@ -80,6 +80,11 @@ export class BarcodeElement extends ZPLElement {
                 const e = this.checkDigit ? 'Y' : 'N';
                 return `${pos}${by}^BP${o},${e},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
+            case 'PLANET':
+                // ^B5o,h,f,g — USPS Planet Code. Plain o,h,f,g layout (like ^BI/^BJ); it is
+                // numeric-only (11 or 13 digits), height-modulated (tall/short bars), and the
+                // check digit is auto-computed into the bars only. No ratio/check-digit param.
+                return `${pos}${by}^B5${o},${this.height},${f}${g}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             case 'LOGMARS':
                 // ^BLo,h,g — Code 39 for the US DoD. Unlike the others there is NO f
                 // (print-interpretation) param: the HRI is always printed. The mod-43 check

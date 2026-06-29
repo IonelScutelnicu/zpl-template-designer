@@ -18,6 +18,7 @@ const BWIP_BCID = {
   LOGMARS: 'code39', // ZPL ^BL is Code 39 with a mandatory mod-43 check digit (US DoD)
   MSI: 'msi',
   PLESSEY: 'plessey',
+  PLANET: 'planet',
   EAN13: 'ean13',
   EAN8: 'ean8',
   UPCA: 'upca',
@@ -32,7 +33,7 @@ const BWIP_BCID = {
 };
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
-export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
+export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'PLANET', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
 export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
@@ -48,6 +49,7 @@ export const SYMBOLOGY_LABELS = {
   LOGMARS: 'LOGMARS',
   MSI: 'MSI',
   PLESSEY: 'Plessey',
+  PLANET: 'Planet Code',
   EAN13: 'EAN-13',
   EAN8: 'EAN-8',
   UPCA: 'UPC-A',
@@ -74,6 +76,7 @@ export const SYMBOLOGY_META = {
   LOGMARS: { code: '^BL', desc: 'Code 39 · US DoD (mod-43 check)', dim: '1D' },
   MSI: { code: '^BM', desc: 'Numeric · Plessey variant (retail)', dim: '1D' },
   PLESSEY: { code: '^BP', desc: 'Hex (0–9 A–F) · CRC check in bars', dim: '1D' },
+  PLANET: { code: '^B5', desc: '11 or 13 digits · USPS height-modulated', dim: '1D' },
   EAN13: { code: '^BE', desc: 'Enter 12 digits · auto-padded', dim: '1D' },
   EAN8: { code: '^B8', desc: 'Enter 7 digits · auto-padded', dim: '1D' },
   UPCA: { code: '^BU', desc: 'Enter 11 digits · auto-padded', dim: '1D' },
@@ -100,6 +103,7 @@ export const DEFAULT_PREVIEW_DATA = {
   LOGMARS: 'LOGMARS',
   MSI: '1234567',
   PLESSEY: '12345',
+  PLANET: '12345678901', // USPS Planet Code: 11 digits (check digit auto-added)
   EAN13: '123456789012',
   EAN8: '1234567',
   UPCE: '123456',
@@ -381,6 +385,7 @@ export const HRI_CONFIG = {
   LOGMARS: hriFontConfig.CODE,
   MSI: hriFontConfig.CODE,
   PLESSEY: hriFontConfig.CODE,
+  PLANET: hriFontConfig.CODE,
   UPCEANEXT: hriFontConfig.UPCEANEXT,
 };
 
@@ -878,6 +883,13 @@ export function getBarcodeGeometry(element) {
         // 111 @ratio2; "1234567" = 180 @ratio3; "ABCDEF" = 164 @ratio3.)
         const R = effRatio;
         sbs = Array.from(o.sbs, (v) => (v <= 2 ? 1 : v <= 4 ? R : R + 1));
+      } else if (symbology === 'PLANET') {
+        // Planet Code is height-modulated (uniform-width bars, tall vs short). bwip emits
+        // fractional absolute widths (bar 1.44, space 1.872); normalize so the bar = 1
+        // module (= the ^BY width) with the space ~1.3× wider — matching Labelary, whose
+        // bar width tracks ^BY (verified: ^BY2 -> bar 2 dots, ^BY3 -> bar 3 dots).
+        const narrow = Math.min(...o.sbs);
+        sbs = Array.from(o.sbs, (v) => v / narrow);
       } else {
         sbs = wnRatio && wnRatio !== nativeWide
           ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
@@ -890,11 +902,20 @@ export function getBarcodeGeometry(element) {
       // ^BS's h as the full bar height and place the HRI outside it (verified on
       // Labelary: h=100 → 100-dot bars), so drop the shrink and render full-height bars.
       const isUpcEanExt = symbology === 'UPCEANEXT';
+      // Planet Code's bar heights ARE its data (tall vs short). bwip reports absolute
+      // heights (tall 0.125, short 0.05); normalize to ratios of element.height so the
+      // tall bars fill h and the short bars are 0.4·h (verified on Labelary: h=100 ->
+      // 100-dot tall bars, 40-dot short bars). The bars sit on a common baseline (bbs=0).
+      let bhs = !isUpcEanExt && Array.isArray(o.bhs) ? o.bhs : null;
+      if (symbology === 'PLANET' && bhs) {
+        const tall = Math.max(...bhs);
+        bhs = Array.from(bhs, (v) => v / tall);
+      }
       result = {
         kind: 'linear',
         sbs,
         modules,
-        bhs: !isUpcEanExt && Array.isArray(o.bhs) ? o.bhs : null,
+        bhs,
         bbs: !isUpcEanExt && Array.isArray(o.bbs) ? o.bbs : null,
         // Only trust bwip's text positions when we asked for them (includetext,
         // i.e. EAN13/UPCA). Without it bwip still emits a degenerate entry with a

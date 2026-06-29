@@ -227,15 +227,16 @@ export class ZPLParser {
 
     for (const token of tokens) {
       // Check for unknown commands. ^B is only "known" for ^B0 (Aztec), ^B1 (Code 11),
-      // ^B2 (Interleaved 2 of 5), ^B3 (Code 39), ^B7 (PDF417), ^B8 (EAN-8) and ^B9
-      // (UPC-E); other numeric variants (^B4, ^B5, …) have no dispatch branch and would
-      // otherwise be dropped silently, so they must still warn.
+      // ^B2 (Interleaved 2 of 5), ^B3 (Code 39), ^B5 (Planet Code), ^B7 (PDF417), ^B8
+      // (EAN-8) and ^B9 (UPC-E); other numeric variants (^B4, …) have no dispatch branch
+      // and would otherwise be dropped silently, so they must still warn.
       const isKnown = KNOWN_COMMANDS.has(token.command)
         && (token.command !== 'B'
           || token.params.charAt(0) === '0'
           || token.params.charAt(0) === '1'
           || token.params.charAt(0) === '2'
           || token.params.charAt(0) === '3'
+          || token.params.charAt(0) === '5'
           || token.params.charAt(0) === '7'
           || token.params.charAt(0) === '8'
           || token.params.charAt(0) === '9');
@@ -609,8 +610,8 @@ export class ZPLParser {
       return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCEANEXT', fhToken);
     }
 
-    // ^B3 (Code 39) and ^B7 (PDF417) tokenize as command 'B' with the digit
-    // pushed into params, since the tokenizer only captures letters.
+    // ^B3 (Code 39), ^B5 (Planet Code) and ^B7 (PDF417) tokenize as command 'B' with the
+    // digit pushed into params, since the tokenizer only captures letters.
     if (hasCommand('B')) {
       const bToken = getCommand('B');
       const sub = bToken.params.charAt(0);
@@ -623,6 +624,9 @@ export class ZPLParser {
       }
       if (sub === '3') {
         return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE39', fhToken);
+      }
+      if (sub === '5') {
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'PLANET', fhToken);
       }
       if (sub === '7') {
         return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
