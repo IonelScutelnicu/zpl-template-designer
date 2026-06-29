@@ -588,11 +588,11 @@ test.describe('Barcode symbology', () => {
             };
         });
         // Verified against Labelary for "12345678901": 62 bars, short bars = 0.4·tall,
-        // bar width = ^BY width with the inter-bar space ~1.3× wider.
+        // bar width = ^BY width with the inter-bar space 1.5× wider (pitch = 2.5·^BY).
         expect(r.kind).toBe('linear');
         expect(r.bars).toBe(62);
         expect(r.barHeights).toEqual([0.4, 1]);
-        expect(r.barWidths).toEqual([1, 1.3]);
+        expect(r.barWidths).toEqual([1, 1.5]);
         expect(r.bars13).toBe(72); // 13-digit variant
         expect(r.badKind).toBe('error'); // must be 11 or 13 digits
     });
@@ -645,11 +645,11 @@ test.describe('Barcode symbology', () => {
         });
         // Verified against the POSTNET spec (frame + 5·n + 5-bar check + frame) and Labelary:
         // 5-digit ZIP = 32 bars, 9-digit ZIP+4 = 52, 11-digit DPBC = 62; short bars = 0.4·tall,
-        // bar width = ^BY width with the inter-bar space ~1.3× wider (same family as ^B5 Planet).
+        // bar width = ^BY width with the inter-bar space 1.5× wider (pitch = 2.5·^BY; same family as ^B5 Planet).
         expect(r.kind).toBe('linear');
         expect(r.bars5).toBe(32);
         expect(r.barHeights).toEqual([0.4, 1]);
-        expect(r.barWidths).toEqual([1, 1.3]);
+        expect(r.barWidths).toEqual([1, 1.5]);
         expect(r.bars9).toBe(52);
         expect(r.bars11).toBe(62);
         expect(r.badKind).toBe('error'); // must be 5, 9 or 11 digits

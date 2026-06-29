@@ -862,8 +862,12 @@ export function getBarcodeGeometry(element) {
   const effRatio = Math.floor((element.width || 2) * (element.ratio || 3)) / (element.width || 2);
   const wnRatio = nativeWide ? effRatio : 0;
   // Plessey isn't in NATIVE_WIDE (its bars use several widths, not one wide value) but is
-  // still ratio-sensitive, so fold its effective ratio into the cache key explicitly.
-  const ratioKey = symbology === 'PLESSEY' ? effRatio : wnRatio;
+  // still ratio-sensitive, so fold its effective ratio into the cache key explicitly. The
+  // USPS codes (^B5/^BZ) quantize their inter-bar space to whole dots from the ^BY width,
+  // so their geometry depends on element.width — fold that in too.
+  const ratioKey = symbology === 'PLESSEY' ? effRatio
+    : (symbology === 'PLANET' || symbology === 'POSTNET') ? (element.width || 2)
+    : wnRatio;
   const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${ratioKey}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
@@ -896,12 +900,16 @@ export function getBarcodeGeometry(element) {
         sbs = Array.from(o.sbs, (v) => (v <= 2 ? 1 : v <= 4 ? R : R + 1));
       } else if (symbology === 'PLANET' || symbology === 'POSTNET') {
         // Planet Code (^B5) and POSTNET (^BZ) are the same USPS height-modulated family:
-        // uniform-width bars, tall vs short. bwip emits fractional absolute widths (bar
-        // 1.44, space 1.872); normalize so the bar = 1 module (= the ^BY width) with the
-        // space ~1.3× wider — matching Labelary, whose bar width tracks ^BY (verified:
-        // ^BY2 -> bar 2 dots, ^BY3 -> bar 3 dots).
+        // uniform-width bars, tall vs short. bwip's native bar:space proportion (~1:1.3) is
+        // narrower than Zebra's. Labelary renders these with the bar = 1 module (= the ^BY
+        // width in dots) and the inter-bar space quantized to whole dots at floor(1.5·^BY)
+        // — i.e. pitch = floor(2.5·^BY). That rounds to exactly 1.5 modules only for even
+        // ^BY; odd widths are narrower (^BY1 space 1, ^BY3 space 4, ^BY5 space 7, …), so a
+        // fixed 1.5 over-widens the odd module widths. Compute the space from element.width.
+        const wDots = element.width || 2;
+        const spaceModules = Math.floor(1.5 * wDots) / wDots;
         const narrow = Math.min(...o.sbs);
-        sbs = Array.from(o.sbs, (v) => v / narrow);
+        sbs = Array.from(o.sbs, (v) => (v === narrow ? 1 : spaceModules));
       } else {
         sbs = wnRatio && wnRatio !== nativeWide
           ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
