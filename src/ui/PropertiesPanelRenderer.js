@@ -38,6 +38,7 @@ const SYMBOLOGY_THUMBS = {
   PDF417: THUMB_PDF417,
   MICROPDF417: THUMB_PDF417,
   CODE49: THUMB_PDF417,
+  CODABLOCK: THUMB_PDF417,
   AZTEC: THUMB_AZTEC,
 };
 
@@ -746,6 +747,16 @@ export class PropertiesPanelRenderer {
             ["3", "3 - Group Alphanumeric"],
             ["4", "4 - Regular Alphanumeric Shift 1"],
             ["5", "5 - Regular Alphanumeric Shift 2"],
+          ])}
+        `;
+      case "CODABLOCK":
+        return `
+          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.CODABLOCK.moduleWidth)}
+          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.CODABLOCK.rowHeight)}
+          ${this.createSelectGroup("Mode", "prop-codablock-mode", element.codablockMode || "F", [
+            ["F", "F - Code 128 (default)"],
+            ["E", "E - Code 128 + FNC1 (GS1)"],
+            ["A", "A - Code 39"],
           ])}
         `;
       case "AZTEC":

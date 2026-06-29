@@ -29,6 +29,7 @@ const TWO_D = [
     { symbology: 'MICROPDF417', command: '^BFN' },
     { symbology: 'AZTEC', command: '^B0N' },
     { symbology: 'CODE49', command: '^B4N' },
+    { symbology: 'CODABLOCK', command: '^BBN' },
 ];
 
 test.describe('Barcode symbology', () => {
@@ -1128,6 +1129,51 @@ test.describe('Barcode symbology', () => {
         expect(r.mw).toBe(3);
         expect(r.rh).toBe(6);
         expect(r.data).toBe('CODE 49');
+    });
+
+    // ============== CODABLOCK (^BB) ==============
+    test('Codablock emits ^BBN,h,N,,,m, encodes a stacked matrix, and round-trips mode', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
+            //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode
+            const make = (mode: string, data = 'Codablock') =>
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'CODABLOCK', 4, 200, 3, 8, 5, 0, 'auto', 0, 0, false, 0, 'A', mode);
+            const parser = new ZPLParser();
+            const zpl = make('E').render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const def: any = make('F');
+            const g: any = geo.getBarcodeGeometry(make('F'));
+            return {
+                // ^BY module width then ^BB with o=N, h=rowHeight, s=N, c/r blank, m=E
+                emits: zpl.includes('^BY3^BBN,8,N,,,E'),
+                defEmits: def.render().includes('^BY3^BBN,8,N,,,F'), // default mode F
+                kind: g.kind,
+                cols: g.cols,
+                rows: g.rows,
+                type: parsed?.type,
+                sym: parsed?.symbology,
+                mode: parsed?.codablockMode,
+                mw: parsed?.moduleWidth,
+                rh: parsed?.rowHeight,
+                data: parsed?.previewData,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.defEmits).toBe(true);
+        expect(r.kind).toBe('matrix'); // Codablock is stacked: bwip emits a module matrix
+        expect(r.cols).toBeGreaterThan(0);
+        expect(r.rows).toBeGreaterThan(1); // multiple stacked rows
+        expect(r.type).toBe('QRCODE');
+        expect(r.sym).toBe('CODABLOCK');
+        expect(r.mode).toBe('E');
+        expect(r.mw).toBe(3);
+        expect(r.rh).toBe(8);
+        expect(r.data).toBe('Codablock');
     });
 
     // Guards the local bwip-js patch (see src/vendor/PATCHES.md): bwipp_micropdf417's

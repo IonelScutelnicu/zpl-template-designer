@@ -101,7 +101,8 @@ export class ElementService {
           props.aztecLayers || 0,
           props.fieldHex || false,
           props.microPdfMode || 0,
-          props.code49Mode || 'A'
+          props.code49Mode || 'A',
+          props.codablockMode || 'F'
         );
         break;
       }

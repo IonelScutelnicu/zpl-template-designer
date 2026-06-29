@@ -115,7 +115,8 @@ export class SerializationService {
           data.aztecLayers,
           data.fieldHex,
           data.microPdfMode,
-          data.code49Mode
+          data.code49Mode,
+          data.codablockMode
         );
         break;
 

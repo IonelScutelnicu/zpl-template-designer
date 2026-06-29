@@ -14,7 +14,7 @@ const KNOWN_COMMANDS = new Set([
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
-  'B', 'BA', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX', 'BZ'
+  'B', 'BA', 'BB', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX', 'BZ'
 ]);
 
 /**
@@ -567,6 +567,10 @@ export class ZPLParser {
       return this._parseMicroPDF417(group, getCommand('BF'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
+    if (hasCommand('BB')) {
+      return this._parseCodablock(group, getCommand('BB'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
+    }
+
     if (hasCommand('BE')) {
       return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
     }
@@ -1064,6 +1068,41 @@ export class ZPLParser {
       moduleWidth,
       rowHeight,
       code49Mode,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse Codablock element from ^BB + ^FD. ^BBo,h,s,c,r,m — h is the row height, s the
+   * security level, c the chars/row and r the rows (all auto-fit, not modelled), and m the
+   * mode (A/E/F). Module width comes from ^BY, mirroring Code 49 / Micro-PDF417.
+   */
+  _parseCodablock(group, bbToken, byToken, fdToken, hasReverse, fhToken = null) {
+    const parts = bbToken.params.split(',');
+    const rowHeight = parseInt(parts[1]) || 4;
+    const rawMode = (parts[5] || 'F').trim().toUpperCase();
+    const codablockMode = ['A', 'E', 'F'].includes(rawMode) ? rawMode : 'F';
+
+    let moduleWidth = 2;
+    if (byToken) {
+      const byParts = byToken.params.split(',');
+      if (byParts[0]) moduleWidth = parseInt(byParts[0]) || 2;
+    }
+
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'CODABLOCK',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
+      moduleWidth,
+      rowHeight,
+      codablockMode,
       reverse: hasReverse
     };
   }

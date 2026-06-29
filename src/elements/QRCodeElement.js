@@ -4,11 +4,11 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
-//   CODE49 -> ^B4 (stacked)
+//   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked)
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A') {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F') {
         super(x, y);
         this.type = 'QRCODE';
         this.symbology = symbology;
@@ -34,6 +34,11 @@ export class QRCodeElement extends ZPLElement {
         // does not render Code 49 (it shows the raw data as text), so the on-canvas
         // bwip-js encoding is the design reference for this symbology, not the preview pane.
         this.code49Mode = code49Mode; // '0'–'5' or 'A' (automatic, default)
+        // Codablock (^BB). Stacked Code 128 symbology; reuses moduleWidth (^BY) and
+        // rowHeight above for sizing. m = mode (A=Code 39, E=Code 128+FNC1, F=Code 128).
+        // bwip-js only encodes Codablock F, so the on-canvas symbol always uses the F
+        // encoding; m affects only the emitted ZPL / real-printer output.
+        this.codablockMode = codablockMode; // 'A' | 'E' | 'F' (default)
         // Aztec (^B0). The 'd' param (error control / symbol size/type) is modelled
         // by three fields: sizeMode 'auto' uses aztecErrorControl (% min, 0 = printer
         // default); 'compact'/'full' use aztecLayers (0 = auto); 'rune' = ^B0 d=300.
@@ -77,6 +82,13 @@ export class QRCodeElement extends ZPLElement {
                 // Labelary don't render Code 49's interpretation line. m defaults A (auto).
                 const mode = ['0', '1', '2', '3', '4', '5', 'A'].includes(this.code49Mode) ? this.code49Mode : 'A';
                 return `${pos}^BY${this.moduleWidth}^B4N,${this.rowHeight},N,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
+            case 'CODABLOCK': {
+                // ^BBo,h,s,c,r,m — module width from ^BY, h = row height, s = security
+                // level, c = chars/row, r = rows (both left blank → printer auto-fits),
+                // m = mode. The 2D canvas has no orientation, so o is fixed at N.
+                const mode = ['A', 'E', 'F'].includes(this.codablockMode) ? this.codablockMode : 'F';
+                return `${pos}^BY${this.moduleWidth}^BBN,${this.rowHeight},N,,,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
             case 'AZTEC': {
                 // A rune encodes a single 0–255 byte; coerce real data so the ZPL

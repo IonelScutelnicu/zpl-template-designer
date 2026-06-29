@@ -332,6 +332,8 @@ export class PropertyListenersManager {
     attach("prop-micropdf-mode", "microPdfMode", (v) => Math.max(0, Math.min(33, parseInt(v) || 0)));
     // Code 49 (reuses module-width/row-height above)
     attach("prop-code49-mode", "code49Mode");
+    // Codablock (reuses module-width/row-height above)
+    attach("prop-codablock-mode", "codablockMode");
     // Aztec
     attach("prop-aztec-size-mode", "aztecSizeMode");
     attach("prop-aztec-error-control", "aztecErrorControl", (v) => Math.max(0, Math.min(99, parseInt(v) || 0)));
