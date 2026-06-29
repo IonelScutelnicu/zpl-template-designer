@@ -1,14 +1,14 @@
 import { ZPLElement } from './ZPLElement.js';
-import { getBarcodeGeometry, matrixModuleDots, normalizeAztecRune } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, matrixModuleDots, maxicodeSize, normalizeAztecRune } from '../utils/barcodeGeometry.js';
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
-//   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked)
+//   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked),  MAXICODE -> ^BD (hexagonal)
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F') {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4') {
         super(x, y);
         this.type = 'QRCODE';
         this.symbology = symbology;
@@ -39,6 +39,10 @@ export class QRCodeElement extends ZPLElement {
         // bwip-js only encodes Codablock F, so the on-canvas symbol always uses the F
         // encoding; m affects only the emitted ZPL / real-printer output.
         this.codablockMode = codablockMode; // 'A' | 'E' | 'F' (default)
+        // MaxiCode (^BD). Fixed-size hexagonal symbol; magnification above sets the canvas
+        // hex pitch. m = mode: 2/3 = postal (need a structured carrier message), 4 =
+        // standard (default, arbitrary data), 5 = full EEC, 6 = reader programming.
+        this.maxicodeMode = maxicodeMode; // '2'–'6' (default '4')
         // Aztec (^B0). The 'd' param (error control / symbol size/type) is modelled
         // by three fields: sizeMode 'auto' uses aztecErrorControl (% min, 0 = printer
         // default); 'compact'/'full' use aztecLayers (0 = auto); 'rune' = ^B0 d=300.
@@ -90,6 +94,12 @@ export class QRCodeElement extends ZPLElement {
                 const mode = ['A', 'E', 'F'].includes(this.codablockMode) ? this.codablockMode : 'F';
                 return `${pos}^BY${this.moduleWidth}^BBN,${this.rowHeight},N,,,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
+            case 'MAXICODE': {
+                // ^BDm,n,t — m = mode (2-6). MaxiCode is fixed-size: no ^BY or orientation.
+                // n,t (symbol number / count for a structured append) default to 1,1.
+                const mode = ['2', '3', '4', '5', '6'].includes(String(this.maxicodeMode)) ? String(this.maxicodeMode) : '4';
+                return `${pos}^BD${mode},1,1${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
             case 'AZTEC': {
                 // A rune encodes a single 0–255 byte; coerce real data so the ZPL
                 // is valid (leave %placeholder% tokens for the caller to fill).
@@ -124,6 +134,11 @@ export class QRCodeElement extends ZPLElement {
     getBounds() {
         const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
         const geom = getBarcodeGeometry(this);
+        if (geom.kind === 'maxicode') {
+            const { mx } = matrixModuleDots(this);
+            const { width, height } = maxicodeSize(mx);
+            return { x: this.x, y: this.y, width, height: height + yOffset };
+        }
         if (geom.kind === 'matrix') {
             const { mx, my } = matrixModuleDots(this);
             return { x: this.x, y: this.y, width: geom.cols * mx, height: geom.rows * my + yOffset };

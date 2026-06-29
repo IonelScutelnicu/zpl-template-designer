@@ -33,11 +33,30 @@ const BWIP_BCID = {
   AZTEC: 'azteccode',
   CODE49: 'code49',
   CODABLOCK: 'codablockf', // ZPL ^BB defaults to mode F (Code 128); bwip only encodes Codablock F
+  MAXICODE: 'maxicode',
 };
+
+// MaxiCode is a fixed grid of 30 columns × 33 rows of hexagons (ISO/IEC 16023). bwip's
+// raw `pixs` is a flat list of set-module indices into that grid (index = row·30 + col).
+export const MAXICODE_COLS = 30;
+export const MAXICODE_ROWS = 33;
+
+/**
+ * Symbol size (in dots) of a MaxiCode rendered with the given hex column pitch W.
+ * The hexagons are regular and pointy-top, so the vertical row pitch is √3⁄2·W and the
+ * hex height is 2⁄√3·W; odd rows are offset half a module to the right. Single source of
+ * truth for the renderer (drawMaxiCode) and the element bounds.
+ */
+export function maxicodeSize(W) {
+  const H = (W * 2) / Math.sqrt(3);
+  const rowPitch = (W * Math.sqrt(3)) / 2;
+  // +W/2 width for the odd-row offset; height spans 32 row pitches plus one hex height.
+  return { width: MAXICODE_COLS * W + W / 2, height: (MAXICODE_ROWS - 1) * rowPitch + H };
+}
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'PLANET', 'POSTNET', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
-export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49', 'CODABLOCK'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49', 'CODABLOCK', 'MAXICODE'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
@@ -66,6 +85,7 @@ export const SYMBOLOGY_LABELS = {
   AZTEC: 'Aztec',
   CODE49: 'Code 49',
   CODABLOCK: 'Codablock',
+  MAXICODE: 'MaxiCode',
 };
 
 // Rich metadata for the symbology picker UI: ZPL command, one-line description
@@ -96,6 +116,7 @@ export const SYMBOLOGY_META = {
   AZTEC: { code: '^B0', desc: 'Matrix · compact, no quiet zone', dim: '2D' },
   CODE49: { code: '^B4', desc: 'Stacked · alphanumeric (2–8 rows)', dim: '2D' },
   CODABLOCK: { code: '^BB', desc: 'Stacked · Code 128 (2–4 rows)', dim: '2D' },
+  MAXICODE: { code: '^BD', desc: 'Hexagonal · fixed size, UPS shipping', dim: '2D' },
 };
 
 // Default preview data per symbology (valid for each so a fresh element renders
@@ -126,6 +147,7 @@ export const DEFAULT_PREVIEW_DATA = {
   AZTEC: 'Aztec',
   CODE49: 'CODE 49',
   CODABLOCK: 'Codablock',
+  MAXICODE: 'This is a test', // MaxiCode mode 4 (standard) sample data
 };
 
 // Fixed-length numeric symbologies: ZPL auto-truncates / left-pads with zeros to
@@ -190,7 +212,8 @@ export const BARCODE_2D_SIZE_BOUNDS = {
   CODABLOCK: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
   DATAMATRIX: { moduleSize: { min: 1, max: 30 } },
   QR: { magnification: { min: 1, max: 10 } },
-  AZTEC: { magnification: { min: 1, max: 10 } }
+  AZTEC: { magnification: { min: 1, max: 10 } },
+  MAXICODE: { magnification: { min: 2, max: 20 } }
 };
 
 /** Pixel size (in dots) of a single matrix module for a 2D element. */
@@ -204,6 +227,7 @@ export function matrixModuleDots(element) {
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
     case 'QR':
     case 'AZTEC':
+    case 'MAXICODE': // hex column pitch in dots (vertical pitch is derived, see maxicodeSize)
     default:
       return { mx: element.magnification || 5, my: element.magnification || 5 };
   }
@@ -762,6 +786,10 @@ function buildBwipOptions(element) {
     // ^BF's mode fixes the rows×cols variant; request the matching bwip version so
     // the canvas mirrors Labelary (including encode failure when data overflows it).
     opts.version = microPdf417Version(element.microPdfMode || 0);
+  } else if (symbology === 'MAXICODE') {
+    // ^BD mode (2-6) selects the encoding. Modes 2/3 (postal) require a structured
+    // carrier message; mode 4 (standard) takes arbitrary data and is the default here.
+    opts.mode = parseInt(element.maxicodeMode, 10) || 4;
   }
   return opts;
 }
@@ -873,7 +901,7 @@ export function getBarcodeGeometry(element) {
   const ratioKey = symbology === 'PLESSEY' ? effRatio
     : (symbology === 'PLANET' || symbology === 'POSTNET') ? (element.width || 2)
     : wnRatio;
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${ratioKey}`;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${opts.mode ?? ''}|${ratioKey}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 
@@ -881,7 +909,17 @@ export function getBarcodeGeometry(element) {
   try {
     const stack = bwipjs.raw(opts);
     const o = stack.find((e) => e && (e.sbs || e.pixs)) || stack[0];
-    if (o && o.pixs) {
+    if (symbology === 'MAXICODE' && o && o.pixs) {
+      // bwip's MaxiCode `pixs` is a flat list of set-module indices into the 30×33 hex
+      // grid (index = row·30 + col). Keep it as a sparse module list — the renderer
+      // draws each as a hexagon and overlays the central bullseye finder.
+      result = {
+        kind: 'maxicode',
+        cols: MAXICODE_COLS,
+        rows: MAXICODE_ROWS,
+        modules: Array.from(o.pixs, (c) => ({ col: c % MAXICODE_COLS, row: (c / MAXICODE_COLS) | 0 })),
+      };
+    } else if (o && o.pixs) {
       // bwip's pixy is the rendered pixel height, which for PDF417 bakes in a
       // default row multiplier (e.g. 14 module rows reported as pixy=42). pixs is
       // stored at true module resolution, so derive the real row count from it —

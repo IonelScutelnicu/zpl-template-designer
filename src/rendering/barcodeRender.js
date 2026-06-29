@@ -222,6 +222,43 @@ export function drawMatrix(ctx, geom, { x, y, moduleW, moduleH, color }) {
   ctx.restore();
 }
 
+/**
+ * Draw a MaxiCode symbol: regular pointy-top hexagons on a 30×33 grid (odd rows offset
+ * half a module) plus the central three-ring bullseye finder. `moduleW` is the hex column
+ * pitch in dots; the vertical pitch and hex height follow from a regular hexagon.
+ */
+export function drawMaxiCode(ctx, geom, { x, y, moduleW, color }) {
+  ctx.save();
+  ctx.fillStyle = color;
+  const W = moduleW;
+  const H = (W * 2) / Math.sqrt(3);   // hex height (top vertex to bottom vertex)
+  const rowPitch = (W * Math.sqrt(3)) / 2; // vertical distance between rows
+  for (const { col, row } of geom.modules) {
+    const cx = x + col * W + ((row & 1) ? W : W / 2);
+    const cy = y + row * rowPitch + H / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - H / 2);
+    ctx.lineTo(cx + W / 2, cy - H / 4);
+    ctx.lineTo(cx + W / 2, cy + H / 4);
+    ctx.lineTo(cx, cy + H / 2);
+    ctx.lineTo(cx - W / 2, cy + H / 4);
+    ctx.lineTo(cx - W / 2, cy - H / 4);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // Bullseye: three concentric black rings centred on the symbol. Radii (in module
+  // pitches) match bwip's showmaxicode geometry; each ring is a filled annulus.
+  const cx0 = x + 14.5 * W;
+  const cy0 = y + ((geom.rows - 1) * rowPitch + H) / 2;
+  for (const [ri, ro] of [[0.58, 1.35], [2.12, 2.89], [3.65, 4.42]]) {
+    ctx.beginPath();
+    ctx.arc(cx0, cy0, ro * W, 0, Math.PI * 2, false);
+    ctx.arc(cx0, cy0, ri * W, 0, Math.PI * 2, true);
+    ctx.fill('evenodd');
+  }
+  ctx.restore();
+}
+
 /** Draw a neutral placeholder box when encoding fails (invalid/partial data). */
 export function drawPlaceholder(ctx, { x, y, width, height, label }) {
   ctx.save();

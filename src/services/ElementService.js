@@ -102,7 +102,8 @@ export class ElementService {
           props.fieldHex || false,
           props.microPdfMode || 0,
           props.code49Mode || 'A',
-          props.codablockMode || 'F'
+          props.codablockMode || 'F',
+          props.maxicodeMode || '4'
         );
         break;
       }

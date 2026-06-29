@@ -30,6 +30,7 @@ const TWO_D = [
     { symbology: 'AZTEC', command: '^B0N' },
     { symbology: 'CODE49', command: '^B4N' },
     { symbology: 'CODABLOCK', command: '^BBN' },
+    { symbology: 'MAXICODE', command: '^BD4' },
 ];
 
 test.describe('Barcode symbology', () => {
@@ -1129,6 +1130,47 @@ test.describe('Barcode symbology', () => {
         expect(r.mw).toBe(3);
         expect(r.rh).toBe(6);
         expect(r.data).toBe('CODE 49');
+    });
+
+    // ============== MAXICODE (^BD) ==============
+    test('MaxiCode emits ^BDm,1,1, encodes the hex grid, and round-trips mode', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            // ctor: ...symbology, ..., fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode
+            const make = (mode: string, data = 'This is a test') =>
+                new QRCodeElement(10, 10, data, 2, 6, 'Q', '', false, 'MAXICODE', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', mode);
+            const parser = new ZPLParser();
+            const zpl = make('5').render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const def: any = make('4');
+            const g: any = geo.getBarcodeGeometry(make('4'));
+            return {
+                emits: zpl.includes('^BD5,1,1'),
+                defEmits: def.render().includes('^BD4,1,1'), // default mode 4 (standard)
+                kind: g.kind,
+                cols: g.cols,
+                rows: g.rows,
+                moduleCount: g.modules?.length,
+                type: parsed?.type,
+                sym: parsed?.symbology,
+                mode: parsed?.maxicodeMode,
+                data: parsed?.previewData,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.defEmits).toBe(true);
+        expect(r.kind).toBe('maxicode');
+        expect(r.cols).toBe(30);
+        expect(r.rows).toBe(33);
+        expect(r.moduleCount).toBeGreaterThan(0);
+        expect(r.type).toBe('QRCODE');
+        expect(r.sym).toBe('MAXICODE');
+        expect(r.mode).toBe('5');
+        expect(r.data).toBe('This is a test');
     });
 
     // ============== CODABLOCK (^BB) ==============

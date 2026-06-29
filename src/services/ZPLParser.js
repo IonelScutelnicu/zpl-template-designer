@@ -14,7 +14,7 @@ const KNOWN_COMMANDS = new Set([
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
-  'B', 'BA', 'BB', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX', 'BZ'
+  'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX', 'BZ'
 ]);
 
 /**
@@ -571,6 +571,10 @@ export class ZPLParser {
       return this._parseCodablock(group, getCommand('BB'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
+    if (hasCommand('BD')) {
+      return this._parseMaxiCode(group, getCommand('BD'), getCommand('FD'), hasCommand('FR'), fhToken);
+    }
+
     if (hasCommand('BE')) {
       return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
     }
@@ -1103,6 +1107,32 @@ export class ZPLParser {
       moduleWidth,
       rowHeight,
       codablockMode,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse MaxiCode element from ^BD + ^FD. ^BDm,n,t — m is the mode (2-6); n,t (symbol
+   * number / count for a structured append) are not modelled. MaxiCode is fixed-size, so
+   * there is no ^BY module width or orientation to read.
+   */
+  _parseMaxiCode(group, bdToken, fdToken, hasReverse, fhToken = null) {
+    const parts = bdToken.params.split(',');
+    const rawMode = (parts[0] || '4').trim();
+    const maxicodeMode = ['2', '3', '4', '5', '6'].includes(rawMode) ? rawMode : '4';
+
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'MAXICODE',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
+      maxicodeMode,
       reverse: hasReverse
     };
   }

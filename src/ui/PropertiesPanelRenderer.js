@@ -13,6 +13,7 @@ const THUMB_QR = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" a
 const THUMB_DATAMATRIX = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="2" height="26"/><rect x="3" y="27" width="26" height="2"/><rect x="5" y="3" width="2" height="2"/><rect x="9" y="3" width="2" height="2"/><rect x="13" y="3" width="2" height="2"/><rect x="17" y="3" width="2" height="2"/><rect x="21" y="3" width="2" height="2"/><rect x="25" y="3" width="2" height="2"/><rect x="27" y="5" width="2" height="2"/><rect x="27" y="9" width="2" height="2"/><rect x="27" y="13" width="2" height="2"/><rect x="27" y="17" width="2" height="2"/><rect x="27" y="21" width="2" height="2"/><rect x="27" y="25" width="2" height="2"/><rect x="7" y="7" width="2" height="2"/><rect x="11" y="9" width="2" height="2"/><rect x="15" y="7" width="2" height="2"/><rect x="19" y="11" width="2" height="2"/><rect x="9" y="15" width="2" height="2"/><rect x="13" y="17" width="2" height="2"/><rect x="17" y="15" width="2" height="2"/><rect x="21" y="19" width="2" height="2"/><rect x="11" y="21" width="2" height="2"/><rect x="19" y="23" width="2" height="2"/><rect x="15" y="23" width="2" height="2"/><rect x="23" y="15" width="2" height="2"/></svg>`;
 const THUMB_PDF417 = `<svg viewBox="0 0 40 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="5" width="3" height="22"/><rect x="8" y="5" width="1" height="22"/><rect x="11" y="5" width="2" height="22"/><rect x="15" y="5" width="1" height="22"/><rect x="18" y="5" width="3" height="22"/><rect x="23" y="5" width="1" height="22"/><rect x="26" y="5" width="2" height="22"/><rect x="30" y="5" width="1" height="22"/><rect x="34" y="5" width="3" height="22"/><rect x="0" y="10" width="40" height="1.2" fill="white"/><rect x="0" y="16" width="40" height="1.2" fill="white"/><rect x="0" y="22" width="40" height="1.2" fill="white"/></svg>`;
 // Aztec: concentric central bullseye finder with scattered data modules.
+const THUMB_MAXICODE = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><circle cx="16" cy="16" r="2.5"/><circle cx="16" cy="16" r="5.5" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="16" cy="16" r="8.5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="4" width="2.4" height="2.8"/><rect x="8" y="5" width="2.4" height="2.8"/><rect x="26" y="4" width="2.4" height="2.8"/><rect x="22" y="6" width="2.4" height="2.8"/><rect x="3" y="13" width="2.4" height="2.8"/><rect x="3" y="22" width="2.4" height="2.8"/><rect x="26" y="13" width="2.4" height="2.8"/><rect x="26" y="22" width="2.4" height="2.8"/><rect x="8" y="25" width="2.4" height="2.8"/><rect x="22" y="25" width="2.4" height="2.8"/><rect x="14" y="25" width="2.4" height="2.8"/></svg>`;
 const THUMB_AZTEC = `<svg viewBox="0 0 32 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="10" y="10" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="13" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="15" y="15" width="2" height="2"/><rect x="3" y="3" width="2" height="2"/><rect x="7" y="3" width="2" height="2"/><rect x="11" y="3" width="2" height="2"/><rect x="19" y="3" width="2" height="2"/><rect x="27" y="3" width="2" height="2"/><rect x="3" y="7" width="2" height="2"/><rect x="3" y="15" width="2" height="2"/><rect x="3" y="23" width="2" height="2"/><rect x="3" y="27" width="2" height="2"/><rect x="27" y="7" width="2" height="2"/><rect x="27" y="11" width="2" height="2"/><rect x="27" y="19" width="2" height="2"/><rect x="27" y="27" width="2" height="2"/><rect x="7" y="27" width="2" height="2"/><rect x="15" y="27" width="2" height="2"/><rect x="23" y="27" width="2" height="2"/><rect x="23" y="7" width="2" height="2"/></svg>`;
 const SYMBOLOGY_THUMBS = {
   CODE128: THUMB_LINEAR,
@@ -39,6 +40,7 @@ const SYMBOLOGY_THUMBS = {
   MICROPDF417: THUMB_PDF417,
   CODE49: THUMB_PDF417,
   CODABLOCK: THUMB_PDF417,
+  MAXICODE: THUMB_MAXICODE,
   AZTEC: THUMB_AZTEC,
 };
 
@@ -757,6 +759,17 @@ export class PropertiesPanelRenderer {
             ["F", "F - Code 128 (default)"],
             ["E", "E - Code 128 + FNC1 (GS1)"],
             ["A", "A - Code 39"],
+          ])}
+        `;
+      case "MAXICODE":
+        return `
+          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.MAXICODE.magnification)}
+          ${this.createSelectGroup("Mode", "prop-maxicode-mode", element.maxicodeMode || "4", [
+            ["4", "4 - Standard"],
+            ["2", "2 - Postal (US)"],
+            ["3", "3 - Postal (non-US)"],
+            ["5", "5 - Full EEC"],
+            ["6", "6 - Reader programming"],
           ])}
         `;
       case "AZTEC":
