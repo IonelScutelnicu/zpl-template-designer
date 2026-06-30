@@ -15,6 +15,13 @@ export function getFieldHexIndicator(fhParams = '') {
   return fhParams ? fhParams.charAt(0) : DEFAULT_HEX_INDICATOR;
 }
 
+// A placeholder token (%name%) is a template marker the app substitutes at print time,
+// not literal field data. It must be emitted verbatim — its name can legitimately contain
+// the hex marker ('_'), so hex-escaping it (e.g. %my_field% -> %my_5Ffield%) would corrupt
+// the token. Matches the app's placeholder grammar used everywhere (/^%([^%]+)%$/).
+const PLACEHOLDER_SPLIT_RE = /(%[^%]+%)/;
+const PLACEHOLDER_RE = /^%[^%]+%$/;
+
 export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
   const text = String(value ?? '');
   const marker = indicator || DEFAULT_HEX_INDICATOR;
@@ -22,18 +29,27 @@ export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
   let encoded = '';
   let escaped = false;
 
-  for (const char of text) {
-    const codePoint = char.codePointAt(0);
-    const mustEscape = char === marker || char === '^' || char === '~' || codePoint < 0x20 || codePoint > 0x7E;
-
-    if (!mustEscape) {
-      encoded += char;
+  // Split out placeholder tokens (kept verbatim) and hex-encode only the literal segments
+  // around them — placeholders may be embedded (e.g. QR's "QA,%name%"), not just standalone.
+  for (const segment of text.split(PLACEHOLDER_SPLIT_RE)) {
+    if (!segment) continue;
+    if (PLACEHOLDER_RE.test(segment)) {
+      encoded += segment;
       continue;
     }
+    for (const char of segment) {
+      const codePoint = char.codePointAt(0);
+      const mustEscape = char === marker || char === '^' || char === '~' || codePoint < 0x20 || codePoint > 0x7E;
 
-    escaped = true;
-    for (const byte of encoder.encode(char)) {
-      encoded += `${marker}${byteToHex(byte)}`;
+      if (!mustEscape) {
+        encoded += char;
+        continue;
+      }
+
+      escaped = true;
+      for (const byte of encoder.encode(char)) {
+        encoded += `${marker}${byteToHex(byte)}`;
+      }
     }
   }
 
