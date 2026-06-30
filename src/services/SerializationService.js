@@ -120,6 +120,13 @@ export class SerializationService {
           data.maxicodeMode,
           data.databarType
         );
+        if (data.symbology === 'TLC39') {
+          element.tlc39Code39Width = data.tlc39Code39Width || data.moduleWidth || 2;
+          element.tlc39Ratio = data.tlc39Ratio || 3;
+          element.tlc39Code39Height = data.tlc39Code39Height || data.rowHeight || 40;
+          element.tlc39MicroPdfWidth = data.tlc39MicroPdfWidth || element.tlc39Code39Width;
+          element.tlc39MicroPdfRowHeight = data.tlc39MicroPdfRowHeight || element.tlc39MicroPdfWidth;
+        }
         break;
 
       case 'BOX':

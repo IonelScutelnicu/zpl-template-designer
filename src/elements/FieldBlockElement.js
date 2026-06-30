@@ -42,7 +42,7 @@ export class FieldBlockElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(content, '_', this.fieldHex, { preservePlaceholders: Boolean(this.placeholder) })}^FS`;
     }
 
     renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {

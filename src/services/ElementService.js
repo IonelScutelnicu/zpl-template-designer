@@ -91,10 +91,10 @@ export class ElementService {
           props.reverse || false,
           symbology,
           props.moduleSize || 4,
-          props.quality || 200,
+          props.quality ?? 200,
           props.moduleWidth || 2,
           props.rowHeight || 4,
-          props.securityLevel || 5,
+          props.securityLevel ?? 5,
           props.columns || 0,
           props.aztecSizeMode || 'auto',
           props.aztecErrorControl || 0,
@@ -106,6 +106,13 @@ export class ElementService {
           props.maxicodeMode || '4',
           props.databarType || 'omni'
         );
+        if (symbology === 'TLC39') {
+          element.tlc39Code39Width = props.tlc39Code39Width || props.moduleWidth || 2;
+          element.tlc39Ratio = props.tlc39Ratio || 3;
+          element.tlc39Code39Height = props.tlc39Code39Height || props.rowHeight || 40;
+          element.tlc39MicroPdfWidth = props.tlc39MicroPdfWidth || element.tlc39Code39Width;
+          element.tlc39MicroPdfRowHeight = props.tlc39MicroPdfRowHeight || element.tlc39MicroPdfWidth;
+        }
         break;
       }
 

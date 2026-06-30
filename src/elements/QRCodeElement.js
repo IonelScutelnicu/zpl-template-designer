@@ -1,6 +1,7 @@
 import { ZPLElement } from './ZPLElement.js';
-import { getBarcodeGeometry, matrixModuleDots, maxicodeSize, normalizeAztecRune, DATABAR_TYPE_NUM } from '../utils/barcodeGeometry.js';
-import { renderFieldDataCommand } from '../utils/zplFieldData.js';
+import { getBarcodeGeometry, normalizeAztecRune } from '../utils/barcodeGeometry.js';
+import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
+import { placeholderToken } from '../utils/placeholders.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
@@ -11,52 +12,63 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
     constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni') {
-        super(x, y);
+        const opts = (x && typeof x === 'object')
+            ? x
+            : { x, y, previewData, model, magnification, errorCorrection, placeholder, reverse, symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel, columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType };
+        super(opts.x ?? 0, opts.y ?? 0);
         this.type = 'QRCODE';
-        this.symbology = symbology;
-        this.previewData = previewData;
-        this.placeholder = placeholder;
+        this.symbology = opts.symbology || 'QR';
+        this.previewData = opts.previewData ?? opts.data ?? '';
+        this.placeholder = opts.placeholder || '';
         // QR (^BQ)
-        this.model = model;              // 1 = original, 2 = enhanced (recommended)
-        this.magnification = magnification; // 1-10 (scaling factor)
-        this.errorCorrection = errorCorrection; // H, Q, M, L (high to low)
+        this.model = opts.model || 2;              // 1 = original, 2 = enhanced (recommended)
+        this.magnification = opts.magnification || 5; // 1-10 (scaling factor)
+        this.errorCorrection = opts.errorCorrection || 'Q'; // H, Q, M, L (high to low)
         // Data Matrix (^BX)
-        this.moduleSize = moduleSize;    // individual module size in dots
-        this.quality = quality;          // ECC level (200 = ECC 200, recommended)
+        this.moduleSize = opts.moduleSize || 4;    // individual module size in dots
+        this.quality = opts.quality ?? 200;          // ECC level (200 = ECC 200, recommended; 0 = ECC 000 is valid)
         // PDF417 (^B7)
-        this.moduleWidth = moduleWidth;  // X module width in dots (^BY)
-        this.rowHeight = rowHeight;      // row height in dots
-        this.securityLevel = securityLevel; // 0-8
-        this.columns = columns;          // 0 = auto
+        this.moduleWidth = opts.moduleWidth || 2;  // X module width in dots (^BY)
+        this.rowHeight = opts.rowHeight || 4;      // row height in dots
+        this.securityLevel = opts.securityLevel ?? 5; // 0-8 (0 = error-detection only is valid)
+        this.columns = opts.columns || 0;          // 0 = auto
         // Micro-PDF417 (^BF). Mode 0-33 selects a fixed rows×columns variant; reuses
         // moduleWidth (^BY) and rowHeight above for sizing.
-        this.microPdfMode = microPdfMode;
+        this.microPdfMode = opts.microPdfMode || 0;
         // Code 49 (^B4). Stacked alphanumeric symbology; reuses moduleWidth (^BY) and
         // rowHeight above for sizing. m = starting mode (0–5 / A=auto). NOTE: Labelary
         // does not render Code 49 (it shows the raw data as text), so the on-canvas
         // bwip-js encoding is the design reference for this symbology, not the preview pane.
-        this.code49Mode = code49Mode; // '0'–'5' or 'A' (automatic, default)
+        this.code49Mode = opts.code49Mode || 'A'; // '0'–'5' or 'A' (automatic, default)
         // Codablock (^BB). Stacked Code 128 symbology; reuses moduleWidth (^BY) and
         // rowHeight above for sizing. m = mode (A=Code 39, E=Code 128+FNC1, F=Code 128).
         // bwip-js only encodes Codablock F, so the on-canvas symbol always uses the F
         // encoding; m affects only the emitted ZPL / real-printer output.
-        this.codablockMode = codablockMode; // 'A' | 'E' | 'F' (default)
+        this.codablockMode = opts.codablockMode || 'F'; // 'A' | 'E' | 'F' (default)
         // MaxiCode (^BD). Fixed-size hexagonal symbol; magnification above sets the canvas
         // hex pitch. m = mode: 2/3 = postal (need a structured carrier message), 4 =
         // standard (default, arbitrary data), 5 = full EEC, 6 = reader programming.
-        this.maxicodeMode = maxicodeMode; // '2'–'6' (default '4')
+        this.maxicodeMode = opts.maxicodeMode || '4'; // '2'–'6' (default '4')
         // GS1 DataBar (^BR). databarType selects the variant; magnification = module
         // width (^BR m) and rowHeight = bar height (^BR h). Linear variants (omni,
         // truncated, limited, expanded) render as bars; stacked / stacked-omni as a matrix.
-        this.databarType = databarType; // 'omni'|'truncated'|'stacked'|'stackedomni'|'limited'|'expanded'
+        this.databarType = opts.databarType || 'omni'; // 'omni'|'truncated'|'stacked'|'stackedomni'|'limited'|'expanded'
+        // TLC39 (^BT). Keep moduleWidth/rowHeight as compatibility aliases for w1/h1.
+        this.tlc39Code39Width = opts.tlc39Code39Width;
+        this.tlc39Ratio = opts.tlc39Ratio;
+        this.tlc39Code39Height = opts.tlc39Code39Height;
+        this.tlc39MicroPdfWidth = opts.tlc39MicroPdfWidth;
+        this.tlc39MicroPdfRowHeight = opts.tlc39MicroPdfRowHeight;
         // Aztec (^B0). The 'd' param (error control / symbol size/type) is modelled
         // by three fields: sizeMode 'auto' uses aztecErrorControl (% min, 0 = printer
         // default); 'compact'/'full' use aztecLayers (0 = auto); 'rune' = ^B0 d=300.
-        this.aztecSizeMode = aztecSizeMode;       // 'auto' | 'compact' | 'full' | 'rune'
-        this.aztecErrorControl = aztecErrorControl; // 0 (default) or 1-99 (% minimum)
-        this.aztecLayers = aztecLayers;           // 0 = auto, 1-4 compact / 1-32 full
-        this.reverse = reverse; // ^FR (reverse print)
-        this.fieldHex = fieldHex; // ^FH (force field hex indicator)
+        this.aztecSizeMode = opts.aztecSizeMode || 'auto';       // 'auto' | 'compact' | 'full' | 'rune'
+        this.aztecErrorControl = opts.aztecErrorControl || 0; // 0 (default) or 1-99 (% minimum)
+        this.aztecLayers = opts.aztecLayers || 0;           // 0 = auto, 1-4 compact / 1-32 full
+        this.reverse = opts.reverse || false; // ^FR (reverse print)
+        this.fieldHex = opts.fieldHex || false; // ^FH (force field hex indicator)
+        this.normalizeAztecRune = normalizeAztecRune;
+        this.aztecD = () => this._aztecD();
     }
 
     // Map the Aztec size fields to the ^B0 'd' parameter (error control + symbol
@@ -71,83 +83,19 @@ export class QRCodeElement extends ZPLElement {
         }
     }
 
-    _render(content) {
+    _render(content, preservePlaceholders = false) {
         const reverseCmd = this.reverse ? '^FR' : '';
         const pos = `^FO${this.x},${this.y}${reverseCmd}`;
-        switch (this.symbology) {
-            case 'DATAMATRIX':
-                return `${pos}^BXN,${this.moduleSize},${this.quality}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            case 'PDF417': {
-                const cols = this.columns > 0 ? `,${this.columns}` : '';
-                return `${pos}^BY${this.moduleWidth}^B7N,${this.rowHeight},${this.securityLevel}${cols}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'MICROPDF417': {
-                // ^BFo,h,m — module width from ^BY, h = row height, m = mode (0-33).
-                const mode = Math.max(0, Math.min(33, this.microPdfMode || 0));
-                return `${pos}^BY${this.moduleWidth}^BFN,${this.rowHeight},${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'CODE49': {
-                // ^B4o,h,f,m — module width from ^BY, h = row height, f = interpretation
-                // line, m = starting mode. f is fixed at N (no HRI): the 2D canvas and
-                // Labelary don't render Code 49's interpretation line. m defaults A (auto).
-                const mode = ['0', '1', '2', '3', '4', '5', 'A'].includes(this.code49Mode) ? this.code49Mode : 'A';
-                return `${pos}^BY${this.moduleWidth}^B4N,${this.rowHeight},N,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'CODABLOCK': {
-                // ^BBo,h,s,c,r,m — module width from ^BY, h = row height, s = security
-                // level, c = chars/row, r = rows (both left blank → printer auto-fits),
-                // m = mode. The 2D canvas has no orientation, so o is fixed at N.
-                const mode = ['A', 'E', 'F'].includes(this.codablockMode) ? this.codablockMode : 'F';
-                return `${pos}^BY${this.moduleWidth}^BBN,${this.rowHeight},N,,,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'TLC39': {
-                // ^BTo,w1,r1,h1,w2,h2 — Code 39 (ECI) stacked over MicroPDF417 (serial +
-                // additional data). The 2D canvas has no orientation (o=N); w1/w2 reuse
-                // moduleWidth, h1 the rowHeight (Code 39 bar height), r1 the Code 39 ratio
-                // (fixed 3) and h2 the MicroPDF417 row height.
-                const w = this.moduleWidth || 2;
-                const h1 = this.rowHeight || 40;
-                return `${pos}^BTN,${w},3,${h1},${w},${w}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'GS1DATABAR': {
-                // ^BRo,t,m,s,h — o orientation (N on the 2D canvas), t symbology type,
-                // m magnification (module width), s separator height, h bar height. Segment
-                // width (w, expanded only) is left at the printer default.
-                const t = DATABAR_TYPE_NUM[this.databarType] || 1;
-                const m = this.magnification || 5;
-                const h = this.rowHeight || 40;
-                return `${pos}^BRN,${t},${m},2,${h}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'MAXICODE': {
-                // ^BDm,n,t — m = mode (2-6). MaxiCode is fixed-size: no ^BY or orientation.
-                // n,t (symbol number / count for a structured append) default to 1,1.
-                const mode = ['2', '3', '4', '5', '6'].includes(String(this.maxicodeMode)) ? String(this.maxicodeMode) : '4';
-                return `${pos}^BD${mode},1,1${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
-            }
-            case 'AZTEC': {
-                // A rune encodes a single 0–255 byte; coerce real data so the ZPL
-                // is valid (leave %placeholder% tokens for the caller to fill).
-                const isPlaceholder = /^%.*%$/.test(content);
-                const data = this.aztecSizeMode === 'rune' && !isPlaceholder ? normalizeAztecRune(content) : content;
-                // d=0 means "printer default" but isn't a valid ^B0 value (valid:
-                // 1-99/101-104/201-232/300); omit it so the default is implied.
-                const d = this._aztecD();
-                const dParam = d > 0 ? `,${d}` : '';
-                return `${pos}^B0N,${this.magnification},N${dParam}${renderFieldDataCommand(data, '_', this.fieldHex)}^FS`;
-            }
-            case 'QR':
-            default:
-                return `${pos}^BQN,${this.model},${this.magnification}${renderFieldDataCommand(`${this.errorCorrection}A,${content}`, '_', this.fieldHex)}^FS`;
-        }
+        return `${pos}${getQRCodeSymbology(this.symbology).render(this, content, preservePlaceholders)}^FS`;
     }
 
     render() {
-        return this._render(this.placeholder ? `%${this.placeholder}%` : this.previewData);
+        return this._render(this.placeholder ? placeholderToken(this.placeholder) : this.previewData, Boolean(this.placeholder));
     }
 
     renderPreview() {
         // Uses preview data for Labelary API visualization
-        return this._render(this.previewData);
+        return this._render(this.previewData, false);
     }
 
     getDisplayName() {
@@ -158,36 +106,13 @@ export class QRCodeElement extends ZPLElement {
     getBounds() {
         const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
         const geom = getBarcodeGeometry(this);
-        if (geom.kind === 'tlc39') {
-            // Composite bounds: max width of the two components; height = Code 39 bar
-            // height + gap + MicroPDF417 matrix height (all at the shared module width).
-            const mw = this.moduleWidth || 2;
-            const c39h = this.rowHeight || 40;
-            const c39w = geom.code39.kind === 'linear' ? geom.code39.modules * mw : 0;
-            const mpw = geom.micropdf ? geom.micropdf.cols * mw : 0;
-            const mph = geom.micropdf ? geom.micropdf.rows * mw : 0;
-            const gap = geom.micropdf ? 2 * mw : 0;
-            return { x: this.x, y: this.y, width: Math.max(c39w, mpw) || 21 * mw, height: c39h + gap + mph + yOffset };
-        }
-        if (geom.kind === 'maxicode') {
-            const { mx } = matrixModuleDots(this);
-            const { width, height } = maxicodeSize(mx);
-            return { x: this.x, y: this.y, width, height: height + yOffset };
-        }
-        if (geom.kind === 'matrix') {
-            const { mx, my } = matrixModuleDots(this);
-            return { x: this.x, y: this.y, width: geom.cols * mx, height: geom.rows * my + yOffset };
-        }
-        if (geom.kind === 'linear') {
-            // GS1 DataBar linear variants: width from the encoded module count, height
-            // from the bar height (rowHeight). (Other 2D symbologies are never linear.)
-            const { mx } = matrixModuleDots(this);
-            return { x: this.x, y: this.y, width: geom.modules * mx, height: (this.rowHeight || 40) + yOffset };
-        }
-        // Fallback (encode failed): match the square placeholder the renderers
-        // draw — a 21-module box at magnification, for every symbology.
-        const size = 21 * (this.magnification || 5);
-        return { x: this.x, y: this.y, width: size, height: size + yOffset };
+        return getQRCodeSymbology(this.symbology).bounds(this, geom, {
+            yOffset,
+            placeholderBounds: (element) => {
+                const size = 21 * (element.magnification || 5);
+                return { x: element.x, y: element.y, width: size, height: size + yOffset };
+            }
+        });
     }
 
     canMatchLabelSize() { return false; }

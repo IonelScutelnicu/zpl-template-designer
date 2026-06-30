@@ -3,6 +3,8 @@
 
 import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
+import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
+import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
 
 /**
  * Manages property panel event listeners
@@ -263,19 +265,12 @@ export class PropertyListenersManager {
     this._attachToggle("prop-field-hex", element, "fieldHex");
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-width", "width", (v) => parseInt(v) || 2);
-    // ^B3 wide:narrow ratio — Zebra supports 2.0:1 to 3.0:1, so clamp to that range.
     attach("prop-ratio", "ratio", (v) => {
       const r = parseFloat(v);
       return Number.isNaN(r) ? 2.0 : Math.min(3, Math.max(2, r));
     });
     this._attachToggle("prop-check-digit", element, "checkDigit");
-    // Codabar start/stop characters (^BK k/l). No-op when the selects aren't rendered.
-    attach("prop-codabar-start", "startChar");
-    attach("prop-codabar-stop", "stopChar");
-    // MSI check-digit mode (^BM e) and "show check digit in HRI" (^BM e2). No-ops when
-    // the controls aren't rendered.
-    attach("prop-msi-check-mode", "msiCheckMode");
-    this._attachToggle("prop-msi-check-intext", element, "msiCheckInText");
+    getBarcodeSymbology(element.symbology).attachProperties(this, element, attach);
     this._attachHriControl(element);
     this._attachOrientationButtons(element);
 
@@ -321,32 +316,7 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
     this._attachToggle("prop-field-hex", element, "fieldHex");
-    // QR
-    attach("prop-model", "model", (v) => parseInt(v) || 2);
-    attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
-    attach("prop-error-correction", "errorCorrection");
-    // Data Matrix
-    attach("prop-module-size", "moduleSize", (v) => parseInt(v) || 4);
-    attach("prop-quality", "quality", (v) => parseInt(v) || 200);
-    // PDF417
-    attach("prop-module-width", "moduleWidth", (v) => parseInt(v) || 2);
-    attach("prop-row-height", "rowHeight", (v) => parseInt(v) || 4);
-    attach("prop-security-level", "securityLevel", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
-    attach("prop-columns", "columns", (v) => Math.max(0, parseInt(v) || 0));
-    // Micro-PDF417 (reuses module-width/row-height above)
-    attach("prop-micropdf-mode", "microPdfMode", (v) => Math.max(0, Math.min(33, parseInt(v) || 0)));
-    // Code 49 (reuses module-width/row-height above)
-    attach("prop-code49-mode", "code49Mode");
-    // Codablock (reuses module-width/row-height above)
-    attach("prop-codablock-mode", "codablockMode");
-    // MaxiCode (reuses magnification above)
-    attach("prop-maxicode-mode", "maxicodeMode");
-    // GS1 DataBar (reuses magnification + row-height above)
-    attach("prop-databar-type", "databarType");
-    // Aztec
-    attach("prop-aztec-size-mode", "aztecSizeMode");
-    attach("prop-aztec-error-control", "aztecErrorControl", (v) => Math.max(0, Math.min(99, parseInt(v) || 0)));
-    attach("prop-aztec-layers", "aztecLayers", (v) => Math.max(0, Math.min(32, parseInt(v) || 0)));
+    getQRCodeSymbology(element.symbology).attachProperties(this, element, attach);
 
     this._attachReverseToggle(element);
   }

@@ -1152,10 +1152,24 @@ test.describe('Barcode symbology', () => {
             const parser = new ZPLParser();
             const zpl = make('123456,17234,1A').render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const customParsed: any = parser.parse('^XA^FO10,10^BTN,3,2,55,4,6^FD123456,17234,1A^FS^XZ').elements[0];
+            const custom = new QRCodeElement({
+                x: 10, y: 10, previewData: '123456,17234,1A', symbology: 'TLC39',
+                tlc39Code39Width: 3, tlc39Ratio: 2, tlc39Code39Height: 55,
+                tlc39MicroPdfWidth: 4, tlc39MicroPdfRowHeight: 6,
+            });
             const both: any = geo.getBarcodeGeometry(make('123456,17234,1A'));
             const eciOnly: any = geo.getBarcodeGeometry(make('123456')); // no comma -> Code 39 only
             return {
                 emits: zpl.includes('^BTN,2,3,40,2,2'),
+                customEmits: custom.render().includes('^BTN,3,2,55,4,6'),
+                customParsed: {
+                    w1: customParsed?.tlc39Code39Width,
+                    r1: customParsed?.tlc39Ratio,
+                    h1: customParsed?.tlc39Code39Height,
+                    w2: customParsed?.tlc39MicroPdfWidth,
+                    h2: customParsed?.tlc39MicroPdfRowHeight,
+                },
                 kind: both.kind,
                 code39Kind: both.code39.kind,
                 hasMicropdf: both.micropdf != null,
@@ -1168,6 +1182,8 @@ test.describe('Barcode symbology', () => {
             };
         });
         expect(r.emits).toBe(true);
+        expect(r.customEmits).toBe(true);
+        expect(r.customParsed).toEqual({ w1: 3, r1: 2, h1: 55, w2: 4, h2: 6 });
         expect(r.kind).toBe('tlc39');
         expect(r.code39Kind).toBe('linear');
         expect(r.hasMicropdf).toBe(true);

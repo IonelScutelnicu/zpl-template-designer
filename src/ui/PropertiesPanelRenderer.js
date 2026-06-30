@@ -5,6 +5,8 @@ import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
 import { SYMBOLOGY_LABELS, SYMBOLOGY_META, BARCODE_SYMBOLOGIES, QR_SYMBOLOGIES, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
+import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
+import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
 
 // Small inline-SVG glyphs for the symbology picker. Linear symbologies share one
 // barcode glyph; the 2D ones get a representative matrix/stacked glyph.
@@ -649,32 +651,8 @@ export class PropertiesPanelRenderer {
    */
   renderBarcodeProperties(element) {
     const symbology = element.symbology || "CODE128";
-    const isCode39 = symbology === "CODE39";
-    const isCode93 = symbology === "CODE93";
-    const isCode11 = symbology === "CODE11";
-    const isI2of5 = symbology === "INTERLEAVED2OF5";
-    const isIndustrial2of5 = symbology === "INDUSTRIAL2OF5";
-    const isStandard2of5 = symbology === "STANDARD2OF5";
-    const isLogmars = symbology === "LOGMARS";
-    const isMsi = symbology === "MSI";
-    const isPlessey = symbology === "PLESSEY";
-    const isCodabar = symbology === "CODABAR";
-    // Code 39, Interleaved 2 of 5, Codabar, Code 11, Industrial/Standard 2 of 5 and LOGMARS
-    // derive their wide:narrow ratio from ^BY; Code 93 has a fixed ratio. Code 39 / I2of5 /
-    // Code 93 / Code 11 expose a check-digit toggle (mod-43 / mod-10 / mandatory Code 93
-    // C+K / Code 11 1-vs-2 digits); Industrial & Standard 2 of 5 are self-checking with no
-    // check-digit param; LOGMARS is Code 39 with a forced mod-43 check digit and an
-    // always-on HRI (no f param), so it exposes neither a check-digit nor an HRI-off toggle;
-    // Codabar's check digit is fixed off but exposes start/stop chars (^BK k/l).
-    // Plessey (^BP) is ratio-bearing too and exposes an on/off "print check digit" toggle:
-    // its two hex CRC check chars are always in the bars; the e flag only adds them to the HRI.
-    const hasRatio = isCode39 || isI2of5 || isCodabar || isCode11 || isIndustrial2of5 || isStandard2of5 || isLogmars || isMsi || isPlessey;
-    // MSI (^BM) has a 4-way check-digit mode (e) rather than an on/off toggle, plus an e2
-    // flag for whether to show the check digit in the HRI — both handled by dedicated controls.
-    const hasCheckDigit = isCode39 || isI2of5 || isCode93 || isCode11 || isPlessey;
-    const msiCheckOptions = [["A", "None"], ["B", "1 × Mod 10"], ["C", "2 × Mod 10"], ["D", "Mod 11 + Mod 10"]];
-    const checkDigitLabel = isI2of5 ? "Mod-10 Check Digit" : isCode93 ? "Print Check Digits" : isCode11 ? "Single Check Digit" : isPlessey ? "Print Check Digit" : "Mod-43 Check Digit";
-    const startStopOptions = [["A", "A"], ["B", "B"], ["C", "C"], ["D", "D"]];
+    const barcodeType = getBarcodeSymbology(symbology);
+    const checkDigitControl = barcodeType.checkDigitControl(element);
     return `
       ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, BARCODE_SYMBOLOGIES), { open: true, elementType: element.type })}
       ${this.renderAlignmentControls(element)}
@@ -693,17 +671,10 @@ export class PropertiesPanelRenderer {
       `, { elementType: element.type })}
       ${this.renderSection("Barcode Settings", `
         ${this.createInputGroup("Module Width", "prop-width", element.width, "number", { min: 1, max: 10 })}
-        ${hasRatio ? this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 2, max: 3, step: 0.1 }) : ""}
-        ${hasCheckDigit ? this.createToggleGroup(checkDigitLabel, "prop-check-digit", element.checkDigit === true) : ""}
-        ${isCodabar ? `<div class="grid grid-cols-2 gap-3">
-          ${this.createSelectGroup("Start Character", "prop-codabar-start", element.startChar || "A", startStopOptions)}
-          ${this.createSelectGroup("Stop Character", "prop-codabar-stop", element.stopChar || "A", startStopOptions)}
-        </div>` : ""}
-        ${isMsi ? `
-          ${this.createSelectGroup("Check Digit", "prop-msi-check-mode", element.msiCheckMode || "B", msiCheckOptions)}
-          ${this.createToggleGroup("Show Check Digit in HRI", "prop-msi-check-intext", element.msiCheckInText === true)}
-        ` : ""}
-        ${this.renderHriControl(element, { allowOff: !isLogmars })}
+        ${barcodeType.hasRatio() ? this.createInputGroup("Ratio", "prop-ratio", element.ratio, "number", { min: 2, max: 3, step: 0.1 }) : ""}
+        ${checkDigitControl ? this.createToggleGroup(checkDigitControl.label, "prop-check-digit", element.checkDigit === true) : ""}
+        ${barcodeType.extraSettings(this, element)}
+        ${this.renderHriControl(element, { allowOff: !barcodeType.forcesHri() })}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
@@ -713,113 +684,7 @@ export class PropertiesPanelRenderer {
    * Render the symbology-specific size + settings controls for a 2D barcode.
    */
   renderQRCodeSettings(element) {
-    switch (element.symbology) {
-      case "DATAMATRIX":
-        return `
-          ${this.createInputGroup("Module Size", "prop-module-size", element.moduleSize, "number", BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize)}
-          ${this.createSelectGroup("Quality (ECC)", "prop-quality", element.quality, [
-            ["200", "ECC 200 (recommended)"],
-            ["140", "ECC 140"],
-            ["100", "ECC 100"],
-            ["80", "ECC 080"],
-            ["50", "ECC 050"],
-            ["0", "ECC 000"],
-          ])}
-        `;
-      case "PDF417":
-        return `
-          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.PDF417.moduleWidth)}
-          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.PDF417.rowHeight)}
-          ${this.createInputGroup("Security Level", "prop-security-level", element.securityLevel, "number", { min: 0, max: 8 })}
-          ${this.createInputGroup("Columns (0 = auto)", "prop-columns", element.columns, "number", { min: 0, max: 30 })}
-        `;
-      case "MICROPDF417":
-        return `
-          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.MICROPDF417.moduleWidth)}
-          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.MICROPDF417.rowHeight)}
-          ${this.createInputGroup("Mode (0-33)", "prop-micropdf-mode", element.microPdfMode || 0, "number", { min: 0, max: 33 })}
-        `;
-      case "CODE49":
-        return `
-          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.CODE49.moduleWidth)}
-          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.CODE49.rowHeight)}
-          ${this.createSelectGroup("Starting Mode", "prop-code49-mode", element.code49Mode || "A", [
-            ["A", "Automatic"],
-            ["0", "0 - Regular Alphanumeric"],
-            ["1", "1 - Multiple Read Alphanumeric"],
-            ["2", "2 - Regular Numeric"],
-            ["3", "3 - Group Alphanumeric"],
-            ["4", "4 - Regular Alphanumeric Shift 1"],
-            ["5", "5 - Regular Alphanumeric Shift 2"],
-          ])}
-        `;
-      case "CODABLOCK":
-        return `
-          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.CODABLOCK.moduleWidth)}
-          ${this.createInputGroup("Row Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.CODABLOCK.rowHeight)}
-          ${this.createSelectGroup("Mode", "prop-codablock-mode", element.codablockMode || "F", [
-            ["F", "F - Code 128 (default)"],
-            ["E", "E - Code 128 + FNC1 (GS1)"],
-            ["A", "A - Code 39"],
-          ])}
-        `;
-      case "TLC39":
-        return `
-          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.TLC39.moduleWidth)}
-          ${this.createInputGroup("Code 39 Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.TLC39.rowHeight)}
-        `;
-      case "GS1DATABAR":
-        return `
-          ${this.createSelectGroup("Variant", "prop-databar-type", element.databarType || "omni", [
-            ["omni", "Omnidirectional"],
-            ["truncated", "Truncated"],
-            ["stacked", "Stacked"],
-            ["stackedomni", "Stacked Omnidirectional"],
-            ["limited", "Limited"],
-            ["expanded", "Expanded"],
-          ])}
-          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.GS1DATABAR.magnification)}
-          ${this.createInputGroup("Bar Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.GS1DATABAR.rowHeight)}
-        `;
-      case "MAXICODE":
-        return `
-          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.MAXICODE.magnification)}
-          ${this.createSelectGroup("Mode", "prop-maxicode-mode", element.maxicodeMode || "4", [
-            ["4", "4 - Standard"],
-            ["2", "2 - Postal (US)"],
-            ["3", "3 - Postal (non-US)"],
-            ["5", "5 - Full EEC"],
-            ["6", "6 - Reader programming"],
-          ])}
-        `;
-      case "AZTEC":
-        return `
-          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.AZTEC.magnification)}
-          ${this.createSelectGroup("Symbol Type", "prop-aztec-size-mode", element.aztecSizeMode || "auto", [
-            ["auto", "Auto (error %)"],
-            ["full", "Full-range (layers)"],
-            ["compact", "Compact (layers)"],
-            ["rune", "Rune"],
-          ])}
-          ${this.createInputGroup("Error Control % (0 = default)", "prop-aztec-error-control", element.aztecErrorControl, "number", { min: 0, max: 99 })}
-          ${this.createInputGroup("Layers (0 = auto)", "prop-aztec-layers", element.aztecLayers, "number", { min: 0, max: 32 })}
-        `;
-      case "QR":
-      default:
-        return `
-          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.QR.magnification)}
-          ${this.createSelectGroup("Model", "prop-model", element.model, [
-            ["1", "Model 1 (Original)"],
-            ["2", "Model 2 (Enhanced)"],
-          ])}
-          ${this.createSelectGroup("Error Correction", "prop-error-correction", element.errorCorrection, [
-            ["H", "H - Ultra-High (30%)"],
-            ["Q", "Q - Quality (25%)"],
-            ["M", "M - Medium (15%)"],
-            ["L", "L - Low (7%)"],
-          ])}
-        `;
-    }
+    return getQRCodeSymbology(element.symbology).renderSettings(this, element, BARCODE_2D_SIZE_BOUNDS);
   }
 
   /**

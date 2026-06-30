@@ -4,7 +4,7 @@
 import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
-import { DATABAR_TYPE_BY_NUM } from '../utils/barcodeGeometry.js';
+import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
@@ -568,20 +568,10 @@ export class ZPLParser {
       return this._parseMicroPDF417(group, getCommand('BF'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
-    if (hasCommand('BB')) {
-      return this._parseCodablock(group, getCommand('BB'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
-    }
-
-    if (hasCommand('BD')) {
-      return this._parseMaxiCode(group, getCommand('BD'), getCommand('FD'), hasCommand('FR'), fhToken);
-    }
-
-    if (hasCommand('BR')) {
-      return this._parseGS1DataBar(group, getCommand('BR'), getCommand('FD'), hasCommand('FR'), fhToken);
-    }
-
-    if (hasCommand('BT')) {
-      return this._parseTLC39(group, getCommand('BT'), getCommand('FD'), hasCommand('FR'), fhToken);
+    for (const command of ['BB', 'BD', 'BR', 'BT']) {
+      if (hasCommand(command)) {
+        return getParserSymbology(command).parse(this, group, getCommand(command), getCommand('FD'), hasCommand('FR'), fhToken);
+      }
     }
 
     if (hasCommand('BE')) {
@@ -1081,125 +1071,6 @@ export class ZPLParser {
       moduleWidth,
       rowHeight,
       code49Mode,
-      reverse: hasReverse
-    };
-  }
-
-  /**
-   * Parse Codablock element from ^BB + ^FD. ^BBo,h,s,c,r,m — h is the row height, s the
-   * security level, c the chars/row and r the rows (all auto-fit, not modelled), and m the
-   * mode (A/E/F). Module width comes from ^BY, mirroring Code 49 / Micro-PDF417.
-   */
-  _parseCodablock(group, bbToken, byToken, fdToken, hasReverse, fhToken = null) {
-    const parts = bbToken.params.split(',');
-    const rowHeight = parseInt(parts[1]) || 4;
-    const rawMode = (parts[5] || 'F').trim().toUpperCase();
-    const codablockMode = ['A', 'E', 'F'].includes(rawMode) ? rawMode : 'F';
-
-    let moduleWidth = 2;
-    if (byToken) {
-      const byParts = byToken.params.split(',');
-      if (byParts[0]) moduleWidth = parseInt(byParts[0]) || 2;
-    }
-
-    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
-    return {
-      type: 'QRCODE',
-      symbology: 'CODABLOCK',
-      x: group.x,
-      y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
-      fieldHex: Boolean(fhToken),
-      moduleWidth,
-      rowHeight,
-      codablockMode,
-      reverse: hasReverse
-    };
-  }
-
-  /**
-   * Parse MaxiCode element from ^BD + ^FD. ^BDm,n,t — m is the mode (2-6); n,t (symbol
-   * number / count for a structured append) are not modelled. MaxiCode is fixed-size, so
-   * there is no ^BY module width or orientation to read.
-   */
-  _parseMaxiCode(group, bdToken, fdToken, hasReverse, fhToken = null) {
-    const parts = bdToken.params.split(',');
-    const rawMode = (parts[0] || '4').trim();
-    const maxicodeMode = ['2', '3', '4', '5', '6'].includes(rawMode) ? rawMode : '4';
-
-    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
-    return {
-      type: 'QRCODE',
-      symbology: 'MAXICODE',
-      x: group.x,
-      y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
-      fieldHex: Boolean(fhToken),
-      maxicodeMode,
-      reverse: hasReverse
-    };
-  }
-
-  /**
-   * Parse TLC39 element from ^BT + ^FD. ^BTo,w1,r1,h1,w2,h2 — w1 is the Code 39 module
-   * width and h1 the Code 39 bar height; r1 (ratio), w2 and h2 (MicroPDF417 sizing) are
-   * not modelled (the canvas composite sizes the MicroPDF417 from w1). The ^FD carries
-   * `ECI,serial,additional…`; it is kept verbatim and split at render time.
-   */
-  _parseTLC39(group, btToken, fdToken, hasReverse, fhToken = null) {
-    const parts = btToken.params.split(',');
-    const moduleWidth = parseInt(parts[1], 10) || 2;
-    const rowHeight = parseInt(parts[3], 10) || 40;
-
-    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
-    return {
-      type: 'QRCODE',
-      symbology: 'TLC39',
-      x: group.x,
-      y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
-      fieldHex: Boolean(fhToken),
-      moduleWidth,
-      rowHeight,
-      reverse: hasReverse
-    };
-  }
-
-  /**
-   * Parse GS1 DataBar element from ^BR + ^FD. ^BRo,t,m,s,h,w — t is the symbology type
-   * (1-6 → databarType; composite types 7-12 are not modelled), m the magnification
-   * (module width), and h the bar height. s (separator) and w (segment width) are not
-   * modelled.
-   */
-  _parseGS1DataBar(group, brToken, fdToken, hasReverse, fhToken = null) {
-    const parts = brToken.params.split(',');
-    const databarType = DATABAR_TYPE_BY_NUM[parseInt(parts[1], 10)] || 'omni';
-    const magnification = parseInt(parts[2], 10) || 5;
-    const rowHeight = parseInt(parts[4], 10) || 40;
-
-    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
-    return {
-      type: 'QRCODE',
-      symbology: 'GS1DATABAR',
-      x: group.x,
-      y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
-      fieldHex: Boolean(fhToken),
-      databarType,
-      magnification,
-      rowHeight,
       reverse: hasReverse
     };
   }

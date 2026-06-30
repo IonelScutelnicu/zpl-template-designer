@@ -1,3 +1,5 @@
+import { PLACEHOLDER_SPLIT_RE, PLACEHOLDER_TOKEN_RE } from './placeholders.js';
+
 const DEFAULT_HEX_INDICATOR = '_';
 const HEX_RE = /^[0-9A-Fa-f]{2}$/;
 
@@ -15,25 +17,18 @@ export function getFieldHexIndicator(fhParams = '') {
   return fhParams ? fhParams.charAt(0) : DEFAULT_HEX_INDICATOR;
 }
 
-// A placeholder token (%name%) is a template marker the app substitutes at print time,
-// not literal field data. It must be emitted verbatim — its name can legitimately contain
-// the hex marker ('_'), so hex-escaping it (e.g. %my_field% -> %my_5Ffield%) would corrupt
-// the token. Matches the app's placeholder grammar used everywhere (/^%([^%]+)%$/).
-const PLACEHOLDER_SPLIT_RE = /(%[^%]+%)/;
-const PLACEHOLDER_RE = /^%[^%]+%$/;
-
-export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
+export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR, options = {}) {
   const text = String(value ?? '');
   const marker = indicator || DEFAULT_HEX_INDICATOR;
   const encoder = new TextEncoder();
   let encoded = '';
   let escaped = false;
+  const preservePlaceholders = Boolean(options.preservePlaceholders);
 
-  // Split out placeholder tokens (kept verbatim) and hex-encode only the literal segments
-  // around them — placeholders may be embedded (e.g. QR's "QA,%name%"), not just standalone.
-  for (const segment of text.split(PLACEHOLDER_SPLIT_RE)) {
+  const segments = preservePlaceholders ? text.split(PLACEHOLDER_SPLIT_RE) : [text];
+  for (const segment of segments) {
     if (!segment) continue;
-    if (PLACEHOLDER_RE.test(segment)) {
+    if (preservePlaceholders && PLACEHOLDER_TOKEN_RE.test(segment)) {
       encoded += segment;
       continue;
     }
@@ -81,8 +76,8 @@ export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
   return parts.join('');
 }
 
-export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false) {
-  const encoded = encodeFieldData(value, indicator);
+export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false, options = {}) {
+  const encoded = encodeFieldData(value, indicator, options);
   const fh = encoded.escaped || forceHex
     ? `^FH${encoded.indicator === DEFAULT_HEX_INDICATOR ? '' : encoded.indicator}`
     : '';

@@ -1,10 +1,10 @@
 // Barcode Renderer
 // Renders 1D BARCODE elements on canvas using real bwip-js geometry.
 
-import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS, code39CheckChar, code93CheckChars, code11CheckDigits, interleaved2of5Digits, normalizeUpcEanExt, msiCheckDigits, plesseyCheckDigits } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
-import { CODE93_GUARD_CHAR, CODE11_GUARD_START_CHAR, CODE11_GUARD_STOP_CHAR } from '../config/constants.js';
+import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 
 // EAN-13/UPC-A guard bars extend this many dots below the barcode height
 // (e.g. a 50-dot symbol gets 63-dot guard bars).
@@ -55,60 +55,14 @@ export class BarcodeRenderer {
       return;
     }
 
-    const data = element.previewData || '';
     const sym = resolveSymbology(element);
-    // Code 39's interpretation line shows the start/stop `*` delimiters (matches
-    // Labelary/Zebra ^B3); with the mod-43 check digit on, the computed check
-    // character is appended before the closing `*` (e.g. *CODE39* -> *CODE39W*).
-    // Interleaved 2 of 5 shows the actually-encoded digits (mod-10 check + even-length
-    // leading-zero pad), so the HRI matches the bars.
-    let displayText = data;
-    if (sym === 'CODE39') {
-      displayText = `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
-    } else if (sym === 'LOGMARS') {
-      // ^BL prints the HRI as uppercased data + the mandatory mod-43 check char, with no
-      // Code 39-style `*` delimiters (verified on Labelary: ^FD12345 -> "12345F").
-      const up = data.toUpperCase();
-      displayText = `${up}${code39CheckChar(up)}`;
-    } else if (sym === 'CODE11') {
-      // Code 11 always carries check digit(s) in the bars; show them in the HRI like
-      // Labelary (123456 -> 12345611 for 2 digits, 1234561 for the single-digit flag).
-      // Labelary/Zebra also wrap the line in start/stop guards drawn as small hollow
-      // triangles (△12345611△); the stop triangle is larger than the start one.
-      const checks = code11CheckDigits(data, element.checkDigit);
-      displayText = `${CODE11_GUARD_START_CHAR}${data}${checks}${CODE11_GUARD_STOP_CHAR}`;
-    } else if (sym === 'MSI') {
-      // ^BM's HRI shows the ^FD data; the e2 flag appends the mode's check digit(s)
-      // (verified on Labelary: e2=N -> "1234567", e2=Y -> "12345674" for the default mod-10).
-      displayText = `${data}${element.msiCheckInText ? msiCheckDigits(data, element.msiCheckMode) : ''}`;
-    } else if (sym === 'PLESSEY') {
-      // ^BP always carries the two hex CRC check chars in the bars; the e flag appends them
-      // to the HRI (verified on Labelary: e=N -> "12345", e=Y -> "123456E").
-      displayText = `${data}${element.checkDigit ? plesseyCheckDigits(data) : ''}`;
-    } else if (sym === 'INTERLEAVED2OF5') {
-      displayText = interleaved2of5Digits(data, element.checkDigit);
-    } else if (sym === 'CODE93') {
-      // Labelary/Zebra wrap Code 93's HRI in the start/stop guard, drawn as an empty
-      // box at each end (□CODE93□). The two check chars are always in the bars; ^BA's
-      // e flag adds them inside the closing guard (e.g. □12345ABC37□). Matches Labelary.
-      const checks = element.checkDigit ? code93CheckChars(data) : '';
-      displayText = `${CODE93_GUARD_CHAR}${data}${checks}${CODE93_GUARD_CHAR}`;
-    } else if (sym === 'CODABAR') {
-      // Codabar's HRI wraps the data with the start/stop chars (e.g. A12345A),
-      // matching Labelary/Zebra and the bars bwip encodes via start+data+stop.
-      const start = (element.startChar || 'A').toUpperCase();
-      const stop = (element.stopChar || 'A').toUpperCase();
-      displayText = `${start}${data}${stop}`;
-    } else if (sym === 'UPCEANEXT') {
-      // Show the actually-encoded 2/5 digits (length-padded/truncated) so the HRI
-      // matches the bars. ^BS defaults the HRI above (see BarcodeElement/ZPLParser).
-      displayText = normalizeUpcEanExt(data);
-    }
+    const symbology = getBarcodeSymbology(sym);
+    const displayText = symbology.displayText(element);
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;
     // HRI line config (per symbology + position); null when no HRI is shown. ^BL LOGMARS
     // has no print-interpretation toggle — the HRI is always printed, so force it on.
-    const hriConfig = (element.showText || sym === 'LOGMARS') ? getHriConfig(sym, above) : null;
+    const hriConfig = (element.showText || symbology.forcesHri()) ? getHriConfig(sym, above) : null;
 
     // Content extents in LOCAL space (bars top-left at origin 0,0). Mapped to
     // screen via the orientation transform so rotation + the reverse-print

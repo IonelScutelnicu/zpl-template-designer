@@ -4,6 +4,12 @@
 // so on-canvas size always reflects the real encoded symbol.
 
 import bwipjs from '../vendor/bwip-js.mjs';
+import { maxicodeGeometry, maxicodeSize } from '../barcodes/maxicodeGeometry.js';
+import { getTlc39Geometry } from '../barcodes/tlc39Geometry.js';
+import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText } from '../barcodes/databarGeometry.js';
+
+export { maxicodeSize };
+export { DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM };
 
 // Map our symbology codes to bwip-js bcid names.
 const BWIP_BCID = {
@@ -36,60 +42,6 @@ const BWIP_BCID = {
   MAXICODE: 'maxicode',
   // GS1 DataBar (^BR) is a family; the actual bwip bcid is chosen per databarType.
 };
-
-// ZPL ^BR symbology-type (t) parameter ↔ our databarType ↔ bwip bcid. Only the six
-// non-composite types are exposed (the CC-A/B/C composite types 7-12 are omitted).
-const DATABAR_BCID = {
-  omni: 'databaromni',             // t=1  GS1 DataBar Omnidirectional (DataBar-14)
-  truncated: 'databartruncated',   // t=2  GS1 DataBar Truncated
-  stacked: 'databarstacked',       // t=3  GS1 DataBar Stacked
-  stackedomni: 'databarstackedomni', // t=4  GS1 DataBar Stacked Omnidirectional
-  limited: 'databarlimited',       // t=5  GS1 DataBar Limited
-  expanded: 'databarexpanded',     // t=6  GS1 DataBar Expanded
-};
-export const DATABAR_TYPES = ['omni', 'truncated', 'stacked', 'stackedomni', 'limited', 'expanded'];
-export const DATABAR_TYPE_NUM = { omni: 1, truncated: 2, stacked: 3, stackedomni: 4, limited: 5, expanded: 6 };
-export const DATABAR_TYPE_BY_NUM = { 1: 'omni', 2: 'truncated', 3: 'stacked', 4: 'stackedomni', 5: 'limited', 6: 'expanded' };
-
-// Stacked variants (^BR t=3/4) encode as a module matrix; the rest are linear.
-const DATABAR_MATRIX_TYPES = new Set(['stacked', 'stackedomni']);
-
-/** Trim/zero-pad to the 13 GTIN data digits bwip needs (it computes the check digit). */
-function databarGtin13(data) {
-  const d = String(data ?? '').replace(/\D/g, '');
-  return d.length >= 13 ? d.slice(0, 13) : d.padStart(13, '0');
-}
-
-/**
- * The text to feed bwip for a GS1 DataBar element. Expanded (^BR t=6) carries a GS1
- * element string (AIs in parenthesised form); the others carry a single (01) GTIN, so
- * we wrap the digits the user enters. Mirrors how Zebra/Labelary interpret ^BR ^FD.
- */
-function databarBwipText(element) {
-  const data = element.previewData || '';
-  if (element.databarType === 'expanded') {
-    return data.includes('(') ? data : `(01)${databarGtin13(data)}`;
-  }
-  return `(01)${databarGtin13(data)}`;
-}
-
-// MaxiCode is a fixed grid of 30 columns × 33 rows of hexagons (ISO/IEC 16023). bwip's
-// raw `pixs` is a flat list of set-module indices into that grid (index = row·30 + col).
-export const MAXICODE_COLS = 30;
-export const MAXICODE_ROWS = 33;
-
-/**
- * Symbol size (in dots) of a MaxiCode rendered with the given hex column pitch W.
- * The hexagons are regular and pointy-top, so the vertical row pitch is √3⁄2·W and the
- * hex height is 2⁄√3·W; odd rows are offset half a module to the right. Single source of
- * truth for the renderer (drawMaxiCode) and the element bounds.
- */
-export function maxicodeSize(W) {
-  const H = (W * 2) / Math.sqrt(3);
-  const rowPitch = (W * Math.sqrt(3)) / 2;
-  // +W/2 width for the odd-row offset; height spans 32 row pitches plus one hex height.
-  return { width: MAXICODE_COLS * W + W / 2, height: (MAXICODE_ROWS - 1) * rowPitch + H };
-}
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'PLANET', 'POSTNET', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
@@ -241,13 +193,6 @@ export function resolveSymbology(element) {
   return element.symbology || (element.type === 'QRCODE' ? 'QR' : 'CODE128');
 }
 
-/**
- * Per-symbology 2D-barcode size fields and their clamp ranges. Single source of
- * truth for the {min, max} limits shared by drag-resize (interaction-handler),
- * match-to-label (AlignmentService), and the properties-panel inputs
- * (PropertiesPanelRenderer) so those sites can't drift apart. The {min, max}
- * shape is consumed directly by createInputGroup's options.
- */
 export const BARCODE_2D_SIZE_BOUNDS = {
   PDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
   MICROPDF417: { moduleWidth: { min: 1, max: 20 }, rowHeight: { min: 1, max: 100 } },
@@ -270,8 +215,8 @@ export function matrixModuleDots(element) {
     case 'MICROPDF417':
     case 'CODE49':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
-    case 'TLC39': // module width shared by both composite components (renderer handles heights)
-      return { mx: element.moduleWidth || 2, my: element.moduleWidth || 2 };
+    case 'TLC39':
+      return { mx: element.tlc39Code39Width || element.moduleWidth || 2, my: element.tlc39Code39Width || element.moduleWidth || 2 };
     case 'GS1DATABAR': // module width = magnification; stacked variants use square modules
     case 'QR':
     case 'AZTEC':
@@ -933,62 +878,8 @@ function pdf417PreferredColumns(opts) {
  *          | {kind:'matrix', cols:number, rows:number, pixs:number[]}
  *          | {kind:'error', message:string}}
  */
-// Composite geometry cache for TLC39 (keyed by data + module width).
-const tlc39Cache = new Map();
-
-/**
- * TLC39 (^BT) is a composite symbol with no single bwip encoder: a Code 39 of the
- * 6-digit ECI number stacked over a MicroPDF417 of the serial number + additional data.
- * The ^FD format is `ECI,serial,additional…`; everything after the first comma feeds the
- * MicroPDF417 (no comma ⇒ Code 39 only). We encode the two parts separately and return a
- * composite geometry the renderer stacks. (Labelary renders ^BT as plain text, so the
- * on-canvas bwip composite — not the Labelary preview — is the design reference here.)
- */
-function tlc39Geometry(element) {
-  const data = element.previewData || '';
-  const key = `${data}|${element.moduleWidth || 2}`;
-  const cached = tlc39Cache.get(key);
-  if (cached) return cached;
-
-  const comma = data.indexOf(',');
-  const eci = (comma >= 0 ? data.slice(0, comma) : data).replace(/\D/g, '').slice(0, 6);
-  const micropdfData = comma >= 0 ? data.slice(comma + 1) : '';
-
-  let code39 = { kind: 'error', message: 'No Code 39 data' };
-  try {
-    const s = bwipjs.raw({ bcid: 'code39', text: eci });
-    const o = s.find((e) => e && e.sbs) || s[0];
-    if (o && o.sbs) {
-      let modules = 0;
-      for (const v of o.sbs) modules += v;
-      code39 = { kind: 'linear', sbs: Array.from(o.sbs), modules, bhs: null, bbs: null, txt: null };
-    }
-  } catch (e) {
-    code39 = { kind: 'error', message: String((e && e.message) || e) };
-  }
-
-  let micropdf = null;
-  if (micropdfData) {
-    try {
-      const s = bwipjs.raw({ bcid: 'micropdf417', text: micropdfData });
-      const o = s.find((e) => e && e.pixs) || s[0];
-      if (o && o.pixs) {
-        const cols = +o.pixx;
-        micropdf = { kind: 'matrix', cols, rows: o.pixs.length / cols, pixs: o.pixs };
-      }
-    } catch {
-      micropdf = null; // invalid MicroPDF data: render Code 39 only
-    }
-  }
-
-  const result = { kind: 'tlc39', code39, micropdf };
-  if (tlc39Cache.size >= CACHE_MAX) tlc39Cache.clear();
-  tlc39Cache.set(key, result);
-  return result;
-}
-
 export function getBarcodeGeometry(element) {
-  if (resolveSymbology(element) === 'TLC39') return tlc39Geometry(element);
+  if (resolveSymbology(element) === 'TLC39') return getTlc39Geometry(element);
   const opts = buildBwipOptions(element);
   const symbology = resolveSymbology(element);
   // Code 39 & Interleaved 2 of 5 take their wide:narrow ratio from the element (^BY
@@ -1021,12 +912,7 @@ export function getBarcodeGeometry(element) {
       // bwip's MaxiCode `pixs` is a flat list of set-module indices into the 30×33 hex
       // grid (index = row·30 + col). Keep it as a sparse module list — the renderer
       // draws each as a hexagon and overlays the central bullseye finder.
-      result = {
-        kind: 'maxicode',
-        cols: MAXICODE_COLS,
-        rows: MAXICODE_ROWS,
-        modules: Array.from(o.pixs, (c) => ({ col: c % MAXICODE_COLS, row: (c / MAXICODE_COLS) | 0 })),
-      };
+      result = maxicodeGeometry(o);
     } else if (o && o.pixs) {
       // bwip's pixy is the rendered pixel height, which for PDF417 bakes in a
       // default row multiplier (e.g. 14 module rows reported as pixy=42). pixs is
