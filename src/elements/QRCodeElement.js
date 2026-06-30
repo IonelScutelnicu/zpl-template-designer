@@ -5,7 +5,8 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
 //   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked),  MAXICODE -> ^BD (hexagonal),
-//   GS1DATABAR -> ^BR (GS1 DataBar family: linear + stacked)
+//   GS1DATABAR -> ^BR (GS1 DataBar family: linear + stacked),
+//   TLC39 -> ^BT (composite: Code 39 + MicroPDF417)
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
@@ -99,6 +100,15 @@ export class QRCodeElement extends ZPLElement {
                 const mode = ['A', 'E', 'F'].includes(this.codablockMode) ? this.codablockMode : 'F';
                 return `${pos}^BY${this.moduleWidth}^BBN,${this.rowHeight},N,,,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
+            case 'TLC39': {
+                // ^BTo,w1,r1,h1,w2,h2 — Code 39 (ECI) stacked over MicroPDF417 (serial +
+                // additional data). The 2D canvas has no orientation (o=N); w1/w2 reuse
+                // moduleWidth, h1 the rowHeight (Code 39 bar height), r1 the Code 39 ratio
+                // (fixed 3) and h2 the MicroPDF417 row height.
+                const w = this.moduleWidth || 2;
+                const h1 = this.rowHeight || 40;
+                return `${pos}^BTN,${w},3,${h1},${w},${w}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
             case 'GS1DATABAR': {
                 // ^BRo,t,m,s,h — o orientation (N on the 2D canvas), t symbology type,
                 // m magnification (module width), s separator height, h bar height. Segment
@@ -148,6 +158,17 @@ export class QRCodeElement extends ZPLElement {
     getBounds() {
         const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
         const geom = getBarcodeGeometry(this);
+        if (geom.kind === 'tlc39') {
+            // Composite bounds: max width of the two components; height = Code 39 bar
+            // height + gap + MicroPDF417 matrix height (all at the shared module width).
+            const mw = this.moduleWidth || 2;
+            const c39h = this.rowHeight || 40;
+            const c39w = geom.code39.kind === 'linear' ? geom.code39.modules * mw : 0;
+            const mpw = geom.micropdf ? geom.micropdf.cols * mw : 0;
+            const mph = geom.micropdf ? geom.micropdf.rows * mw : 0;
+            const gap = geom.micropdf ? 2 * mw : 0;
+            return { x: this.x, y: this.y, width: Math.max(c39w, mpw) || 21 * mw, height: c39h + gap + mph + yOffset };
+        }
         if (geom.kind === 'maxicode') {
             const { mx } = matrixModuleDots(this);
             const { width, height } = maxicodeSize(mx);

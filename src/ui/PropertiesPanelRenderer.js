@@ -42,6 +42,7 @@ const SYMBOLOGY_THUMBS = {
   CODABLOCK: THUMB_PDF417,
   MAXICODE: THUMB_MAXICODE,
   GS1DATABAR: THUMB_LINEAR,
+  TLC39: THUMB_PDF417,
   AZTEC: THUMB_AZTEC,
 };
 
@@ -761,6 +762,11 @@ export class PropertiesPanelRenderer {
             ["E", "E - Code 128 + FNC1 (GS1)"],
             ["A", "A - Code 39"],
           ])}
+        `;
+      case "TLC39":
+        return `
+          ${this.createInputGroup("Module Width", "prop-module-width", element.moduleWidth, "number", BARCODE_2D_SIZE_BOUNDS.TLC39.moduleWidth)}
+          ${this.createInputGroup("Code 39 Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.TLC39.rowHeight)}
         `;
       case "GS1DATABAR":
         return `

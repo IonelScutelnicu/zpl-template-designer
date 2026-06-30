@@ -45,6 +45,33 @@ export class QRCodeRenderer {
       return;
     }
 
+    if (geom.kind === 'tlc39') {
+      // Composite: Code 39 (ECI) on top, MicroPDF417 (serial/data) below, left-aligned.
+      const c39Height = (element.rowHeight || 40) * scale;
+      const gap = 2 * moduleW;
+      const c39W = geom.code39.kind === 'linear' ? geom.code39.modules * moduleW : 0;
+      const mpW = geom.micropdf ? geom.micropdf.cols * moduleW : 0;
+      const mpH = geom.micropdf ? geom.micropdf.rows * moduleW : 0;
+      const width = Math.max(c39W, mpW);
+      const height = (geom.code39.kind === 'linear' ? c39Height + (geom.micropdf ? gap : 0) : 0) + mpH;
+      const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+        let cy = y + oy;
+        if (geom.code39.kind === 'linear') {
+          drawLinear(targetCtx, geom.code39, { x: x + ox, y: cy, moduleW, height: c39Height, color });
+          cy += c39Height + gap;
+        }
+        if (geom.micropdf) {
+          drawMatrix(targetCtx, geom.micropdf, { x: x + ox, y: cy, moduleW, moduleH: moduleW, color });
+        }
+      };
+      const capturedTlc = element.reverse
+        ? captureReverseBg(ctx, canvas, { x, y, width, height })
+        : null;
+      drawShape(ctx, '#000000');
+      if (capturedTlc) applyReverseOverlay(ctx, capturedTlc, drawShape);
+      return;
+    }
+
     if (geom.kind === 'linear') {
       // GS1 DataBar linear variants render as bars; bar height comes from rowHeight.
       const barHeight = (element.rowHeight || 40) * scale;

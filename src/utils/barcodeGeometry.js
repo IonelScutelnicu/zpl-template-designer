@@ -93,7 +93,7 @@ export function maxicodeSize(W) {
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'PLANET', 'POSTNET', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
-export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49', 'CODABLOCK', 'MAXICODE', 'GS1DATABAR'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49', 'CODABLOCK', 'MAXICODE', 'GS1DATABAR', 'TLC39'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
@@ -124,6 +124,7 @@ export const SYMBOLOGY_LABELS = {
   CODABLOCK: 'Codablock',
   MAXICODE: 'MaxiCode',
   GS1DATABAR: 'GS1 DataBar',
+  TLC39: 'TLC39',
 };
 
 // Rich metadata for the symbology picker UI: ZPL command, one-line description
@@ -156,6 +157,7 @@ export const SYMBOLOGY_META = {
   CODABLOCK: { code: '^BB', desc: 'Stacked · Code 128 (2–4 rows)', dim: '2D' },
   MAXICODE: { code: '^BD', desc: 'Hexagonal · fixed size, UPS shipping', dim: '2D' },
   GS1DATABAR: { code: '^BR', desc: 'GS1 retail · omni / stacked / expanded', dim: '2D' },
+  TLC39: { code: '^BT', desc: 'Composite · Code 39 + MicroPDF417 (ECI)', dim: '2D' },
 };
 
 // Default preview data per symbology (valid for each so a fresh element renders
@@ -188,6 +190,7 @@ export const DEFAULT_PREVIEW_DATA = {
   CODABLOCK: 'Codablock',
   MAXICODE: 'This is a test', // MaxiCode mode 4 (standard) sample data
   GS1DATABAR: '0001234567890', // 13-digit GTIN (check digit auto-added); see databarBwipText
+  TLC39: '123456,17234,1A', // ECI (6 digits) , serial number , additional data
 };
 
 // Fixed-length numeric symbologies: ZPL auto-truncates / left-pads with zeros to
@@ -254,7 +257,8 @@ export const BARCODE_2D_SIZE_BOUNDS = {
   QR: { magnification: { min: 1, max: 10 } },
   AZTEC: { magnification: { min: 1, max: 10 } },
   MAXICODE: { magnification: { min: 2, max: 20 } },
-  GS1DATABAR: { magnification: { min: 1, max: 10 }, rowHeight: { min: 1, max: 200 } }
+  GS1DATABAR: { magnification: { min: 1, max: 10 }, rowHeight: { min: 1, max: 200 } },
+  TLC39: { moduleWidth: { min: 1, max: 10 }, rowHeight: { min: 1, max: 9999 } }
 };
 
 /** Pixel size (in dots) of a single matrix module for a 2D element. */
@@ -266,6 +270,8 @@ export function matrixModuleDots(element) {
     case 'MICROPDF417':
     case 'CODE49':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
+    case 'TLC39': // module width shared by both composite components (renderer handles heights)
+      return { mx: element.moduleWidth || 2, my: element.moduleWidth || 2 };
     case 'GS1DATABAR': // module width = magnification; stacked variants use square modules
     case 'QR':
     case 'AZTEC':
@@ -927,7 +933,62 @@ function pdf417PreferredColumns(opts) {
  *          | {kind:'matrix', cols:number, rows:number, pixs:number[]}
  *          | {kind:'error', message:string}}
  */
+// Composite geometry cache for TLC39 (keyed by data + module width).
+const tlc39Cache = new Map();
+
+/**
+ * TLC39 (^BT) is a composite symbol with no single bwip encoder: a Code 39 of the
+ * 6-digit ECI number stacked over a MicroPDF417 of the serial number + additional data.
+ * The ^FD format is `ECI,serial,additional…`; everything after the first comma feeds the
+ * MicroPDF417 (no comma ⇒ Code 39 only). We encode the two parts separately and return a
+ * composite geometry the renderer stacks. (Labelary renders ^BT as plain text, so the
+ * on-canvas bwip composite — not the Labelary preview — is the design reference here.)
+ */
+function tlc39Geometry(element) {
+  const data = element.previewData || '';
+  const key = `${data}|${element.moduleWidth || 2}`;
+  const cached = tlc39Cache.get(key);
+  if (cached) return cached;
+
+  const comma = data.indexOf(',');
+  const eci = (comma >= 0 ? data.slice(0, comma) : data).replace(/\D/g, '').slice(0, 6);
+  const micropdfData = comma >= 0 ? data.slice(comma + 1) : '';
+
+  let code39 = { kind: 'error', message: 'No Code 39 data' };
+  try {
+    const s = bwipjs.raw({ bcid: 'code39', text: eci });
+    const o = s.find((e) => e && e.sbs) || s[0];
+    if (o && o.sbs) {
+      let modules = 0;
+      for (const v of o.sbs) modules += v;
+      code39 = { kind: 'linear', sbs: Array.from(o.sbs), modules, bhs: null, bbs: null, txt: null };
+    }
+  } catch (e) {
+    code39 = { kind: 'error', message: String((e && e.message) || e) };
+  }
+
+  let micropdf = null;
+  if (micropdfData) {
+    try {
+      const s = bwipjs.raw({ bcid: 'micropdf417', text: micropdfData });
+      const o = s.find((e) => e && e.pixs) || s[0];
+      if (o && o.pixs) {
+        const cols = +o.pixx;
+        micropdf = { kind: 'matrix', cols, rows: o.pixs.length / cols, pixs: o.pixs };
+      }
+    } catch {
+      micropdf = null; // invalid MicroPDF data: render Code 39 only
+    }
+  }
+
+  const result = { kind: 'tlc39', code39, micropdf };
+  if (tlc39Cache.size >= CACHE_MAX) tlc39Cache.clear();
+  tlc39Cache.set(key, result);
+  return result;
+}
+
 export function getBarcodeGeometry(element) {
+  if (resolveSymbology(element) === 'TLC39') return tlc39Geometry(element);
   const opts = buildBwipOptions(element);
   const symbology = resolveSymbology(element);
   // Code 39 & Interleaved 2 of 5 take their wide:narrow ratio from the element (^BY

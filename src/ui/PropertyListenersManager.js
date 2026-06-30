@@ -146,7 +146,7 @@ export class PropertyListenersManager {
       }
       // GS1 DataBar reuses rowHeight as the bar height; the 2D default (4) is far too
       // short for a linear barcode, so give it a usable height on first switch.
-      if (next === "GS1DATABAR" && (element.rowHeight ?? 4) <= 4) {
+      if ((next === "GS1DATABAR" || next === "TLC39") && (element.rowHeight ?? 4) <= 4) {
         element.rowHeight = 40;
       }
       element.symbology = next;

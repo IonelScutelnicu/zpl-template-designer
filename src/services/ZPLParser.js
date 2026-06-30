@@ -15,7 +15,7 @@ const KNOWN_COMMANDS = new Set([
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
-  'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BR', 'BS', 'BU', 'BX', 'BZ'
+  'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BR', 'BS', 'BT', 'BU', 'BX', 'BZ'
 ]);
 
 /**
@@ -580,6 +580,10 @@ export class ZPLParser {
       return this._parseGS1DataBar(group, getCommand('BR'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
+    if (hasCommand('BT')) {
+      return this._parseTLC39(group, getCommand('BT'), getCommand('FD'), hasCommand('FR'), fhToken);
+    }
+
     if (hasCommand('BE')) {
       return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
     }
@@ -1138,6 +1142,34 @@ export class ZPLParser {
       placeholder: match ? match[1] : '',
       fieldHex: Boolean(fhToken),
       maxicodeMode,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse TLC39 element from ^BT + ^FD. ^BTo,w1,r1,h1,w2,h2 — w1 is the Code 39 module
+   * width and h1 the Code 39 bar height; r1 (ratio), w2 and h2 (MicroPDF417 sizing) are
+   * not modelled (the canvas composite sizes the MicroPDF417 from w1). The ^FD carries
+   * `ECI,serial,additional…`; it is kept verbatim and split at render time.
+   */
+  _parseTLC39(group, btToken, fdToken, hasReverse, fhToken = null) {
+    const parts = btToken.params.split(',');
+    const moduleWidth = parseInt(parts[1], 10) || 2;
+    const rowHeight = parseInt(parts[3], 10) || 40;
+
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'TLC39',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
+      moduleWidth,
+      rowHeight,
       reverse: hasReverse
     };
   }

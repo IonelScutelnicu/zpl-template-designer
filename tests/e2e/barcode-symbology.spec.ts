@@ -32,6 +32,7 @@ const TWO_D = [
     { symbology: 'CODABLOCK', command: '^BBN' },
     { symbology: 'MAXICODE', command: '^BD4' },
     { symbology: 'GS1DATABAR', command: '^BRN,1' },
+    { symbology: 'TLC39', command: '^BTN' },
 ];
 
 test.describe('Barcode symbology', () => {
@@ -1131,6 +1132,51 @@ test.describe('Barcode symbology', () => {
         expect(r.mw).toBe(3);
         expect(r.rh).toBe(6);
         expect(r.data).toBe('CODE 49');
+    });
+
+    // ============== TLC39 (^BT) ==============
+    // Labelary renders ^BT as plain text (no bars), so the on-canvas bwip composite — a
+    // Code 39 of the ECI stacked over a MicroPDF417 of the serial/data — is the design
+    // reference here, like ^B4 Code 49. It is therefore excluded from the visual-parity specs.
+    test('TLC39 emits ^BTN,w,r,h,w,h and encodes a Code 39 + MicroPDF417 composite', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const make = (data: string) => {
+                const e = new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'TLC39');
+                e.moduleWidth = 2; e.rowHeight = 40; return e;
+            };
+            const parser = new ZPLParser();
+            const zpl = make('123456,17234,1A').render();
+            const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
+            const both: any = geo.getBarcodeGeometry(make('123456,17234,1A'));
+            const eciOnly: any = geo.getBarcodeGeometry(make('123456')); // no comma -> Code 39 only
+            return {
+                emits: zpl.includes('^BTN,2,3,40,2,2'),
+                kind: both.kind,
+                code39Kind: both.code39.kind,
+                hasMicropdf: both.micropdf != null,
+                eciOnlyMicropdf: eciOnly.micropdf, // null when there is no serial/data part
+                type: parsed?.type,
+                sym: parsed?.symbology,
+                mw: parsed?.moduleWidth,
+                h: parsed?.rowHeight,
+                data: parsed?.previewData,
+            };
+        });
+        expect(r.emits).toBe(true);
+        expect(r.kind).toBe('tlc39');
+        expect(r.code39Kind).toBe('linear');
+        expect(r.hasMicropdf).toBe(true);
+        expect(r.eciOnlyMicropdf).toBeNull();
+        expect(r.type).toBe('QRCODE');
+        expect(r.sym).toBe('TLC39');
+        expect(r.mw).toBe(2);
+        expect(r.h).toBe(40);
+        expect(r.data).toBe('123456,17234,1A');
     });
 
     // ============== GS1 DATABAR (^BR) ==============
