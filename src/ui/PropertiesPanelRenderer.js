@@ -41,6 +41,7 @@ const SYMBOLOGY_THUMBS = {
   CODE49: THUMB_PDF417,
   CODABLOCK: THUMB_PDF417,
   MAXICODE: THUMB_MAXICODE,
+  GS1DATABAR: THUMB_LINEAR,
   AZTEC: THUMB_AZTEC,
 };
 
@@ -760,6 +761,19 @@ export class PropertiesPanelRenderer {
             ["E", "E - Code 128 + FNC1 (GS1)"],
             ["A", "A - Code 39"],
           ])}
+        `;
+      case "GS1DATABAR":
+        return `
+          ${this.createSelectGroup("Variant", "prop-databar-type", element.databarType || "omni", [
+            ["omni", "Omnidirectional"],
+            ["truncated", "Truncated"],
+            ["stacked", "Stacked"],
+            ["stackedomni", "Stacked Omnidirectional"],
+            ["limited", "Limited"],
+            ["expanded", "Expanded"],
+          ])}
+          ${this.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", BARCODE_2D_SIZE_BOUNDS.GS1DATABAR.magnification)}
+          ${this.createInputGroup("Bar Height", "prop-row-height", element.rowHeight, "number", BARCODE_2D_SIZE_BOUNDS.GS1DATABAR.rowHeight)}
         `;
       case "MAXICODE":
         return `

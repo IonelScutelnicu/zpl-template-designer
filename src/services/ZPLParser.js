@@ -4,6 +4,7 @@
 import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
+import { DATABAR_TYPE_BY_NUM } from '../utils/barcodeGeometry.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
@@ -14,7 +15,7 @@ const KNOWN_COMMANDS = new Set([
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
-  'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BS', 'BU', 'BX', 'BZ'
+  'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BR', 'BS', 'BU', 'BX', 'BZ'
 ]);
 
 /**
@@ -575,6 +576,10 @@ export class ZPLParser {
       return this._parseMaxiCode(group, getCommand('BD'), getCommand('FD'), hasCommand('FR'), fhToken);
     }
 
+    if (hasCommand('BR')) {
+      return this._parseGS1DataBar(group, getCommand('BR'), getCommand('FD'), hasCommand('FR'), fhToken);
+    }
+
     if (hasCommand('BE')) {
       return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
     }
@@ -1133,6 +1138,36 @@ export class ZPLParser {
       placeholder: match ? match[1] : '',
       fieldHex: Boolean(fhToken),
       maxicodeMode,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse GS1 DataBar element from ^BR + ^FD. ^BRo,t,m,s,h,w — t is the symbology type
+   * (1-6 → databarType; composite types 7-12 are not modelled), m the magnification
+   * (module width), and h the bar height. s (separator) and w (segment width) are not
+   * modelled.
+   */
+  _parseGS1DataBar(group, brToken, fdToken, hasReverse, fhToken = null) {
+    const parts = brToken.params.split(',');
+    const databarType = DATABAR_TYPE_BY_NUM[parseInt(parts[1], 10)] || 'omni';
+    const magnification = parseInt(parts[2], 10) || 5;
+    const rowHeight = parseInt(parts[4], 10) || 40;
+
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
+    const match = rawData.match(/^%([^%]+)%$/);
+
+    return {
+      type: 'QRCODE',
+      symbology: 'GS1DATABAR',
+      x: group.x,
+      y: group.y,
+      previewData: match ? match[1] : rawData,
+      placeholder: match ? match[1] : '',
+      fieldHex: Boolean(fhToken),
+      databarType,
+      magnification,
+      rowHeight,
       reverse: hasReverse
     };
   }

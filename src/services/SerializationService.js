@@ -117,7 +117,8 @@ export class SerializationService {
           data.microPdfMode,
           data.code49Mode,
           data.codablockMode,
-          data.maxicodeMode
+          data.maxicodeMode,
+          data.databarType
         );
         break;
 

@@ -144,6 +144,11 @@ export class PropertyListenersManager {
       if (element.previewData === DEFAULT_PREVIEW_DATA[prev] && DEFAULT_PREVIEW_DATA[next] !== undefined) {
         element.previewData = DEFAULT_PREVIEW_DATA[next];
       }
+      // GS1 DataBar reuses rowHeight as the bar height; the 2D default (4) is far too
+      // short for a linear barcode, so give it a usable height on first switch.
+      if (next === "GS1DATABAR" && (element.rowHeight ?? 4) <= 4) {
+        element.rowHeight = 40;
+      }
       element.symbology = next;
       this.callbacks.onPropertyChange(element);
       this.callbacks.onRerenderProperties?.();
@@ -336,6 +341,8 @@ export class PropertyListenersManager {
     attach("prop-codablock-mode", "codablockMode");
     // MaxiCode (reuses magnification above)
     attach("prop-maxicode-mode", "maxicodeMode");
+    // GS1 DataBar (reuses magnification + row-height above)
+    attach("prop-databar-type", "databarType");
     // Aztec
     attach("prop-aztec-size-mode", "aztecSizeMode");
     attach("prop-aztec-error-control", "aztecErrorControl", (v) => Math.max(0, Math.min(99, parseInt(v) || 0)));

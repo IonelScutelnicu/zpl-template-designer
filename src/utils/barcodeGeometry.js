@@ -34,7 +34,44 @@ const BWIP_BCID = {
   CODE49: 'code49',
   CODABLOCK: 'codablockf', // ZPL ^BB defaults to mode F (Code 128); bwip only encodes Codablock F
   MAXICODE: 'maxicode',
+  // GS1 DataBar (^BR) is a family; the actual bwip bcid is chosen per databarType.
 };
+
+// ZPL ^BR symbology-type (t) parameter ↔ our databarType ↔ bwip bcid. Only the six
+// non-composite types are exposed (the CC-A/B/C composite types 7-12 are omitted).
+const DATABAR_BCID = {
+  omni: 'databaromni',             // t=1  GS1 DataBar Omnidirectional (DataBar-14)
+  truncated: 'databartruncated',   // t=2  GS1 DataBar Truncated
+  stacked: 'databarstacked',       // t=3  GS1 DataBar Stacked
+  stackedomni: 'databarstackedomni', // t=4  GS1 DataBar Stacked Omnidirectional
+  limited: 'databarlimited',       // t=5  GS1 DataBar Limited
+  expanded: 'databarexpanded',     // t=6  GS1 DataBar Expanded
+};
+export const DATABAR_TYPES = ['omni', 'truncated', 'stacked', 'stackedomni', 'limited', 'expanded'];
+export const DATABAR_TYPE_NUM = { omni: 1, truncated: 2, stacked: 3, stackedomni: 4, limited: 5, expanded: 6 };
+export const DATABAR_TYPE_BY_NUM = { 1: 'omni', 2: 'truncated', 3: 'stacked', 4: 'stackedomni', 5: 'limited', 6: 'expanded' };
+
+// Stacked variants (^BR t=3/4) encode as a module matrix; the rest are linear.
+const DATABAR_MATRIX_TYPES = new Set(['stacked', 'stackedomni']);
+
+/** Trim/zero-pad to the 13 GTIN data digits bwip needs (it computes the check digit). */
+function databarGtin13(data) {
+  const d = String(data ?? '').replace(/\D/g, '');
+  return d.length >= 13 ? d.slice(0, 13) : d.padStart(13, '0');
+}
+
+/**
+ * The text to feed bwip for a GS1 DataBar element. Expanded (^BR t=6) carries a GS1
+ * element string (AIs in parenthesised form); the others carry a single (01) GTIN, so
+ * we wrap the digits the user enters. Mirrors how Zebra/Labelary interpret ^BR ^FD.
+ */
+function databarBwipText(element) {
+  const data = element.previewData || '';
+  if (element.databarType === 'expanded') {
+    return data.includes('(') ? data : `(01)${databarGtin13(data)}`;
+  }
+  return `(01)${databarGtin13(data)}`;
+}
 
 // MaxiCode is a fixed grid of 30 columns × 33 rows of hexagons (ISO/IEC 16023). bwip's
 // raw `pixs` is a flat list of set-module indices into that grid (index = row·30 + col).
@@ -56,7 +93,7 @@ export function maxicodeSize(W) {
 
 // 1D symbologies live on the BARCODE element; 2D on the QRCODE element.
 export const BARCODE_SYMBOLOGIES = ['CODE128', 'CODE39', 'CODE93', 'CODE11', 'CODABAR', 'INTERLEAVED2OF5', 'INDUSTRIAL2OF5', 'STANDARD2OF5', 'LOGMARS', 'MSI', 'PLESSEY', 'PLANET', 'POSTNET', 'EAN13', 'EAN8', 'UPCA', 'UPCE', 'UPCEANEXT'];
-export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49', 'CODABLOCK', 'MAXICODE'];
+export const QR_SYMBOLOGIES = ['QR', 'DATAMATRIX', 'PDF417', 'MICROPDF417', 'AZTEC', 'CODE49', 'CODABLOCK', 'MAXICODE', 'GS1DATABAR'];
 
 // Human-readable labels (dropdowns, placeholder fallback).
 export const SYMBOLOGY_LABELS = {
@@ -86,6 +123,7 @@ export const SYMBOLOGY_LABELS = {
   CODE49: 'Code 49',
   CODABLOCK: 'Codablock',
   MAXICODE: 'MaxiCode',
+  GS1DATABAR: 'GS1 DataBar',
 };
 
 // Rich metadata for the symbology picker UI: ZPL command, one-line description
@@ -117,6 +155,7 @@ export const SYMBOLOGY_META = {
   CODE49: { code: '^B4', desc: 'Stacked · alphanumeric (2–8 rows)', dim: '2D' },
   CODABLOCK: { code: '^BB', desc: 'Stacked · Code 128 (2–4 rows)', dim: '2D' },
   MAXICODE: { code: '^BD', desc: 'Hexagonal · fixed size, UPS shipping', dim: '2D' },
+  GS1DATABAR: { code: '^BR', desc: 'GS1 retail · omni / stacked / expanded', dim: '2D' },
 };
 
 // Default preview data per symbology (valid for each so a fresh element renders
@@ -148,6 +187,7 @@ export const DEFAULT_PREVIEW_DATA = {
   CODE49: 'CODE 49',
   CODABLOCK: 'Codablock',
   MAXICODE: 'This is a test', // MaxiCode mode 4 (standard) sample data
+  GS1DATABAR: '0001234567890', // 13-digit GTIN (check digit auto-added); see databarBwipText
 };
 
 // Fixed-length numeric symbologies: ZPL auto-truncates / left-pads with zeros to
@@ -213,7 +253,8 @@ export const BARCODE_2D_SIZE_BOUNDS = {
   DATAMATRIX: { moduleSize: { min: 1, max: 30 } },
   QR: { magnification: { min: 1, max: 10 } },
   AZTEC: { magnification: { min: 1, max: 10 } },
-  MAXICODE: { magnification: { min: 2, max: 20 } }
+  MAXICODE: { magnification: { min: 2, max: 20 } },
+  GS1DATABAR: { magnification: { min: 1, max: 10 }, rowHeight: { min: 1, max: 200 } }
 };
 
 /** Pixel size (in dots) of a single matrix module for a 2D element. */
@@ -225,6 +266,7 @@ export function matrixModuleDots(element) {
     case 'MICROPDF417':
     case 'CODE49':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
+    case 'GS1DATABAR': // module width = magnification; stacked variants use square modules
     case 'QR':
     case 'AZTEC':
     case 'MAXICODE': // hex column pitch in dots (vertical pitch is derived, see maxicodeSize)
@@ -790,6 +832,11 @@ function buildBwipOptions(element) {
     // ^BD mode (2-6) selects the encoding. Modes 2/3 (postal) require a structured
     // carrier message; mode 4 (standard) takes arbitrary data and is the default here.
     opts.mode = parseInt(element.maxicodeMode, 10) || 4;
+  } else if (symbology === 'GS1DATABAR') {
+    // The databarType picks the bwip bcid; the data is a (01) GTIN (or a GS1 element
+    // string for expanded). See databarBwipText / DATABAR_BCID.
+    opts.bcid = DATABAR_BCID[element.databarType] || 'databaromni';
+    opts.text = databarBwipText(element);
   }
   return opts;
 }
@@ -969,7 +1016,11 @@ export function getBarcodeGeometry(element) {
       // absolute heights (tall 0.125, short 0.05); normalize to ratios of element.height
       // so the tall bars fill h and the short bars are 0.4·h (verified on Labelary:
       // h=100 -> 100-dot tall bars, 40-dot short bars). Bars sit on a common baseline (bbs=0).
-      let bhs = !isUpcEanExt && Array.isArray(o.bhs) ? o.bhs : null;
+      // GS1 DataBar linear variants are uniform full-height bars on ^BR (Labelary
+      // renders ^BR h as the full bar height). bwip instead reports half-height bars
+      // (bhs≈0.46) for omnidirectional readability, so drop bhs/bbs and draw full height.
+      const isDatabar = symbology === 'GS1DATABAR';
+      let bhs = !isUpcEanExt && !isDatabar && Array.isArray(o.bhs) ? o.bhs : null;
       if ((symbology === 'PLANET' || symbology === 'POSTNET') && bhs) {
         const tall = Math.max(...bhs);
         bhs = Array.from(bhs, (v) => v / tall);
@@ -979,7 +1030,7 @@ export function getBarcodeGeometry(element) {
         sbs,
         modules,
         bhs,
-        bbs: !isUpcEanExt && Array.isArray(o.bbs) ? o.bbs : null,
+        bbs: !isUpcEanExt && !isDatabar && Array.isArray(o.bbs) ? o.bbs : null,
         // Only trust bwip's text positions when we asked for them (includetext,
         // i.e. EAN13/UPCA). Without it bwip still emits a degenerate entry with a
         // null y-offset for Code 128/39; treating that as positioned text draws it

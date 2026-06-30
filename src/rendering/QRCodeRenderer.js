@@ -2,7 +2,7 @@
 // Renders 2D QRCODE elements (QR, Data Matrix, PDF417) using real bwip-js geometry.
 
 import { getBarcodeGeometry, matrixModuleDots, maxicodeSize, resolveSymbology, SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
-import { drawMatrix, drawMaxiCode, drawPlaceholder } from './barcodeRender.js';
+import { drawLinear, drawMatrix, drawMaxiCode, drawPlaceholder } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -42,6 +42,21 @@ export class QRCodeRenderer {
         : null;
       drawShape(ctx, '#000000');
       if (capturedMc) applyReverseOverlay(ctx, capturedMc, drawShape);
+      return;
+    }
+
+    if (geom.kind === 'linear') {
+      // GS1 DataBar linear variants render as bars; bar height comes from rowHeight.
+      const barHeight = (element.rowHeight || 40) * scale;
+      const width = geom.modules * moduleW;
+      const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+        drawLinear(targetCtx, geom, { x: x + ox, y: y + oy, moduleW, height: barHeight, color });
+      };
+      const capturedLin = element.reverse
+        ? captureReverseBg(ctx, canvas, { x, y, width, height: barHeight })
+        : null;
+      drawShape(ctx, '#000000');
+      if (capturedLin) applyReverseOverlay(ctx, capturedLin, drawShape);
       return;
     }
 

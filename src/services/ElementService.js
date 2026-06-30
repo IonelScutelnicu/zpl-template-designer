@@ -103,7 +103,8 @@ export class ElementService {
           props.microPdfMode || 0,
           props.code49Mode || 'A',
           props.codablockMode || 'F',
-          props.maxicodeMode || '4'
+          props.maxicodeMode || '4',
+          props.databarType || 'omni'
         );
         break;
       }

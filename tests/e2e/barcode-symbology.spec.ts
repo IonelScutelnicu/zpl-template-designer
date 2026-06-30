@@ -31,6 +31,7 @@ const TWO_D = [
     { symbology: 'CODE49', command: '^B4N' },
     { symbology: 'CODABLOCK', command: '^BBN' },
     { symbology: 'MAXICODE', command: '^BD4' },
+    { symbology: 'GS1DATABAR', command: '^BRN,1' },
 ];
 
 test.describe('Barcode symbology', () => {
@@ -1130,6 +1131,51 @@ test.describe('Barcode symbology', () => {
         expect(r.mw).toBe(3);
         expect(r.rh).toBe(6);
         expect(r.data).toBe('CODE 49');
+    });
+
+    // ============== GS1 DATABAR (^BR) ==============
+    test('GS1 DataBar emits ^BRN,t,m,2,h, encodes linear/stacked per variant, and round-trips', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+                import('/src/elements/QRCodeElement.js'),
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            // ctor: ...symbology, ..., microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType
+            const make = (type: string, data: string) =>
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'GS1DATABAR', 4, 200, 2, 40, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4', type);
+            const parser = new ZPLParser();
+            const omni = make('omni', '0001234567890');
+            const omniZpl = omni.render();
+            const omniParsed: any = parser.parse('^XA' + omniZpl + '^XZ').elements[0];
+            const omniGeom: any = geo.getBarcodeGeometry(omni);
+            const stackedGeom: any = geo.getBarcodeGeometry(make('stackedomni', '0001234567890'));
+            const expandedGeom: any = geo.getBarcodeGeometry(make('expanded', '(01)00012345678905(3103)001234'));
+            return {
+                omniEmits: omniZpl.includes('^BRN,1,5,2,40'),
+                stackedEmits: make('stacked', '0001234567890').render().includes('^BRN,3,'),
+                omniKind: omniGeom.kind,
+                omniNoBhs: omniGeom.bhs == null, // full-height bars (Labelary ^BR h)
+                stackedKind: stackedGeom.kind,
+                expandedKind: expandedGeom.kind,
+                type: omniParsed?.type,
+                sym: omniParsed?.symbology,
+                dbType: omniParsed?.databarType,
+                mag: omniParsed?.magnification,
+                h: omniParsed?.rowHeight,
+            };
+        });
+        expect(r.omniEmits).toBe(true);
+        expect(r.stackedEmits).toBe(true);
+        expect(r.omniKind).toBe('linear');
+        expect(r.omniNoBhs).toBe(true);
+        expect(r.stackedKind).toBe('matrix'); // stacked variants encode as a module matrix
+        expect(r.expandedKind).toBe('linear');
+        expect(r.type).toBe('QRCODE');
+        expect(r.sym).toBe('GS1DATABAR');
+        expect(r.dbType).toBe('omni');
+        expect(r.mag).toBe(5);
+        expect(r.h).toBe(40);
     });
 
     // ============== MAXICODE (^BD) ==============

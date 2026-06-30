@@ -1,14 +1,15 @@
 import { ZPLElement } from './ZPLElement.js';
-import { getBarcodeGeometry, matrixModuleDots, maxicodeSize, normalizeAztecRune } from '../utils/barcodeGeometry.js';
+import { getBarcodeGeometry, matrixModuleDots, maxicodeSize, normalizeAztecRune, DATABAR_TYPE_NUM } from '../utils/barcodeGeometry.js';
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
-//   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked),  MAXICODE -> ^BD (hexagonal)
+//   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked),  MAXICODE -> ^BD (hexagonal),
+//   GS1DATABAR -> ^BR (GS1 DataBar family: linear + stacked)
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4') {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni') {
         super(x, y);
         this.type = 'QRCODE';
         this.symbology = symbology;
@@ -43,6 +44,10 @@ export class QRCodeElement extends ZPLElement {
         // hex pitch. m = mode: 2/3 = postal (need a structured carrier message), 4 =
         // standard (default, arbitrary data), 5 = full EEC, 6 = reader programming.
         this.maxicodeMode = maxicodeMode; // '2'–'6' (default '4')
+        // GS1 DataBar (^BR). databarType selects the variant; magnification = module
+        // width (^BR m) and rowHeight = bar height (^BR h). Linear variants (omni,
+        // truncated, limited, expanded) render as bars; stacked / stacked-omni as a matrix.
+        this.databarType = databarType; // 'omni'|'truncated'|'stacked'|'stackedomni'|'limited'|'expanded'
         // Aztec (^B0). The 'd' param (error control / symbol size/type) is modelled
         // by three fields: sizeMode 'auto' uses aztecErrorControl (% min, 0 = printer
         // default); 'compact'/'full' use aztecLayers (0 = auto); 'rune' = ^B0 d=300.
@@ -94,6 +99,15 @@ export class QRCodeElement extends ZPLElement {
                 const mode = ['A', 'E', 'F'].includes(this.codablockMode) ? this.codablockMode : 'F';
                 return `${pos}^BY${this.moduleWidth}^BBN,${this.rowHeight},N,,,${mode}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
             }
+            case 'GS1DATABAR': {
+                // ^BRo,t,m,s,h — o orientation (N on the 2D canvas), t symbology type,
+                // m magnification (module width), s separator height, h bar height. Segment
+                // width (w, expanded only) is left at the printer default.
+                const t = DATABAR_TYPE_NUM[this.databarType] || 1;
+                const m = this.magnification || 5;
+                const h = this.rowHeight || 40;
+                return `${pos}^BRN,${t},${m},2,${h}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+            }
             case 'MAXICODE': {
                 // ^BDm,n,t — m = mode (2-6). MaxiCode is fixed-size: no ^BY or orientation.
                 // n,t (symbol number / count for a structured append) default to 1,1.
@@ -142,6 +156,12 @@ export class QRCodeElement extends ZPLElement {
         if (geom.kind === 'matrix') {
             const { mx, my } = matrixModuleDots(this);
             return { x: this.x, y: this.y, width: geom.cols * mx, height: geom.rows * my + yOffset };
+        }
+        if (geom.kind === 'linear') {
+            // GS1 DataBar linear variants: width from the encoded module count, height
+            // from the bar height (rowHeight). (Other 2D symbologies are never linear.)
+            const { mx } = matrixModuleDots(this);
+            return { x: this.x, y: this.y, width: geom.modules * mx, height: (this.rowHeight || 40) + yOffset };
         }
         // Fallback (encode failed): match the square placeholder the renderers
         // draw — a 21-module box at magnification, for every symbology.
