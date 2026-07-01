@@ -692,6 +692,8 @@ export class PropertiesPanelRenderer {
    */
   renderQRCodeProperties(element) {
     const symbology = element.symbology || "QR";
+    const barcodeType = getQRCodeSymbology(symbology);
+    const orientationControls = barcodeType.supportsOrientation() ? this.renderOrientationButtons(element.orientation || "N") : "";
     return `
       ${this.renderSection("Symbology", this.renderSymbologyPicker(symbology, QR_SYMBOLOGIES), { open: true, elementType: element.type })}
       ${this.renderAlignmentControls(element)}
@@ -700,6 +702,7 @@ export class PropertiesPanelRenderer {
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        ${orientationControls}
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
         <div class="mb-3">

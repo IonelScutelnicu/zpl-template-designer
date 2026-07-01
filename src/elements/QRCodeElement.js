@@ -11,10 +11,10 @@ import { placeholderToken } from '../utils/placeholders.js';
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni') {
+    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni', orientation = 'N') {
         const opts = (x && typeof x === 'object')
             ? x
-            : { x, y, previewData, model, magnification, errorCorrection, placeholder, reverse, symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel, columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType };
+            : { x, y, previewData, model, magnification, errorCorrection, placeholder, reverse, symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel, columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType, orientation };
         super(opts.x ?? 0, opts.y ?? 0);
         this.type = 'QRCODE';
         this.symbology = opts.symbology || 'QR';
@@ -66,6 +66,7 @@ export class QRCodeElement extends ZPLElement {
         this.aztecErrorControl = opts.aztecErrorControl || 0; // 0 (default) or 1-99 (% minimum)
         this.aztecLayers = opts.aztecLayers || 0;           // 0 = auto, 1-4 compact / 1-32 full
         this.reverse = opts.reverse || false; // ^FR (reverse print)
+        this.orientation = ['N', 'R', 'I', 'B'].includes(opts.orientation) ? opts.orientation : 'N';
         this.fieldHex = opts.fieldHex || false; // ^FH (force field hex indicator)
         this.normalizeAztecRune = normalizeAztecRune;
         this.aztecD = () => this._aztecD();
@@ -108,7 +109,8 @@ export class QRCodeElement extends ZPLElement {
     getBounds(dpmm = 8) {
         const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
         const geom = getBarcodeGeometry(this);
-        return getQRCodeSymbology(this.symbology).bounds(this, geom, {
+        const symbology = getQRCodeSymbology(this.symbology);
+        const bounds = symbology.bounds(this, geom, {
             yOffset,
             dpmm,
             placeholderBounds: (element) => {
@@ -116,6 +118,10 @@ export class QRCodeElement extends ZPLElement {
                 return { x: element.x, y: element.y, width: size, height: size + yOffset };
             }
         });
+        if (symbology.supportsOrientation() && (this.orientation === 'R' || this.orientation === 'B')) {
+            return { x: bounds.x, y: bounds.y, width: bounds.height, height: bounds.width };
+        }
+        return bounds;
     }
 
     canMatchLabelSize() { return false; }

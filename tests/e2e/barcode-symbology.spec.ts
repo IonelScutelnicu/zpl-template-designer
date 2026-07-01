@@ -68,6 +68,47 @@ test.describe('Barcode symbology', () => {
         }
     });
 
+    test('2D barcode orientation buttons emit the command orientation parameter', async ({ page }) => {
+        await elementsPanel.addQRCodeElement();
+        await elementsPanel.selectElementByIndex(0);
+        await propertiesPanel.setSelectValue('prop-symbology', 'DATAMATRIX');
+        await page.locator('#properties-panel [data-orientation="R"]').click();
+        await zplOutput.verifyZPLContains('^BXR,4,200');
+    });
+
+    test('2D barcode ZPL import preserves orientation by symbology', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const zpl = '^XA' +
+                '^FO10,10^BQR,2,5^FDQA,QR^FS' +
+                '^FO10,80^BXI,4,200^FDDM^FS' +
+                '^FO10,150^BY2^B7B,4,5^FDPDF^FS' +
+                '^FO10,220^BY2^BFR,4,0^FDMICRO^FS' +
+                '^FO10,290^BY2^B4I,4,N,A^FDC49^FS' +
+                '^FO10,360^BBR,4,N,,,F^FDCB^FS' +
+                '^FO10,430^B0B,5,N^FDAZ^FS' +
+                '^FO10,500^BRI,1,5,1,40^FD(01)12345678901231^FS' +
+                '^FO10,570^BTB,2,3,40,2,2^FDTLC^FS' +
+                '^XZ';
+            return new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 100 }).elements.map((el: any) => ({
+                symbology: el.symbology,
+                orientation: el.orientation,
+            }));
+        });
+
+        expect(result).toEqual([
+            { symbology: 'QR', orientation: 'N' },
+            { symbology: 'DATAMATRIX', orientation: 'I' },
+            { symbology: 'PDF417', orientation: 'B' },
+            { symbology: 'MICROPDF417', orientation: 'R' },
+            { symbology: 'CODE49', orientation: 'I' },
+            { symbology: 'CODABLOCK', orientation: 'R' },
+            { symbology: 'AZTEC', orientation: 'B' },
+            { symbology: 'GS1DATABAR', orientation: 'I' },
+            { symbology: 'TLC39', orientation: 'B' },
+        ]);
+    });
+
     test('Code 39 emits ^BY ratio and a check-digit flag', async () => {
         await elementsPanel.addBarcodeElement();
         await elementsPanel.selectElementByIndex(0);

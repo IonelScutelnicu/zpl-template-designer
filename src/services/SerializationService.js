@@ -94,32 +94,7 @@ export class SerializationService {
         break;
 
       case 'QRCODE':
-        element = new QRCodeElement(
-          data.x,
-          data.y,
-          data.previewData,
-          data.model,
-          data.magnification,
-          data.errorCorrection,
-          data.placeholder,
-          data.reverse,
-          data.symbology,
-          data.moduleSize,
-          data.quality,
-          data.moduleWidth,
-          data.rowHeight,
-          data.securityLevel,
-          data.columns,
-          data.aztecSizeMode,
-          data.aztecErrorControl,
-          data.aztecLayers,
-          data.fieldHex,
-          data.microPdfMode,
-          data.code49Mode,
-          data.codablockMode,
-          data.maxicodeMode,
-          data.databarType
-        );
+        element = new QRCodeElement(data);
         if (data.symbology === 'TLC39') {
           element.tlc39Code39Width = data.tlc39Code39Width || data.moduleWidth || 2;
           element.tlc39Ratio = data.tlc39Ratio || 3;

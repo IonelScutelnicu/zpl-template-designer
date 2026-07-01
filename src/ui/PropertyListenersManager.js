@@ -316,7 +316,11 @@ export class PropertyListenersManager {
     attach("prop-placeholder", "placeholder");
     attach("prop-preview-data", "previewData");
     this._attachToggle("prop-field-hex", element, "fieldHex");
-    getQRCodeSymbology(element.symbology).attachProperties(this, element, attach);
+    const barcodeType = getQRCodeSymbology(element.symbology);
+    barcodeType.attachProperties(this, element, attach);
+    if (barcodeType.supportsOrientation()) {
+      this._attachOrientationButtons(element);
+    }
 
     this._attachReverseToggle(element);
   }

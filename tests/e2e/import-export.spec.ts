@@ -114,6 +114,7 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#prop-preview-data').dispatchEvent('change');
             await page.locator('#prop-height').fill('80');
             await page.locator('#prop-height').dispatchEvent('change');
+            await page.locator('#properties-panel [data-orientation="R"]').click();
 
             const downloadPromise = page.waitForEvent('download');
             await zplOutput.exportTemplate();
@@ -129,6 +130,7 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(el.type).toBe('BARCODE');
             expect(el.previewData).toBe('ABC123');
             expect(el.height).toBe(80);
+            expect(el.orientation).toBe('R');
 
             fs.unlinkSync(tempPath);
         });
@@ -136,11 +138,13 @@ test.describe('Import/Export - Template Persistence', () => {
         test('should preserve QR Code element properties in export', async ({ page }) => {
             await elementsPanel.addQRCodeElement();
             await elementsPanel.selectElementByIndex(0);
+            await propertiesPanel.setSelectValue('prop-symbology', 'DATAMATRIX');
 
             await page.locator('#prop-preview-data').fill('https://example.com');
             await page.locator('#prop-preview-data').dispatchEvent('change');
-            await page.locator('#prop-magnification').fill('4');
-            await page.locator('#prop-magnification').dispatchEvent('change');
+            await page.locator('#prop-module-size').fill('4');
+            await page.locator('#prop-module-size').dispatchEvent('change');
+            await page.locator('#properties-panel [data-orientation="B"]').click();
 
             const downloadPromise = page.waitForEvent('download');
             await zplOutput.exportTemplate();
@@ -154,8 +158,10 @@ test.describe('Import/Export - Template Persistence', () => {
 
             const el = json.elements[0];
             expect(el.type).toBe('QRCODE');
+            expect(el.symbology).toBe('DATAMATRIX');
             expect(el.previewData).toBe('https://example.com');
-            expect(el.magnification).toBe(4);
+            expect(el.moduleSize).toBe(4);
+            expect(el.orientation).toBe('B');
 
             fs.unlinkSync(tempPath);
         });
@@ -425,6 +431,36 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.waitForTimeout(500);
 
             await zplOutput.verifyZPLContains('^FDZPL Test^FS');
+
+            fs.unlinkSync(tempPath);
+        });
+
+        test('should import barcode orientations from JSON and emit them in ZPL', async ({ page }) => {
+            const template = {
+                labelSettings: { width: 100, height: 50, dpmm: 8 },
+                elements: [
+                    { type: 'BARCODE', x: 50, y: 100, previewData: 'ABC123', height: 80, width: 2, ratio: 2, showText: true, symbology: 'CODE128', orientation: 'I' },
+                    { type: 'QRCODE', x: 150, y: 100, previewData: 'https://example.com', moduleSize: 4, quality: 200, symbology: 'DATAMATRIX', orientation: 'R' }
+                ]
+            };
+
+            const tempPath = path.join(__dirname, '../fixtures/import-barcode-orientation.json');
+            fs.writeFileSync(tempPath, JSON.stringify(template));
+
+            await zplOutput.importTemplate(tempPath);
+            await expect(page.locator('#elements-list .element-item')).toHaveCount(2, { timeout: 5000 });
+
+            const orientations = await page.evaluate(() => (window as any).appState.elements.map((el: any) => ({
+                type: el.type,
+                symbology: el.symbology,
+                orientation: el.orientation,
+            })));
+            expect(orientations).toEqual([
+                { type: 'BARCODE', symbology: 'CODE128', orientation: 'I' },
+                { type: 'QRCODE', symbology: 'DATAMATRIX', orientation: 'R' },
+            ]);
+            await zplOutput.verifyZPLContains('^BCI,80,Y');
+            await zplOutput.verifyZPLContains('^BXR,4,200');
 
             fs.unlinkSync(tempPath);
         });

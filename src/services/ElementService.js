@@ -104,7 +104,8 @@ export class ElementService {
           props.code49Mode || 'A',
           props.codablockMode || 'F',
           props.maxicodeMode || '4',
-          props.databarType || 'omni'
+          props.databarType || 'omni',
+          props.orientation || 'N'
         );
         if (symbology === 'TLC39') {
           element.tlc39Code39Width = props.tlc39Code39Width || props.moduleWidth || 2;

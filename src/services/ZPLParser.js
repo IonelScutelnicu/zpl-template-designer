@@ -65,6 +65,11 @@ function normalizeShapeColor(value) {
   return c === 'W' ? 'W' : 'B';
 }
 
+function normalizeBarcodeOrientation(value) {
+  const orientation = (value || 'N').trim().toUpperCase();
+  return ['N', 'R', 'I', 'B'].includes(orientation) ? orientation : 'N';
+}
+
 /**
  * Header commands that configure label settings (not element-specific)
  */
@@ -653,7 +658,7 @@ export class ZPLParser {
         return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCE', fhToken);
       }
       if (sub === '0') {
-        return this._parseAztec(group, shifted, getCommand('FD'), hasCommand('FR'));
+        return this._parseAztec(group, shifted, getCommand('FD'), hasCommand('FR'), fhToken);
       }
     }
 
@@ -849,8 +854,7 @@ export class ZPLParser {
     const parts = token.params.split(',');
 
     // Orientation is always the first param; default N for an empty/invalid value.
-    const rawOrientation = (parts[0] || 'N').trim().toUpperCase();
-    const orientation = ['N', 'R', 'I', 'B'].includes(rawOrientation) ? rawOrientation : 'N';
+    const orientation = normalizeBarcodeOrientation(parts[0]);
 
     // Code 39 (^B3o,e,h,f), Code 11 (^B1o,e,h,f,g), Codabar (^BKo,e,h,f,g,k,l), MSI
     // (^BMo,e,h,f,g,e2) and Plessey (^BPo,e,h,f,g) carry an e param before height: a
@@ -952,6 +956,7 @@ export class ZPLParser {
   _parseDataMatrix(group, bxToken, fdToken, hasReverse, fhToken = null) {
     // ^BX params: orientation,height(module size),quality,columns,rows,...
     const parts = bxToken.params.split(',');
+    const orientation = normalizeBarcodeOrientation(parts[0]);
     const moduleSize = parseInt(parts[1]) || 4;
     const quality = parseInt(parts[2]) || 200;
 
@@ -966,6 +971,7 @@ export class ZPLParser {
       previewData: match ? match[1] : rawData,
       placeholder: match ? match[1] : '',
       fieldHex: Boolean(fhToken),
+      orientation,
       moduleSize,
       quality,
       reverse: hasReverse
@@ -978,6 +984,7 @@ export class ZPLParser {
   _parsePDF417(group, b7Token, byToken, fdToken, hasReverse, fhToken = null) {
     // ^B7 params: orientation,rowHeight,securityLevel,columns,rows,truncate
     const parts = b7Token.params.split(',');
+    const orientation = normalizeBarcodeOrientation(parts[0]);
     const rowHeight = parseInt(parts[1]) || 4;
     const securityLevel = parseInt(parts[2]);
     const columns = parseInt(parts[3]) || 0;
@@ -999,6 +1006,7 @@ export class ZPLParser {
       previewData: match ? match[1] : rawData,
       placeholder: match ? match[1] : '',
       fieldHex: Boolean(fhToken),
+      orientation,
       moduleWidth,
       rowHeight,
       securityLevel: Number.isNaN(securityLevel) ? 5 : securityLevel,
@@ -1013,6 +1021,7 @@ export class ZPLParser {
   _parseMicroPDF417(group, bfToken, byToken, fdToken, hasReverse, fhToken = null) {
     // ^BF params: orientation,height(rowHeight),mode(0-33)
     const parts = bfToken.params.split(',');
+    const orientation = normalizeBarcodeOrientation(parts[0]);
     const rowHeight = parseInt(parts[1]) || 4;
     const mode = Math.max(0, Math.min(33, parseInt(parts[2]) || 0));
 
@@ -1033,6 +1042,7 @@ export class ZPLParser {
       previewData: match ? match[1] : rawData,
       placeholder: match ? match[1] : '',
       fieldHex: Boolean(fhToken),
+      orientation,
       moduleWidth,
       rowHeight,
       microPdfMode: mode,
@@ -1047,6 +1057,7 @@ export class ZPLParser {
    */
   _parseCode49(group, b4Token, byToken, fdToken, hasReverse, fhToken = null) {
     const parts = b4Token.params.split(',');
+    const orientation = normalizeBarcodeOrientation(parts[0]);
     const rowHeight = parseInt(parts[1]) || 4;
     const rawMode = (parts[3] || 'A').trim().toUpperCase();
     const code49Mode = ['0', '1', '2', '3', '4', '5', 'A'].includes(rawMode) ? rawMode : 'A';
@@ -1068,6 +1079,7 @@ export class ZPLParser {
       previewData: match ? match[1] : rawData,
       placeholder: match ? match[1] : '',
       fieldHex: Boolean(fhToken),
+      orientation,
       moduleWidth,
       rowHeight,
       code49Mode,
@@ -1081,6 +1093,8 @@ export class ZPLParser {
   _parseQRCode(group, bqToken, fdToken, hasReverse, state, fhToken = null) {
     // ^BQ params: orientation,model,magnification
     const bqParts = bqToken.params.split(',');
+    // Zebra documents ^BQ's orientation slot as normal-only; ^FW does not rotate it.
+    const orientation = 'N';
     const model = parseInt(bqParts[1]) || 2;
     const magnification = parseInt(bqParts[2]) || 5;
 
@@ -1112,6 +1126,7 @@ export class ZPLParser {
       previewData,
       placeholder,
       fieldHex: Boolean(fhToken),
+      orientation,
       model,
       magnification,
       errorCorrection,
@@ -1128,8 +1143,9 @@ export class ZPLParser {
    *   101-104    -> compact, layers = d-100
    *   0-99       -> auto,    errorControl = d (0 = printer default)
    */
-  _parseAztec(group, b0Token, fdToken, hasReverse) {
+  _parseAztec(group, b0Token, fdToken, hasReverse, fhToken = null) {
     const parts = b0Token.params.split(',');
+    const orientation = normalizeBarcodeOrientation(parts[0]);
     const magnification = parseInt(parts[1]) || 5;
     const d = parseInt(parts[3]) || 0;
 
@@ -1150,7 +1166,7 @@ export class ZPLParser {
     }
 
     // ^FD carries the raw data (no error-correction prefix, unlike ^BQ).
-    const rawData = fdToken ? fdToken.params : '';
+    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
     const placeholderMatch = rawData.match(/^%([^%]+)%$/);
     const previewData = placeholderMatch ? placeholderMatch[1] : rawData;
     const placeholder = placeholderMatch ? placeholderMatch[1] : '';
@@ -1162,6 +1178,8 @@ export class ZPLParser {
       y: group.y,
       previewData,
       placeholder,
+      fieldHex: Boolean(fhToken),
+      orientation,
       magnification,
       aztecSizeMode,
       aztecErrorControl,

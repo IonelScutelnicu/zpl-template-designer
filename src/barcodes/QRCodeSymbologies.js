@@ -17,6 +17,15 @@ function intParam(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function orientationParam(element) {
+  return ['N', 'R', 'I', 'B'].includes(element.orientation) ? element.orientation : 'N';
+}
+
+function parseOrientation(value) {
+  const orientation = (value || 'N').trim().toUpperCase();
+  return ['N', 'R', 'I', 'B'].includes(orientation) ? orientation : 'N';
+}
+
 function fieldPayload(parser, fdToken, fhToken) {
   const rawData = parser._decodeFieldDataToken(fdToken, fhToken);
   const name = placeholderName(rawData);
@@ -38,6 +47,10 @@ class QRSymbology {
 
   renderDefault(element, content, preservePlaceholders) {
     return `^BQN,${element.model},${element.magnification}${fieldData(`${element.errorCorrection}A,${content}`, element, preservePlaceholders)}`;
+  }
+
+  supportsOrientation() {
+    return false;
   }
 
   moduleDots(element) {
@@ -81,8 +94,10 @@ class QRSymbology {
 }
 
 class DataMatrixSymbology extends QRSymbology {
+  supportsOrientation() { return true; }
+
   render(element, content, preservePlaceholders) {
-    return `^BXN,${element.moduleSize},${element.quality}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BX${orientationParam(element)},${element.moduleSize},${element.quality}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   moduleDots(element) {
@@ -110,6 +125,8 @@ class DataMatrixSymbology extends QRSymbology {
 }
 
 class StackedRowsSymbology extends QRSymbology {
+  supportsOrientation() { return true; }
+
   moduleDots(element) {
     return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
   }
@@ -131,7 +148,7 @@ class StackedRowsSymbology extends QRSymbology {
 class PDF417Symbology extends StackedRowsSymbology {
   render(element, content, preservePlaceholders) {
     const cols = element.columns > 0 ? `,${element.columns}` : '';
-    return `^BY${element.moduleWidth}^B7N,${element.rowHeight},${element.securityLevel}${cols}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^B7${orientationParam(element)},${element.rowHeight},${element.securityLevel}${cols}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -151,7 +168,7 @@ class PDF417Symbology extends StackedRowsSymbology {
 class MicroPDF417Symbology extends StackedRowsSymbology {
   render(element, content, preservePlaceholders) {
     const mode = Math.max(0, Math.min(33, element.microPdfMode || 0));
-    return `^BY${element.moduleWidth}^BFN,${element.rowHeight},${mode}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^BF${orientationParam(element)},${element.rowHeight},${mode}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -167,7 +184,7 @@ class MicroPDF417Symbology extends StackedRowsSymbology {
 class Code49Symbology extends StackedRowsSymbology {
   render(element, content, preservePlaceholders) {
     const mode = ['0', '1', '2', '3', '4', '5', 'A'].includes(element.code49Mode) ? element.code49Mode : 'A';
-    return `^BY${element.moduleWidth}^B4N,${element.rowHeight},N,${mode}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^B4${orientationParam(element)},${element.rowHeight},N,${mode}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -191,7 +208,7 @@ class Code49Symbology extends StackedRowsSymbology {
 class CodablockSymbology extends StackedRowsSymbology {
   render(element, content, preservePlaceholders) {
     const mode = ['A', 'E', 'F'].includes(element.codablockMode) ? element.codablockMode : 'F';
-    return `^BY${element.moduleWidth}^BBN,${element.rowHeight},N,,,${mode}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^BB${orientationParam(element)},${element.rowHeight},N,,,${mode}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -205,6 +222,7 @@ class CodablockSymbology extends StackedRowsSymbology {
       x: group.x,
       y: group.y,
       ...fieldPayload(parser, fdToken, fhToken),
+      orientation: parseOrientation(parts[0]),
       moduleWidth: intParam(byParts[0], 2),
       rowHeight: intParam(parts[1], 4),
       codablockMode: ['A', 'E', 'F'].includes(rawMode) ? rawMode : 'F',
@@ -227,6 +245,8 @@ class CodablockSymbology extends StackedRowsSymbology {
 }
 
 class AztecSymbology extends QRSymbology {
+  supportsOrientation() { return true; }
+
   render(element, content, preservePlaceholders) {
     const isPlaceholder = /^%.*%$/.test(content);
     const data = element.aztecSizeMode === 'rune' && !isPlaceholder && typeof element.normalizeAztecRune === 'function'
@@ -234,7 +254,7 @@ class AztecSymbology extends QRSymbology {
       : content;
     const d = typeof element.aztecD === 'function' ? element.aztecD() : 0;
     const dParam = d > 0 ? `,${d}` : '';
-    return `^B0N,${element.magnification},N${dParam}${fieldData(data, element, preservePlaceholders)}`;
+    return `^B0${orientationParam(element)},${element.magnification},N${dParam}${fieldData(data, element, preservePlaceholders)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -296,9 +316,11 @@ class MaxiCodeSymbology extends QRSymbology {
     if (geom.kind !== 'maxicode') return helpers.drawPlaceholder(ctx, element, frame);
     const { width, height } = maxicodeSize(frame.moduleW);
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      drawMaxiCode(targetCtx, geom, { x: frame.x + ox, y: frame.y + oy, moduleW: frame.moduleW, color });
+      helpers.withOrientation(targetCtx, frame, width, height, ox, oy, () => {
+        drawMaxiCode(targetCtx, geom, { x: 0, y: 0, moduleW: frame.moduleW, color });
+      });
     };
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, { x: frame.x, y: frame.y, width, height }) : null;
+    const captured = element.reverse ? captureReverseBg(ctx, canvas, helpers.screenBbox(frame, width, height)) : null;
     drawShape(ctx, '#000000');
     if (captured) applyReverseOverlay(ctx, captured, drawShape);
   }
@@ -323,9 +345,11 @@ class MaxiCodeSymbology extends QRSymbology {
 }
 
 class GS1DataBarSymbology extends QRSymbology {
+  supportsOrientation() { return true; }
+
   render(element, content, preservePlaceholders) {
     const t = DATABAR_TYPE_NUM[element.databarType] || 1;
-    return `^BRN,${t},${element.magnification || 5},${DATABAR_SEPARATOR_HEIGHT},${element.rowHeight || 40}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BR${orientationParam(element)},${t},${element.magnification || 5},${DATABAR_SEPARATOR_HEIGHT},${element.rowHeight || 40}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -336,6 +360,7 @@ class GS1DataBarSymbology extends QRSymbology {
       x: group.x,
       y: group.y,
       ...fieldPayload(parser, fdToken, fhToken),
+      orientation: parseOrientation(parts[0]),
       databarType: DATABAR_TYPE_BY_NUM[parseInt(parts[1], 10)] || 'omni',
       magnification: intParam(parts[2], 5),
       rowHeight: intParam(parts[4], 40),
@@ -356,9 +381,11 @@ class GS1DataBarSymbology extends QRSymbology {
     const barHeight = databarLinearBarDots(element) * frame.scale;
     const width = geom.modules * frame.moduleW;
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      drawLinear(targetCtx, geom, { x: frame.x + ox, y: frame.y + oy, moduleW: frame.moduleW, height: barHeight, color });
+      helpers.withOrientation(targetCtx, frame, width, barHeight, ox, oy, () => {
+        drawLinear(targetCtx, geom, { x: 0, y: 0, moduleW: frame.moduleW, height: barHeight, color });
+      });
     };
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, { x: frame.x, y: frame.y, width, height: barHeight }) : null;
+    const captured = element.reverse ? captureReverseBg(ctx, canvas, helpers.screenBbox(frame, width, barHeight)) : null;
     drawShape(ctx, '#000000');
     if (captured) applyReverseOverlay(ctx, captured, drawShape);
   }
@@ -386,13 +413,15 @@ class GS1DataBarSymbology extends QRSymbology {
 }
 
 class TLC39Symbology extends QRSymbology {
+  supportsOrientation() { return true; }
+
   render(element, content, preservePlaceholders) {
     const w1 = element.tlc39Code39Width || element.moduleWidth || 2;
     const r1 = element.tlc39Ratio || 3;
     const h1 = element.tlc39Code39Height || element.rowHeight || 40;
     const w2 = element.tlc39MicroPdfWidth || w1;
     const h2 = element.tlc39MicroPdfRowHeight || w2;
-    return `^BTN,${w1},${r1},${h1},${w2},${h2}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BT${orientationParam(element)},${w1},${r1},${h1},${w2},${h2}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -408,6 +437,7 @@ class TLC39Symbology extends QRSymbology {
       x: group.x,
       y: group.y,
       ...fieldPayload(parser, fdToken, fhToken),
+      orientation: parseOrientation(parts[0]),
       moduleWidth: w1,
       rowHeight: h1,
       tlc39Code39Width: w1,
@@ -448,16 +478,18 @@ class TLC39Symbology extends QRSymbology {
     // TLC39 spec layout: the MicroPDF417 is stacked ON TOP of the Code 39, sharing
     // its left edge with a small separator gap between them.
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      let cy = frame.y + oy;
-      if (geom.micropdf) {
-        drawMatrix(targetCtx, geom.micropdf, { x: frame.x + ox, y: cy, moduleW: w2, moduleH: h2, color });
-        if (geom.code39.kind === 'linear') cy += mpH + gap;
-      }
-      if (geom.code39.kind === 'linear') {
-        drawLinear(targetCtx, geom.code39, { x: frame.x + ox, y: cy, moduleW: w1, height: c39Height, color });
-      }
+      helpers.withOrientation(targetCtx, frame, width, height, ox, oy, () => {
+        let cy = 0;
+        if (geom.micropdf) {
+          drawMatrix(targetCtx, geom.micropdf, { x: 0, y: cy, moduleW: w2, moduleH: h2, color });
+          if (geom.code39.kind === 'linear') cy += mpH + gap;
+        }
+        if (geom.code39.kind === 'linear') {
+          drawLinear(targetCtx, geom.code39, { x: 0, y: cy, moduleW: w1, height: c39Height, color });
+        }
+      });
     };
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, { x: frame.x, y: frame.y, width, height }) : null;
+    const captured = element.reverse ? captureReverseBg(ctx, canvas, helpers.screenBbox(frame, width, height)) : null;
     drawShape(ctx, '#000000');
     if (captured) applyReverseOverlay(ctx, captured, drawShape);
   }
@@ -517,6 +549,20 @@ export function getParserSymbology(command, subCommand = '') {
 }
 
 export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels, dpmm }) {
+  function orientation(element) {
+    const symbology = getQRCodeSymbology(resolveSymbology(element));
+    return symbology.supportsOrientation() ? orientationParam(element) : 'N';
+  }
+
+  function mapLocal(frame, w, h, lx, ly) {
+    switch (orientation(frame.element)) {
+      case 'R': return [frame.x + h - ly, frame.y + lx];
+      case 'I': return [frame.x + w - lx, frame.y + h - ly];
+      case 'B': return [frame.x + ly, frame.y + w - lx];
+      default: return [frame.x + lx, frame.y + ly];
+    }
+  }
+
   return {
     frame(element, transform) {
       const { scale, homeX, homeY, labelTop } = transform;
@@ -534,6 +580,7 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
         y: (element.y + homeY + labelTop) * scale + yOffset,
         moduleW: mx * scale,
         moduleH: my * scale,
+        element,
       };
     },
     drawPlaceholder(ctx, element, frame) {
@@ -545,11 +592,44 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
       const width = geom.cols * frame.moduleW;
       const height = geom.rows * frame.moduleH;
       const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-        drawMatrix(targetCtx, geom, { x: frame.x + ox, y: frame.y + oy, moduleW: frame.moduleW, moduleH: frame.moduleH, color });
+        this.withOrientation(targetCtx, frame, width, height, ox, oy, () => {
+          drawMatrix(targetCtx, geom, { x: 0, y: 0, moduleW: frame.moduleW, moduleH: frame.moduleH, color });
+        });
       };
-      const captured = element.reverse ? captureReverseBg(ctx, canvas, { x: frame.x, y: frame.y, width, height }) : null;
+      const captured = element.reverse ? captureReverseBg(ctx, canvas, this.screenBbox(frame, width, height)) : null;
       drawShape(ctx, '#000000');
       if (captured) applyReverseOverlay(ctx, captured, drawShape);
+    },
+    withOrientation(ctx, frame, width, height, ox, oy, drawFn) {
+      const orient = orientation(frame.element);
+      ctx.save();
+      if (orient === 'R') {
+        ctx.translate(frame.x + ox + height, frame.y + oy);
+        ctx.rotate(Math.PI / 2);
+      } else if (orient === 'I') {
+        ctx.translate(frame.x + ox + width, frame.y + oy + height);
+        ctx.rotate(Math.PI);
+      } else if (orient === 'B') {
+        ctx.translate(frame.x + ox, frame.y + oy + width);
+        ctx.rotate(-Math.PI / 2);
+      } else {
+        ctx.translate(frame.x + ox, frame.y + oy);
+      }
+      drawFn();
+      ctx.restore();
+    },
+    screenBbox(frame, width, height) {
+      const corners = [
+        mapLocal(frame, width, height, 0, 0),
+        mapLocal(frame, width, height, width, 0),
+        mapLocal(frame, width, height, width, height),
+        mapLocal(frame, width, height, 0, height),
+      ];
+      const xs = corners.map((c) => c[0]);
+      const ys = corners.map((c) => c[1]);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY };
     },
   };
 }
