@@ -86,6 +86,6 @@ export function getElementBoundsResolved(element, labelSettings) {
     }
     return { x: element.x, y: element.y, width: w, height: h };
   }
-  return element.getBounds();
+  return element.getBounds(labelSettings?.dpmm);
 }
 

@@ -1136,7 +1136,8 @@ test.describe('Barcode symbology', () => {
 
     // ============== TLC39 (^BT) ==============
     // Labelary renders ^BT as plain text (no bars), so the on-canvas bwip composite — a
-    // Code 39 of the ECI stacked over a MicroPDF417 of the serial/data — is the design
+    // MicroPDF417 of the serial/data stacked ON TOP of a Code 39 of the ECI (per the
+    // ATIS/TCIF spec), with the MicroPDF417 fixed at 4 data columns — is the design
     // reference here, like ^B4 Code 49. It is therefore excluded from the visual-parity specs.
     test('TLC39 emits ^BTN,w,r,h,w,h and encodes a Code 39 + MicroPDF417 composite', async ({ page }) => {
         const r = await page.evaluate(async () => {
@@ -1173,6 +1174,7 @@ test.describe('Barcode symbology', () => {
                 kind: both.kind,
                 code39Kind: both.code39.kind,
                 hasMicropdf: both.micropdf != null,
+                micropdfCols: both.micropdf?.cols, // 4-column MicroPDF417 module width per TLC39 spec
                 eciOnlyMicropdf: eciOnly.micropdf, // null when there is no serial/data part
                 type: parsed?.type,
                 sym: parsed?.symbology,
@@ -1187,6 +1189,9 @@ test.describe('Barcode symbology', () => {
         expect(r.kind).toBe('tlc39');
         expect(r.code39Kind).toBe('linear');
         expect(r.hasMicropdf).toBe(true);
+        // TLC39 pins the linked MicroPDF417 to 4 columns: bwip reports a 99-module-wide
+        // symbol (a single-column auto-fit would be 38), which regression-guards the pin.
+        expect(r.micropdfCols).toBe(99);
         expect(r.eciOnlyMicropdf).toBeNull();
         expect(r.type).toBe('QRCODE');
         expect(r.sym).toBe('TLC39');
@@ -1212,19 +1217,39 @@ test.describe('Barcode symbology', () => {
             const omniParsed: any = parser.parse('^XA' + omniZpl + '^XZ').elements[0];
             const omniGeom: any = geo.getBarcodeGeometry(omni);
             const stackedGeom: any = geo.getBarcodeGeometry(make('stackedomni', '0001234567890'));
+            const stacked2Geom: any = geo.getBarcodeGeometry(make('stacked', '0001234567890'));
             const expandedGeom: any = geo.getBarcodeGeometry(make('expanded', '(01)00012345678905(3103)001234'));
+            // Linear variants render at the GS1 nominal height (X-multiple of the
+            // magnification), NOT the ^BR height param, matching Labelary. Height is
+            // therefore independent of rowHeight.
+            const height = (type: string, data: string, mag = 5, rowHeight = 40) => Math.round(
+                new QRCodeElement(10, 10, data, 2, mag, 'Q', '', false, 'GS1DATABAR', 4, 200, 2, rowHeight, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4', type).getBounds().height
+            );
             return {
                 omniEmits: omniZpl.includes('^BRN,1,5,2,40'),
                 stackedEmits: make('stacked', '0001234567890').render().includes('^BRN,3,'),
                 omniKind: omniGeom.kind,
                 omniNoBhs: omniGeom.bhs == null, // full-height bars (Labelary ^BR h)
                 stackedKind: stackedGeom.kind,
+                // Stacked variants have non-uniform row heights (bwip collapses them);
+                // the geometry expands to true module resolution so the canvas matches
+                // Labelary. stacked = 5+2+7 = 14X tall, stackedomni = 33+2+2+2+33 = 72X.
+                stacked2Rows: stacked2Geom.rows,
+                stackedomniRows: stackedGeom.rows,
+                stacked2H: height('stacked', '0001234567890'),        // 14 * 5
+                stackedomniH: height('stackedomni', '0001234567890'), // 72 * 5
                 expandedKind: expandedGeom.kind,
                 type: omniParsed?.type,
                 sym: omniParsed?.symbology,
                 dbType: omniParsed?.databarType,
                 mag: omniParsed?.magnification,
                 h: omniParsed?.rowHeight,
+                omniH: height('omni', '0001234567890'),           // 33 * 5
+                omniHBigMag: height('omni', '0001234567890', 10),  // 33 * 10
+                omniHTallParam: height('omni', '0001234567890', 5, 500), // rowHeight ignored -> 33 * 5
+                truncH: height('truncated', '0001234567890'),      // 13 * 5
+                limitH: height('limited', '0001234567890'),        // 10 * 5
+                expandH: height('expanded', '(01)00012345678905'), // 34 * 5
             };
         });
         expect(r.omniEmits).toBe(true);
@@ -1232,21 +1257,33 @@ test.describe('Barcode symbology', () => {
         expect(r.omniKind).toBe('linear');
         expect(r.omniNoBhs).toBe(true);
         expect(r.stackedKind).toBe('matrix'); // stacked variants encode as a module matrix
+        expect(r.stacked2Rows).toBe(14);      // 5 (top) + 2 (sep) + 7 (bottom)
+        expect(r.stackedomniRows).toBe(72);   // 33 + 2 + 2 + 2 + 33
+        expect(r.stacked2H).toBe(70);         // 14 * 5
+        expect(r.stackedomniH).toBe(360);     // 72 * 5
         expect(r.expandedKind).toBe('linear');
         expect(r.type).toBe('QRCODE');
         expect(r.sym).toBe('GS1DATABAR');
         expect(r.dbType).toBe('omni');
         expect(r.mag).toBe(5);
         expect(r.h).toBe(40);
+        // Nominal GS1 heights (X-multiple * magnification), independent of ^BR height.
+        expect(r.omniH).toBe(165);        // 33 * 5
+        expect(r.omniHBigMag).toBe(330);  // 33 * 10
+        expect(r.omniHTallParam).toBe(165); // rowHeight=500 ignored
+        expect(r.truncH).toBe(65);        // 13 * 5
+        expect(r.limitH).toBe(50);        // 10 * 5
+        expect(r.expandH).toBe(170);      // 34 * 5
     });
 
     // ============== MAXICODE (^BD) ==============
     test('MaxiCode emits ^BDm,1,1, encodes the hex grid, and round-trips mode', async ({ page }) => {
         const r = await page.evaluate(async () => {
-            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+            const [{ QRCodeElement }, { ZPLParser }, geo, { maxicodeScmText }] = await Promise.all([
                 import('/src/elements/QRCodeElement.js'),
                 import('/src/services/ZPLParser.js'),
                 import('/src/utils/barcodeGeometry.js'),
+                import('/src/barcodes/maxicodeGeometry.js'),
             ]);
             // ctor: ...symbology, ..., fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode
             const make = (mode: string, data = 'This is a test') =>
@@ -1256,6 +1293,22 @@ test.describe('Barcode symbology', () => {
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             const def: any = make('4');
             const g: any = geo.getBarcodeGeometry(make('4'));
+            // Postal modes 2/3 carry a Structured Carrier Message; arbitrary data must
+            // still encode to a symbol on canvas (synthesised SCM), not a placeholder.
+            const postal2: any = geo.getBarcodeGeometry(make('2'));
+            const postal3: any = geo.getBarcodeGeometry(make('3'));
+            // Modes 2/3 read the ^FD as fixed-width SCM fields: 9-digit (mode 2) /
+            // 6-char (mode 3) postcode + 3-digit country + 3-digit service class +
+            // message, re-joined with GS for bwip (matches the Labelary primary encoding).
+            const GS = '\x1d';
+            const scm2 = maxicodeScmText('152382802840001Test message', 2);
+            const scm3 = maxicodeScmText('ABC123840001Test message', 3);
+            const scmShort = maxicodeScmText('', 2); // too short for a secondary
+            // ^BD has no size parameter: the symbol is a fixed 25 mm square that
+            // scales only with density, never with magnification (matches Labelary).
+            const boundsAt = (mag: number, dpmm: number) =>
+                new QRCodeElement(10, 10, 'This is a test', 2, mag, 'Q', '', false, 'MAXICODE', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4').getBounds(dpmm);
+            const wAt = (mag: number, dpmm: number) => Math.round(boundsAt(mag, dpmm).width);
             return {
                 emits: zpl.includes('^BD5,1,1'),
                 defEmits: def.render().includes('^BD4,1,1'), // default mode 4 (standard)
@@ -1267,6 +1320,18 @@ test.describe('Barcode symbology', () => {
                 sym: parsed?.symbology,
                 mode: parsed?.maxicodeMode,
                 data: parsed?.previewData,
+                w8: wAt(5, 8),
+                h8: Math.round(boundsAt(5, 8).height),
+                w8BigMag: wAt(20, 8), // magnification ignored -> same width as w8
+                w12: wAt(5, 12),
+                w24: wAt(5, 24),
+                postal2Kind: postal2.kind,
+                postal2Modules: postal2.modules?.length || 0,
+                postal3Kind: postal3.kind,
+                postal3Modules: postal3.modules?.length || 0,
+                scm2Ok: scm2 === `152382802${GS}840${GS}001${GS}Test message`,
+                scm3Ok: scm3 === `ABC123${GS}840${GS}001${GS}Test message`,
+                scmShortOk: scmShort === `0${GS}000${GS}000${GS} `, // padded fields + space secondary
             };
         });
         expect(r.emits).toBe(true);
@@ -1279,6 +1344,23 @@ test.describe('Barcode symbology', () => {
         expect(r.sym).toBe('MAXICODE');
         expect(r.mode).toBe('5');
         expect(r.data).toBe('This is a test');
+        // Fixed 25 mm width (200 dots @ 8 dpmm), density-scaled, magnification-independent.
+        // Column pitch spans the width over 30 modules so the hex grid fills the symbol
+        // box and matches the Labelary API ink (200×193 @ 8 dpmm); ÷30.5 undersized it.
+        expect(r.w8).toBe(200);
+        expect(r.h8).toBe(192);
+        expect(r.w8BigMag).toBe(200);
+        expect(r.w12).toBe(300);
+        expect(r.w24).toBe(600);
+        // Postal modes render a symbol from arbitrary data, not a placeholder.
+        expect(r.postal2Kind).toBe('maxicode');
+        expect(r.postal2Modules).toBeGreaterThan(0);
+        expect(r.postal3Kind).toBe('maxicode');
+        expect(r.postal3Modules).toBeGreaterThan(0);
+        // Fixed-width SCM field parsing (mode 2 = 9-digit postcode, mode 3 = 6-char).
+        expect(r.scm2Ok).toBe(true);
+        expect(r.scm3Ok).toBe(true);
+        expect(r.scmShortOk).toBe(true);
     });
 
     // ============== CODABLOCK (^BB) ==============
@@ -1298,6 +1380,10 @@ test.describe('Barcode symbology', () => {
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             const def: any = make('F');
             const g: any = geo.getBarcodeGeometry(make('F'));
+            // The canvas frame sizes each module via matrixModuleDots; for Codablock it
+            // must come from moduleWidth/rowHeight (mw=3, rh=8 here), not magnification —
+            // otherwise Module Width / Row Height edits don't change the drawn symbol.
+            const pitch: any = geo.matrixModuleDots(make('F'));
             return {
                 // ^BY module width then ^BB with o=N, h=rowHeight, s=N, c/r blank, m=E
                 emits: zpl.includes('^BY3^BBN,8,N,,,E'),
@@ -1305,6 +1391,8 @@ test.describe('Barcode symbology', () => {
                 kind: g.kind,
                 cols: g.cols,
                 rows: g.rows,
+                pitchMx: pitch.mx,
+                pitchMy: pitch.my,
                 type: parsed?.type,
                 sym: parsed?.symbology,
                 mode: parsed?.codablockMode,
@@ -1318,6 +1406,8 @@ test.describe('Barcode symbology', () => {
         expect(r.kind).toBe('matrix'); // Codablock is stacked: bwip emits a module matrix
         expect(r.cols).toBeGreaterThan(0);
         expect(r.rows).toBeGreaterThan(1); // multiple stacked rows
+        expect(r.pitchMx).toBe(3); // module pitch from moduleWidth, not magnification
+        expect(r.pitchMy).toBe(8); // row pitch from rowHeight
         expect(r.type).toBe('QRCODE');
         expect(r.sym).toBe('CODABLOCK');
         expect(r.mode).toBe('E');

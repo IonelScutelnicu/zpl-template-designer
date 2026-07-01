@@ -152,7 +152,7 @@ export class InteractionHandler {
         this.resizeStartY = selectedElement.y;
 
         if (selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE') {
-          const bounds = selectedElement.getBounds();
+          const bounds = selectedElement.getBounds(this.labelSettings?.dpmm);
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
         } else if (selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE') {
@@ -436,7 +436,18 @@ export class InteractionHandler {
         const newHeight = Math.max(10, coords.y - el.y);
         const geom = getBarcodeGeometry(el);
         const b = BARCODE_2D_SIZE_BOUNDS;
-        if (geom.kind === 'matrix') {
+        if (el.symbology === 'GS1DATABAR') {
+          // GS1 DataBar sizing is driven by magnification (the module width).
+          // Linear variants are a single row (width = modules × magnification,
+          // height derived from magnification); stacked variants are a matrix of
+          // square modules, so drive magnification from both axes.
+          const mag = b.GS1DATABAR.magnification;
+          if (geom.kind === 'linear') {
+            el.magnification = clampNumber(Math.round(newWidth / geom.modules), mag.min, mag.max);
+          } else if (geom.kind === 'matrix') {
+            el.magnification = clampNumber(Math.round(Math.min(newWidth / geom.cols, newHeight / geom.rows)), mag.min, mag.max);
+          }
+        } else if (geom.kind === 'matrix') {
           if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417' || el.symbology === 'CODE49') {
             el.moduleWidth = clampNumber(Math.round(newWidth / geom.cols), b[el.symbology].moduleWidth.min, b[el.symbology].moduleWidth.max);
             el.rowHeight = clampNumber(Math.round(newHeight / geom.rows), b[el.symbology].rowHeight.min, b[el.symbology].rowHeight.max);
@@ -1248,7 +1259,7 @@ export class InteractionHandler {
       }
       return { x: element.x, y: element.y, width: blockW, height: totalHeight };
     }
-    return element.getBounds();
+    return element.getBounds(this.labelSettings?.dpmm);
   }
 
   /**

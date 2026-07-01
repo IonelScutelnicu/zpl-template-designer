@@ -13,12 +13,13 @@ export class QRCodeRenderer {
    * @param {CanvasRenderingContext2D} ctx - Canvas context
    * @param {HTMLCanvasElement} canvas - Main canvas (for reverse overlay)
    * @param {Object} element - QRCODE element
-   * @param {Object} _labelSettings - Label settings (unused, kept for uniform signature)
+   * @param {Object} labelSettings - Label settings (supplies dpmm for fixed-size MaxiCode)
    * @param {Object} transform - Transform parameters {scale, homeX, homeY, labelTop}
    */
-  render(ctx, canvas, element, _labelSettings, transform) {
+  render(ctx, canvas, element, labelSettings, transform) {
     const symbology = resolveSymbology(element);
-    const helpers = createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels: SYMBOLOGY_LABELS });
+    const dpmm = labelSettings?.dpmm || 8;
+    const helpers = createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels: SYMBOLOGY_LABELS, dpmm });
     const frame = helpers.frame(element, transform);
     const geom = getBarcodeGeometry(element);
     getQRCodeSymbology(symbology).renderCanvas(ctx, canvas, element, geom, frame, helpers);

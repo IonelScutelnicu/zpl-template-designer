@@ -45,7 +45,11 @@ export function getTlc39Geometry(element) {
   let micropdf = null;
   if (micropdfData) {
     try {
-      const stack = bwipjs.raw({ bcid: 'micropdf417', text: micropdfData });
+      // TLC39's linked MicroPDF417 is fixed at 4 columns by the ATIS/TCIF spec.
+      // Without this bwip auto-fits to a single column (a tall, narrow symbol that
+      // matches neither the printer nor the spec); pinning columns=4 also makes bwip
+      // pick a valid row count (4/6/8/10…) for the data, so no row snapping is needed.
+      const stack = bwipjs.raw({ bcid: 'micropdf417', text: micropdfData, columns: 4 });
       const raw = stack.find((entry) => entry && entry.pixs) || stack[0];
       if (raw && raw.pixs) {
         const cols = +raw.pixx;

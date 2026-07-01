@@ -4,9 +4,9 @@
 // so on-canvas size always reflects the real encoded symbol.
 
 import bwipjs from '../vendor/bwip-js.mjs';
-import { maxicodeGeometry, maxicodeSize } from '../barcodes/maxicodeGeometry.js';
+import { maxicodeGeometry, maxicodeSize, maxicodeScmText } from '../barcodes/maxicodeGeometry.js';
 import { getTlc39Geometry } from '../barcodes/tlc39Geometry.js';
-import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText } from '../barcodes/databarGeometry.js';
+import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText, expandStackedDatabar } from '../barcodes/databarGeometry.js';
 
 export { maxicodeSize };
 export { DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM };
@@ -214,6 +214,7 @@ export function matrixModuleDots(element) {
     case 'PDF417':
     case 'MICROPDF417':
     case 'CODE49':
+    case 'CODABLOCK':
       return { mx: element.moduleWidth || 2, my: element.rowHeight || 4 };
     case 'TLC39':
       return { mx: element.tlc39Code39Width || element.moduleWidth || 2, my: element.tlc39Code39Width || element.moduleWidth || 2 };
@@ -780,9 +781,15 @@ function buildBwipOptions(element) {
     // the canvas mirrors Labelary (including encode failure when data overflows it).
     opts.version = microPdf417Version(element.microPdfMode || 0);
   } else if (symbology === 'MAXICODE') {
-    // ^BD mode (2-6) selects the encoding. Modes 2/3 (postal) require a structured
-    // carrier message; mode 4 (standard) takes arbitrary data and is the default here.
-    opts.mode = parseInt(element.maxicodeMode, 10) || 4;
+    // ^BD mode (2-6) selects the encoding. Modes 2/3 (postal) require a Structured
+    // Carrier Message; mode 4 (standard) takes arbitrary data and is the default here.
+    const mode = parseInt(element.maxicodeMode, 10) || 4;
+    opts.mode = mode;
+    if (mode === 2 || mode === 3) {
+      // bwip rejects non-SCM data and the canvas would fall back to a placeholder;
+      // feed it a synthesised SCM so a representative symbol renders (see maxicodeScmText).
+      opts.text = maxicodeScmText(element.previewData, mode);
+    }
   } else if (symbology === 'GS1DATABAR') {
     // The databarType picks the bwip bcid; the data is a (01) GTIN (or a GS1 element
     // string for expanded). See databarBwipText / DATABAR_BCID.
@@ -920,7 +927,11 @@ export function getBarcodeGeometry(element) {
       // our own rowHeight/moduleSize handles vertical scaling. (QR/Data Matrix are
       // square so pixy already equals the row count.)
       const cols = +o.pixx;
-      result = { kind: 'matrix', cols, rows: o.pixs.length / cols, pixs: o.pixs };
+      const rows = o.pixs.length / cols;
+      // Stacked GS1 DataBar rows have non-uniform X-heights that bwip collapses to
+      // single module rows; expand them so the matrix renderer matches Labelary.
+      result = (symbology === 'GS1DATABAR' && expandStackedDatabar(element, cols, rows, o.pixs))
+        || { kind: 'matrix', cols, rows, pixs: o.pixs };
     } else if (o && o.sbs) {
       // bwip-js encodes Code 39 at a fixed 3:1 and Interleaved 2 of 5 at 2:1
       // wide:narrow ratio. Rescale the wide elements (value nativeWide) to the

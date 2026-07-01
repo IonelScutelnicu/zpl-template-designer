@@ -103,11 +103,14 @@ export class QRCodeElement extends ZPLElement {
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
-    getBounds() {
+    // dpmm sizes the fixed MaxiCode symbol (defaults to the factory 8 dpmm when a
+    // caller has no label settings); all other symbologies ignore it.
+    getBounds(dpmm = 8) {
         const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
         const geom = getBarcodeGeometry(this);
         return getQRCodeSymbology(this.symbology).bounds(this, geom, {
             yOffset,
+            dpmm,
             placeholderBounds: (element) => {
                 const size = 21 * (element.magnification || 5);
                 return { x: element.x, y: element.y, width: size, height: size + yOffset };

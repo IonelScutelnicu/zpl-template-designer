@@ -401,7 +401,7 @@ export class CanvasRenderer {
         height = blockH;
       }
     } else {
-      const bounds = element.getBounds();
+      const bounds = element.getBounds(labelSettings?.dpmm);
       x = (bounds.x + this.homeX) * this.scale;
       y = (bounds.y + this.homeY + this.labelTop) * this.scale;
       width = bounds.width * this.scale;

@@ -2,7 +2,8 @@ import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 import { placeholderName } from '../utils/placeholders.js';
 import { drawLinear, drawMatrix, drawMaxiCode, drawPlaceholder } from '../rendering/barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from '../rendering/reverseOverlay.js';
-import { maxicodeSize } from './maxicodeGeometry.js';
+import { maxicodeSize, maxicodePitchDots } from './maxicodeGeometry.js';
+import { databarLinearBarDots, DATABAR_SEPARATOR_HEIGHT } from './databarGeometry.js';
 
 export const DATABAR_TYPE_NUM = { omni: 1, truncated: 2, stacked: 3, stackedomni: 4, limited: 5, expanded: 6 };
 export const DATABAR_TYPE_BY_NUM = { 1: 'omni', 2: 'truncated', 3: 'stacked', 4: 'stackedomni', 5: 'limited', 6: 'expanded' };
@@ -277,9 +278,16 @@ class MaxiCodeSymbology extends QRSymbology {
     };
   }
 
+  // MaxiCode is fixed-size — its module pitch comes from the label density, not
+  // magnification, so it matches the Labelary preview (which ignores ^BD sizing).
+  moduleDots(element, dpmm) {
+    const pitch = maxicodePitchDots(dpmm);
+    return { mx: pitch, my: pitch };
+  }
+
   bounds(element, geom, helpers) {
     if (geom.kind !== 'maxicode') return helpers.placeholderBounds(element);
-    const { mx } = this.moduleDots(element);
+    const { mx } = this.moduleDots(element, helpers.dpmm);
     const { width, height } = maxicodeSize(mx);
     return { x: element.x, y: element.y, width, height: height + helpers.yOffset };
   }
@@ -295,9 +303,10 @@ class MaxiCodeSymbology extends QRSymbology {
     if (captured) applyReverseOverlay(ctx, captured, drawShape);
   }
 
-  renderSettings(panel, element, bounds) {
+  renderSettings(panel, element) {
+    // No size control: ^BD has no magnification parameter, so the printed symbol
+    // is always a fixed 25 mm square — only the mode is configurable.
     return `
-      ${panel.createInputGroup("Magnification", "prop-magnification", element.magnification, "number", bounds.MAXICODE.magnification)}
       ${panel.createSelectGroup("Mode", "prop-maxicode-mode", element.maxicodeMode || "4", [
         ["4", "4 - Standard"],
         ["2", "2 - Postal (US)"],
@@ -309,7 +318,6 @@ class MaxiCodeSymbology extends QRSymbology {
   }
 
   attachProperties(_manager, _element, attach) {
-    attach("prop-magnification", "magnification", (v) => parseInt(v) || 5);
     attach("prop-maxicode-mode", "maxicodeMode");
   }
 }
@@ -317,7 +325,7 @@ class MaxiCodeSymbology extends QRSymbology {
 class GS1DataBarSymbology extends QRSymbology {
   render(element, content, preservePlaceholders) {
     const t = DATABAR_TYPE_NUM[element.databarType] || 1;
-    return `^BRN,${t},${element.magnification || 5},2,${element.rowHeight || 40}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BRN,${t},${element.magnification || 5},${DATABAR_SEPARATOR_HEIGHT},${element.rowHeight || 40}${fieldData(content, element, preservePlaceholders)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -338,14 +346,14 @@ class GS1DataBarSymbology extends QRSymbology {
   bounds(element, geom, helpers) {
     if (geom.kind === 'linear') {
       const { mx } = this.moduleDots(element);
-      return { x: element.x, y: element.y, width: geom.modules * mx, height: (element.rowHeight || 40) + helpers.yOffset };
+      return { x: element.x, y: element.y, width: geom.modules * mx, height: databarLinearBarDots(element) + helpers.yOffset };
     }
     return super.bounds(element, geom, helpers);
   }
 
   renderCanvas(ctx, canvas, element, geom, frame, helpers) {
     if (geom.kind !== 'linear') return super.renderCanvas(ctx, canvas, element, geom, frame, helpers);
-    const barHeight = (element.rowHeight || 40) * frame.scale;
+    const barHeight = databarLinearBarDots(element) * frame.scale;
     const width = geom.modules * frame.moduleW;
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
       drawLinear(targetCtx, geom, { x: frame.x + ox, y: frame.y + oy, moduleW: frame.moduleW, height: barHeight, color });
@@ -437,14 +445,16 @@ class TLC39Symbology extends QRSymbology {
     const mpH = geom.micropdf ? geom.micropdf.rows * h2 : 0;
     const width = Math.max(c39W, mpW);
     const height = (geom.code39.kind === 'linear' ? c39Height + (geom.micropdf ? gap : 0) : 0) + mpH;
+    // TLC39 spec layout: the MicroPDF417 is stacked ON TOP of the Code 39, sharing
+    // its left edge with a small separator gap between them.
     const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
       let cy = frame.y + oy;
-      if (geom.code39.kind === 'linear') {
-        drawLinear(targetCtx, geom.code39, { x: frame.x + ox, y: cy, moduleW: w1, height: c39Height, color });
-        cy += c39Height + gap;
-      }
       if (geom.micropdf) {
         drawMatrix(targetCtx, geom.micropdf, { x: frame.x + ox, y: cy, moduleW: w2, moduleH: h2, color });
+        if (geom.code39.kind === 'linear') cy += mpH + gap;
+      }
+      if (geom.code39.kind === 'linear') {
+        drawLinear(targetCtx, geom.code39, { x: frame.x + ox, y: cy, moduleW: w1, height: c39Height, color });
       }
     };
     const captured = element.reverse ? captureReverseBg(ctx, canvas, { x: frame.x, y: frame.y, width, height }) : null;
@@ -506,15 +516,20 @@ export function getParserSymbology(command, subCommand = '') {
   return null;
 }
 
-export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels }) {
+export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels, dpmm }) {
   return {
     frame(element, transform) {
       const { scale, homeX, homeY, labelTop } = transform;
       const symbology = resolveSymbology(element);
       const yOffset = symbology === 'QR' ? 10 * scale : 0;
-      const { mx, my } = matrixModuleDots(element);
+      // MaxiCode is fixed-size (density-derived pitch); every other 2D symbology
+      // sizes from its own dot fields via matrixModuleDots.
+      const { mx, my } = symbology === 'MAXICODE'
+        ? (() => { const p = maxicodePitchDots(dpmm); return { mx: p, my: p }; })()
+        : matrixModuleDots(element);
       return {
         scale,
+        dpmm,
         x: (element.x + homeX) * scale,
         y: (element.y + homeY + labelTop) * scale + yOffset,
         moduleW: mx * scale,
