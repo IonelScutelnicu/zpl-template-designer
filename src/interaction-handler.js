@@ -56,6 +56,10 @@ export class InteractionHandler {
     this._pointerTracking = false;
     this._boundPointerMove = this.handleMouseMove.bind(this);
     this._boundPointerUp = this.handleMouseUp.bind(this);
+    this._activeTouchId = null;
+    this._lastTouchPoint = null;
+    this._boundTouchMove = this.handleTouchMove.bind(this);
+    this._boundTouchEnd = this.handleTouchEnd.bind(this);
 
     this.setupEventListeners();
   }
@@ -70,6 +74,8 @@ export class InteractionHandler {
     this.canvas.addEventListener('mouseup', this._boundCanvasUp);
     this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
     this.canvas.addEventListener('contextmenu', this.handleContextMenu.bind(this));
+    this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+    this.canvas.style.touchAction = 'none';
 
     // Keyboard events (needs to be on document for arrow keys)
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -147,6 +153,89 @@ export class InteractionHandler {
     this._pointerTracking = false;
     window.removeEventListener('mousemove', this._boundPointerMove);
     window.removeEventListener('mouseup', this._boundPointerUp);
+  }
+
+  beginTouchTracking() {
+    window.addEventListener('touchmove', this._boundTouchMove, { passive: false });
+    window.addEventListener('touchend', this._boundTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', this._boundTouchEnd, { passive: false });
+  }
+
+  endTouchTracking() {
+    window.removeEventListener('touchmove', this._boundTouchMove);
+    window.removeEventListener('touchend', this._boundTouchEnd);
+    window.removeEventListener('touchcancel', this._boundTouchEnd);
+    this._activeTouchId = null;
+    this._lastTouchPoint = null;
+  }
+
+  getActiveTouch(touchList) {
+    for (const touch of touchList) {
+      if (touch.identifier === this._activeTouchId) return touch;
+    }
+    return null;
+  }
+
+  createTouchPointerEvent(touch, sourceEvent) {
+    return {
+      button: 0,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      altKey: false,
+      shiftKey: Boolean(sourceEvent.shiftKey),
+      ctrlKey: Boolean(sourceEvent.ctrlKey),
+      metaKey: Boolean(sourceEvent.metaKey),
+      preventDefault: () => sourceEvent.preventDefault(),
+      stopImmediatePropagation: () => sourceEvent.stopImmediatePropagation?.()
+    };
+  }
+
+  handleTouchStart(e) {
+    if (this._activeTouchId !== null || e.changedTouches.length !== 1 || e.touches.length !== 1) return;
+
+    const touch = e.changedTouches[0];
+    this._activeTouchId = touch.identifier;
+    this._lastTouchPoint = touch;
+    this.beginTouchTracking();
+    e.preventDefault();
+    this.handleMouseDown(this.createTouchPointerEvent(touch, e));
+  }
+
+  handleTouchMove(e) {
+    const touch = this.getActiveTouch(e.touches);
+    if (!touch) return;
+
+    this._lastTouchPoint = touch;
+    e.preventDefault();
+    const pointerEvent = this.createTouchPointerEvent(touch, e);
+    if (this.isMarquee) this.handleMarqueeMove(pointerEvent);
+    else this.handleMouseMove(pointerEvent);
+  }
+
+  handleTouchEnd(e) {
+    const touch = this.getActiveTouch(e.changedTouches);
+    if (!touch) return;
+
+    e.preventDefault();
+    const finalTouch = touch || this._lastTouchPoint;
+    if (e.type === 'touchcancel') {
+      this.endMarquee(false);
+      this.endPointerTracking();
+      this.isDragging = false;
+      this.isResizing = false;
+      this.resizeHandle = null;
+      this.dragElement = null;
+      this.dragGroup = null;
+      this.dragGroupOriginSpan = null;
+      this.pendingCollapseElement = null;
+      this.canvas.style.cursor = 'default';
+      this.hasNotifiedDragStart = false;
+    } else if (this.isMarquee) {
+      this.endMarquee(true);
+    } else if (finalTouch) {
+      this.handleMouseUp(this.createTouchPointerEvent(finalTouch, e));
+    }
+    this.endTouchTracking();
   }
 
   handleMouseDown(e) {
