@@ -261,6 +261,31 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             expect(previewClass).toContain('opacity-100');
         });
 
+        test('should keep the canvas transparent over the Labelary preview in dark overlay mode', async ({ page }) => {
+            await page.addInitScript(() => {
+                localStorage.setItem('theme', 'dark');
+            });
+            await page.goto('/');
+
+            await page.route(LABELARY_URL, route => {
+                route.fulfill({
+                    status: 200,
+                    contentType: 'image/png',
+                    body: createMinimalPNG(),
+                });
+            });
+
+            await elementsPanel.addTextElement();
+            await previewPanel.switchToOverlayMode();
+            await previewPanel.waitForOverlayPreviewLoaded();
+
+            const canvasBackground = await previewPanel.canvas.evaluate(
+                el => getComputedStyle(el).backgroundColor
+            );
+            expect(canvasBackground).toBe('rgba(0, 0, 0, 0)');
+            await expect(previewPanel.previewImage).toBeVisible();
+        });
+
         test('should debounce overlay refreshes to a single Labelary request after rapid edits', async ({ page }) => {
             let requestCount = 0;
 

@@ -209,6 +209,10 @@ html.dark #preview-backing {
   border-color: var(--d-border);
 }
 
+html.dark #preview-container[data-mode="overlay"] #label-canvas {
+  background-color: transparent;
+}
+
 /* The pure-white label reads as too bright/flashy against the dark
    canvas. Dim the whole preview viewport — presentation only, it does
    NOT change the ZPL, the canvas bitmap, or the Labelary preview image,
