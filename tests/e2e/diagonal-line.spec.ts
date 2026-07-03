@@ -126,7 +126,7 @@ test.describe('Diagonal Line element (^GD)', () => {
             expect(h1).toBeGreaterThan(h0);
         });
 
-        test('dragging a thick line to the right edge keeps the visible band on-label', async ({ page }) => {
+        test('dragging a thick line past the right edge grows it beyond the label (clipped like a printer)', async ({ page }) => {
             await elementsPanel.addDiagonalLineElement();
             await elementsPanel.selectElementByIndex(0);
             await page.waitForSelector('#properties-panel #prop-width');
@@ -145,8 +145,11 @@ test.describe('Diagonal Line element (^GD)', () => {
             await canvas.dragLabelCoords(hx, hy, labelWidthDots + 100, hy);
             await canvas.waitForReady();
 
+            // Growth past the right label edge is allowed — overflow is clipped
+            // like a real printer — but the origin must stay on the label.
             const el = await firstElement(page);
-            expect((el?.x ?? 0) + (el?.width ?? 0) + (el?.thickness ?? 0)).toBeLessThanOrEqual(labelWidthDots);
+            expect((el?.x ?? 0) + (el?.width ?? 0) + (el?.thickness ?? 0)).toBeGreaterThan(labelWidthDots);
+            expect(el?.x ?? -1).toBeGreaterThanOrEqual(0);
         });
     });
 

@@ -338,6 +338,9 @@ html.dark #fs-icon-rail {
   border-color: var(--d-border);
   border-right-color: var(--d-border-subtle);
 }
+html.dark #view-editor.is-fullscreen.fs-rail-collapsed #fs-icon-rail {
+  border-right-color: var(--d-border);
+}
 html.dark .fs-icon-btn { color: var(--d-text-muted); }
 html.dark .fs-icon-btn:hover:not(.active) { background: var(--d-raised); color: var(--d-text); }
 html.dark .fs-icon-btn.active { color: var(--d-accent-text); }

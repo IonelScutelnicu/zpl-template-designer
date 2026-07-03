@@ -119,9 +119,23 @@ export class Canvas {
     }
 
     /**
+     * Wait for all bundled FontFace loads kicked off by previous renders to
+     * finish. Capturing before they settle bakes the OS fallback font into the
+     * pixels, which differs between Windows and Linux. deselect() re-renders
+     * afterwards, so captures pick up the loaded fonts.
+     */
+    private async waitForFontsSettled(): Promise<void> {
+        await this.page.evaluate(async () => {
+            const { fontsSettled } = await import('/src/utils/fontLoader.js');
+            await fontsSettled();
+        });
+    }
+
+    /**
      * Take a screenshot of the canvas only (CSS display size — scaled to fit editor)
      */
     async takeScreenshot(): Promise<Buffer> {
+        await this.waitForFontsSettled();
         await this.deselect();
         // Reset scroll so the sticky header doesn't occlude the canvas top in the
         // captured image (which would hide content near y=0 and make distinct
@@ -135,6 +149,7 @@ export class Canvas {
      * Uses canvas.toDataURL() so the result is not affected by CSS scaling.
      */
     async takeFullResolutionScreenshot(): Promise<Buffer> {
+        await this.waitForFontsSettled();
         await this.deselect();
         const dataUrl = await this.page.evaluate(() => {
             const canvas = document.getElementById('label-canvas') as HTMLCanvasElement;

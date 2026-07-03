@@ -614,11 +614,13 @@
 
     /* Elements panel — left edge, top.
        Width matches normal-view sidebar (lg:col-span-2 of 12 cols with gap-6
-       inside main's max-w-1920 px-6): 2*col + 1*gap = (V-312)/6 + 24. */
+       inside main's max-w-1920 px-6): 2*col + 1*gap = (V-312)/6 + 24.
+       Floored at 220px so small viewports don't crush the two-column
+       add-element button grid. */
     #view-editor.is-fullscreen #elements-card {
       left: 16px;
       top: calc(var(--hdr, 64px) + 16px);
-      width: calc((min(100vw, 1920px) - 312px) / 6 + 24px);
+      width: max(220px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
       max-height: calc(100vh - var(--hdr, 64px) - 32px);
       overflow-y: auto;
       border: 1px solid #e2e8f0;
@@ -631,7 +633,7 @@
       left: 16px;
       top: auto;
       bottom: 76px;
-      width: calc((min(100vw, 1920px) - 312px) / 6 + 24px);
+      width: max(220px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
       max-height: 50vh;
       overflow-y: auto;
       border: 1px solid #e2e8f0;
@@ -675,12 +677,13 @@
 
     /* ZPL Output strip — bottom edge, narrow centered pill. Capped to a
        comfortable reading width so the truncated ZPL preview doesn't
-       stretch across the canvas. */
+       stretch across the canvas; floored so the header buttons don't
+       wrap on small viewports. */
     #view-editor.is-fullscreen #zpl-card {
       left: 50%;
       right: auto;
       transform: translateX(-50%);
-      width: min(720px, calc(100vw - 700px));
+      width: clamp(420px, 100vw - 700px, 720px);
       bottom: 16px;
       top: auto;
       border: 1px solid #e2e8f0;
@@ -967,7 +970,7 @@
       left: 56px;
       top: calc(var(--hdr, 64px) + 16px);
       bottom: 16px;
-      width: calc((min(100vw, 1920px) - 312px) / 6 + 24px);
+      width: max(220px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
       max-height: none;
       overflow-y: auto;
       border: 1px solid #e2e8f0;
@@ -1078,6 +1081,22 @@
       flex: 1 1 auto;
       min-height: 0;
       max-height: none;
+    }
+
+    /* Rail collapse: clicking the active rail icon hides the content card,
+       leaving only the icon rail. The rail regains its right border and
+       rounded corners since it's no longer fused to a card. */
+    #view-editor.is-fullscreen.fs-rail-collapsed #elements-card,
+    #view-editor.is-fullscreen.fs-rail-collapsed #settings-card {
+      display: none !important;
+    }
+
+    #view-editor.is-fullscreen.fs-rail-collapsed #fs-icon-rail {
+      border-right: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      /* No card to fuse with: release the bottom anchor so the rail
+         shrinks to the height of its buttons. */
+      bottom: auto;
     }
   </style>
   <link rel="stylesheet" href="src/gallery.css">

@@ -31,6 +31,12 @@ test.describe('Gallery template rendering regression', () => {
                 const renderer = new CanvasRenderer(canvas);
                 renderer.renderCanvas(elements, json.labelSettings, null);
 
+                // The first render kicked off the FontFace loads; wait for them and
+                // re-render so the capture doesn't bake in the OS fallback font.
+                const { fontsSettled } = await import('/src/utils/fontLoader.js');
+                await fontsSettled();
+                renderer.renderCanvas(elements, json.labelSettings, null);
+
                 return canvas.toDataURL('image/png');
             }, templateId);
 

@@ -39,7 +39,7 @@ export class InteractionHandler {
 
     // Multi-select state
     this.dragGroup = null;          // [{el, dx, dy}] offsets vs the primary drag element
-    this.dragGroupBounds = null;    // union bounds of the drag group relative to the primary
+    this.dragGroupOriginSpan = null; // min/max member-origin offsets relative to the primary
     this.pendingCollapseElement = null; // member of a multi-selection clicked without dragging
     this.isMarquee = false;         // drag-select rectangle in progress
     this.marqueeStart = null;       // {x, y} in label dots
@@ -50,14 +50,24 @@ export class InteractionHandler {
     // tracking past the canvas edge and finalizes on release anywhere.
     this._boundMarqueeMove = this.handleMarqueeMove.bind(this);
     this._boundMarqueeUp = this.handleMarqueeUp.bind(this);
+    // While an element drag/resize is active, moves and the release are tracked
+    // at window level so the interaction keeps working past the canvas edge
+    // (elements are allowed to hang off the label).
+    this._pointerTracking = false;
+    this._boundPointerMove = this.handleMouseMove.bind(this);
+    this._boundPointerUp = this.handleMouseUp.bind(this);
 
     this.setupEventListeners();
   }
 
   setupEventListeners() {
+    // The canvas-level move/up handlers stand down while window-level pointer
+    // tracking is active (the same event would otherwise be processed twice).
+    this._boundCanvasMove = (e) => { if (!this._pointerTracking) this.handleMouseMove(e); };
+    this._boundCanvasUp = (e) => { if (!this._pointerTracking) this.handleMouseUp(e); };
     this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
-    this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
-    this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+    this.canvas.addEventListener('mousemove', this._boundCanvasMove);
+    this.canvas.addEventListener('mouseup', this._boundCanvasUp);
     this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
     this.canvas.addEventListener('contextmenu', this.handleContextMenu.bind(this));
 
@@ -118,6 +128,25 @@ export class InteractionHandler {
   getFieldBlockLineHeight(element) {
     const fontMetrics = resolveFontMetrics(element, this.labelSettings || {}, 1);
     return resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
+  }
+
+  /**
+   * Route pointer moves and the release through window-level listeners for the
+   * length of a drag/resize, so the interaction keeps tracking when the pointer
+   * leaves the canvas (elements may be dragged partly off the label).
+   */
+  beginPointerTracking() {
+    if (this._pointerTracking) return;
+    this._pointerTracking = true;
+    window.addEventListener('mousemove', this._boundPointerMove);
+    window.addEventListener('mouseup', this._boundPointerUp);
+  }
+
+  endPointerTracking() {
+    if (!this._pointerTracking) return;
+    this._pointerTracking = false;
+    window.removeEventListener('mousemove', this._boundPointerMove);
+    window.removeEventListener('mouseup', this._boundPointerUp);
   }
 
   handleMouseDown(e) {
@@ -191,6 +220,8 @@ export class InteractionHandler {
         this.resizeMouseStartX = coords.x;
         this.resizeMouseStartY = coords.y;
 
+        this.beginPointerTracking();
+
         // Set cursor based on handle
         this.canvas.style.cursor = this.getCursorForHandle(handle);
         return; // Skip drag/select logic
@@ -235,6 +266,7 @@ export class InteractionHandler {
         this.dragStartX = element.x;
         this.dragStartY = element.y;
         this.buildDragGroup(element, inMulti);
+        this.beginPointerTracking();
 
         // Update cursor
         this.canvas.style.cursor = 'grab';
@@ -314,33 +346,29 @@ export class InteractionHandler {
 
   /**
    * Snapshot the set of elements that will move together on drag, with each
-   * member's offset from the primary (clicked) element, plus the union bounds
-   * of the group relative to the primary for boundary clamping.
+   * member's offset from the primary (clicked) element, plus the span of the
+   * members' origins relative to the primary for boundary clamping.
    */
   buildDragGroup(primary, inMulti) {
     const selection = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : [];
     const members = (inMulti ? selection : [primary]).filter(el => !el.locked);
     this.dragGroup = members.map(el => ({ el, dx: el.x - primary.x, dy: el.y - primary.y }));
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const el of members) {
-      const b = this.getDragConstraintBounds(el);
-      minX = Math.min(minX, b.x);
-      minY = Math.min(minY, b.y);
-      maxX = Math.max(maxX, b.x + b.width);
-      maxY = Math.max(maxY, b.y + b.height);
+    let minDx = Infinity, minDy = Infinity, maxDx = -Infinity, maxDy = -Infinity;
+    for (const m of this.dragGroup) {
+      minDx = Math.min(minDx, m.dx);
+      minDy = Math.min(minDy, m.dy);
+      maxDx = Math.max(maxDx, m.dx);
+      maxDy = Math.max(maxDy, m.dy);
     }
-    this.dragGroupBounds = {
-      offsetX: minX - primary.x,
-      offsetY: minY - primary.y,
-      width: maxX - minX,
-      height: maxY - minY
-    };
+    this.dragGroupOriginSpan = { minDx, minDy, maxDx, maxDy };
   }
 
   /**
-   * Move every member of the drag group, keeping their relative offsets and
-   * clamping the group's union bounds inside the label.
+   * Move every member of the drag group, keeping their relative offsets.
+   * Content may hang past the label edges (clipped, like a real printer), but
+   * every member's origin stays on the label: ^FO coordinates cannot be
+   * negative, and an on-label origin keeps the element reachable.
    */
   handleGroupDrag(coords) {
     let newX = coords.x - this.dragOffsetX;
@@ -348,12 +376,12 @@ export class InteractionHandler {
 
     const labelW = this.labelSettings.width * this.labelSettings.dpmm;
     const labelH = this.labelSettings.height * this.labelSettings.dpmm;
-    const gb = this.dragGroupBounds;
+    const gb = this.dragGroupOriginSpan;
 
-    const minX = -gb.offsetX;
-    const maxX = labelW - gb.width - gb.offsetX;
-    const minY = -gb.offsetY;
-    const maxY = labelH - gb.height - gb.offsetY;
+    const minX = -gb.minDx;
+    const maxX = labelW - 1 - gb.maxDx;
+    const minY = -gb.minDy;
+    const maxY = labelH - 1 - gb.maxDy;
 
     newX = Math.max(minX, Math.min(newX, maxX));
     newY = Math.max(minY, Math.min(newY, maxY));
@@ -530,36 +558,16 @@ export class InteractionHandler {
             break;
         }
 
-        // Boundary Constraints
-        const labelW = this.labelSettings.width * this.labelSettings.dpmm;
-        const labelH = this.labelSettings.height * this.labelSettings.dpmm;
-
-        const widthOverhang = this.dragElement.type === 'DIAGONALLINE'
-          ? this.dragElement.thickness
-          : 0;
-
-        // Constrain X and Width
-        if (this.resizeHandle.includes('l')) { // Modifying Left edge
-          if (newX < 0) {
-            newX = 0;
-            newWidth = (this.resizeStartX + this.resizeStartWidth) - newX;
-          }
-        } else { // Right edge moving or static
-          if (newX + newWidth + widthOverhang > labelW) {
-            newWidth = labelW - newX - widthOverhang;
-          }
+        // Boundary Constraints: the top-left cannot cross 0 (^FO coordinates
+        // are non-negative); growth past the right/bottom label edge is
+        // allowed — overflowing content is clipped, like a real printer.
+        if (this.resizeHandle.includes('l') && newX < 0) {
+          newX = 0;
+          newWidth = (this.resizeStartX + this.resizeStartWidth) - newX;
         }
-
-        // Constrain Y and Height
-        if (this.resizeHandle.includes('t')) { // Modifying Top edge
-          if (newY < 0) {
-            newY = 0;
-            newHeight = (this.resizeStartY + this.resizeStartHeight) - newY;
-          }
-        } else { // Bottom edge moving or static
-          if (newY + newHeight > labelH) {
-            newHeight = labelH - newY;
-          }
+        if (this.resizeHandle.includes('t') && newY < 0) {
+          newY = 0;
+          newHeight = (this.resizeStartY + this.resizeStartHeight) - newY;
         }
 
         // Enforce minimum size
@@ -666,8 +674,9 @@ export class InteractionHandler {
           const dataLength = (this.dragElement.previewData || '').length;
           const geom = getBarcodeGeometry(this.dragElement);
           const totalModules = geom.kind === 'linear' ? geom.modules : linearFallbackModules(dataLength);
-          const availableWidth = labelW - newX;
-          const maxMultiplier = totalModules > 0 ? Math.floor(Math.min(10, availableWidth / totalModules)) : this.dragElement.width;
+          // 10 is the ZPL ^BY maximum module width; the label edge no longer
+          // caps growth — overflow is clipped like everything else.
+          const maxMultiplier = totalModules > 0 ? 10 : this.dragElement.width;
           const targetMultiplier = totalModules > 0 ? newWidth / totalModules : this.dragElement.width;
           const roundedMultiplier = Math.round(targetMultiplier);
           const clampedMultiplier = Math.max(1, Math.min(maxMultiplier, roundedMultiplier));
@@ -732,23 +741,15 @@ export class InteractionHandler {
           this.renderer.clearSmartGuides();
         }
 
-        // Constrain to label bounds
-        const bounds = this.getDragConstraintBounds(this.dragElement);
+        // Constrain the origin (not the full bounds) to the label: content may
+        // hang past the label edges and get clipped, like a real printer, but
+        // ^FO coordinates cannot be negative and an on-label origin keeps the
+        // element reachable.
         const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
-        // Calculate offset between element pivot and bounds top-left
-        const offsetX = bounds.x - this.dragElement.x;
-        const offsetY = bounds.y - this.dragElement.y;
-
-        // Calculate valid range for element.x/y
-        const minX = -offsetX;
-        const maxX = labelW - bounds.width - offsetX;
-        const minY = -offsetY;
-        const maxY = labelH - bounds.height - offsetY;
-
-        newX = Math.max(minX, Math.min(newX, maxX));
-        newY = Math.max(minY, Math.min(newY, maxY));
+        newX = Math.max(0, Math.min(newX, labelW - 1));
+        newY = Math.max(0, Math.min(newY, labelH - 1));
 
         // Round to nearest dot
         this.dragElement.x = Math.round(newX);
@@ -818,9 +819,10 @@ export class InteractionHandler {
     }
 
     // Reset drag state
+    this.endPointerTracking();
     this.dragElement = null;
     this.dragGroup = null;
-    this.dragGroupBounds = null;
+    this.dragGroupOriginSpan = null;
     this.pendingCollapseElement = null;
     this.canvas.style.cursor = 'default';
     this.hasNotifiedDragStart = false;
@@ -828,31 +830,13 @@ export class InteractionHandler {
 
   handleMouseLeave(e) {
     // A marquee keeps tracking past the canvas edge (window-level listeners),
-    // so leaving the canvas must NOT cancel it.
-    if (this.isMarquee) return;
-
-    if (this.isDragging || this.isResizing) {
-      // Finalize drag if mouse leaves canvas
-      this.renderer.clearSmartGuides();
-      if (this._aspectLockBrokenByShift && this.dragElement &&
-          (this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'CIRCLE')) {
-        this.dragElement.aspectLocked = false;
-        this._aspectLockBrokenByShift = false;
-      }
-      if (this.isDragging && this.dragGroup && this.dragGroup.length > 1) {
-        if (this.callbacks.onElementsDragEnd) {
-          this.callbacks.onElementsDragEnd(this.dragGroup.map(m => m.el));
-        }
-      } else {
-        this.callbacks.onElementDragEnd(this.dragElement);
-      }
-      this.isDragging = false;
-      this.isResizing = false;
-    }
+    // so leaving the canvas must NOT cancel it. Same for an element drag or
+    // resize — those are tracked at window level until release.
+    if (this.isMarquee || this._pointerTracking) return;
 
     this.dragElement = null;
     this.dragGroup = null;
-    this.dragGroupBounds = null;
+    this.dragGroupOriginSpan = null;
     this.pendingCollapseElement = null;
     this.canvas.style.cursor = 'default';
     this.hasNotifiedDragStart = false;
@@ -912,12 +896,13 @@ export class InteractionHandler {
         this.callbacks.onElementTransformCancel(this.dragElement);
       }
 
+      this.endPointerTracking();
       this.isDragging = false;
       this.isResizing = false;
       this.resizeHandle = null;
       this.dragElement = null;
       this.dragGroup = null;
-      this.dragGroupBounds = null;
+      this.dragGroupOriginSpan = null;
       this._aspectLockBrokenByShift = false;
       this.canvas.style.cursor = 'default';
       this.hasNotifiedDragStart = false;
@@ -1100,21 +1085,23 @@ export class InteractionHandler {
       default: return;
     }
 
-    // Clamp the delta so the selection's union bounds stay inside the label.
+    // Clamp the delta so every element's origin stays on the label: content
+    // may hang past the edges (clipped, like a real printer), but ^FO
+    // coordinates cannot be negative and an on-label origin keeps the
+    // element reachable.
     const labelW = this.labelSettings.width * this.labelSettings.dpmm;
     const labelH = this.labelSettings.height * this.labelSettings.dpmm;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const el of movable) {
-      const b = this.getDragConstraintBounds(el);
-      minX = Math.min(minX, b.x);
-      minY = Math.min(minY, b.y);
-      maxX = Math.max(maxX, b.x + b.width);
-      maxY = Math.max(maxY, b.y + b.height);
+      minX = Math.min(minX, el.x);
+      minY = Math.min(minY, el.y);
+      maxX = Math.max(maxX, el.x);
+      maxY = Math.max(maxY, el.y);
     }
     if (minX + dx < 0) dx = -minX;
-    if (maxX + dx > labelW) dx = labelW - maxX;
+    if (maxX + dx > labelW - 1) dx = labelW - 1 - maxX;
     if (minY + dy < 0) dy = -minY;
-    if (maxY + dy > labelH) dy = labelH - maxY;
+    if (maxY + dy > labelH - 1) dy = labelH - 1 - maxY;
 
     if (dx === 0 && dy === 0) {
       e.preventDefault();
@@ -1262,17 +1249,6 @@ export class InteractionHandler {
     return element.getBounds(this.labelSettings?.dpmm);
   }
 
-  /**
-   * Bounds used for drag and keyboard-move constraints.
-   * For TEXT elements, uses actual canvas measurement to match the drawn selection box exactly.
-   */
-  getDragConstraintBounds(element) {
-    if (element.type === 'TEXT' && this.labelSettings && this.renderer) {
-      return this.renderer.measureTextBounds(element, this.labelSettings);
-    }
-    return this.getSelectionBounds(element);
-  }
-
   getHandleAtPosition(x, y, element) {
     if (!element) return null;
 
@@ -1375,13 +1351,15 @@ export class InteractionHandler {
    */
   destroy() {
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
-    this.canvas.removeEventListener('mousemove', this.handleMouseMove);
-    this.canvas.removeEventListener('mouseup', this.handleMouseUp);
+    this.canvas.removeEventListener('mousemove', this._boundCanvasMove);
+    this.canvas.removeEventListener('mouseup', this._boundCanvasUp);
     this.canvas.removeEventListener('mouseleave', this.handleMouseLeave);
     document.removeEventListener('keydown', this.handleKeyDown);
     document.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('mousemove', this._boundMarqueeMove);
     window.removeEventListener('mouseup', this._boundMarqueeUp);
+    window.removeEventListener('mousemove', this._boundPointerMove);
+    window.removeEventListener('mouseup', this._boundPointerUp);
     if (this.keyboardMoveTimer) {
       clearTimeout(this.keyboardMoveTimer);
       this.keyboardMoveTimer = null;

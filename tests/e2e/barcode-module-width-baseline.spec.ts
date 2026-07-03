@@ -103,7 +103,11 @@ for (const { sym, data } of SYMBOLOGIES) {
                     w.canvasRenderer.renderCanvas(w.appState.elements, w.appState.labelSettings, null);
                 }, { sym, data, hri, WIDTHS, DPMM, PADDING, GAP });
 
-                const dataUrl = await page.evaluate(() => {
+                const dataUrl = await page.evaluate(async () => {
+                    // The render above kicked off the HRI FontFace loads; wait for
+                    // them so the capture doesn't bake in the OS fallback font.
+                    const { fontsSettled } = await import('/src/utils/fontLoader.js');
+                    await fontsSettled();
                     const w = window as unknown as {
                         appState: { elements: unknown[]; labelSettings: unknown };
                         canvasRenderer: {

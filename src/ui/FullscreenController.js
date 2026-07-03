@@ -42,12 +42,20 @@ export class FullscreenController {
       });
     });
     // Fullscreen icon rail: each button switches the visible tab.
-    // Clicking the already-active icon is a no-op (Q2).
+    // Clicking the already-active icon collapses the content card so only
+    // the rail stays visible; clicking any icon re-opens it.
     if (this.iconRail) {
       this.iconRail.querySelectorAll('.fs-icon-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const tab = btn.dataset.fsTab;
-          if (!tab || tab === this._activeTab) return;
+          if (!tab) return;
+          const collapsed = this.viewEditor.classList.contains('fs-rail-collapsed');
+          if (tab === this._activeTab && !collapsed) {
+            this.viewEditor.classList.add('fs-rail-collapsed');
+            this.iconRail.querySelectorAll('.fs-icon-btn').forEach(b => b.classList.remove('active'));
+            return;
+          }
+          this.viewEditor.classList.remove('fs-rail-collapsed');
           this.setActiveTab(tab);
         });
       });
@@ -124,7 +132,8 @@ export class FullscreenController {
       d.dataset.fsPrevOpen = d.open ? '1' : '0';
       d.open = true;
     });
-    // Reset to the default tab (Q5: `+`) on every entry.
+    // Reset to the default tab (Q5: `+`) on every entry, panel expanded.
+    this.viewEditor.classList.remove('fs-rail-collapsed');
     this.setActiveTab('add');
     localStorage.setItem('fullscreen', '1');
     // Apply the class — transitions kick in
@@ -155,6 +164,7 @@ export class FullscreenController {
     localStorage.removeItem('fullscreen');
     this.viewEditor.classList.remove('is-fullscreen');
     this.viewEditor.classList.remove('zpl-collapsed');
+    this.viewEditor.classList.remove('fs-rail-collapsed');
     this.viewEditor.removeAttribute('data-fs-active-tab');
     // Restore each <details>' prior open state from when we force-opened
     // them on enter(), so the normal-view accordion behaves as before.

@@ -147,6 +147,35 @@ test.describe('Fullscreen editor', () => {
             await expect(fullscreen.iconRailButton('layers')).toHaveClass(/\bactive\b/);
             await expect(fullscreen.iconRailButton('add')).not.toHaveClass(/\bactive\b/);
         });
+
+        test('clicking the active icon collapses the panel to just the rail; clicking again re-opens', async () => {
+            await fullscreen.enter();
+
+            await fullscreen.iconRailButton('add').click();
+
+            await expect(fullscreen.viewEditor).toHaveClass(/\bfs-rail-collapsed\b/);
+            await expect(fullscreen.elementsCard).not.toBeVisible();
+            await expect(fullscreen.iconRailButton('add')).not.toHaveClass(/\bactive\b/);
+
+            await fullscreen.iconRailButton('add').click();
+
+            await expect(fullscreen.viewEditor).not.toHaveClass(/\bfs-rail-collapsed\b/);
+            await expect(fullscreen.elementsCard).toBeVisible();
+            await expect(fullscreen.iconRailButton('add')).toHaveClass(/\bactive\b/);
+        });
+
+        test('rail collapse is reset on exit and re-enter', async () => {
+            await fullscreen.enter();
+            await fullscreen.iconRailButton('add').click();
+            await expect(fullscreen.viewEditor).toHaveClass(/\bfs-rail-collapsed\b/);
+
+            await fullscreen.exit();
+            await expect(fullscreen.viewEditor).not.toHaveClass(/\bfs-rail-collapsed\b/);
+
+            await fullscreen.enter();
+            await expect(fullscreen.viewEditor).not.toHaveClass(/\bfs-rail-collapsed\b/);
+            await expect(fullscreen.elementsCard).toBeVisible();
+        });
     });
 
     test.describe('ZPL collapse toggle', () => {

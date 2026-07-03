@@ -31,6 +31,13 @@ export function ensureFontLoaded(fontId) {
   return p;
 }
 
+// Resolves once every font load kicked off so far has finished (or failed).
+// Used by tests: capturing the canvas before the bundled FontFaces load would
+// bake the OS fallback font (which differs per platform) into the pixels.
+export function fontsSettled() {
+  return Promise.all(pending.values());
+}
+
 // A barcode's HRI line renders in a font that's independent of the element's own
 // fontId (e.g. EAN/UPC use OCR-B below, font A above). When that line uses a ZPL
 // font (config.font.id), resolve its id so it gets preloaded too. Direct-family
