@@ -10,14 +10,13 @@ export class TemplateManager {
   }
 
   /**
-   * Export template to JSON file download
-   * @param {Array} elements - Array of elements
-   * @param {Object} labelSettings - Label settings
-   * @param {string} filename - Download filename (default: zpl-template.json)
+   * Trigger a browser download of text content
+   * @param {string} filename - Download filename
+   * @param {string} content - File content
+   * @param {string} mimeType - Blob MIME type
    */
-  exportToFile(elements, labelSettings, filename = 'zpl-template.json') {
-    const json = this.serializationService.exportTemplate(elements, labelSettings);
-    const blob = new Blob([json], { type: 'application/json' });
+  downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -26,6 +25,17 @@ export class TemplateManager {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Export template to JSON file download
+   * @param {Array} elements - Array of elements
+   * @param {Object} labelSettings - Label settings
+   * @param {string} filename - Download filename (default: zpl-template.json)
+   */
+  exportToFile(elements, labelSettings, filename = 'zpl-template.json') {
+    const json = this.serializationService.exportTemplate(elements, labelSettings);
+    this.downloadFile(filename, json, 'application/json');
   }
 
   /**

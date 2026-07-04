@@ -28,6 +28,29 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(download.suggestedFilename()).toMatch(/\.json$/);
         });
 
+        test('should download generated ZPL as a .zpl file', async ({ page }) => {
+            await elementsPanel.addTextElement();
+
+            const downloadPromise = page.waitForEvent('download');
+            await zplOutput.downloadZpl();
+            const download = await downloadPromise;
+
+            expect(download.suggestedFilename()).toMatch(/\.zpl$/);
+
+            const tempPath = path.join(__dirname, '../fixtures/temp-download.zpl');
+            await download.saveAs(tempPath);
+            const content = fs.readFileSync(tempPath, 'utf-8');
+            expect(content.startsWith('^XA')).toBe(true);
+            expect(content.trimEnd().endsWith('^XZ')).toBe(true);
+            expect(content).toBe(await zplOutput.getZPLCode());
+            fs.unlinkSync(tempPath);
+        });
+
+        test('should disable Download ZPL when the canvas is empty', async () => {
+            await zplOutput.openMoreActions();
+            await expect(zplOutput.downloadZplBtn).toBeDisabled();
+        });
+
         test('should export valid JSON containing elements array', async ({ page }) => {
             await elementsPanel.addTextElement();
             await elementsPanel.addBarcodeElement();
@@ -643,6 +666,29 @@ test.describe('Import/Export - Template Persistence', () => {
     // its real data shape, generate the production ZPL (which substitutes the
     // %placeholder% the field name carries), parse it back, and assert both the
     // placeholder and the preview value (placeholder name) survive.
+    test.describe('Open ZPL file', () => {
+        test('should import elements from an opened .zpl file', async () => {
+            await zplOutput.openZplFromContent('^XA^FO100,100^GB200,100,2^FS^XZ');
+
+            expect(await elementsPanel.getElementCount()).toBe(1);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^GB200,100,2');
+        });
+
+        test('should confirm before replacing existing work with an opened .zpl file', async () => {
+            await elementsPanel.addTextElement();
+
+            // openZplFromContent detects and accepts the confirm modal itself;
+            // afterwards the opened file must have replaced the text element.
+            await zplOutput.openZplFromContent('^XA^FO50,50^GB300,150,3^FS^XZ');
+
+            expect(await elementsPanel.getElementCount()).toBe(1);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^GB300,150,3');
+            expect(zpl).not.toContain('^A0N');
+        });
+    });
+
     test.describe('ZPL import placeholders', () => {
         const CASES = [
             {

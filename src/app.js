@@ -223,6 +223,9 @@ const exportGalleryConfirmBtn = document.getElementById("export-gallery-confirm-
 const newTemplateBtn = document.getElementById("new-template-btn");
 const importBtn = document.getElementById("import-btn");
 const importFile = document.getElementById("import-file");
+const downloadZplBtn = document.getElementById("download-zpl-btn");
+const openZplBtn = document.getElementById("open-zpl-btn");
+const openZplFile = document.getElementById("open-zpl-file");
 const shareBtn = document.getElementById("share-btn");
 const shareBtnLabel = document.getElementById("share-btn-label");
 const zplMoreBtn = document.getElementById("zpl-more-btn");
@@ -794,6 +797,21 @@ export function initApp() {
     importFile.click();
   });
   importFile.addEventListener("change", handleFileImport);
+  downloadZplBtn.addEventListener("click", () => {
+    closeZPLMoreMenu();
+    downloadZPL();
+  });
+  openZplBtn.addEventListener("click", async () => {
+    closeZPLMoreMenu();
+    if (state.elements.length > 0) {
+      if (await confirmModal.show(
+        "Opening a ZPL file will replace your current work. Continue?"
+      )) openZplFile.click();
+      return;
+    }
+    openZplFile.click();
+  });
+  openZplFile.addEventListener("change", handleOpenZPLFile);
   importZPLBtn.addEventListener("click", async () => {
     closeZPLMoreMenu();
     if (state.elements.length > 0) {
@@ -1972,6 +1990,10 @@ function updateCopyExportUI() {
   exportBtn.classList.toggle('opacity-50', !hasElements);
   exportBtn.classList.toggle('cursor-not-allowed', !hasElements);
 
+  downloadZplBtn.disabled = !hasElements;
+  downloadZplBtn.classList.toggle('opacity-50', !hasElements);
+  downloadZplBtn.classList.toggle('cursor-not-allowed', !hasElements);
+
   exportGalleryBtn.disabled = !hasElements;
   exportGalleryBtn.classList.toggle('opacity-50', !hasElements);
   exportGalleryBtn.classList.toggle('cursor-not-allowed', !hasElements);
@@ -2816,6 +2838,26 @@ function fallbackCopyZPL(text) {
 // Export Template to JSON
 function exportTemplate() {
   templateManager.exportToFile(state.elements, state.labelSettings);
+}
+
+function downloadZPL() {
+  const zpl = zplGenerator.generateZPL(state.elements, state.labelSettings);
+  const name = (currentTemplateMetadata?.name || '')
+    .trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  templateManager.downloadFile(`${name || 'zpl-template'}.zpl`, zpl, 'text/plain');
+}
+
+// Open a .zpl file from disk and route it through the ZPL import modal so
+// parser warnings get the same review UI as pasted ZPL.
+async function handleOpenZPLFile(event) {
+  const file = event.target.files[0];
+  event.target.value = ''; // allow re-picking the same file
+  if (!file) return;
+
+  const text = await file.text();
+  openZPLImportModal();
+  zplImportInput.value = text;
+  handleZPLImport();
 }
 
 function openInLabelary() {

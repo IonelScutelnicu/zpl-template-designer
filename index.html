@@ -1200,6 +1200,12 @@
                 <span>Export JSON</span>
                 <span class="ml-auto text-[10px] font-normal text-slate-400">JSON</span>
               </button>
+              <button id="download-zpl-btn" role="menuitem" disabled data-tooltip="Download generated ZPL as a .zpl file"
+                class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
+                <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">file_download</span>
+                <span>Download ZPL</span>
+                <span class="ml-auto text-[10px] font-normal text-slate-400">ZPL</span>
+              </button>
               <button id="export-gallery-btn" role="menuitem" disabled data-tooltip="Export template for the gallery"
                 class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed inline-flex items-center gap-2">
                 <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">collections</span>
@@ -1211,6 +1217,12 @@
                 class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
                 <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">code</span>
                 <span>Import ZPL</span>
+                <span class="ml-auto text-[10px] font-normal text-slate-400">ZPL</span>
+              </button>
+              <button id="open-zpl-btn" role="menuitem" data-tooltip="Open a .zpl file from disk"
+                class="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors inline-flex items-center gap-2">
+                <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">folder_open</span>
+                <span>Open ZPL file</span>
                 <span class="ml-auto text-[10px] font-normal text-slate-400">ZPL</span>
               </button>
               <button id="import-btn" role="menuitem" data-tooltip="Import template from JSON file"
@@ -1229,6 +1241,7 @@
             </div>
           </div>
           <input type="file" id="import-file" accept=".json" style="display: none" />
+          <input type="file" id="open-zpl-file" accept=".zpl,.txt,.prn" style="display: none" />
           <div class="h-5 w-px bg-slate-200"></div>
           <div class="flex items-center gap-1">
             <button id="theme-toggle-btn" data-tooltip="Toggle dark mode" aria-label="Toggle dark mode"

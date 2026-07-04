@@ -15,6 +15,8 @@ export class ZPLOutput {
     readonly shareBtn: Locator;
     readonly importBtn: Locator;
     readonly importFile: Locator;
+    readonly downloadZplBtn: Locator;
+    readonly openZplBtn: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -27,6 +29,8 @@ export class ZPLOutput {
         this.shareBtn = page.locator('#share-btn');
         this.importBtn = page.locator('#import-btn');
         this.importFile = page.locator('#import-file');
+        this.downloadZplBtn = page.locator('#download-zpl-btn');
+        this.openZplBtn = page.locator('#open-zpl-btn');
     }
 
     async openMoreActions(): Promise<void> {
@@ -122,6 +126,38 @@ export class ZPLOutput {
     async exportTemplate(): Promise<void> {
         await this.openMoreActions();
         await this.exportBtn.click();
+    }
+
+    /**
+     * Download the generated ZPL as a .zpl file
+     * Note: This will trigger a download
+     */
+    async downloadZpl(): Promise<void> {
+        await this.openMoreActions();
+        await this.downloadZplBtn.click();
+    }
+
+    /**
+     * Open ZPL content as a .zpl file via the "Open ZPL file" menu item.
+     * When elements are already on the canvas the in-app ConfirmModal is shown
+     * before the file chooser; this helper handles both cases automatically.
+     */
+    async openZplFromContent(zplContent: string, name = 'label.zpl'): Promise<void> {
+        await this.openMoreActions();
+
+        // Listen before clicking — on an empty canvas the chooser opens
+        // straight from the menu click.
+        const chooserPromise = this.page.waitForEvent('filechooser');
+        await this.openZplBtn.click();
+
+        // With elements on canvas the ConfirmModal appears first; accepting it
+        // opens the chooser.
+        const confirmShown = await this.page.locator('#confirm-modal')
+            .waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false);
+        if (confirmShown) await this.page.locator('#confirm-ok-btn').click();
+
+        const fileChooser = await chooserPromise;
+        await fileChooser.setFiles({ name, mimeType: 'text/plain', buffer: Buffer.from(zplContent) });
     }
 
     /**
