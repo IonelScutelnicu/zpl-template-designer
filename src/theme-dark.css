@@ -200,17 +200,21 @@ html.dark #search-input { background-color: transparent; }
    The WHITE label must stay white and lose its glow/halo.
    ID specificity (1,1,1) beats html.dark .bg-white (0,2,1),
    so these keep their white fill while dropping shadow-lg.
+   The white fill's :not(.bg-transparent) guard defers to the
+   transparency toggle app.js applies to the canvas (e.g. overlay
+   preview mode), which the ID specificity would otherwise beat.
    ============================================================ */
 html.dark #label-canvas,
 html.dark #preview-image,
 html.dark #preview-backing {
-  background-color: #ffffff;
   box-shadow: none;
   border-color: var(--d-border);
 }
 
-html.dark #preview-container[data-mode="overlay"] #label-canvas {
-  background-color: transparent;
+html.dark #label-canvas:not(.bg-transparent),
+html.dark #preview-image,
+html.dark #preview-backing {
+  background-color: #ffffff;
 }
 
 /* The pure-white label reads as too bright/flashy against the dark

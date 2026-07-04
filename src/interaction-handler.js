@@ -57,7 +57,7 @@ export class InteractionHandler {
     this._boundPointerMove = this.handleMouseMove.bind(this);
     this._boundPointerUp = this.handleMouseUp.bind(this);
     this._activeTouchId = null;
-    this._lastTouchPoint = null;
+    this._boundTouchStart = this.handleTouchStart.bind(this);
     this._boundTouchMove = this.handleTouchMove.bind(this);
     this._boundTouchEnd = this.handleTouchEnd.bind(this);
 
@@ -69,17 +69,24 @@ export class InteractionHandler {
     // tracking is active (the same event would otherwise be processed twice).
     this._boundCanvasMove = (e) => { if (!this._pointerTracking) this.handleMouseMove(e); };
     this._boundCanvasUp = (e) => { if (!this._pointerTracking) this.handleMouseUp(e); };
-    this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+    // All handlers are bound once and kept on the instance so destroy() can
+    // detach the exact same references.
+    this._boundMouseDown = this.handleMouseDown.bind(this);
+    this._boundMouseLeave = this.handleMouseLeave.bind(this);
+    this._boundContextMenu = this.handleContextMenu.bind(this);
+    this._boundKeyDown = this.handleKeyDown.bind(this);
+    this._boundKeyUp = this.handleKeyUp.bind(this);
+    this.canvas.addEventListener('mousedown', this._boundMouseDown);
     this.canvas.addEventListener('mousemove', this._boundCanvasMove);
     this.canvas.addEventListener('mouseup', this._boundCanvasUp);
-    this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
-    this.canvas.addEventListener('contextmenu', this.handleContextMenu.bind(this));
-    this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+    this.canvas.addEventListener('mouseleave', this._boundMouseLeave);
+    this.canvas.addEventListener('contextmenu', this._boundContextMenu);
+    this.canvas.addEventListener('touchstart', this._boundTouchStart, { passive: false });
     this.canvas.style.touchAction = 'none';
 
     // Keyboard events (needs to be on document for arrow keys)
-    document.addEventListener('keydown', this.handleKeyDown.bind(this));
-    document.addEventListener('keyup', this.handleKeyUp.bind(this));
+    document.addEventListener('keydown', this._boundKeyDown);
+    document.addEventListener('keyup', this._boundKeyUp);
   }
 
   shouldUseSmartGuides(ctrlKey) {
@@ -166,7 +173,6 @@ export class InteractionHandler {
     window.removeEventListener('touchend', this._boundTouchEnd);
     window.removeEventListener('touchcancel', this._boundTouchEnd);
     this._activeTouchId = null;
-    this._lastTouchPoint = null;
   }
 
   getActiveTouch(touchList) {
@@ -179,9 +185,10 @@ export class InteractionHandler {
   createTouchPointerEvent(touch, sourceEvent) {
     return {
       button: 0,
+      isTouch: true,
       clientX: touch.clientX,
       clientY: touch.clientY,
-      altKey: false,
+      altKey: Boolean(sourceEvent.altKey),
       shiftKey: Boolean(sourceEvent.shiftKey),
       ctrlKey: Boolean(sourceEvent.ctrlKey),
       metaKey: Boolean(sourceEvent.metaKey),
@@ -192,10 +199,12 @@ export class InteractionHandler {
 
   handleTouchStart(e) {
     if (this._activeTouchId !== null || e.changedTouches.length !== 1 || e.touches.length !== 1) return;
+    // A mouse interaction in progress owns the state machine; a stray touch
+    // must not restart it mid-gesture (hybrid touchscreen + mouse devices).
+    if (this._pointerTracking || this.isDragging || this.isResizing || this.isMarquee) return;
 
     const touch = e.changedTouches[0];
     this._activeTouchId = touch.identifier;
-    this._lastTouchPoint = touch;
     this.beginTouchTracking();
     e.preventDefault();
     this.handleMouseDown(this.createTouchPointerEvent(touch, e));
@@ -205,7 +214,6 @@ export class InteractionHandler {
     const touch = this.getActiveTouch(e.touches);
     if (!touch) return;
 
-    this._lastTouchPoint = touch;
     e.preventDefault();
     const pointerEvent = this.createTouchPointerEvent(touch, e);
     if (this.isMarquee) this.handleMarqueeMove(pointerEvent);
@@ -213,27 +221,28 @@ export class InteractionHandler {
   }
 
   handleTouchEnd(e) {
+    if (this._activeTouchId === null) return;
+
+    if (e.type === 'touchcancel') {
+      // Browsers disagree on which touches a cancel lists (some omit the
+      // tracked touch entirely), so key off the surviving touches instead:
+      // bail only if the tracked touch is still alive, otherwise abort the
+      // gesture. Returning early here would strand _activeTouchId and leave
+      // the canvas touch-dead.
+      if (this.getActiveTouch(e.touches)) return;
+      this.cancelActiveInteraction();
+      this.endTouchTracking();
+      return;
+    }
+
     const touch = this.getActiveTouch(e.changedTouches);
-    if (!touch) return;
+    if (!touch) return; // a different finger lifted
 
     e.preventDefault();
-    const finalTouch = touch || this._lastTouchPoint;
-    if (e.type === 'touchcancel') {
-      this.endMarquee(false);
-      this.endPointerTracking();
-      this.isDragging = false;
-      this.isResizing = false;
-      this.resizeHandle = null;
-      this.dragElement = null;
-      this.dragGroup = null;
-      this.dragGroupOriginSpan = null;
-      this.pendingCollapseElement = null;
-      this.canvas.style.cursor = 'default';
-      this.hasNotifiedDragStart = false;
-    } else if (this.isMarquee) {
+    if (this.isMarquee) {
       this.endMarquee(true);
-    } else if (finalTouch) {
-      this.handleMouseUp(this.createTouchPointerEvent(finalTouch, e));
+    } else {
+      this.handleMouseUp(this.createTouchPointerEvent(touch, e));
     }
     this.endTouchTracking();
   }
@@ -242,6 +251,10 @@ export class InteractionHandler {
     // Only left-button starts an element interaction; middle/right are reserved
     // for viewport pan and context menu.
     if (e.button !== 0) return;
+
+    // A real mouse press while a touch gesture owns the interaction would
+    // corrupt its state (hybrid touchscreen + mouse devices).
+    if (!e.isTouch && this._activeTouchId !== null) return;
 
     const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
     this.mouseDownTime = Date.now();
@@ -309,7 +322,9 @@ export class InteractionHandler {
         this.resizeMouseStartX = coords.x;
         this.resizeMouseStartY = coords.y;
 
-        this.beginPointerTracking();
+        // Touch gestures are tracked by the touch listeners; window-level
+        // mouse tracking would let stray mouse events hijack them.
+        if (!e.isTouch) this.beginPointerTracking();
 
         // Set cursor based on handle
         this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -355,7 +370,7 @@ export class InteractionHandler {
         this.dragStartX = element.x;
         this.dragStartY = element.y;
         this.buildDragGroup(element, inMulti);
-        this.beginPointerTracking();
+        if (!e.isTouch) this.beginPointerTracking();
 
         // Update cursor
         this.canvas.style.cursor = 'grab';
@@ -376,9 +391,13 @@ export class InteractionHandler {
         this.callbacks.onElementSelected(null);
       }
       // Track the marquee at the window level so it survives the pointer leaving
-      // the canvas and finalizes on release wherever that happens.
-      window.addEventListener('mousemove', this._boundMarqueeMove);
-      window.addEventListener('mouseup', this._boundMarqueeUp);
+      // the canvas and finalizes on release wherever that happens. A touch
+      // marquee is tracked by the touch listeners instead — mouse listeners
+      // would let stray mouse events move or finalize it mid-gesture.
+      if (!e.isTouch) {
+        window.addEventListener('mousemove', this._boundMarqueeMove);
+        window.addEventListener('mouseup', this._boundMarqueeUp);
+      }
     }
   }
 
@@ -431,6 +450,41 @@ export class InteractionHandler {
     this.marqueeSelection = null;
     this.dragElement = null;
     this.canvas.style.cursor = 'default';
+  }
+
+  /**
+   * Abort whatever interaction is in progress (marquee, drag, or resize),
+   * restoring pre-transform element state via the cancel callbacks. Shared by
+   * the Escape key and touchcancel paths so both cancel identically.
+   */
+  cancelActiveInteraction() {
+    if (this.isMarquee) {
+      this.endMarquee(false);
+      return;
+    }
+
+    this.renderer.clearSmartGuides();
+    if ((this.isDragging || this.isResizing) && this.dragElement) {
+      if (this.isDragging && this.dragGroup && this.dragGroup.length > 1) {
+        if (this.callbacks.onGroupTransformCancel) {
+          this.callbacks.onGroupTransformCancel(this.dragGroup.map(m => m.el));
+        }
+      } else if (this.callbacks.onElementTransformCancel) {
+        this.callbacks.onElementTransformCancel(this.dragElement);
+      }
+    }
+
+    this.endPointerTracking();
+    this.isDragging = false;
+    this.isResizing = false;
+    this.resizeHandle = null;
+    this.dragElement = null;
+    this.dragGroup = null;
+    this.dragGroupOriginSpan = null;
+    this.pendingCollapseElement = null;
+    this._aspectLockBrokenByShift = false;
+    this.canvas.style.cursor = 'default';
+    this.hasNotifiedDragStart = false;
   }
 
   /**
@@ -976,25 +1030,7 @@ export class InteractionHandler {
     // ESC cancels an active drag/resize transform and restores pre-transform state.
     if (e.key === 'Escape' && (this.isDragging || this.isResizing) && this.dragElement) {
       e.preventDefault();
-      this.renderer.clearSmartGuides();
-      if (this.isDragging && this.dragGroup && this.dragGroup.length > 1) {
-        if (this.callbacks.onGroupTransformCancel) {
-          this.callbacks.onGroupTransformCancel(this.dragGroup.map(m => m.el));
-        }
-      } else if (this.callbacks.onElementTransformCancel) {
-        this.callbacks.onElementTransformCancel(this.dragElement);
-      }
-
-      this.endPointerTracking();
-      this.isDragging = false;
-      this.isResizing = false;
-      this.resizeHandle = null;
-      this.dragElement = null;
-      this.dragGroup = null;
-      this.dragGroupOriginSpan = null;
-      this._aspectLockBrokenByShift = false;
-      this.canvas.style.cursor = 'default';
-      this.hasNotifiedDragStart = false;
+      this.cancelActiveInteraction();
       return;
     }
 
@@ -1439,16 +1475,20 @@ export class InteractionHandler {
    * Cleanup event listeners
    */
   destroy() {
-    this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+    this.canvas.removeEventListener('mousedown', this._boundMouseDown);
     this.canvas.removeEventListener('mousemove', this._boundCanvasMove);
     this.canvas.removeEventListener('mouseup', this._boundCanvasUp);
-    this.canvas.removeEventListener('mouseleave', this.handleMouseLeave);
-    document.removeEventListener('keydown', this.handleKeyDown);
-    document.removeEventListener('keyup', this.handleKeyUp);
+    this.canvas.removeEventListener('mouseleave', this._boundMouseLeave);
+    this.canvas.removeEventListener('contextmenu', this._boundContextMenu);
+    this.canvas.removeEventListener('touchstart', this._boundTouchStart);
+    this.canvas.style.touchAction = '';
+    document.removeEventListener('keydown', this._boundKeyDown);
+    document.removeEventListener('keyup', this._boundKeyUp);
     window.removeEventListener('mousemove', this._boundMarqueeMove);
     window.removeEventListener('mouseup', this._boundMarqueeUp);
     window.removeEventListener('mousemove', this._boundPointerMove);
     window.removeEventListener('mouseup', this._boundPointerUp);
+    this.endTouchTracking();
     if (this.keyboardMoveTimer) {
       clearTimeout(this.keyboardMoveTimer);
       this.keyboardMoveTimer = null;

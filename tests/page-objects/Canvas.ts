@@ -280,6 +280,72 @@ export class Canvas {
             (window as unknown as { appState: { getHistoryEntries: () => unknown[] } }).appState.getHistoryEntries().length);
     }
 
+    // ===== Touch helpers (synthesized TouchEvents; desktop Playwright has no native touch) =====
+
+    /**
+     * Dispatch a synthesized single-finger touch gesture at label coordinates
+     * (dots). The whole gesture runs in one evaluate, and each event converts
+     * label→client coordinates at dispatch time (the exact inverse of
+     * CanvasRenderer.mouseToLabelCoords, including CSS display scaling), so
+     * mid-gesture layout shifts can't skew the coordinates.
+     * touches/targetTouches are empty for end/cancel (the finger is gone);
+     * changedTouches always carries the finger, matching browser semantics.
+     */
+    private async dispatchTouchGesture(
+        events: Array<{ type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel'; labelX: number; labelY: number }>
+    ): Promise<void> {
+        await this.canvas.evaluate((el, events) => {
+            const canvas = el as HTMLCanvasElement;
+            const renderer = (window as unknown as { canvasRenderer?: { scale: number } }).canvasRenderer;
+            const zoom = renderer?.scale || 1;
+            for (const { type, labelX, labelY } of events) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = rect.left + labelX * zoom * (rect.width / canvas.width);
+                const clientY = rect.top + labelY * zoom * (rect.height / canvas.height);
+                const touch = { identifier: 1, target: canvas, clientX, clientY };
+                const ended = type === 'touchend' || type === 'touchcancel';
+                const event = new Event(type, { bubbles: true, cancelable: true });
+                Object.defineProperties(event, {
+                    touches: { value: ended ? [] : [touch] },
+                    targetTouches: { value: ended ? [] : [touch] },
+                    changedTouches: { value: [touch] },
+                });
+                canvas.dispatchEvent(event);
+            }
+        }, events);
+    }
+
+    /** Tap at label coordinates using synthesized touch events. */
+    async touchTapAtLabelCoords(labelX: number, labelY: number): Promise<void> {
+        await this.dispatchTouchGesture([
+            { type: 'touchstart', labelX, labelY },
+            { type: 'touchend', labelX, labelY },
+        ]);
+    }
+
+    /**
+     * Drag between label coordinates using synthesized touch events. Pass
+     * cancel=true to end the gesture with touchcancel instead of touchend
+     * (as when the OS interrupts the touch).
+     */
+    async touchDragLabelCoords(fromX: number, fromY: number, toX: number, toY: number, cancel = false): Promise<void> {
+        await this.dispatchTouchGesture([
+            { type: 'touchstart', labelX: fromX, labelY: fromY },
+            { type: 'touchmove', labelX: toX, labelY: toY },
+            { type: cancel ? 'touchcancel' : 'touchend', labelX: toX, labelY: toY },
+        ]);
+    }
+
+    /** Geometry of an element in appState by index (reads window.appState). */
+    async getElementGeometry(index = 0): Promise<{ x: number; y: number; width: number; height: number }> {
+        return await this.page.evaluate((i) => {
+            const el = (window as unknown as {
+                appState: { elements: Array<{ x: number; y: number; width: number; height: number }> }
+            }).appState.elements[i];
+            return { x: el.x, y: el.y, width: el.width, height: el.height };
+        }, index);
+    }
+
     /**
      * Drag using label coordinates
      */
