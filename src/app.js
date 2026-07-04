@@ -17,6 +17,7 @@ import { TooltipManager } from './ui/TooltipManager.js';
 import { WarningParser } from './services/WarningParser.js';
 import { WarningsPanelRenderer } from './ui/WarningsPanelRenderer.js';
 import { highlightZPL } from './utils/zpl-highlighter.js';
+import { mmToInch, inchToMm } from './utils/units.js';
 import { ZPLParser } from './services/ZPLParser.js';
 import { UrlShareService } from './services/UrlShareService.js';
 import { SmartGuideService } from './services/SmartGuideService.js';
@@ -144,6 +145,15 @@ const warningsPanelRenderer = new WarningsPanelRenderer(
 // Export state for use in other modules
 export { state };
 
+// Label dimension unit preference (display/entry only — state stays mm)
+const LABEL_UNIT_KEY = 'zebra-label-unit';
+let labelUnit = 'mm';
+try {
+  if (localStorage.getItem(LABEL_UNIT_KEY) === 'in') labelUnit = 'in';
+} catch {
+  // localStorage unavailable — keep mm default
+}
+
 // Section State Management with localStorage
 const SECTION_STATE_KEY = 'zebra-sections-state';
 
@@ -243,6 +253,10 @@ const zplImportCancelBtn = document.getElementById("zpl-import-cancel-btn");
 const zplImportConfirmBtn = document.getElementById("zpl-import-confirm-btn");
 const labelWidth = document.getElementById("label-width");
 const labelHeight = document.getElementById("label-height");
+const labelWidthLabel = document.getElementById("label-width-label");
+const labelHeightLabel = document.getElementById("label-height-label");
+const labelUnitMmBtn = document.getElementById("label-unit-mm");
+const labelUnitInBtn = document.getElementById("label-unit-in");
 const labelDpmm = document.getElementById("label-dpmm");
 const homeX = document.getElementById("home-x");
 const homeY = document.getElementById("home-y");
@@ -927,15 +941,18 @@ export function initApp() {
   });
 
   // Label settings event listeners
+  labelUnitMmBtn.addEventListener("click", () => setLabelUnit('mm'));
+  labelUnitInBtn.addEventListener("click", () => setLabelUnit('in'));
+
   labelWidth.addEventListener("input", (e) => {
-    state.updateLabelSettings({ width: parseFloat(e.target.value) || 100 });
+    state.updateLabelSettings({ width: parseLabelDimensionMm(e.target.value, 100) });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
   labelHeight.addEventListener("input", (e) => {
-    state.updateLabelSettings({ height: parseFloat(e.target.value) || 50 });
+    state.updateLabelSettings({ height: parseLabelDimensionMm(e.target.value, 50) });
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
@@ -1270,6 +1287,8 @@ export function initApp() {
 
   // Initialize functionality
   setPreviewMode('canvas');
+  // Convert the static mm defaults in the inputs when the persisted unit is inches.
+  refreshLabelDimensionInputs();
 
   updateZPLOutput();
   renderCanvasPreview();
@@ -1733,9 +1752,67 @@ function serializeAppState() {
   return state.serialize();
 }
 
+/**
+ * Render the width/height inputs, their labels, and the unit toggle from
+ * state + the current display unit. State is always mm; only display/entry
+ * converts, so toggling units never drifts the stored value.
+ */
+function refreshLabelDimensionInputs() {
+  const isInch = labelUnit === 'in';
+
+  const min = isInch ? 0.39 : 10;
+  const max = isInch ? 15 : 381;
+  const step = isInch ? 0.01 : 0.1;
+  [labelWidth, labelHeight].forEach((input) => {
+    input.min = min;
+    input.max = max;
+    input.step = step;
+  });
+
+  labelWidth.value = isInch ? +mmToInch(state.labelSettings.width).toFixed(2) : state.labelSettings.width;
+  labelHeight.value = isInch ? +mmToInch(state.labelSettings.height).toFixed(2) : state.labelSettings.height;
+  labelWidthLabel.textContent = `Width (${labelUnit})`;
+  labelHeightLabel.textContent = `Height (${labelUnit})`;
+
+  const activeClass = ["bg-white", "text-slate-700", "shadow-sm"];
+  const inactiveClass = ["text-slate-500", "hover:text-slate-700"];
+  [[labelUnitMmBtn, 'mm'], [labelUnitInBtn, 'in']].forEach(([button, unit]) => {
+    const isActive = unit === labelUnit;
+    activeClass.forEach(c => button.classList.toggle(c, isActive));
+    inactiveClass.forEach(c => button.classList.toggle(c, !isActive));
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+}
+
+function setLabelUnit(unit) {
+  if (unit === labelUnit) return;
+  labelUnit = unit;
+  try {
+    localStorage.setItem(LABEL_UNIT_KEY, unit);
+  } catch {
+    // localStorage unavailable — preference lasts for this session only
+  }
+  // A pure display toggle: state mm is untouched, so no ZPL update, no
+  // re-render, and no history entry.
+  refreshLabelDimensionInputs();
+}
+
+/**
+ * Parse a width/height input value into mm. In inch mode the value converts
+ * and clamps to the label's mm range; in mm mode behavior is unchanged
+ * (no clamping, NaN falls back).
+ */
+function parseLabelDimensionMm(rawValue, fallbackMm) {
+  const parsed = parseFloat(rawValue);
+  // Falsy (NaN or 0) falls back, matching the original
+  // `parseFloat(value) || 100` semantics of the mm inputs.
+  if (!parsed) return fallbackMm;
+  if (labelUnit !== 'in') return parsed;
+  return Math.min(381, Math.max(10, Math.round(inchToMm(parsed) * 10) / 10));
+}
+
 function syncLabelSettingsInputs() {
-  labelWidth.value = state.labelSettings.width;
-  labelHeight.value = state.labelSettings.height;
+  refreshLabelDimensionInputs();
   labelDpmm.value = state.labelSettings.dpmm;
   homeX.value = state.labelSettings.homeX;
   homeY.value = state.labelSettings.homeY;
