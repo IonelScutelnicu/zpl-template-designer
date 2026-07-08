@@ -12,7 +12,7 @@ import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbo
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
-  'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'FX',
+  'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'GS', 'FX',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
   'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BR', 'BS', 'BT', 'BU', 'BX', 'BZ'
@@ -555,6 +555,10 @@ export class ZPLParser {
 
     if (hasCommand('GD')) {
       return this._parseDiagonalLine(group, getCommand('GD'), hasCommand('FR'));
+    }
+
+    if (hasCommand('GS')) {
+      return this._parseGraphicSymbol(group, getCommand('GS'), getCommand('FD'), fhToken, hasCommand('FR'), state);
     }
 
     if (hasCommand('GB')) {
@@ -1260,6 +1264,63 @@ export class ZPLParser {
       height: parseInt(parts[1]) || 3,
       thickness: parseInt(parts[2]) || 1,
       color: (parts[3] || 'B').trim(),
+      orientation,
+      reverse: hasReverse
+    };
+  }
+
+  /**
+   * Parse GRAPHICSYMBOL from ^GS command (^GSo,h,w^FDsymbol^FS).
+   * o = N/R/I/B (default N); h/w = 0–32000 dots, defaulting to the last ^CF
+   * font size (resolved to concrete dots at import time). The ^FD payload
+   * selects the symbol: A ® | B © | C ™ | D UL mark | E CSA mark. The printer
+   * renders every ^FD character side by side, but the editor models a single
+   * symbol per element, so extra characters are dropped with a warning.
+   */
+  _parseGraphicSymbol(group, gsToken, fdToken, fhToken, hasReverse, state) {
+    const parts = (gsToken.params || '').split(',');
+    const orientation = normalizeBarcodeOrientation(parts[0]);
+
+    const clampSymbolDim = (value, fallback) => {
+      const n = parseInt(value);
+      if (!Number.isFinite(n) || n <= 0) return fallback;
+      return Math.min(32000, Math.max(1, n));
+    };
+    const height = clampSymbolDim(parts[1], state.defaultFont.height);
+    const width = clampSymbolDim(parts[2], state.defaultFont.width || state.defaultFont.height);
+
+    // ^FH hex escapes apply to ^GS field data like any other field
+    // (verified against Labelary: ^FH…^FD_42 renders ©).
+    const raw = (fdToken ? this._decodeFieldDataToken(fdToken, fhToken) : '').trim();
+    const first = raw.charAt(0).toUpperCase();
+    let symbol = 'A';
+    if ('ABCDE'.includes(first) && first) {
+      symbol = first;
+    } else if (raw) {
+      state.warnings.push({
+        command: '^GS',
+        message: `Unsupported ^GS symbol "${raw.charAt(0)}" was replaced with A (®) — valid values are A–E`
+      });
+    } else {
+      state.warnings.push({
+        command: '^GS',
+        message: '^GS field had no ^FD symbol data — defaulted to A (®)'
+      });
+    }
+    if (raw.length > 1) {
+      state.warnings.push({
+        command: '^GS',
+        message: `^GS supports a single symbol per element; extra characters "${raw.slice(1)}" were dropped`
+      });
+    }
+
+    return {
+      type: 'GRAPHICSYMBOL',
+      x: group.x,
+      y: group.y,
+      symbol,
+      height,
+      width,
       orientation,
       reverse: hasReverse
     };

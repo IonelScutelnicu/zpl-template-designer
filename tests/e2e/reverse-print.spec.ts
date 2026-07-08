@@ -35,6 +35,7 @@ const elementSpecs: ElementSpec[] = [
     { type: 'DIAGONALLINE', add: p => p.addDiagonalLineElement(), foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GD' },
     { type: 'CIRCLE',     add: p => p.addCircleElement(),    foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GC' },
     { type: 'GRAPHIC',    add: p => p.addGraphicElement(png),foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GFA' },
+    { type: 'GRAPHICSYMBOL', add: p => p.addGraphicSymbolElement(), foPrefix: /\^FO\d+,\d+/, primaryCmd: '^GS' },
 ];
 
 function escapeRegex(s: string): string {

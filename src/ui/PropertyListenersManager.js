@@ -85,6 +85,9 @@ export class PropertyListenersManager {
       case "GRAPHIC":
         this.attachGraphicProperties(element);
         break;
+      case "GRAPHICSYMBOL":
+        this.attachGraphicSymbolProperties(element, attach);
+        break;
     }
 
     // Attach section toggle listeners for state persistence
@@ -445,6 +448,17 @@ export class PropertyListenersManager {
     attach("prop-orientation", "orientation");
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
+    this._attachReverseToggle(element);
+  }
+
+  /**
+   * Attach GRAPHICSYMBOL (^GS) element property listeners
+   */
+  attachGraphicSymbolProperties(element, attach) {
+    attach("prop-symbol", "symbol");
+    attach("prop-height", "height", (v) => Math.min(32000, Math.max(1, parseInt(v) || 100)));
+    attach("prop-width", "width", (v) => Math.min(32000, Math.max(1, parseInt(v) || 100)));
+    this._attachOrientationButtons(element);
     this._attachReverseToggle(element);
   }
 

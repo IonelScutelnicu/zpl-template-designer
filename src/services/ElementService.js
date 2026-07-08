@@ -11,6 +11,7 @@ import { DiagonalLineElement } from '../elements/DiagonalLineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
+import { GraphicSymbolElement } from '../elements/GraphicSymbolElement.js';
 import { getElementBoundsResolved } from '../utils/geometry.js';
 import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
 
@@ -200,6 +201,17 @@ export class ElementService {
         );
         break;
 
+      case 'GRAPHICSYMBOL':
+        element = new GraphicSymbolElement(
+          x, y,
+          props.symbol || 'A',
+          props.height || 100,
+          props.width || 100,
+          props.orientation || 'N',
+          props.reverse || false
+        );
+        break;
+
       case 'GRAPHIC':
         element = new GraphicFieldElement(x, y, {
           sourceDataUrl: props.sourceDataUrl || null,
@@ -228,7 +240,7 @@ export class ElementService {
     // Notify callbacks
     this.callbacks.onElementsChanged();
     this.callbacks.onPushHistory(
-      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type === 'TEXTBLOCK' ? 'Text Block' : type === 'GRAPHIC' ? 'Graphic Field' : type.charAt(0) + type.slice(1).toLowerCase()}`,
+      `Added ${type === 'QRCODE' ? 'QR Code' : type === 'FIELDBLOCK' ? 'Field Block' : type === 'TEXTBLOCK' ? 'Text Block' : type === 'GRAPHIC' ? 'Graphic Field' : type === 'GRAPHICSYMBOL' ? 'Graphic Symbol' : type.charAt(0) + type.slice(1).toLowerCase()}`,
       { kind: 'add', detail: element.getDisplayName() }
     );
 

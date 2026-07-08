@@ -207,6 +207,38 @@ test.describe('Elements - Add, Select, Delete', () => {
         });
     });
 
+    // ============== GRAPHIC SYMBOL ELEMENT ==============
+    test.describe('Graphic Symbol Element', () => {
+        test('should add a Graphic Symbol element when clicking Add Symbol button', async () => {
+            await elementsPanel.addGraphicSymbolElement();
+            expect(await elementsPanel.getElementCount()).toBe(1);
+        });
+
+        test('should select Graphic Symbol element and show properties panel', async () => {
+            await elementsPanel.addGraphicSymbolElement();
+            await elementsPanel.selectElementByIndex(0);
+            expect(await propertiesPanel.hasNoElementSelected()).toBe(false);
+        });
+
+        test('should delete Graphic Symbol element via UI delete button', async () => {
+            await elementsPanel.addGraphicSymbolElement();
+            await elementsPanel.deleteElementByIndex(0);
+            expect(await elementsPanel.getElementCount()).toBe(0);
+        });
+
+        test('should delete Graphic Symbol element via Delete key', async ({ page }) => {
+            await elementsPanel.addGraphicSymbolElement();
+            await elementsPanel.selectElementByIndex(0);
+            await page.keyboard.press('Delete');
+            expect(await elementsPanel.getElementCount()).toBe(0);
+        });
+
+        test('should generate ZPL containing ^GS command for Graphic Symbol element', async () => {
+            await elementsPanel.addGraphicSymbolElement();
+            await zplOutput.verifyZPLContains('^GS');
+        });
+    });
+
     // ============== LINE ELEMENT ==============
     test.describe('Line Element', () => {
         test('should add a Line element when clicking Add Line button', async () => {

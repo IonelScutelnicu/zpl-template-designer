@@ -13,6 +13,7 @@ import { DiagonalLineRenderer } from './rendering/DiagonalLineRenderer.js';
 import { CircleRenderer } from './rendering/CircleRenderer.js';
 import { TextBlockRenderer } from './rendering/TextBlockRenderer.js';
 import { GraphicFieldRenderer } from './rendering/GraphicFieldRenderer.js';
+import { GraphicSymbolRenderer } from './rendering/GraphicSymbolRenderer.js';
 import { prefetchFontsForElements } from './utils/fontLoader.js';
 
 export class CanvasRenderer {
@@ -45,7 +46,8 @@ export class CanvasRenderer {
       LINE: new LineRenderer(),
       DIAGONALLINE: new DiagonalLineRenderer(),
       CIRCLE: new CircleRenderer(),
-      GRAPHIC: new GraphicFieldRenderer()
+      GRAPHIC: new GraphicFieldRenderer(),
+      GRAPHICSYMBOL: new GraphicSymbolRenderer()
     };
   }
 
@@ -482,8 +484,8 @@ export class CanvasRenderer {
       this.ctx.restore();
     };
 
-    // For BOX, LINE, BARCODE, CIRCLE, and DIAGONALLINE elements, show all 8 handles (4 corners + 4 edges)
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'DIAGONALLINE') {
+    // For BOX, LINE, BARCODE, CIRCLE, DIAGONALLINE, and GRAPHICSYMBOL elements, show all 8 handles (4 corners + 4 edges)
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'DIAGONALLINE' || element.type === 'GRAPHICSYMBOL') {
       // Corner handles
       drawHandle(x, y); // Top-left
       drawHandle(x + width, y); // Top-right

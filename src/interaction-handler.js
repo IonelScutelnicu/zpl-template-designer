@@ -5,6 +5,7 @@ import { getBarcodeGeometry, matrixModuleDots, linearFallbackModules, BARCODE_2D
 import { LINE_HEIGHT_RATIO, clampNumber } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
+import { GRAPHIC_SYMBOL_INK_RATIOS } from './elements/GraphicSymbolElement.js';
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -266,7 +267,7 @@ export class InteractionHandler {
     // (group resize is out of scope; handles aren't drawn for multi-selections).
     const selectedElement = this.callbacks.getSelectedElement();
     const selectionList = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : (selectedElement ? [selectedElement] : []);
-    if (selectionList.length === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
+    if (selectionList.length === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC' || selectedElement.type === 'GRAPHICSYMBOL')) {
       const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
       if (handle) {
         if (selectedElement.locked) return;
@@ -293,6 +294,16 @@ export class InteractionHandler {
           const graphicRotated90 = selectedElement.orientation === 'R' || selectedElement.orientation === 'B';
           this.resizeStartWidth = graphicRotated90 ? selectedElement.heightDots : selectedElement.widthDots;
           this.resizeStartHeight = graphicRotated90 ? selectedElement.widthDots : selectedElement.heightDots;
+        } else if (selectedElement.type === 'GRAPHICSYMBOL') {
+          // The handles wrap the visible ink (getBounds), not the ^GS command
+          // box, so the whole resize basis lives in ink coordinates — origin
+          // included, since for R/I/B the ink sits at a size-dependent offset
+          // from ^FO. Write-back converts both back to stored dims/origin.
+          const bounds = selectedElement.getBounds();
+          this.resizeStartX = bounds.x;
+          this.resizeStartY = bounds.y;
+          this.resizeStartWidth = bounds.width;
+          this.resizeStartHeight = bounds.height;
         } else if (selectedElement.type === 'TEXT') {
           const resolvedFontId = selectedElement.fontId || this.labelSettings?.fontId || '0';
           this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 20;
@@ -653,7 +664,7 @@ export class InteractionHandler {
         this.dragElement.fontWidth = snapped.width;
         this.syncSmartGuidesForResize(e.ctrlKey);
         this.callbacks.onElementDragging(this.dragElement);
-      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'DIAGONALLINE' || this.dragElement.type === 'GRAPHIC') {
+      } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'DIAGONALLINE' || this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'GRAPHICSYMBOL') {
         // Calculate mouse delta from resize start
         const dx = coords.x - this.resizeMouseStartX;
         const dy = coords.y - this.resizeMouseStartY;
@@ -794,6 +805,23 @@ export class InteractionHandler {
         if (this.dragElement.type === 'BOX' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'DIAGONALLINE') {
           this.dragElement.width = Math.round(newWidth);
           this.dragElement.height = Math.round(newHeight);
+        } else if (this.dragElement.type === 'GRAPHICSYMBOL') {
+          // newWidth/newHeight are visible-ink dims (bounds-based capture).
+          // For R/B orientations the glyph is drawn rotated 90°, so the visual
+          // axes swap; then convert ink size back to ^GS command-box dims.
+          const ratio = GRAPHIC_SYMBOL_INK_RATIOS[this.dragElement.symbol] || GRAPHIC_SYMBOL_INK_RATIOS.A;
+          const symbolRotated90 = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+          const inkW = symbolRotated90 ? newHeight : newWidth;
+          const inkH = symbolRotated90 ? newWidth : newHeight;
+          this.dragElement.width = Math.max(1, Math.round(inkW / ratio.w));
+          this.dragElement.height = Math.max(1, Math.round(inkH / ratio.h));
+          // newX/newY are ink coords too (the resize basis is getBounds).
+          // Shift back to the ^FO origin: for R/I/B the ink sits at an
+          // offset that depends on the new quantized size, so anchoring an
+          // ink edge means the stored origin moves to compensate.
+          const inkOffset = this.dragElement.getBounds();
+          this.dragElement.x = Math.max(0, Math.round(newX - (inkOffset.x - this.dragElement.x)));
+          this.dragElement.y = Math.max(0, Math.round(newY - (inkOffset.y - this.dragElement.y)));
         } else if (this.dragElement.type === 'LINE') {
           if (this.dragElement.orientation === 'H') {
             this.dragElement.width = Math.round(newWidth);
@@ -905,7 +933,7 @@ export class InteractionHandler {
       // Update cursor based on hover
       const selectedElement = this.callbacks.getSelectedElement();
       const selCount = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements().length : (selectedElement ? 1 : 0);
-      if (selCount === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC')) {
+      if (selCount === 1 && selectedElement && (selectedElement.type === 'FIELDBLOCK' || selectedElement.type === 'TEXTBLOCK' || selectedElement.type === 'BOX' || selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE' || selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE' || selectedElement.type === 'TEXT' || selectedElement.type === 'GRAPHIC' || selectedElement.type === 'GRAPHICSYMBOL')) {
         const handle = this.getHandleAtPosition(coords.x, coords.y, selectedElement);
         if (handle) {
           this.canvas.style.cursor = this.getCursorForHandle(handle);
@@ -1399,8 +1427,8 @@ export class InteractionHandler {
       return null;
     }
 
-    // For BOX, LINE, BARCODE, CIRCLE, DIAGONALLINE, and editable GRAPHIC elements, check all 8 handles
-    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'DIAGONALLINE' || element.type === 'GRAPHIC') {
+    // For BOX, LINE, BARCODE, CIRCLE, DIAGONALLINE, GRAPHICSYMBOL, and editable GRAPHIC elements, check all 8 handles
+    if (element.type === 'BOX' || element.type === 'LINE' || element.type === 'BARCODE' || element.type === 'CIRCLE' || element.type === 'DIAGONALLINE' || element.type === 'GRAPHIC' || element.type === 'GRAPHICSYMBOL') {
       // Corner handles (check these first as they have priority)
       // Top-left
       if (x >= bx - hsHalf && x <= bx + hsHalf && y >= by - hsHalf && y <= by + hsHalf) {

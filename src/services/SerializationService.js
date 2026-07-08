@@ -11,6 +11,7 @@ import { DiagonalLineElement } from '../elements/DiagonalLineElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
+import { GraphicSymbolElement } from '../elements/GraphicSymbolElement.js';
 import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 
 /**
@@ -193,6 +194,18 @@ export class SerializationService {
         );
         break;
 
+      case 'GRAPHICSYMBOL':
+        element = new GraphicSymbolElement(
+          data.x,
+          data.y,
+          data.symbol,
+          data.height,
+          data.width,
+          data.orientation,
+          data.reverse
+        );
+        break;
+
       case 'GRAPHIC': {
         let bytes = null;
         if (data.bytes instanceof Uint8Array) {
@@ -311,7 +324,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'DIAGONALLINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC'];
+    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'DIAGONALLINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC', 'GRAPHICSYMBOL'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {

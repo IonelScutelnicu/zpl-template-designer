@@ -194,7 +194,8 @@ export class PropertiesPanelRenderer {
       DIAGONALLINE: () => this.renderDiagonalLineProperties(element),
       FIELDBLOCK: () => this.renderFieldBlockProperties(element),
       CIRCLE: () => this.renderCircleProperties(element),
-      GRAPHIC: () => this.renderGraphicProperties(element)
+      GRAPHIC: () => this.renderGraphicProperties(element),
+      GRAPHICSYMBOL: () => this.renderGraphicSymbolProperties(element)
     };
 
     const renderer = renderers[element.type];
@@ -835,6 +836,34 @@ export class PropertiesPanelRenderer {
           ${this.renderReversePrintRow(element)}
         </div>
       `, { open: true, elementType: element.type })}
+    `;
+  }
+
+  /**
+   * Render GRAPHICSYMBOL (^GS) element properties
+   */
+  renderGraphicSymbolProperties(element) {
+    return `
+      ${this.renderAlignmentControls(element)}
+      ${this.renderSection("Symbol", `
+        ${this.createSelectGroup("Symbol", "prop-symbol", element.symbol, [
+          ['A', '® Registered trademark'],
+          ['B', '© Copyright'],
+          ['C', '™ Trademark'],
+          ['D', 'UL approval mark'],
+          ['E', 'CSA approval mark']
+        ])}
+      `, { open: true, elementType: element.type })}
+      ${this.renderSection("Position &amp; Size", `
+        <div class="grid grid-cols-2 gap-3">
+          ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
+          ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
+          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
+        </div>
+        ${this.renderOrientationButtons(element.orientation || 'N')}
+      `, { elementType: element.type })}
+      ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
   }
 

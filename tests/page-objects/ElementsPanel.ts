@@ -81,6 +81,10 @@ export class ElementsPanel {
         await this.page.locator('#add-diagonalline-btn').click();
     }
 
+    async addGraphicSymbolElement(): Promise<void> {
+        await this.page.locator('#add-graphicsymbol-btn').click();
+    }
+
     /**
      * Add a Graphic Field (^GF) element by feeding a PNG buffer through the
      * hidden file input, bypassing the OS file picker.

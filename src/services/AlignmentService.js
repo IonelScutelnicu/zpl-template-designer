@@ -288,6 +288,15 @@ export class AlignmentService {
         // visible bounds fill the label width exactly.
         element.width = Math.max(1, labelSize.width - element.thickness);
         break;
+
+      case 'GRAPHICSYMBOL':
+        // R/B orientations swap the visual box, so the stored height spans the label width
+        if (this._isRotated(element)) {
+          element.height = labelSize.width;
+        } else {
+          element.width = labelSize.width;
+        }
+        break;
     }
   }
 
@@ -350,6 +359,14 @@ export class AlignmentService {
 
       case 'DIAGONALLINE':
         element.height = labelSize.height;
+        break;
+
+      case 'GRAPHICSYMBOL':
+        if (this._isRotated(element)) {
+          element.width = labelSize.height;
+        } else {
+          element.height = labelSize.height;
+        }
         break;
     }
   }

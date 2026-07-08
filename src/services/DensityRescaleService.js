@@ -133,6 +133,10 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         el.height = scaleDim(el.height, s);
         el.thickness = scaleDim(el.thickness, s);
         break;
+      case 'GRAPHICSYMBOL':
+        el.width = scaleDim(el.width, s);
+        el.height = scaleDim(el.height, s);
+        break;
       case 'CIRCLE':
         el.width = scaleDim(el.width, s);
         el.height = scaleDim(el.height, s);

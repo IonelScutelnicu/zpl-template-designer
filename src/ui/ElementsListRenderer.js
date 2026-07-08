@@ -12,6 +12,7 @@ export class ElementsListRenderer {
     if ((element.type === 'BARCODE' || element.type === 'QRCODE') && element.symbology) {
       return SYMBOLOGY_LABELS[element.symbology] || element.type;
     }
+    if (element.type === 'GRAPHICSYMBOL') return 'SYMBOL';
     return element.type;
   }
   /**

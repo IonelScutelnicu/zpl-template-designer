@@ -207,6 +207,7 @@ const addBoxBtn = document.getElementById("add-box-btn");
 const addFieldBlockBtn = document.getElementById("add-fieldblock-btn");
 const addLineBtn = document.getElementById("add-line-btn");
 const addDiagonalLineBtn = document.getElementById("add-diagonalline-btn");
+const addGraphicSymbolBtn = document.getElementById("add-graphicsymbol-btn");
 const addCircleBtn = document.getElementById("add-circle-btn");
 const addGraphicBtn = document.getElementById("add-graphic-btn");
 const addGraphicFileInput = document.getElementById("add-graphic-file-input");
@@ -751,6 +752,7 @@ export function initApp() {
   addFieldBlockBtn.addEventListener("click", addFieldBlockElement);
   addLineBtn.addEventListener("click", addLineElement);
   addDiagonalLineBtn.addEventListener("click", addDiagonalLineElement);
+  addGraphicSymbolBtn.addEventListener("click", addGraphicSymbolElement);
   addCircleBtn.addEventListener("click", addCircleElement);
   addGraphicBtn.addEventListener("click", () => addGraphicFileInput.click());
   addGraphicFileInput.addEventListener("change", handleGraphicFileSelected);
@@ -2339,6 +2341,10 @@ function addLineElement() {
   elementService.createElement('LINE', { width: 200, thickness: 3, orientation: 'H' });
 }
 
+function addGraphicSymbolElement() {
+  elementService.createElement('GRAPHICSYMBOL', { symbol: 'A', height: 100, width: 100, orientation: 'N' });
+}
+
 function addDiagonalLineElement() {
   elementService.createElement('DIAGONALLINE', { width: 150, height: 100, thickness: 3, color: 'B', orientation: 'R' });
 }
@@ -2513,6 +2519,7 @@ const ZPL_DOC_MAP = {
   DIAGONALLINE: { command: '^GD', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gd.html' },
   CIRCLE: { command: '^GE', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-ge.html' },
   GRAPHIC: { command: '^GF', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gf.html' },
+  GRAPHICSYMBOL: { command: '^GS', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gs.html' },
 };
 
 // A locked Circle exports ^GC; an unlocked Ellipse exports ^GE (see ADR 0004),

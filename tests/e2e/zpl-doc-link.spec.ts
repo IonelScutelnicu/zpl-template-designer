@@ -11,6 +11,7 @@ const ZPL_DOC_EXPECTED: Record<string, { command: string; url: string }> = {
   DIAGONALLINE: { command: '^GD', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gd.html' },
   // New circles are aspect-locked → Circle → ^GC. Unlocking gives ^GE (see below).
   CIRCLE: { command: '^GC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gc.html' },
+  GRAPHICSYMBOL: { command: '^GS', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gs.html' },
 };
 
 type AddMethod = keyof ElementsPanel & `add${string}Element`;
@@ -24,6 +25,7 @@ const ELEMENT_ADDERS: Record<string, AddMethod> = {
   LINE: 'addLineElement',
   DIAGONALLINE: 'addDiagonalLineElement',
   CIRCLE: 'addCircleElement',
+  GRAPHICSYMBOL: 'addGraphicSymbolElement',
 };
 
 test.describe('ZPL Documentation Link', () => {

@@ -326,4 +326,191 @@ test.describe('Visual Parity - Canvas vs API', () => {
             expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(10);
         });
     }
+
+    // ^GS graphic symbols: each of the five symbols must land at the same spot
+    // and roughly the same size as the Labelary render. The canvas glyphs are
+    // vector approximations, so pixel diff is loose; the bounds check is the
+    // real assertion. 'C' (™) is sparse ink that doesn't fill the command box,
+    // so it only checks position.
+    const GS_SYMBOLS = ['A', 'B', 'C', 'D', 'E'] as const;
+
+    for (const symbol of GS_SYMBOLS) {
+        test(`should have matching ^GS symbol ${symbol} bounding box between canvas and API`, async ({ page }) => {
+            // Label is 100mm x 50mm at 8dpmm = 800 x 400 dots
+            const labelWidthDots = 800;
+            const labelHeightDots = 400;
+
+            await elementsPanel.addGraphicSymbolElement();
+            await elementsPanel.selectElementByIndex(0);
+            await propertiesPanel.setSelectValue('prop-symbol', symbol);
+
+            await page.locator('#prop-x').fill('50');
+            await page.locator('#prop-x').dispatchEvent('input');
+            await page.locator('#prop-y').fill('50');
+            await page.locator('#prop-y').dispatchEvent('input');
+            await page.locator('#prop-height').fill('150');
+            await page.locator('#prop-height').dispatchEvent('input');
+            await page.locator('#prop-width').fill('150');
+            await page.locator('#prop-width').dispatchEvent('input');
+
+            await canvas.waitForReady();
+            const canvasImage = await canvas.takeFullResolutionScreenshot();
+
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+            const canvasBounds = findContentBounds(canvasImage);
+            const apiBounds = findContentBounds(apiImage);
+            const canvasDims = getImageDimensions(canvasImage);
+            const apiDims = getImageDimensions(apiImage);
+
+            const canvasDots = {
+                left: canvasBounds.left * labelWidthDots / canvasDims.width,
+                top: canvasBounds.top * labelHeightDots / canvasDims.height,
+                width: canvasBounds.width * labelWidthDots / canvasDims.width,
+                height: canvasBounds.height * labelHeightDots / canvasDims.height,
+            };
+            const apiDots = {
+                left: apiBounds.left * labelWidthDots / apiDims.width,
+                top: apiBounds.top * labelHeightDots / apiDims.height,
+                width: apiBounds.width * labelWidthDots / apiDims.width,
+                height: apiBounds.height * labelHeightDots / apiDims.height,
+            };
+
+            console.log(`[^GS ${symbol}] canvas dot-space:`, canvasDots, 'api dot-space:', apiDots);
+
+            // Position must track within 20 dots for every symbol.
+            expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(20);
+            expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(20);
+
+            if (symbol !== 'C') {
+                // Ring-based symbols fill the 150×150 command box on both sides.
+                expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(20);
+                expect(Math.abs(canvasDots.height - apiDots.height)).toBeLessThan(20);
+
+                const result = await compareImages(canvasImage, apiImage, `parity-gs-${symbol}`, { threshold: 0.3 });
+                if (result.diffPercentage >= 0.005) console.log(`^GS ${symbol} parity: ${result.diffPercentage.toFixed(2)}% difference`);
+                expect(result.diffPercentage).toBeLessThan(50);
+            }
+        });
+    }
+
+    // Non-uniform ^GS: the printer stretches the glyph anamorphically and
+    // quantizes each axis to the nearest 24-dot font step (w=228 → 9.5 steps
+    // → 250; w=76 → 3.17 steps → 75, i.e. it can round DOWN). The canvas
+    // must track both effects or the box lands at the wrong size.
+    const GS_NONUNIFORM_CASES = [
+        { h: 100, w: 228, slug: 'nonuniform' }, // rounds up across the cap boundary
+        { h: 93, w: 76, slug: 'rounddown' }, // w rounds down to 75 (user-reported mismatch)
+    ];
+
+    for (const { h, w, slug } of GS_NONUNIFORM_CASES) {
+        test(`should have matching ^GS bounding box for non-square quantized size ${h}h×${w}w`, async ({ page }) => {
+            const labelWidthDots = 800;
+            const labelHeightDots = 400;
+
+            await elementsPanel.addGraphicSymbolElement();
+            await elementsPanel.selectElementByIndex(0);
+
+            await page.locator('#prop-x').fill('50');
+            await page.locator('#prop-x').dispatchEvent('input');
+            await page.locator('#prop-y').fill('50');
+            await page.locator('#prop-y').dispatchEvent('input');
+            await page.locator('#prop-height').fill(String(h));
+            await page.locator('#prop-height').dispatchEvent('input');
+            await page.locator('#prop-width').fill(String(w));
+            await page.locator('#prop-width').dispatchEvent('input');
+
+            await canvas.waitForReady();
+            const canvasImage = await canvas.takeFullResolutionScreenshot();
+
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+            const canvasBounds = findContentBounds(canvasImage);
+            const apiBounds = findContentBounds(apiImage);
+            const canvasDims = getImageDimensions(canvasImage);
+            const apiDims = getImageDimensions(apiImage);
+
+            const canvasDots = {
+                left: canvasBounds.left * labelWidthDots / canvasDims.width,
+                top: canvasBounds.top * labelHeightDots / canvasDims.height,
+                width: canvasBounds.width * labelWidthDots / canvasDims.width,
+                height: canvasBounds.height * labelHeightDots / canvasDims.height,
+            };
+            const apiDots = {
+                left: apiBounds.left * labelWidthDots / apiDims.width,
+                top: apiBounds.top * labelHeightDots / apiDims.height,
+                width: apiBounds.width * labelWidthDots / apiDims.width,
+                height: apiBounds.height * labelHeightDots / apiDims.height,
+            };
+
+            console.log(`[^GS A ${h}h×${w}w] canvas dot-space:`, canvasDots, 'api dot-space:', apiDots);
+
+            expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(20);
+            expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(20);
+            expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(20);
+            expect(Math.abs(canvasDots.height - apiDots.height)).toBeLessThan(20);
+
+            const result = await compareImages(canvasImage, apiImage, `parity-gs-${slug}`, { threshold: 0.3 });
+            if (result.diffPercentage >= 0.005) console.log(`^GS ${slug} parity: ${result.diffPercentage.toFixed(2)}% difference`);
+            expect(result.diffPercentage).toBeLessThan(50);
+        });
+    }
+
+    // Rotated ^GS pivots on the font character cell (26k−2 × 24k−1 dots for
+    // k quantization steps), not the command box. At h=250 the cell is 11
+    // dots shorter than the box, so a box-pivot canvas render lands the ink
+    // visibly off — tolerance here is deliberately tighter than the box error.
+    test('should have matching ^GS position for rotated (I) orientation', async ({ page }) => {
+        const labelWidthDots = 800;
+        const labelHeightDots = 400;
+
+        await elementsPanel.addGraphicSymbolElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await page.locator('#prop-x').fill('50');
+        await page.locator('#prop-x').dispatchEvent('input');
+        await page.locator('#prop-y').fill('50');
+        await page.locator('#prop-y').dispatchEvent('input');
+        await page.locator('#prop-height').fill('250');
+        await page.locator('#prop-height').dispatchEvent('input');
+        await page.locator('#prop-width').fill('100');
+        await page.locator('#prop-width').dispatchEvent('input');
+        await page.locator('#properties-panel button[data-orientation="I"]').click();
+
+        await canvas.waitForReady();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
+
+        await previewPanel.switchToAPIMode();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+        const canvasBounds = findContentBounds(canvasImage);
+        const apiBounds = findContentBounds(apiImage);
+        const canvasDims = getImageDimensions(canvasImage);
+        const apiDims = getImageDimensions(apiImage);
+
+        const canvasDots = {
+            left: canvasBounds.left * labelWidthDots / canvasDims.width,
+            top: canvasBounds.top * labelHeightDots / canvasDims.height,
+            width: canvasBounds.width * labelWidthDots / canvasDims.width,
+            height: canvasBounds.height * labelHeightDots / canvasDims.height,
+        };
+        const apiDots = {
+            left: apiBounds.left * labelWidthDots / apiDims.width,
+            top: apiBounds.top * labelHeightDots / apiDims.height,
+            width: apiBounds.width * labelWidthDots / apiDims.width,
+            height: apiBounds.height * labelHeightDots / apiDims.height,
+        };
+
+        console.log('[^GS A I 250h×100w] canvas dot-space:', canvasDots, 'api dot-space:', apiDots);
+
+        expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(6);
+        expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(6);
+        expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(20);
+        expect(Math.abs(canvasDots.height - apiDots.height)).toBeLessThan(20);
+    });
 });
