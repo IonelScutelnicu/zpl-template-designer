@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, buildSquarePngBuffer } from '../page-objects';
+import { ElementsPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
 // Density rescale (Print Density change) — see ADR 0002 and
 // src/services/DensityRescaleService.js. The dialog appears when the user
@@ -171,6 +171,67 @@ test.describe('Density rescale', () => {
       expect(after.w).toBe(240); // 80 * 3, byte-aligned
       expect(after.h).toBe(240);
       expect(after.hasBytes).toBe(true); // bitmap was re-encoded, not left stale
+    });
+  });
+
+  test.describe('Parsed graphic resampling', () => {
+    // Paste-import ZPL so the graphic arrives as a "parsed" element: decoded
+    // bytes but no sourceDataUrl to re-rasterize from.
+    async function importZpl(page, zpl: string) {
+      const zplOutput = new ZPLOutput(page);
+      await zplOutput.openMoreActions();
+      await page.locator('#import-zpl-btn').click();
+      await expect(page.locator('#zpl-import-modal')).toBeVisible();
+      await page.locator('#zpl-import-input').fill(zpl);
+      await page.locator('#zpl-import-input').dispatchEvent('input');
+      await page.locator('#zpl-import-confirm-btn').click();
+      // If warnings show, click again to import anyway.
+      const warnings = page.locator('#zpl-import-warnings');
+      if (await warnings.isVisible().catch(() => false)) {
+        await page.locator('#zpl-import-confirm-btn').click();
+      }
+    }
+
+    test('nearest-neighbor resamples a ZPL-imported ^GFA bitmap in place', async ({ page }) => {
+      // 8×4 bitmap: solid top/bottom rows, hollow middle (FF, 81, 81, FF).
+      await importZpl(page, '^XA^FO16,24^GFA,4,4,1,FF8181FF^FS^XZ');
+      await page.waitForTimeout(350); // let the import history entry settle
+
+      const before = await page.evaluate(() => {
+        const g = (window as unknown as { appState: any }).appState.elements.find((e: any) => e.type === 'GRAPHIC');
+        return { w: g.widthDots, h: g.heightDots, parsed: !g.sourceDataUrl && !g.opaqueRaw && !!g.bytes };
+      });
+      expect(before).toEqual({ w: 8, h: 4, parsed: true });
+
+      await page.locator('#label-dpmm').selectOption('24'); // 8 -> 24 dpmm (x3)
+      // A parsed graphic is scalable now, so no "can't be resized" note.
+      await expect(page.locator('#density-rescale-modal')).toBeVisible();
+      await expect(page.locator('#density-rescale-notes')).toBeHidden();
+      await page.locator('#density-rescale-scale-btn').click();
+      await page.waitForTimeout(150);
+
+      const after = await page.evaluate(() => {
+        const g = (window as unknown as { appState: any }).appState.elements.find((e: any) => e.type === 'GRAPHIC');
+        return { x: g.x, y: g.y, w: g.widthDots, h: g.heightDots, bpr: g.bytesPerRow, bytes: Array.from(g.bytes as Uint8Array) };
+      });
+      expect(after.x).toBe(48); // 16 * 3
+      expect(after.y).toBe(72); // 24 * 3
+      expect(after.w).toBe(24);
+      expect(after.h).toBe(12);
+      expect(after.bpr).toBe(3);
+      // Each source pixel becomes a 3×3 block: FF -> FF FF FF, 81 -> E0 00 07.
+      const solid = [0xff, 0xff, 0xff];
+      const hollow = [0xe0, 0x00, 0x07];
+      expect(after.bytes).toEqual([
+        ...solid, ...solid, ...solid,
+        ...hollow, ...hollow, ...hollow,
+        ...hollow, ...hollow, ...hollow,
+        ...solid, ...solid, ...solid,
+      ]);
+
+      // The ZPL output re-emits the resampled bitmap.
+      const zpl = await page.locator('#zpl-output-raw').inputValue();
+      expect(zpl).toContain('^FO48,72^GFA,36,36,3,');
     });
   });
 

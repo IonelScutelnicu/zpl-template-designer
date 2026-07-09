@@ -154,6 +154,45 @@ export function rotateBitmap(bytes, widthDots, heightDots, bytesPerRow, orientat
 }
 
 /**
+ * Nearest-neighbor resample of a 1-bit-packed bitmap (MSB-first, row-major)
+ * by a uniform scale factor. Used by the density rescale to keep parsed ^GF
+ * graphics at the same physical size when dpmm changes. Each destination
+ * pixel samples the source pixel under its center; padding bits in the last
+ * byte of each row stay white.
+ *
+ * @param {Uint8Array} bytes
+ * @param {number} widthDots
+ * @param {number} heightDots
+ * @param {number} bytesPerRow
+ * @param {number} scale  newDpmm / oldDpmm, > 0
+ * @returns {{bytes: Uint8Array, widthDots: number, heightDots: number, bytesPerRow: number}}
+ */
+export function resampleBitmap(bytes, widthDots, heightDots, bytesPerRow, scale) {
+  if (scale === 1) {
+    return { bytes, widthDots, heightDots, bytesPerRow };
+  }
+  const W = widthDots;
+  const H = heightDots;
+  const newW = Math.max(1, Math.round(W * scale));
+  const newH = Math.max(1, Math.round(H * scale));
+  const newBytesPerRow = Math.ceil(newW / 8);
+  const out = new Uint8Array(newBytesPerRow * newH);
+
+  const readBit = (x, y) => (bytes[y * bytesPerRow + (x >> 3)] >> (7 - (x & 7))) & 1;
+
+  for (let ny = 0; ny < newH; ny++) {
+    const oy = Math.min(H - 1, Math.floor((ny + 0.5) * H / newH));
+    for (let nx = 0; nx < newW; nx++) {
+      const ox = Math.min(W - 1, Math.floor((nx + 0.5) * W / newW));
+      if (!readBit(ox, oy)) continue;
+      out[ny * newBytesPerRow + (nx >> 3)] |= (0x80 >> (nx & 7));
+    }
+  }
+
+  return { bytes: out, widthDots: newW, heightDots: newH, bytesPerRow: newBytesPerRow };
+}
+
+/**
  * Render a 1-bit-packed bitmap (1 = black) into an RGBA ImageData.
  * Treats trailing padding bits in the row as white.
  * @param {Uint8Array} bytes

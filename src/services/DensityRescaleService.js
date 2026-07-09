@@ -6,6 +6,7 @@
 // ("Density rescale") for the decision and edge cases.
 
 import { BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
+import { resampleBitmap } from '../utils/graphicField.js';
 
 const MIN_DIM = 1;
 
@@ -44,12 +45,20 @@ function scalePos(value, s) {
   return Math.round(value * s);
 }
 
+// Graphic flavors (see GraphicFieldElement): editable graphics re-rasterize
+// from their source image (async, best quality); parsed graphics have only
+// the decoded 1-bpp bitmap, which gets nearest-neighbor resampled in place;
+// opaque graphics (undecodable encodings) keep their dot dimensions.
 function isUnscalableGraphic(el) {
-  return el.type === 'GRAPHIC' && (el.opaqueRaw || !el.sourceDataUrl);
+  return el.type === 'GRAPHIC' && (el.opaqueRaw || (!el.sourceDataUrl && !el.bytes));
 }
 
 function isEditableGraphic(el) {
   return el.type === 'GRAPHIC' && !el.opaqueRaw && !!el.sourceDataUrl;
+}
+
+function isParsedGraphic(el) {
+  return el.type === 'GRAPHIC' && !el.opaqueRaw && !el.sourceDataUrl && !!el.bytes;
 }
 
 /**
@@ -104,6 +113,7 @@ export function analyzeRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
  * Editable graphics get their widthDots/heightDots scaled here, but the
  * actual bitmap re-rasterization is async and must be performed by the
  * caller (see `editableGraphicsToReencode` in the returned object).
+ * Parsed graphics (decoded bitmap, no source image) are resampled in place.
  *
  * @returns {{
  *   labelSettingsPatch: object,
@@ -182,8 +192,17 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
           const newWidth = scaleDim(el.widthDots, s);
           const newHeight = scaleDim(el.heightDots, s);
           editableGraphicsToReencode.push({ element: el, widthDots: newWidth, heightDots: newHeight });
+        } else if (isParsedGraphic(el)) {
+          // No source image to re-rasterize from, but the decoded 1-bpp
+          // bitmap can be nearest-neighbor resampled synchronously.
+          const resampled = resampleBitmap(el.bytes, el.widthDots, el.heightDots, el.bytesPerRow, s);
+          if (typeof el.setBitmap === 'function') {
+            el.setBitmap(resampled);
+          } else {
+            Object.assign(el, resampled);
+          }
         }
-        // Parsed/opaque: position already scaled above; bitmap dims stay put.
+        // Opaque: position already scaled above; bitmap dims stay put.
         break;
     }
   }
