@@ -168,7 +168,42 @@ test.describe('ZPL Output - Generation and Validation', () => {
             expect(zpl).not.toContain('^FW');
         });
 
-        test('should preserve unsupported ^GF (Z64) verbatim with a parser warning', async ({ page }) => {
+        test('should decode a valid ^GF :Z64: payload and re-emit it as :B64:', async ({ page }) => {
+            // 8×4 bitmap FF 81 81 FF, zlib-deflated and base64-encoded, with
+            // the standard CRC-16 suffix over the base64 string.
+            const original = '^XA^FO16,24^GFA,4,4,1,:Z64:eNr739j4HwAHhAMB:8CE8^FS^XZ';
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+            await page.locator('#zpl-import-confirm-btn').click();
+
+            // Decodes cleanly: no warnings, imports on the first click.
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            const el = await page.evaluate(() => {
+                const g = (window as unknown as { appState: any }).appState.elements.find((e: any) => e.type === 'GRAPHIC');
+                return {
+                    w: g.widthDots, h: g.heightDots, bpr: g.bytesPerRow,
+                    bytes: Array.from(g.bytes as Uint8Array),
+                    opaque: !!g.opaqueRaw, format: g.encodingFormat,
+                };
+            });
+            expect(el).toEqual({
+                w: 8, h: 4, bpr: 1,
+                bytes: [0xff, 0x81, 0x81, 0xff],
+                opaque: false, format: 'B64',
+            });
+
+            // Re-export emits the decoded bitmap as :B64: (no sync deflate available).
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^FO16,24');
+            expect(zpl).toContain('^GFA,4,4,1,:B64:/4GB/w==:E754^FS');
+        });
+
+        test('should preserve an undecodable ^GF (Z64) verbatim with a parser warning', async ({ page }) => {
             const original = '^XA^FO0,0^GFA,16,16,1,:Z64:somebase64stuff:1234^FS^XZ';
 
             await page.locator('#zpl-more-btn').click();

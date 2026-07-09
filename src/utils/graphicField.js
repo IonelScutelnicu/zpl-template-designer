@@ -1,6 +1,8 @@
 // Graphic Field (^GF) helpers
 // Image rasterization, bitmap packing, and ZPL ^GFA encoding/decoding.
 
+import { inflateZlib } from './inflate.js';
+
 /**
  * CRC-16/CCITT (poly 0x1021, init 0x0000), as used by Zebra ^GF :B64:/:Z64:.
  * Computed over the base64 string bytes.
@@ -72,7 +74,27 @@ export function bytesToB64WithCrc(bytes) {
  */
 export function b64WithCrcToBytes(payload) {
   if (!payload.startsWith(':B64:')) return null;
-  const rest = payload.slice(5);
+  return decodeB64Payload(payload.slice(5));
+}
+
+/**
+ * Decode a Zebra :Z64: payload (zlib-deflated bytes, base64-encoded, with
+ * optional CRC like :B64:). Returns the same shape as b64WithCrcToBytes,
+ * or null when the base64 or the zlib stream can't be decoded.
+ * @param {string} payload  e.g. ":Z64:eJz...:A1B2"
+ * @returns {{bytes: Uint8Array, crcOk: boolean, crcPresent: boolean}|null}
+ */
+export function z64ToBytes(payload) {
+  if (!payload.startsWith(':Z64:')) return null;
+  const decoded = decodeB64Payload(payload.slice(5));
+  if (!decoded) return null;
+  const bytes = inflateZlib(decoded.bytes);
+  if (!bytes) return null;
+  return { bytes, crcOk: decoded.crcOk, crcPresent: decoded.crcPresent };
+}
+
+/** Shared :B64:/:Z64: body decoding: split optional CRC suffix, base64-decode, verify CRC. */
+function decodeB64Payload(rest) {
   const lastColon = rest.lastIndexOf(':');
   let b64, crcStr;
   if (lastColon === -1) {

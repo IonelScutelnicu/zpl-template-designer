@@ -1,7 +1,7 @@
 // ZPL Parser Service
 // Parses ZPL template strings into app element objects and label settings
 
-import { b64WithCrcToBytes, hexToBytes } from '../utils/graphicField.js';
+import { b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
 import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
@@ -1372,7 +1372,9 @@ export class ZPLParser {
    * Supported encodings:
    *   - 'A' compression with plain ASCII hex payload
    *   - ':B64:' inline base64 payload (with optional CRC suffix)
-   * Anything else (':Z64:', raw binary 'B', compressed 'C', or ASCII-hex
+   *   - ':Z64:' zlib-deflated base64 payload (re-emitted as :B64: on export,
+   *     since there is no synchronous deflate available in the browser)
+   * Anything else (raw binary 'B', compressed 'C', or ASCII-hex
    * payloads containing ACS run-length characters) is preserved as opaque
    * — the original ^FO/^GF/^FD/^FS bytes are stashed and re-emitted
    * verbatim so the user doesn't lose them on round-trip.
@@ -1449,8 +1451,34 @@ export class ZPLParser {
           };
         }
       }
+      if (payload.startsWith(':Z64:')) {
+        const decoded = z64ToBytes(payload);
+        if (decoded) {
+          if (!decoded.crcOk) {
+            state.warnings.push({
+              command: '^GF',
+              message: '^GF :Z64: CRC mismatch — graphic decoded anyway, data may be corrupt',
+            });
+          }
+          const decodedHeight = bytesPerRow > 0 ? Math.floor(decoded.bytes.length / bytesPerRow) : 0;
+          return {
+            type: 'GRAPHIC',
+            x: group.x,
+            y: group.y,
+            widthDots,
+            heightDots: decodedHeight || heightDots,
+            bytesPerRow,
+            // No synchronous deflate in the browser — re-emit as :B64:.
+            encodingFormat: 'B64',
+            bytes: decoded.bytes,
+            threshold: 128,
+            crcWarning: !decoded.crcOk,
+            reverse: hasReverse,
+          };
+        }
+      }
       const reason = payload.startsWith(':Z64:')
-        ? ':Z64: (zlib-compressed base64) not supported'
+        ? ':Z64: data could not be decoded'
         : 'ACS run-length or non-hex characters not supported';
       state.warnings.push({
         command: '^GF',

@@ -8,7 +8,7 @@ import { bytesToHex, bytesToB64WithCrc, bitmapToImageData, rotateBitmap } from '
 //   element re-rasterizes from the source when those change.
 // - "parsed":   no sourceDataUrl, only bytes (decoded from pasted ZPL).
 //   Editable=false. Width/threshold inputs disabled in the panel.
-// - "opaque":   unsupported encoding (Z64, B, C, ACS hex). Stores opaqueRaw
+// - "opaque":   unsupported encoding (B, C, ACS hex, undecodable Z64). Stores opaqueRaw
 //   verbatim and re-emits it on render(). bytes/imageData are absent.
 export class GraphicFieldElement extends ZPLElement {
     constructor(x = 0, y = 0, options = {}) {
