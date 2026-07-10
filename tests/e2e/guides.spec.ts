@@ -93,6 +93,20 @@ test.describe('Smart Guides', () => {
         await endPointerDrag(page);
     });
 
+    test('shows drag guides while Cmd is held', async ({ page }) => {
+        await setupTwoBoxes(page);
+
+        await beginPointerDrag(page, 80, 80);
+        await page.keyboard.down('Meta');
+        await movePointerToLabel(page, 240, 80);
+
+        await expect.poll(() => getGuideCount(page)).toBeGreaterThan(0);
+
+        await page.keyboard.up('Meta');
+        await expect.poll(() => getGuideCount(page)).toBe(0);
+        await endPointerDrag(page);
+    });
+
     test('shows resize guides while Control is held', async ({ page }) => {
         await setupTwoBoxes(page);
 

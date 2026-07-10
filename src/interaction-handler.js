@@ -90,12 +90,12 @@ export class InteractionHandler {
     document.addEventListener('keyup', this._boundKeyUp);
   }
 
-  shouldUseSmartGuides(ctrlKey) {
-    return Boolean(this.smartGuideService && ctrlKey);
+  shouldUseSmartGuides(event) {
+    return Boolean(this.smartGuideService && !event.altKey && (event.ctrlKey || event.metaKey));
   }
 
-  syncSmartGuidesForDrag(proposedX, proposedY, ctrlKey, applySnap = true) {
-    if (!this.dragElement || !this.shouldUseSmartGuides(ctrlKey)) {
+  syncSmartGuidesForDrag(proposedX, proposedY, event, applySnap = true) {
+    if (!this.dragElement || !this.shouldUseSmartGuides(event)) {
       this.renderer.clearSmartGuides();
       return { snapX: null, snapY: null };
     }
@@ -109,8 +109,8 @@ export class InteractionHandler {
     return applySnap ? guideResult : { snapX: null, snapY: null };
   }
 
-  syncSmartGuidesForResize(ctrlKey) {
-    if (!this.dragElement || !this.shouldUseSmartGuides(ctrlKey)) {
+  syncSmartGuidesForResize(event) {
+    if (!this.dragElement || !this.shouldUseSmartGuides(event)) {
       this.renderer.clearSmartGuides();
       return;
     }
@@ -123,15 +123,15 @@ export class InteractionHandler {
     this.renderer.setSmartGuides(guideResult.guides);
   }
 
-  refreshSmartGuidesForActiveTransform(ctrlKey) {
+  refreshSmartGuidesForActiveTransform(event) {
     if (!this.dragElement || (!this.isDragging && !this.isResizing)) {
       return;
     }
 
     if (this.isResizing) {
-      this.syncSmartGuidesForResize(ctrlKey);
+      this.syncSmartGuidesForResize(event);
     } else {
-      this.syncSmartGuidesForDrag(this.dragElement.x, this.dragElement.y, ctrlKey, false);
+      this.syncSmartGuidesForDrag(this.dragElement.x, this.dragElement.y, event, false);
     }
 
     if (this.callbacks.onElementDragging) {
@@ -588,7 +588,7 @@ export class InteractionHandler {
         this.dragElement.blockWidth = Math.round(newWidth);
         this.dragElement.blockHeight = Math.round(newHeight);
 
-        this.syncSmartGuidesForResize(e.ctrlKey);
+        this.syncSmartGuidesForResize(e);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'FIELDBLOCK') {
         // FIELDBLOCK only supports bottom-right resize
@@ -609,7 +609,7 @@ export class InteractionHandler {
         const effectiveLineHeight = baseLineHeight + lineSpacing;
         this.dragElement.maxLines = Math.max(1, Math.round((newHeight + lineSpacing) / effectiveLineHeight));
 
-        this.syncSmartGuidesForResize(e.ctrlKey);
+        this.syncSmartGuidesForResize(e);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'QRCODE') {
         // 2D barcodes support bottom-right resize by adjusting their module size.
@@ -639,7 +639,7 @@ export class InteractionHandler {
             el.magnification = clampNumber(Math.round(Math.min(newWidth, newHeight) / geom.cols), b.QR.magnification.min, b.QR.magnification.max);
           }
         }
-        this.syncSmartGuidesForResize(e.ctrlKey);
+        this.syncSmartGuidesForResize(e);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'TEXT') {
         const dx = coords.x - this.resizeMouseStartX;
@@ -662,7 +662,7 @@ export class InteractionHandler {
         const snapped = snapRequestedToAllowed(resolvedFontId, rawFontSize, rawFontWidth);
         this.dragElement.fontSize = snapped.height;
         this.dragElement.fontWidth = snapped.width;
-        this.syncSmartGuidesForResize(e.ctrlKey);
+        this.syncSmartGuidesForResize(e);
         this.callbacks.onElementDragging(this.dragElement);
       } else if (this.dragElement.type === 'BOX' || this.dragElement.type === 'LINE' || this.dragElement.type === 'BARCODE' || this.dragElement.type === 'CIRCLE' || this.dragElement.type === 'DIAGONALLINE' || this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'GRAPHICSYMBOL') {
         // Calculate mouse delta from resize start
@@ -861,7 +861,7 @@ export class InteractionHandler {
           }
         }
 
-        this.syncSmartGuidesForResize(e.ctrlKey);
+        this.syncSmartGuidesForResize(e);
         this.callbacks.onElementDragging(this.dragElement);
       }
       return;
@@ -904,8 +904,8 @@ export class InteractionHandler {
         let newY = coords.y - this.dragOffsetY;
 
         // Smart guide detection and snapping (before boundary clamping)
-        if (this.shouldUseSmartGuides(e.ctrlKey)) {
-          const guideResult = this.syncSmartGuidesForDrag(newX, newY, e.ctrlKey);
+        if (this.shouldUseSmartGuides(e)) {
+          const guideResult = this.syncSmartGuidesForDrag(newX, newY, e);
           if (guideResult.snapX !== null) newX = guideResult.snapX;
           if (guideResult.snapY !== null) newY = guideResult.snapY;
         } else {
@@ -1062,8 +1062,8 @@ export class InteractionHandler {
       return;
     }
 
-    if (e.key === 'Control') {
-      this.refreshSmartGuidesForActiveTransform(true);
+    if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt') {
+      this.refreshSmartGuidesForActiveTransform(e);
     }
 
     // Don't handle keys when focus is on input/textarea
@@ -1283,8 +1283,8 @@ export class InteractionHandler {
   }
 
   handleKeyUp(e) {
-    if (e.key === 'Control') {
-      this.refreshSmartGuidesForActiveTransform(false);
+    if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt') {
+      this.refreshSmartGuidesForActiveTransform(e);
     }
 
     if (!this.keyboardMoveActive) return;
