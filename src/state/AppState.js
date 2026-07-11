@@ -479,8 +479,14 @@ export class AppState {
    * @returns {Object} Serialized state
    */
   serialize() {
+    // Custom font entries hold multi-MB base64 payloads and are replaced, never
+    // mutated, so share them by reference across snapshots instead of deep-
+    // copying them into every history entry.
+    const { customFonts, ...settings } = this.labelSettings;
+    const labelSettings = JSON.parse(JSON.stringify(settings));
+    if (customFonts) labelSettings.customFonts = [...customFonts];
     return {
-      labelSettings: JSON.parse(JSON.stringify(this.labelSettings)),
+      labelSettings,
       elements: this.elements.map(element => {
         if (!element) return null;
         const data = JSON.parse(JSON.stringify(element));

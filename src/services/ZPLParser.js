@@ -5,13 +5,14 @@ import { b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
 import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
+import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive } from '../utils/customFonts.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
  */
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
+  'CF', 'CW', 'DY', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'GS', 'FX',
   // Native variable and clock commands are supported no-ops during import.
   'FE', 'FC', 'FN', 'SO',
@@ -77,7 +78,7 @@ function normalizeBarcodeOrientation(value) {
  */
 const HEADER_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'PQ'
+  'CF', 'CW', 'DY', 'PQ'
 ]);
 
 /**
@@ -143,6 +144,19 @@ export class ZPLParser {
 
     const content = zpl.substring(xaIndex, xzIndex + 3);
     const tokens = [];
+
+    // Font downloads are immediate commands and conventionally live before
+    // ^XA. Extract hex TrueType ~DY commands from the preamble so
+    // self-contained font ZPL can be imported and associated with the later
+    // ^CW mapping, but leave everything else before ^XA untokenized — other
+    // immediate commands and binary payloads there have always been ignored.
+    for (const match of zpl.slice(0, xaIndex).matchAll(/~DY([^~^]*)/gi)) {
+      const params = match[1].trim();
+      const parts = params.split(',');
+      const isHexTrueType = (parts[1] || '').trim().toUpperCase() === 'A'
+        && (parts[2] || '').trim().toUpperCase() === 'T';
+      if (isHexTrueType) tokens.push({ prefix: '~', command: 'DY', params });
+    }
 
     // Match command starts: ^ or ~ followed by 1-2 letter command code
     const commandRegex = /([~^])([A-Za-z]{1,2})/g;
@@ -229,6 +243,7 @@ export class ZPLParser {
       barcodeDefaults: { width: 2, ratio: 2.0, height: 50 },
       defaultFont: { id: '0', height: 20, width: 0 },
       customFonts: [],
+      fontDownloads: new Map(),
       labelMeta: null,
       sawCommand: false
     };
@@ -334,9 +349,13 @@ export class ZPLParser {
       }
     }
 
-    // Apply custom fonts to label settings
+    // Apply custom fonts to label settings, attaching ~DY payloads to their
+    // ^CW mappings here so command order doesn't matter.
     if (state.customFonts.length > 0) {
-      state.labelSettings.customFonts = state.customFonts;
+      state.labelSettings.customFonts = state.customFonts.map(font => {
+        const source = state.fontDownloads.get(font.fontFile);
+        return source ? { ...font, source } : font;
+      });
     }
 
     // Apply validated label metadata last so it overrides ^PW-derived width and
@@ -502,9 +521,39 @@ export class ZPLParser {
       }
       case 'CW': {
         const parts = token.params.split(',');
-        if (parts.length >= 2) {
-          state.customFonts.push({ id: parts[0].trim(), fontFile: parts.slice(1).join(',').trim() });
+        const rawFile = parts.slice(1).join(',').trim().toUpperCase();
+        if (rawFile) {
+          state.customFonts.push({ id: parts[0].trim(), fontFile: ensurePrinterDrive(rawFile) });
         }
+        break;
+      }
+      case 'DY': {
+        const parts = token.params.split(',');
+        const rawPath = (parts[0] || '').trim().toUpperCase();
+        const format = (parts[1] || '').trim().toUpperCase();
+        const extension = (parts[2] || '').trim().toUpperCase();
+        const byteCount = Number.parseInt(parts[3], 10);
+        // hexToBytes tolerates line-wrapped payloads and returns null on
+        // non-hex characters.
+        const bytes = hexToBytes(parts[5] || '');
+        if (format !== 'A' || extension !== 'T' || !rawPath || !Number.isFinite(byteCount)
+          || byteCount <= 0 || byteCount > MAX_CUSTOM_FONT_BYTES
+          || !bytes || bytes.length !== byteCount) {
+          state.warnings.push({ command: '~DY', message: 'Invalid or unsupported embedded font was ignored' });
+          break;
+        }
+        // ~DY names appear both with and without the extension in the wild;
+        // key on the same canonical form ^CW paths are normalized to. The
+        // sha256 identity is filled in by normalizeCustomFontSources() on the
+        // async import path, since parsing is synchronous.
+        const path = ensurePrinterDrive(rawPath);
+        const fontFile = path.endsWith('.TTF') ? path : `${path}.TTF`;
+        state.fontDownloads.set(fontFile, {
+          fileName: fontFile.slice(fontFile.indexOf(':') + 1),
+          mimeType: 'font/ttf',
+          size: byteCount,
+          data: bytesToBase64(bytes),
+        });
         break;
       }
       case 'PQ': {

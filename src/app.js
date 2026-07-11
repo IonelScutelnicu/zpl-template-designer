@@ -12,6 +12,8 @@ import { PropertiesPanelRenderer } from './ui/PropertiesPanelRenderer.js';
 import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
+import { MAX_CUSTOM_FONT_BYTES, buildFontDownloadPreamble, bytesToBase64, fontPreambleSignature, formatFontDownload, isTrueTypeFont, nextCustomFontId, normalizeCustomFontSources, sanitizePrinterFontPath, sha256Hex } from './utils/customFonts.js';
+import { ensureCustomFontLoaded } from './utils/fontLoader.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
 import { TooltipManager } from './ui/TooltipManager.js';
 import { WarningParser } from './services/WarningParser.js';
@@ -343,6 +345,8 @@ const newFontId = document.getElementById("new-font-id");
 const newFontFile = document.getElementById("new-font-file");
 const addCustomFontBtn = document.getElementById("add-custom-font-btn");
 const customFontsList = document.getElementById("custom-fonts-list");
+const customFontUpload = document.getElementById("custom-font-upload");
+const uploadCustomFontBtn = document.getElementById("upload-custom-font-btn");
 const customFontError = document.getElementById("custom-font-error");
 const previewImage = document.getElementById("preview-image");
 const previewBacking = document.getElementById("preview-backing");
@@ -464,9 +468,17 @@ export function initApp() {
     {
       onRemove: (fontId) => removeCustomFont(fontId),
       onUpdateFile: (fontId, newFile) => updateCustomFontFile(fontId, newFile),
+      onExport: (fontId) => exportCustomFontInstall(fontId),
       onRender: () => renderCustomFonts()
     }
   );
+  uploadCustomFontBtn.addEventListener('click', () => customFontUpload.click());
+  customFontUpload.addEventListener('change', async () => {
+    const file = customFontUpload.files?.[0];
+    customFontUpload.value = '';
+    if (!file) return;
+    await uploadCustomFont(file);
+  });
 
   // Initialize property listeners manager
   propertyListenersManager = new PropertyListenersManager({
@@ -1862,8 +1874,10 @@ function syncLabelSettingsInputs() {
   pauseCount.value = state.labelSettings.pauseCount ?? 0;
   replicatesInput.value = state.labelSettings.replicates ?? 0;
   printQuantityPlaceholder.value = state.labelSettings.printQuantityPlaceholder ?? '';
+  // Before assigning fontId.value: a custom font id only sticks once its option
+  // exists, so the pickers have to carry the restored font list first.
+  refreshCustomFontPickers();
   fontId.value = state.labelSettings.fontId;
-  renderCustomFonts();
   defaultFontHeight.value = state.labelSettings.defaultFontHeight;
   defaultFontWidth.value = state.labelSettings.defaultFontWidth || '';
 }
@@ -1878,18 +1892,18 @@ function addCustomFont() {
   }
 
   state.updateLabelSettings({ customFonts: newFonts });
-  renderCustomFonts();
-  updateFontDropdownOptions();
+  refreshCustomFontPickers();
   updateZPLOutput();
+  renderCanvasPreview();
   scheduleHistoryCommit("custom-fonts", "Added custom font", { kind: "settings" });
 }
 
 function removeCustomFont(id) {
   const customFonts = customFontsManager.remove(id, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
-  renderCustomFonts();
-  updateFontDropdownOptions();
+  refreshCustomFontPickers();
   updateZPLOutput();
+  renderCanvasPreview();
   scheduleHistoryCommit("custom-fonts", "Removed custom font", { kind: "settings" });
 }
 
@@ -1897,13 +1911,78 @@ function renderCustomFonts() {
   customFontsManager.render(state.labelSettings.customFonts);
 }
 
+// The custom font list feeds three places: its own list, the label-default font
+// dropdown, and the selected element's "Font ID (override)" select. The last one
+// only exists inside the rendered properties panel, so it needs a re-render —
+// otherwise a font added while an element is selected stays invisible to it.
+function refreshCustomFontPickers() {
+  renderCustomFonts();
+  updateFontDropdownOptions();
+  renderPropertiesPanel();
+}
+
 
 function updateCustomFontFile(fontId, newFontFile) {
   const customFonts = customFontsManager.updateFile(fontId, newFontFile, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
   updateZPLOutput();
+  renderCanvasPreview();
   scheduleHistoryCommit("label-settings", "Updated custom font", { kind: "settings" });
   renderCustomFonts();
+}
+
+async function uploadCustomFont(file) {
+  if (!/\.ttf$/i.test(file.name)) {
+    customFontsManager.showError('Only TrueType (.ttf) fonts are supported');
+    return;
+  }
+  if (file.size <= 0 || file.size > MAX_CUSTOM_FONT_BYTES) {
+    customFontsManager.showError('Font must be between 1 byte and 2 MB');
+    return;
+  }
+  const id = nextCustomFontId(state.labelSettings.customFonts);
+  if (!id) {
+    customFontsManager.showError('All supported custom font IDs are already in use');
+    return;
+  }
+  let entry;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!isTrueTypeFont(bytes)) {
+      customFontsManager.showError('The selected file is not a valid TrueType font');
+      return;
+    }
+    const hash = await sha256Hex(bytes);
+    const fontFile = sanitizePrinterFontPath(file.name, state.labelSettings.customFonts);
+    const source = { fileName: file.name, mimeType: 'font/ttf', size: bytes.length, sha256: hash, data: bytesToBase64(bytes) };
+    // Browser preview support is best-effort. Zebra printers and browser font
+    // sanitizers do not accept exactly the same set of valid TrueType files.
+    await ensureCustomFontLoaded(source);
+    entry = { id, fontFile, source };
+  } catch {
+    customFontsManager.showError('The selected font could not be uploaded');
+    return;
+  }
+  state.updateLabelSettings({ customFonts: [...state.labelSettings.customFonts, entry] });
+  customFontsManager.hideError();
+  refreshCustomFontPickers();
+  updateZPLOutput();
+  renderCanvasPreview();
+  scheduleHistoryCommit('custom-fonts', `Uploaded ${file.name}`, { kind: 'settings' });
+}
+
+function exportCustomFontInstall(fontIdToExport) {
+  const font = state.labelSettings.customFonts.find(item => item.id === fontIdToExport);
+  const download = formatFontDownload(font);
+  if (!download) {
+    customFontsManager.showError('This font has no embedded TTF data to export');
+    return;
+  }
+  templateManager.downloadFile(
+    `${font.fontFile.slice(2, -4).toLowerCase()}-install.zpl`,
+    `${download}\n`,
+    'text/plain;charset=utf-8'
+  );
 }
 
 function updateFontDropdownOptions() {
@@ -2805,9 +2884,23 @@ async function updatePreview() {
   }
 
   // Generate preview ZPL with byte map for warning resolution
-  const { zpl: previewZpl, byteMap } = zplGenerator.generatePreviewZPLWithMap(state.elements, state.labelSettings, state.selectedElement);
+  const generated = zplGenerator.generatePreviewZPLWithMap(state.elements, state.labelSettings, state.selectedElement);
+  const fontPreamble = buildFontDownloadPreamble(state.elements, state.labelSettings);
+  const prefix = fontPreamble ? `${fontPreamble}\n` : '';
+  const previewZpl = prefix + generated.zpl;
+  // The preamble is pure ASCII (~DY header + hex), so its string length is
+  // its UTF-8 byte length.
+  const byteShift = prefix.length;
+  const byteMap = byteShift === 0 ? generated.byteMap : generated.byteMap.map(entry => ({
+    ...entry,
+    startByte: entry.startByte + byteShift,
+    endByte: entry.endByte + byteShift,
+  }));
   const { width, height, dpmm } = state.labelSettings;
-  const cacheKey = buildPreviewCacheKey(dpmm, width, height, previewZpl);
+  // Key on the compact font signature rather than the multi-MB preamble; the
+  // preamble is fully determined by the referenced fonts' hashes and paths.
+  const cacheKey = buildPreviewCacheKey(dpmm, width, height,
+    `${fontPreambleSignature(state.elements, state.labelSettings)}\n${generated.zpl}`);
 
   // Cache hit — reuse the rendered image and its warnings (LRU bump).
   const cached = previewCache.get(cacheKey);
@@ -3183,13 +3276,8 @@ function handleZPLImport() {
 
   // If we already parsed and showed warnings, proceed with import on second click
   if (pendingZPLResult) {
-    const template = {
-      elements: pendingZPLResult.elements,
-      labelSettings: pendingZPLResult.labelSettings
-    };
-    importTemplate(template);
+    void finalizeZPLImport(pendingZPLResult);
     pendingZPLResult = null;
-    closeZPLImportModal();
     return;
   }
 
@@ -3210,13 +3298,19 @@ function handleZPLImport() {
     pendingZPLResult = result;
   } else {
     // No warnings, import directly
-    const template = {
-      elements: result.elements,
-      labelSettings: result.labelSettings
-    };
-    importTemplate(template);
-    closeZPLImportModal();
+    void finalizeZPLImport(result);
   }
+}
+
+// Imported ~DY sources carry no sha256 (the parser is synchronous); compute
+// the real content hashes before the fonts enter app state and history.
+async function finalizeZPLImport(result) {
+  await normalizeCustomFontSources(result.labelSettings.customFonts);
+  importTemplate({
+    elements: result.elements,
+    labelSettings: result.labelSettings
+  });
+  closeZPLImportModal();
 }
 
 function escapeHtmlForZPLImport(text) {
@@ -3252,12 +3346,8 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   // default instead of leaking ^MN/^LL from the previously open label.
   const defaultLabelSettings = new AppState().labelSettings;
   state.updateLabelSettings({ ...defaultLabelSettings, ...template.labelSettings });
+  // Repopulates the font pickers from the imported custom fonts too.
   syncLabelSettingsInputs();
-
-  if (template.labelSettings.customFonts !== undefined && Array.isArray(template.labelSettings.customFonts)) {
-    renderCustomFonts();
-    updateFontDropdownOptions();
-  }
 
   // Recreate elements from template. Pass the label default so inherited bitmap
   // sizes snap to the right grid.

@@ -1,6 +1,8 @@
 // Custom Fonts Manager
 // Manages the custom fonts UI and functionality
 
+import { CUSTOM_FONT_IDS, PRINTER_FONT_PATH_RE, ensurePrinterDrive, normalizePrinterFontPath } from '../utils/customFonts.js';
+
 /**
  * Manager for custom ZPL fonts UI
  */
@@ -9,6 +11,27 @@ export class CustomFontsManager {
     this.elements = elements;
     this.builtinFonts = builtinFonts;
     this.callbacks = callbacks;
+  }
+
+  /**
+   * Normalize and validate a printer font path. Driveless input (including
+   * legacy templates saved before paths carried a drive) defaults to R:, the
+   * printer's default drive. Returns the canonical path or null (with the
+   * error shown) if it doesn't fit the supported grammar.
+   */
+  validatePrinterPath(value, existingFonts, editedFontId = null) {
+    const path = ensurePrinterDrive(normalizePrinterFontPath(value));
+    if (!PRINTER_FONT_PATH_RE.test(path)) {
+      this.showError("Printer path must look like E:MYFONT.TTF (1-16 letters/digits)");
+      return null;
+    }
+    const conflict = existingFonts.find(f => f.id !== editedFontId
+      && ensurePrinterDrive(normalizePrinterFontPath(f.fontFile)) === path);
+    if (conflict) {
+      this.showError(`Font ID '${conflict.id}' already uses ${path}`);
+      return null;
+    }
+    return path;
   }
 
   /**
@@ -28,13 +51,8 @@ export class CustomFontsManager {
       return null;
     }
 
-    if (!/^[A-Z0-9]$/.test(trimmedId)) {
-      this.showError("ID must be a single letter (A-Z) or digit (0-9)");
-      return null;
-    }
-
-    if (!/^[\w\-. ]+$/.test(trimmedFile)) {
-      this.showError("Font file name contains invalid characters");
+    if (!CUSTOM_FONT_IDS.includes(trimmedId)) {
+      this.showError(`ID must be one of ${CUSTOM_FONT_IDS.join(', ')}`);
       return null;
     }
 
@@ -48,13 +66,16 @@ export class CustomFontsManager {
       return null;
     }
 
+    const fontFile = this.validatePrinterPath(trimmedFile, existingFonts);
+    if (!fontFile) return null;
+
     // Clear inputs and error
     if (this.elements.newFontId) this.elements.newFontId.value = "";
     if (this.elements.newFontFile) this.elements.newFontFile.value = "";
     this.hideError();
 
     // Return new fonts array
-    return [...existingFonts, { id: trimmedId, fontFile: trimmedFile }];
+    return [...existingFonts, { id: trimmedId, fontFile }];
   }
 
   /**
@@ -75,13 +96,10 @@ export class CustomFontsManager {
    * @returns {Array} - New fonts array
    */
   updateFile(fontId, newFontFile, existingFonts) {
-    const trimmed = newFontFile.trim();
-    if (!/^[\w\-. ]+$/.test(trimmed)) {
-      this.showError("Font file name contains invalid characters");
-      return existingFonts;
-    }
+    const fontFile = this.validatePrinterPath(newFontFile, existingFonts, fontId);
+    if (!fontFile) return existingFonts;
     return existingFonts.map(f =>
-      f.id === fontId ? { ...f, fontFile: trimmed } : f
+      f.id === fontId ? { ...f, fontFile } : f
     );
   }
 
@@ -102,6 +120,11 @@ export class CustomFontsManager {
         <span class="font-mono font-bold text-blue-600 w-6">${this.escapeHtml(font.id)}</span>
         <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
           data-font-id="${this.escapeHtml(font.id)}" title="${this.escapeHtml(font.fontFile)} (click to edit)">${this.escapeHtml(font.fontFile)}</span>
+        <span class="text-[9px] ${font.source ? 'text-emerald-600' : 'text-amber-600'}">${font.source ? 'Ready' : 'Reference only'}</span>
+        ${font.source ? `<button class="export-custom-font text-slate-400 hover:text-blue-500 transition-colors p-0.5"
+          data-font-id="${this.escapeHtml(font.id)}" title="Export printer install ZPL">
+          <span class="material-icons-round text-sm">download</span>
+        </button>` : ''}
         <button class="remove-custom-font text-slate-400 hover:text-red-500 transition-colors p-0.5"
           data-font-id="${this.escapeHtml(font.id)}" title="Remove">
           <span class="material-icons-round text-sm">close</span>
@@ -122,6 +145,9 @@ export class CustomFontsManager {
           this.callbacks.onRemove(fontId);
         }
       });
+    });
+    this.elements.list.querySelectorAll('.export-custom-font').forEach(button => {
+      button.addEventListener('click', (e) => this.callbacks.onExport?.(e.currentTarget.dataset.fontId));
     });
   }
 
@@ -194,7 +220,7 @@ export class CustomFontsManager {
     customFonts.forEach(font => {
       const option = document.createElement('option');
       option.value = font.id;
-      option.textContent = `${font.id} - Custom`;
+      option.textContent = `${font.id} - ${font.source ? (font.source.fileName || 'Custom') : 'Printer font'}`;
       this.elements.fontDropdown.appendChild(option);
     });
 

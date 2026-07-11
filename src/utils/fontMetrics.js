@@ -3,6 +3,7 @@
 // TextBlockRenderer, FieldBlockRenderer, and canvas-renderer's measureTextBounds.
 
 import { ZPL_FONTS } from '../config/constants.js';
+import { customFontFamily, customFontLineHeightRatio } from './customFonts.js';
 import { snapBitmapFontSize } from './zplFontSnap.js';
 
 /**
@@ -25,7 +26,24 @@ import { snapBitmapFontSize } from './zplFontSnap.js';
  */
 export function resolveFontMetrics(element, labelSettings, scale = 1) {
   const fontId = element.fontId || labelSettings.fontId || '0';
-  const fontConfig = ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+  const custom = labelSettings.customFonts?.find(font => font.id === fontId && font.source);
+  // baselineRatio: Zebra (and Labelary) place a downloaded TTF at em size = the ^A
+  // height with the alphabetic baseline exactly 0.75×height below the field origin,
+  // regardless of the font's own ascent metrics (verified against Labelary with
+  // VeraMono/OCR-A/OCR-B). The browser's 'top' baseline depends on per-font ascent,
+  // so custom fonts must be drawn from the alphabetic baseline instead.
+  // textBlockLineHeightRatio: ^TB steps by the downloaded font's own line height
+  // (hhea), unlike ^FB, which always steps one font height — so a face whose
+  // ascenders/descenders overflow the em box gets the leading it asks for.
+  const fontConfig = custom
+    ? {
+      ...ZPL_FONTS.default,
+      family: `'${customFontFamily(custom.source)}'`,
+      aspectRatio: 1,
+      baselineRatio: 0.75,
+      textBlockLineHeightRatio: customFontLineHeightRatio(custom.source) || 1,
+    }
+    : ZPL_FONTS[fontId] || ZPL_FONTS['default'];
 
   const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
   const explicitWidth = element.fontWidth || labelSettings.defaultFontWidth || 0;
@@ -69,6 +87,40 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
     hasExplicitWidth,
     isBitmap: false,
   };
+}
+
+/**
+ * Vertical placement shared by TextRenderer, TextBlockRenderer, and
+ * FieldBlockRenderer. Returns how a line of text sits relative to its element y:
+ *   - baseline: ctx.textBaseline to draw with
+ *   - fillY:    y passed to fillText/drawStyledText, relative to the line top
+ *   - nudge:    per-font vertical calibration offset, applied in the local frame
+ * Three models:
+ *   - bitmap fonts: alphabetic baseline at the rendered cap height, so the cap top
+ *     lands on element.y; nudge is in dots (×scale).
+ *   - custom TTFs (baselineRatio): alphabetic baseline at baselineRatio×em below
+ *     element.y, matching Zebra/Labelary placement of downloaded fonts.
+ *   - Font 0: 'top' baseline with a fraction-of-em nudge calibrated for its
+ *     substitute browser font.
+ *
+ * @param {Object} metrics Result from resolveFontMetrics
+ * @param {number} [scale=1] Canvas-pixel-per-dot multiplier (same one passed to
+ *        resolveFontMetrics; used for dot-space bitmap nudges)
+ * @returns {{ baseline: string, fillY: number, nudge: number }}
+ */
+export function resolveBaselinePlacement(metrics, scale = 1) {
+  const { fontConfig, fontSize, snappedHeight, isBitmap } = metrics;
+  if (isBitmap) {
+    return {
+      baseline: 'alphabetic',
+      fillY: snappedHeight * scale,
+      nudge: (fontConfig.yOffset || 0) * scale,
+    };
+  }
+  if (fontConfig.baselineRatio) {
+    return { baseline: 'alphabetic', fillY: fontSize * fontConfig.baselineRatio, nudge: 0 };
+  }
+  return { baseline: 'top', fillY: 0, nudge: fontSize * (-0.05 + (fontConfig.yOffset || 0)) };
 }
 
 /**

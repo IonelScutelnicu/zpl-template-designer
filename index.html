@@ -1825,6 +1825,16 @@
                     <div id="custom-fonts-list" class="space-y-2 mb-2">
                       <!-- Custom fonts will be rendered here -->
                     </div>
+                    <div class="mb-2">
+                      <input type="file" id="custom-font-upload" accept=".ttf,font/ttf,font/truetype" class="hidden" />
+                      <button id="upload-custom-font-btn" type="button"
+                        class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors">
+                        <span class="material-icons-round text-sm">upload</span>
+                        <span>Upload TTF</span>
+                      </button>
+                      <p class="text-[9px] text-slate-400 mt-1">Embedded in the template for canvas and API previews. Maximum 2 MB; verify the font license.</p>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mb-1 uppercase tracking-wider">Or add a printer-resident font</p>
                     <div class="grid grid-cols-[1fr_2fr_auto] gap-2 items-end">
                       <div>
                         <span class="text-[10px] text-slate-400 uppercase tracking-wider">ID</span>

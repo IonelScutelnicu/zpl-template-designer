@@ -1,7 +1,7 @@
 // Text Renderer
 // Renders TEXT elements on canvas
 
-import { resolveFontMetrics, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
+import { resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
 /**
@@ -24,14 +24,13 @@ export class TextRenderer {
 
     ctx.save();
 
-    const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = resolveFontMetrics(element, labelSettings, scale);
+    const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
+    const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
     const raw = element.previewText || '';
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 
-    // Bitmap fonts: align the cap top to element.y via an alphabetic baseline placed
-    // at the rendered cap height (snappedHeight). Font 0 keeps the top-baseline heuristic.
-    const baseline = isBitmap ? 'alphabetic' : 'top';
+    const { baseline, fillY, nudge: translateNudge } = resolveBaselinePlacement(fontMetrics, scale);
     ctx.font = font;
     ctx.textBaseline = baseline;
     const letterSpacingPx = fontConfig.letterSpacing ? fontConfig.letterSpacing * fontSize : 0;
@@ -51,16 +50,6 @@ export class TextRenderer {
     // Font 0 already pivots on the full em (fontSize), so it needs no extra.
     const pivotDescent = isBitmap ? (metrics.actualBoundingBoxDescent || 0) : 0;
 
-    // Vertical placement: bitmap fonts translate to the block top (no nudge) and draw
-    // the alphabetic baseline at the cap height so the cap top lands on element.y.
-    // Font 0 keeps its top-baseline nudge and draws at local 0.
-    // yOffset is a vertical calibration nudge: dots (×scale) for bitmap fonts,
-    // fraction-of-em for scalable Font 0. Applied in the local frame so it
-    // rotates with the text.
-    const translateNudge = isBitmap
-      ? (fontConfig.yOffset || 0) * scale
-      : fontSize * (-0.05 + (fontConfig.yOffset || 0));
-    const fillY = isBitmap ? textHeight : 0;
     const fontXOffset = fontWidth * (fontConfig.xOffset || 0);
 
     const drawTransformedText = (context, color, offsetX = 0, offsetY = 0) => {

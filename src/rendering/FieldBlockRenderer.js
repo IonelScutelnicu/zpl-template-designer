@@ -1,7 +1,7 @@
 // Field Block Renderer
 // Renders FIELDBLOCK elements on canvas with word wrapping and justification
 
-import { resolveFontLineHeight, resolveFontMetrics, measureStyledText, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
+import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 
@@ -23,26 +23,18 @@ export class FieldBlockRenderer {
     const blockWidth = element.blockWidth * scale;
 
     const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
-    const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
+    const { fontConfig, fontSize, fontWidth, scaleX } = fontMetrics;
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 
     const x = (element.x + homeX) * scale;
     const y = (element.y + homeY + labelTop) * scale;
     const fontXOffset = fontWidth * (fontConfig.xOffset || 0);
 
-    // Bitmap fonts align each line's cap top via an alphabetic baseline placed at the
-    // cap height; Font 0 keeps the top-baseline nudge. (top of capitals at Y)
-    const baseline = isBitmap ? 'alphabetic' : 'top';
-    const fillY = isBitmap ? snappedHeight * scale : 0;
+    const { baseline, fillY, nudge: yOffset } = resolveBaselinePlacement(fontMetrics, scale);
     ctx.font = font;
     ctx.textBaseline = baseline;
     ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
     ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
-
-    // yOffset: dots (×scale) for bitmap fonts, fraction-of-em for Font 0.
-    const yOffset = isBitmap
-      ? (fontConfig.yOffset || 0) * scale
-      : fontSize * (-0.05 + (fontConfig.yOffset || 0));
 
     const raw = element.previewText || '';
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
