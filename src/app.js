@@ -2912,10 +2912,22 @@ async function copyTextToClipboard(text) {
 }
 
 function fallbackCopyZPL(text) {
-  zplOutputRaw.value = text;
-  zplOutputRaw.select();
-  zplOutputRaw.setSelectionRange(0, 99999); // For mobile devices
-  return document.execCommand("copy");
+  // Don't select #zpl-output-raw: in fullscreen the collapsed ZPL body is
+  // display:none, so select() is a no-op and execCommand copies nothing
+  // (while still reporting success). A temporary textarea on <body> works
+  // regardless of layout.
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, text.length); // For mobile devices
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
 }
 
 
