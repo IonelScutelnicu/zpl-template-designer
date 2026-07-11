@@ -81,7 +81,7 @@ test.describe('Density rescale', () => {
       expect(r.fieldblock).toMatchObject({ fontSize: 78, fontWidth: 48, blockWidth: 270, lineSpacing: 12, hangingIndent: 24 });
       expect(r.barcode).toMatchObject({ width: 9, height: 150 });
       expect(r.qrcode).toMatchObject({ magnification: 9 });
-      expect(r.label).toEqual({ defaultFontHeight: 60, defaultFontWidth: 30, homeX: 30, homeY: 18, labelTop: 12 });
+      expect(r.label).toEqual({ defaultFontHeight: 60, defaultFontWidth: 30, homeX: 30, homeY: 18, labelTop: 4 });
     });
 
     test('updates the ZPL output to the new density and dimensions', async ({ page }) => {

@@ -70,7 +70,6 @@ const FACTORY_LABEL_DEFAULTS = {
   defaultFontWidth: 0,
   homeX: 0,
   homeY: 0,
-  labelTop: 0,
 };
 
 /**
@@ -216,7 +215,6 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
   }
   if (labelSettings.homeX) labelSettingsPatch.homeX = scalePos(labelSettings.homeX, s);
   if (labelSettings.homeY) labelSettingsPatch.homeY = scalePos(labelSettings.homeY, s);
-  if (labelSettings.labelTop) labelSettingsPatch.labelTop = scalePos(labelSettings.labelTop, s);
 
   return { labelSettingsPatch, editableGraphicsToReencode };
 }
