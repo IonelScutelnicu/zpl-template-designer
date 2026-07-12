@@ -24,13 +24,14 @@ export function drawLinear(ctx, geom, { x, y, moduleW, height, color, guardBotto
   for (let i = 0; i < geom.sbs.length; i++) {
     const w = geom.sbs[i] * moduleW;
     if (isBar) {
+      const barX = Array.isArray(geom.barXs) ? x + geom.barXs[barIndex] * moduleW : cx;
       const barHeightRatio = geom.bhs?.[barIndex] ?? 1;
       const barBottomOffset = geom.bbs?.[barIndex] ?? 0;
       const barY = y + (1 - barHeightRatio - barBottomOffset) * height;
       const barBottom = (guardBottomY != null && barBottomOffset < 0)
         ? guardBottomY
         : barY + barHeightRatio * height;
-      ctx.fillRect(cx, barY, w + SEAM, barBottom - barY);
+      ctx.fillRect(barX, barY, w + SEAM, barBottom - barY);
       barIndex += 1;
     }
     cx += w;

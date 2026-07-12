@@ -152,8 +152,17 @@ export const DEFAULT_PREVIEW_DATA = {
 const FIXED_FD_LENGTH = { EAN13: 12, EAN8: 7, UPCA: 11, UPCE: 6 };
 
 export function normalizeBarcodeData(symbology, data) {
-  const len = FIXED_FD_LENGTH[symbology];
   let s = data || '';
+  if (symbology === 'PLANET' || symbology === 'POSTNET') {
+    // USPS postal codes (^B5/^BZ): Zebra/Labelary drop non-digit ^FD characters
+    // entirely — no '0' substitution — and encode whatever digits remain, any
+    // count ≥ 1, plus the mod-10 check digit (verified on Labelary: ^FD12A45
+    // renders pixel-identical to ^FD1245, bars and HRI both; 1–20 digit fields
+    // all render). Applies to both the bars (buildBwipOptions) and the HRI
+    // (UspsPostalSymbology.displayText).
+    return s.replace(/\D/g, '');
+  }
+  const len = FIXED_FD_LENGTH[symbology];
   if (!len) return s;
   s = s.replace(/\D/g, '0'); // numeric-only: disallowed chars become '0'
   // Right-aligned: keep the trailing `len` chars (Labelary truncates leading
@@ -938,6 +947,7 @@ export function getBarcodeGeometry(element) {
       // element's effective ^BY ratio (wnRatio, quantized above) so the canvas width
       // matches Labelary; other linear symbologies (Code 128, EAN/UPC) keep bwip's widths.
       let sbs;
+      let barXs = null;
       if (symbology === 'PLESSEY') {
         // bwip renders Plessey at a fixed multi-width scheme that's wider than Zebra's;
         // remap each element to Zebra's clean narrow/wide model at the effective ^BY ratio:
@@ -955,9 +965,16 @@ export function getBarcodeGeometry(element) {
         // ^BY; odd widths are narrower (^BY1 space 1, ^BY3 space 4, ^BY5 space 7, …), so a
         // fixed 1.5 over-widens the odd module widths. Compute the space from element.width.
         const wDots = element.width || 2;
-        const spaceModules = Math.floor(1.5 * wDots) / wDots;
+        const spaceDots = Math.floor(1.5 * wDots);
+        const spaceModules = spaceDots / wDots;
         const narrow = Math.min(...o.sbs);
         sbs = Array.from(o.sbs, (v) => (v === narrow ? 1 : spaceModules));
+        // Derive every bar origin from its index instead of accumulating the
+        // fractional module-space width. This mirrors printer rasterization and
+        // prevents float drift at odd ^BY widths.
+        const pitchDots = wDots + spaceDots;
+        const barCount = Math.ceil(sbs.length / 2);
+        barXs = Array.from({ length: barCount }, (_, i) => Math.round(i * pitchDots) / wDots);
       } else {
         sbs = wnRatio && wnRatio !== nativeWide
           ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
@@ -989,6 +1006,7 @@ export function getBarcodeGeometry(element) {
         modules,
         bhs,
         bbs: !isUpcEanExt && !isDatabar && Array.isArray(o.bbs) ? o.bbs : null,
+        barXs,
         // Only trust bwip's text positions when we asked for them (includetext,
         // i.e. EAN13/UPCA). Without it bwip still emits a degenerate entry with a
         // null y-offset for Code 128/39; treating that as positioned text draws it

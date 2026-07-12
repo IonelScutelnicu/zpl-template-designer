@@ -622,14 +622,14 @@ test.describe('Barcode symbology', () => {
             const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '12345678901', width: 2, ratio: 3 } as any);
             const round = (a: number[]) => [...new Set(a.map((v) => +v.toFixed(4)))].sort((x, y) => x - y);
             const g13: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '1234567890123', width: 2, ratio: 3 } as any);
-            const gBad: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '12345', width: 2, ratio: 3 } as any);
+            const gEmpty: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '', width: 2, ratio: 3 } as any);
             return {
                 kind: g.kind,
                 bars: g.bhs?.length,
                 barHeights: round(g.bhs),  // tall vs short ratios
                 barWidths: round(g.sbs),   // bar vs space module widths
                 bars13: g13.bhs?.length,
-                badKind: gBad.kind,        // 5 digits is invalid for Planet
+                emptyKind: gEmpty.kind,    // no digits at all -> placeholder
             };
         });
         // Verified against Labelary for "12345678901": 62 bars, short bars = 0.4·tall,
@@ -639,7 +639,7 @@ test.describe('Barcode symbology', () => {
         expect(r.barHeights).toEqual([0.4, 1]);
         expect(r.barWidths).toEqual([1, 1.5]);
         expect(r.bars13).toBe(72); // 13-digit variant
-        expect(r.badKind).toBe('error'); // must be 11 or 13 digits
+        expect(r.emptyKind).toBe('error'); // needs at least 1 digit
     });
 
     // ============== POSTNET (^BZ) ==============
@@ -677,7 +677,7 @@ test.describe('Barcode symbology', () => {
             const g5: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '12345', width: 2, ratio: 3 } as any);
             const g9: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '123456789', width: 2, ratio: 3 } as any);
             const g11: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '12345678901', width: 2, ratio: 3 } as any);
-            const gBad: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '1234', width: 2, ratio: 3 } as any);
+            const gEmpty: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '', width: 2, ratio: 3 } as any);
             return {
                 kind: g5.kind,
                 bars5: g5.bhs?.length,
@@ -685,7 +685,7 @@ test.describe('Barcode symbology', () => {
                 barWidths: round(g5.sbs),   // bar vs space module widths
                 bars9: g9.bhs?.length,
                 bars11: g11.bhs?.length,
-                badKind: gBad.kind,         // 4 digits is invalid for POSTNET
+                emptyKind: gEmpty.kind,     // no digits at all -> placeholder
             };
         });
         // Verified against the POSTNET spec (frame + 5·n + 5-bar check + frame) and Labelary:
@@ -697,7 +697,61 @@ test.describe('Barcode symbology', () => {
         expect(r.barWidths).toEqual([1, 1.5]);
         expect(r.bars9).toBe(52);
         expect(r.bars11).toBe(62);
-        expect(r.badKind).toBe('error'); // must be 5, 9 or 11 digits
+        expect(r.emptyKind).toBe('error'); // needs at least 1 digit
+    });
+
+    test('Planet Code / POSTNET render any digit count like Labelary (vendor patch guard)', async ({ page }) => {
+        // Zebra ^B5/^BZ (and Labelary) encode any number of digits — not just the
+        // USPS spec lengths — appending the mod-10 check digit, and drop non-digit
+        // ^FD characters from bars and HRI alike. Stock bwip-js rejects non-spec
+        // lengths; src/vendor/PATCHES.md #2 relaxes the gates. Bar counts verified
+        // against Labelary: (digits + 1 check) × 5 + 2 frame bars.
+        const r = await page.evaluate(async () => {
+            const [{ getBarcodeGeometry }, { getBarcodeSymbology }] = await Promise.all([
+                import('/src/utils/barcodeGeometry.js'),
+                import('/src/barcodes/BarcodeSymbologies.js'),
+            ]);
+            const bars = (symbology: string, previewData: string) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology, previewData, width: 2, ratio: 3 } as any) as any).bhs?.length;
+            return {
+                planet1: bars('PLANET', '1'),               // 12 bars
+                planet5: bars('PLANET', '12345'),           // 32 bars (the reported case)
+                planet20: bars('PLANET', '12345678901234567890'), // 107 bars
+                planetAlpha: bars('PLANET', '12A45'),       // 'A' dropped -> 4 digits, 27 bars
+                postnet4: bars('POSTNET', '1234'),          // 27 bars
+                postnet7: bars('POSTNET', '1234567'),       // 42 bars
+                planetHri: (getBarcodeSymbology('PLANET') as any).displayText({ previewData: '12A45' }),
+                postnetHri: (getBarcodeSymbology('POSTNET') as any).displayText({ previewData: '12A45' }),
+            };
+        });
+        expect(r.planet1).toBe(12);
+        expect(r.planet5).toBe(32);
+        expect(r.planet20).toBe(107);
+        expect(r.planetAlpha).toBe(27);
+        expect(r.postnet4).toBe(27);
+        expect(r.postnet7).toBe(42);
+        // Labelary prints the digit-stripped data as the HRI (^FD12A45 -> "1245").
+        expect(r.planetHri).toBe('1245');
+        expect(r.postnetHri).toBe('1245');
+    });
+
+    test('PLANET and POSTNET independently round each bar origin at odd module widths', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const positions = (symbology: string, previewData: string) => {
+                const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology, previewData, width: 3, ratio: 3 } as any);
+                return g.barXs.map((x: number) => x * 3);
+            };
+            return {
+                planet: positions('PLANET', '12345678901'),
+                postnet: positions('POSTNET', '12345'),
+            };
+        });
+        // ^BY3: 3-dot bars + floor(1.5 * 3)=4-dot spaces, so each bar starts
+        // at Math.round(i * 7) rather than inheriting a cumulative float cursor.
+        for (const positions of [r.planet, r.postnet]) {
+            expect(positions).toEqual(positions.map((_: number, i: number) => Math.round(i * 7)));
+        }
     });
 
     // ============== CODABAR (^BK) ==============

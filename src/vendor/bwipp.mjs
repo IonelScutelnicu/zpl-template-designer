@@ -16278,9 +16278,11 @@ function bwipp_postnet() {
         _8 = _8 - 1; //#16087
     } //#16087
     $_.barlen = _8; //#16087
-    if ((($_.barlen != 5) && ($_.barlen != 9)) && ($_.barlen != 11)) { //#16094
+    // PATCHED: accept any digit count >= 1 (stock: 5, 9 or 11 only) — Zebra ^BZ /
+    // Labelary render any length; see src/vendor/PATCHES.md #2.
+    if ($_.barlen < 1) { //#16094
         $k[$j++] = "bwipp.postnetBadLength#16093"; //#16093
-        $k[$j++] = "USPS POSTNET must be 5, 9 or 11 digits excluding check digit"; //#16093
+        $k[$j++] = "USPS POSTNET must be 1 or more digits excluding check digit"; //#16093
         bwipp_raiseerror(); //#16093
     } //#16093
     $forall($_.barcode, function() { //#16099
@@ -16423,9 +16425,11 @@ function bwipp_planet() {
         _8 = _8 - 1; //#16269
     } //#16269
     $_.barlen = _8; //#16269
-    if (($_.barlen != 11) && ($_.barlen != 13)) { //#16276
+    // PATCHED: accept any digit count >= 1 (stock: 11 or 13 only) — Zebra ^B5 /
+    // Labelary render any length; see src/vendor/PATCHES.md #2.
+    if ($_.barlen < 1) { //#16276
         $k[$j++] = "bwipp.planetBadLength#16275"; //#16275
-        $k[$j++] = "USPS PLANET must be 11 or 13 digits excluding check digit"; //#16275
+        $k[$j++] = "USPS PLANET must be 1 or more digits excluding check digit"; //#16275
         bwipp_raiseerror(); //#16275
     } //#16275
     $forall($_.barcode, function() { //#16281

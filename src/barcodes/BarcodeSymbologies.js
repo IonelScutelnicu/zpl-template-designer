@@ -5,6 +5,7 @@ import {
   code93CheckChars,
   interleaved2of5Digits,
   msiCheckDigits,
+  normalizeBarcodeData,
   normalizeUpcEanExt,
   plesseyCheckDigits,
 } from '../utils/barcodeGeometry.js';
@@ -122,6 +123,15 @@ class PlainBarcodeSymbology extends BarcodeSymbology {
   renderZpl(element, content, preservePlaceholders) {
     const { f, o, g } = commonParams(element);
     return `${this.command}${o},${element.height},${f}${g}${fieldData(element, content, preservePlaceholders)}`;
+  }
+}
+
+class UspsPostalSymbology extends PlainBarcodeSymbology {
+  // ^B5 Planet / ^BZ POSTNET: the printer drops non-digit ^FD characters from the
+  // HRI as well as the bars (Labelary: ^FD12A45 prints "1245"), so the display
+  // text is the same digit-stripped data the bars encode (check digit not shown).
+  displayText(element) {
+    return normalizeBarcodeData(this.id, element.previewData || '');
   }
 }
 
@@ -270,8 +280,8 @@ const registry = new Map([
   ['LOGMARS', new LogmarsSymbology('LOGMARS')],
   ['MSI', new MsiSymbology('MSI')],
   ['PLESSEY', new PlesseySymbology('PLESSEY')],
-  ['PLANET', new PlainBarcodeSymbology('PLANET', '^B5', false)],
-  ['POSTNET', new PlainBarcodeSymbology('POSTNET', '^BZ', false)],
+  ['PLANET', new UspsPostalSymbology('PLANET', '^B5', false)],
+  ['POSTNET', new UspsPostalSymbology('POSTNET', '^BZ', false)],
   ['EAN13', new EanUpcSymbology('EAN13', '^BE')],
   ['EAN8', new EanUpcSymbology('EAN8', '^B8')],
   ['UPCA', new EanUpcSymbology('UPCA', '^BU')],
