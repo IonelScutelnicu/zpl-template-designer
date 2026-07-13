@@ -1,7 +1,7 @@
 # Local patches to vendored bwip-js
 
 These files (`bwip-js.mjs`, `bwipp.mjs`) are vendored from
-[bwip-js](https://github.com/metafloor/bwip-js) **v4.11.1 (2026-05-28)** and are
+[bwip-js](https://github.com/metafloor/bwip-js) **v4.11.2 (2026-07-01)** and are
 imported directly at runtime. They carry a small number of deliberate local
 modifications listed below.
 
