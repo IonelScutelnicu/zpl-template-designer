@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZPL Designer — Embed Demo</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+
+    #toolbar button {
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 4px;
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #status {
+      margin-left: auto;
+      font-size: 13px;
+    }
+
+    #editor-container {
+      flex: 1;
+      min-height: 0;
+    }
+
+    #result {
+      max-height: 30vh;
+      overflow: auto;
+      margin: 0;
+      padding: 10px;
+      background: #0f172a;
+      color: #86efac;
+      font-size: 12px;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="toolbar">
+    <strong>Host app</strong>
+    <button id="load-template-btn">Load sample template</button>
+    <button id="load-zpl-btn">Load sample ZPL</button>
+    <button id="open-tab-btn">Open in new tab</button>
+    <span id="status">waiting for editor…</span>
+  </div>
+  <div id="editor-container"></div>
+  <pre id="result"></pre>
+
+  <script src="zpl-designer-embed.js"></script>
+  <script>
+    var statusEl = document.getElementById('status');
+    var resultEl = document.getElementById('result');
+
+    var sampleTemplate = {
+      elements: [
+        { type: 'TEXT', x: 40, y: 40, previewText: 'Hello from host', fontSize: 40 },
+      ],
+      labelSettings: { width: 100, height: 50, dpmm: 8 },
+    };
+    var sampleZPL = '^XA^PW800^LL400^FO50,120^A0N,60,60^FDSample ZPL^FS^FO50,220^GB300,3,3^FS^XZ';
+
+    var callbacks = {
+      onReady: function () { statusEl.textContent = 'editor ready'; },
+      onChange: function () { statusEl.textContent = 'unsaved changes'; },
+      onCancel: function () { statusEl.textContent = 'cancelled'; },
+      onError: function (e) {
+        statusEl.textContent = 'error: ' + e.message;
+        resultEl.style.display = 'block';
+        resultEl.textContent = JSON.stringify(e, null, 2);
+      },
+      onSave: function (r) {
+        statusEl.textContent = 'saved';
+        resultEl.style.display = 'block';
+        resultEl.textContent = 'TEMPLATE JSON:\n' + JSON.stringify(r.template, null, 2) +
+          '\n\nZPL:\n' + r.zpl;
+      },
+    };
+
+    var handle = ZplDesigner.embed(Object.assign({
+      container: '#editor-container',
+      url: new URL('..', window.location.href).href,
+    }, callbacks));
+
+    document.getElementById('load-template-btn').addEventListener('click', function () {
+      handle.loadTemplate(sampleTemplate);
+    });
+    document.getElementById('load-zpl-btn').addEventListener('click', function () {
+      handle.loadZPL(sampleZPL);
+    });
+    document.getElementById('open-tab-btn').addEventListener('click', function () {
+      ZplDesigner.open(Object.assign({
+        url: new URL('..', window.location.href).href,
+        template: sampleTemplate,
+      }, callbacks));
+    });
+  </script>
+</body>
+
+</html>

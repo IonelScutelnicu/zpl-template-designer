@@ -14,6 +14,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Undo/redo history** — full history panel with named entries
 - **Import/export** — import/export templates as JSON, plus experimental import from raw ZPL
 - **Shareable links** — compress the current template into a URL hash for quick sharing
+- **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK and two-way postMessage data flow; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
 - **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
 - **Custom fonts** — register custom ZPL fonts via `^CW` commands
 - **Print settings** — orientation, mirror, media tracking (`^MN`, incl. continuous media with `^LL`), darkness, speed, home position, label top, and print quantity controls (`^PQ`)
@@ -197,6 +198,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/services/UrlShareService.js` — Shareable URL generation and decoding
 - `src/services/SmartGuideService.js` — Alignment guide detection and snapping
 - `src/services/DriveTemplateService.js` — Drive-backed create/load/update/trash operations
+- `src/services/EmbedBridge.js` — Embed-mode postMessage protocol with host applications (ADR 0009)
 
 ### UI Components
 - `src/ui/PropertiesPanelRenderer.js` — Property form rendering for all element types
@@ -229,6 +231,8 @@ The application uses a modular architecture for maintainability and testability:
 - `src/vendor/bwip-js.mjs`, `src/vendor/bwipp.mjs` — vendored bwip-js (barcode encoder)
 - `src/utils/graphicField.js` — Bitmap encoding, rotation, and image conversion utilities
 - `templates/index.js` — Registry for curated gallery templates
+- `embed/zpl-designer-embed.js` — Dependency-free SDK for embedding the editor in host apps (see docs/EMBEDDING.md)
+- `embed/demo.html` — Live embed demo / Playwright host fixture
 
 ### Design Principles
 

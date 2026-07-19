@@ -14,8 +14,12 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round|Material+Icons+Outlined" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <script>
-    if (localStorage.getItem('fullscreen') === '1') document.documentElement.classList.add('fs-restore');
-    if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+    // localStorage throws in sandboxed iframes without allow-same-origin.
+    try {
+      if (localStorage.getItem('fullscreen') === '1') document.documentElement.classList.add('fs-restore');
+      if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+    } catch (_) { }
+    if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embed');
   </script>
   <script defer src="templates/index.js"></script>
   <script>
@@ -1098,6 +1102,26 @@
          shrinks to the height of its buttons. */
       bottom: auto;
     }
+
+    /* Embed mode (?embed=1): hide chrome that makes no sense inside a host
+       app (gallery navigation, Drive, onboarding); show Save/Cancel instead. */
+    html.embed #view-toggle,
+    html.embed #drive-auth-chip,
+    html.embed #tour-btn,
+    html.embed #drive-menu-save,
+    html.embed #drive-menu-save-as,
+    html.embed #drive-menu-rename,
+    html.embed #export-gallery-btn {
+      display: none !important;
+    }
+
+    #embed-actions {
+      display: none;
+    }
+
+    html.embed #embed-actions {
+      display: flex;
+    }
   </style>
   <link rel="stylesheet" href="src/gallery.css">
   <link rel="stylesheet" href="src/theme-dark.css">
@@ -1144,6 +1168,20 @@
           <button type="button" id="view-tab-editor" data-view="editor" role="tab" aria-selected="true">
             <span class="material-icons-round">design_services</span>
             Editor
+          </button>
+        </div>
+
+        <!-- Center Section (embed mode): Save / Cancel — takes the view
+             toggle's grid column so the header layout stays identical -->
+        <div id="embed-actions" class="items-center gap-2">
+          <button id="embed-cancel-btn" data-tooltip="Discard changes and return to the host app"
+            class="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+            <span>Cancel</span>
+          </button>
+          <button id="embed-save-btn" data-tooltip="Send the template back to the host app"
+            class="inline-flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+            <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">check</span>
+            <span>Save</span>
           </button>
         </div>
 

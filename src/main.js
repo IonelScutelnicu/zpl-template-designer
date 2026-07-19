@@ -19,7 +19,7 @@ function initThemeToggle() {
   syncIcon();
   btn.addEventListener('click', () => {
     const dark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', dark ? 'dark' : 'light');
+    try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (_) { }
     syncIcon();
   });
 }

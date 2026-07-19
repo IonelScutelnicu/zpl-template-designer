@@ -35,6 +35,7 @@ import { isConfigured as isDriveConfigured } from './config/drive-config.js';
 import { getCurrentView } from './router.js';
 import { normalizeElementFontSize } from './utils/zplFontSnap.js';
 import { SYMBOLOGY_META, resolveSymbology } from './utils/barcodeGeometry.js';
+import { isEmbedMode, initEmbedBridge } from './services/EmbedBridge.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -66,7 +67,11 @@ const driveDoc = {
 let lastLoadedDriveId = null;
 
 function rehydrateFromHandoff() {
-  const galleryTemplateJson = sessionStorage.getItem('gallery_template');
+  // sessionStorage throws in sandboxed iframes without allow-same-origin.
+  let galleryTemplateJson = null;
+  try {
+    galleryTemplateJson = sessionStorage.getItem('gallery_template');
+  } catch (_) { }
   if (galleryTemplateJson) {
     sessionStorage.removeItem('gallery_template');
     try {
@@ -93,10 +98,11 @@ function rehydrateFromHandoff() {
     return;
   }
 
-  // No sessionStorage payload — fall back to URL ?drive=<id>.
+  // No sessionStorage payload — fall back to URL ?drive=<id>. Drive is
+  // unavailable in embed mode (OAuth won't run in cross-origin iframes).
   const urlParams = new URLSearchParams(window.location.search);
   const driveId = urlParams.get('drive');
-  if (driveId && driveId !== lastLoadedDriveId && driveAuth.isConnected()) {
+  if (driveId && !isEmbedMode() && driveId !== lastLoadedDriveId && driveAuth.isConnected()) {
     lastLoadedDriveId = driveId;
     driveTemplateService.load(driveId).then(({ json, meta }) => {
       const template = {
@@ -1335,13 +1341,38 @@ export function initApp() {
     });
   }
 
-  // Initialize onboarding walkthrough
+  // Initialize onboarding walkthrough (not in embed mode — hosts don't
+  // want a first-run tour inside their app)
   const walkthrough = new OnboardingWalkthrough();
-  walkthrough.init();
+  if (!isEmbedMode()) walkthrough.init();
   document.getElementById('tour-btn').addEventListener('click', () => {
     if (fullscreen.isOn()) fullscreen.exit();
     walkthrough.start();
   });
+
+  if (isEmbedMode()) {
+    initEmbedBridge({
+      state,
+      importTemplateJson: (json) => {
+        const template = serializationService.importTemplate(json);
+        if (!template) return false;
+        importTemplate(template);
+        return true;
+      },
+      importZPL: (zpl) => {
+        const dpmm = state.labelSettings.dpmm || 8;
+        const labelHeightVal = state.labelSettings.height || 50;
+        const result = zplParser.parse(zpl, { dpmm, labelHeight: labelHeightVal });
+        importTemplate({ elements: result.elements, labelSettings: result.labelSettings });
+        return result.warnings;
+      },
+      getResult: () => {
+        const template = JSON.parse(serializationService.exportTemplate(state.elements, state.labelSettings));
+        if (currentTemplateMetadata) template.metadata = currentTemplateMetadata;
+        return { template, zpl: zplGenerator.generateZPL(state.elements, state.labelSettings) };
+      },
+    });
+  }
 
   // Expose internals for automated tests only
   const isE2E = typeof window !== 'undefined' && (

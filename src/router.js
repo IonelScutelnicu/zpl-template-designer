@@ -20,6 +20,9 @@ let currentView = 'editor';
 
 function readViewFromUrl() {
   const params = new URLSearchParams(window.location.search);
+  // Embed mode is editor-only; the gallery toggle is hidden and direct
+  // ?view=gallery links land on the editor.
+  if (params.get('embed') === '1') return 'editor';
   const v = params.get('view');
   return v === 'gallery' ? 'gallery' : 'editor';
 }

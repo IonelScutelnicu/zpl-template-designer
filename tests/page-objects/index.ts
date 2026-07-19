@@ -5,3 +5,4 @@ export { Canvas } from './Canvas';
 export { ZPLOutput } from './ZPLOutput';
 export { PreviewPanel } from './PreviewPanel';
 export { Fullscreen } from './Fullscreen';
+export { EmbedHost } from './EmbedHost';
