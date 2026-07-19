@@ -8,10 +8,6 @@ export class ConfirmModal {
   constructor() {
     this._dialog  = document.getElementById('confirm-modal');
     this._message = document.getElementById('confirm-message');
-    // Light-dismiss: clicks on the ::backdrop area target the dialog itself.
-    this._dialog.addEventListener('click', (e) => {
-      if (e.target === this._dialog) this._dialog.close();
-    });
   }
 
   /**

@@ -44,6 +44,19 @@ test.describe('New template — start a blank label', () => {
         expect(await elementsPanel.getElementCount()).toBe(countBefore);
     });
 
+    test('keeps the confirmation open when the backdrop is clicked', async ({ page }) => {
+        await elementsPanel.addTextElement();
+
+        await zplOutput.openMoreActions();
+        await page.locator('#new-template-btn').click();
+        await expect(page.locator('#confirm-modal')).toBeVisible();
+
+        await page.mouse.click(5, 5);
+
+        await expect(page.locator('#confirm-modal')).toBeVisible();
+        await page.locator('#confirm-cancel-btn').click();
+    });
+
     test('does not prompt when the canvas is already blank', async ({ page }) => {
         await zplOutput.openMoreActions();
         await page.locator('#new-template-btn').click();
