@@ -10,6 +10,7 @@ import * as driveAuth from './services/DriveAuth.js';
 import * as drive from './services/DriveFiles.js';
 import { isConfigured } from './config/drive-config.js';
 import { navigate, getCurrentView } from './router.js';
+import { safeLocalStorageRemove } from './utils/storage.js';
 
 const zplGenerator = new ZPLGenerator();
 const serializationService = new SerializationService();
@@ -241,8 +242,8 @@ async function loadMyTemplates() {
     state.myError = err && err.message ? err.message : 'Failed to load templates from Drive.';
     if (/404|not found/i.test(state.myError)) {
       // Folder gone — drop the cached folder so the user is re-prompted.
-      localStorage.removeItem('zebra.drive.folder_id');
-      localStorage.removeItem('zebra.drive.folder_name');
+      safeLocalStorageRemove('zebra.drive.folder_id');
+      safeLocalStorageRemove('zebra.drive.folder_name');
       state.myError = 'Drive folder is unavailable. Choose another folder.';
     }
     render();

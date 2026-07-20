@@ -13,6 +13,7 @@ import {
   STORAGE_KEYS,
   isConfigured,
 } from '../config/drive-config.js';
+import { safeLocalStorageRemove } from '../utils/storage.js';
 
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 const GAPI_SRC = 'https://apis.google.com/js/api.js';
@@ -80,7 +81,7 @@ function persistToken(token, expiresIn) {
 function clearAll() {
   // Keep folderId/folderName so the last chosen folder is remembered across sessions.
   const { folderId, folderName, ...sessionKeys } = STORAGE_KEYS;
-  Object.values(sessionKeys).forEach((k) => localStorage.removeItem(k));
+  Object.values(sessionKeys).forEach(safeLocalStorageRemove);
 }
 
 function notify() {
