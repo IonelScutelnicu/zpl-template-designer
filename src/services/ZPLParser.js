@@ -13,6 +13,8 @@ const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
   'CF', 'CW', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'GS', 'FX',
+  // Native variable and clock commands are supported no-ops during import.
+  'FE', 'FC', 'FN', 'SO',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
   'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BP', 'BR', 'BS', 'BT', 'BU', 'BX', 'BZ'
