@@ -47,18 +47,23 @@ export class HistoryPanel {
    */
   renderHistoryEntry(entry, index, currentIndex) {
     const isActive = index === currentIndex;
+    const isRedoable = index > currentIndex;
+    const historyState = isActive ? "active" : isRedoable ? "redoable" : "applied";
     const activeClasses = isActive
       ? "bg-blue-50 border-l-4 border-blue-500"
       : "hover:bg-slate-50";
-    const labelClasses = isActive ? "text-blue-600 font-semibold" : "text-slate-700";
+    const labelClasses = isActive
+      ? "text-blue-600 font-semibold"
+      : isRedoable ? "text-slate-400" : "text-slate-700";
     const time = entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const meta = this.iconMap[entry.kind] || this.iconMap.edit;
+    const iconClasses = isRedoable ? "text-slate-400 bg-slate-100" : meta.color;
     const detail = entry.detail ? `<p class="text-[11px] text-slate-500 mt-1">${this.escapeHtml(entry.detail)}</p>` : "";
 
     return `
-      <button class="w-full text-left px-4 py-3 border-b border-slate-100 ${activeClasses}" data-history-index="${index}">
+      <button class="w-full text-left px-4 py-3 border-b border-slate-100 ${activeClasses}" data-history-index="${index}" data-history-state="${historyState}">
         <div class="flex items-start gap-3">
-          <div class="mt-0.5 w-8 h-8 rounded-full flex items-center justify-center ${meta.color}">
+          <div class="mt-0.5 w-8 h-8 rounded-full flex items-center justify-center ${iconClasses}">
             <span class="material-icons-round text-sm">${meta.icon}</span>
           </div>
           <div class="flex-1 min-w-0">
