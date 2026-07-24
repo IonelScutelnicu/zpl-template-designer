@@ -2,6 +2,7 @@
 // Image rasterization, bitmap packing, and ZPL ^GFA encoding/decoding.
 
 import { inflateZlib } from './inflate.js';
+import { loadImage } from './loadImage.js';
 
 /**
  * CRC-16/CCITT (poly 0x1021, init 0x0000), as used by Zebra ^GF :B64:/:Z64:.
@@ -253,50 +254,45 @@ export function bitmapToImageData(bytes, widthDots, heightDots, bytesPerRow) {
  * @returns {Promise<{bytes: Uint8Array, widthDots: number, heightDots: number, bytesPerRow: number, imageData: ImageData, sourceWidth: number, sourceHeight: number}>}
  */
 export function imageToBitmap(dataUrl, widthDots, threshold = 128, heightDots = null) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const aspect = img.naturalHeight / img.naturalWidth;
-      const finalHeight = (heightDots && heightDots > 0)
-        ? Math.max(1, Math.round(heightDots))
-        : Math.max(1, Math.round(widthDots * aspect));
-      const bytesPerRow = Math.ceil(widthDots / 8);
-      const paddedWidth = bytesPerRow * 8;
+  return loadImage(dataUrl, 'Failed to load image').then((img) => {
+    const aspect = img.naturalHeight / img.naturalWidth;
+    const finalHeight = (heightDots && heightDots > 0)
+      ? Math.max(1, Math.round(heightDots))
+      : Math.max(1, Math.round(widthDots * aspect));
+    const bytesPerRow = Math.ceil(widthDots / 8);
+    const paddedWidth = bytesPerRow * 8;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = paddedWidth;
-      canvas.height = finalHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, paddedWidth, finalHeight);
-      ctx.drawImage(img, 0, 0, widthDots, finalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = paddedWidth;
+    canvas.height = finalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, paddedWidth, finalHeight);
+    ctx.drawImage(img, 0, 0, widthDots, finalHeight);
 
-      const px = ctx.getImageData(0, 0, paddedWidth, finalHeight).data;
-      const total = bytesPerRow * finalHeight;
-      const bytes = new Uint8Array(total);
+    const px = ctx.getImageData(0, 0, paddedWidth, finalHeight).data;
+    const total = bytesPerRow * finalHeight;
+    const bytes = new Uint8Array(total);
 
-      for (let y = 0; y < finalHeight; y++) {
-        for (let bx = 0; bx < bytesPerRow; bx++) {
-          let byte = 0;
-          for (let bit = 0; bit < 8; bit++) {
-            const x = bx * 8 + bit;
-            if (x >= widthDots) break;
-            const o = (y * paddedWidth + x) * 4;
-            const lum = 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
-            if (lum < threshold) byte |= (0x80 >> bit);
-          }
-          bytes[y * bytesPerRow + bx] = byte;
+    for (let y = 0; y < finalHeight; y++) {
+      for (let bx = 0; bx < bytesPerRow; bx++) {
+        let byte = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          const x = bx * 8 + bit;
+          if (x >= widthDots) break;
+          const o = (y * paddedWidth + x) * 4;
+          const lum = 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
+          if (lum < threshold) byte |= (0x80 >> bit);
         }
+        bytes[y * bytesPerRow + bx] = byte;
       }
+    }
 
-      const imageData = bitmapToImageData(bytes, widthDots, finalHeight, bytesPerRow);
-      resolve({
-        bytes, widthDots, heightDots: finalHeight, bytesPerRow, imageData,
-        sourceWidth: img.naturalWidth, sourceHeight: img.naturalHeight,
-        naturalAspectRatio: aspect,
-      });
+    const imageData = bitmapToImageData(bytes, widthDots, finalHeight, bytesPerRow);
+    return {
+      bytes, widthDots, heightDots: finalHeight, bytesPerRow, imageData,
+      sourceWidth: img.naturalWidth, sourceHeight: img.naturalHeight,
+      naturalAspectRatio: aspect,
     };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = dataUrl;
   });
 }

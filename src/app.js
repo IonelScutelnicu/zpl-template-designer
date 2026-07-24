@@ -30,6 +30,7 @@ import { ConfirmModal } from './ui/ConfirmModal.js';
 import { DensityRescaleModal } from './ui/DensityRescaleModal.js';
 import { analyzeRescale, applyRescale } from './services/DensityRescaleService.js';
 import { imageToBitmap } from './utils/graphicField.js';
+import { loadImage } from './utils/loadImage.js';
 import { escapeHtml, escapeAttr } from './utils/dom-helpers.js';
 import { DriveTemplateService } from './services/DriveTemplateService.js';
 import * as driveAuth from './services/DriveAuth.js';
@@ -2583,12 +2584,8 @@ function readFileAsDataUrl(file) {
 }
 
 function loadImageNaturalSize(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => reject(new Error('Image load failed'));
-    img.src = dataUrl;
-  });
+  return loadImage(dataUrl, 'Image load failed')
+    .then(img => ({ width: img.naturalWidth, height: img.naturalHeight }));
 }
 
 // Serialization functions (delegated to SerializationService)
