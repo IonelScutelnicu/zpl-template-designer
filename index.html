@@ -19,7 +19,34 @@
       if (localStorage.getItem('fullscreen') === '1') document.documentElement.classList.add('fs-restore');
       if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
     } catch (_) { }
-    if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embed');
+    (() => {
+      const params = new URLSearchParams(location.search);
+      // ?fullscreen=1|0 picks the launch layout for this load, overriding the
+      // stored preference — a sandboxed embed can't rely on localStorage.
+      const fullscreen = params.get('fullscreen');
+      if (fullscreen === '1') document.documentElement.classList.add('fs-restore');
+      else if (fullscreen === '0') document.documentElement.classList.remove('fs-restore');
+      if (params.get('embed') !== '1') return;
+      document.documentElement.classList.add('embed');
+      // Panels the host chose to hide (?hidePanels=zplOutput,warnings). Applied
+      // pre-paint so a hidden panel never flashes. Keys are URL-supplied, so
+      // guard the token — classList.add throws on empty/whitespace.
+      (params.get('hidePanels') || '').split(',').forEach((p) => {
+        if (/^[a-zA-Z]+$/.test(p)) document.documentElement.classList.add('hide-panel-' + p);
+      });
+      // Element types the host dropped from the Add palette
+      // (?hideElements=barcode,qrcode). One generated rule beats a static one
+      // per type — new types work as long as they keep the #add-<type>-btn id.
+      // The [a-zA-Z] guard is what keeps the URL out of the selector.
+      const hiddenElements = (params.get('hideElements') || '').split(',')
+        .filter((e) => /^[a-zA-Z]+$/.test(e))
+        .map((e) => '#add-' + e.toLowerCase() + '-btn');
+      if (hiddenElements.length) {
+        const style = document.createElement('style');
+        style.textContent = hiddenElements.join(',') + '{display:none !important}';
+        document.head.appendChild(style);
+      }
+    })();
   </script>
   <script defer src="templates/index.js"></script>
   <script>
@@ -401,7 +428,7 @@
       left: 0;
       right: 0;
       top: var(--hdr, 64px);
-      bottom: 0;
+      bottom: var(--embed-bar-h);
       border: 0;
       border-radius: 0;
       box-shadow: none;
@@ -636,7 +663,7 @@
     #view-editor.is-fullscreen #settings-card {
       left: 16px;
       top: auto;
-      bottom: 76px;
+      bottom: calc(76px + var(--embed-bar-h));
       width: max(220px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
       max-height: 50vh;
       overflow-y: auto;
@@ -688,7 +715,7 @@
       right: auto;
       transform: translateX(-50%);
       width: clamp(420px, 100vw - 700px, 720px);
-      bottom: 16px;
+      bottom: calc(16px + var(--embed-bar-h));
       top: auto;
       border: 1px solid #e2e8f0;
       border-radius: 0.5rem;
@@ -710,7 +737,7 @@
     #view-editor.is-fullscreen #warnings-panel {
       position: fixed;
       right: 16px;
-      bottom: 130px;
+      bottom: calc(130px + var(--embed-bar-h));
       z-index: 36;
       width: auto;
       max-width: 320px;
@@ -788,7 +815,7 @@
        so it lives in the root stacking context above all floating panels. */
     #zoom-controls.fs-zoom-detached {
       position: fixed;
-      bottom: 80px;
+      bottom: calc(80px + var(--embed-bar-h));
       right: 16px;
       z-index: 45;
     }
@@ -903,7 +930,7 @@
       position: fixed;
       left: 16px;
       top: calc(var(--hdr, 64px) + 16px);
-      bottom: 16px;
+      bottom: calc(16px + var(--embed-bar-h));
       width: 40px;
       z-index: 37;
       background: rgba(255, 255, 255, 0.97);
@@ -973,7 +1000,7 @@
     #view-editor.is-fullscreen #settings-card {
       left: 56px;
       top: calc(var(--hdr, 64px) + 16px);
-      bottom: 16px;
+      bottom: calc(16px + var(--embed-bar-h));
       width: max(220px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
       max-height: none;
       overflow-y: auto;
@@ -1115,12 +1142,67 @@
       display: none !important;
     }
 
+    /* Height reserved for the embed action bar. 0 outside embed mode, so the
+       bottom offsets that add it are inert in the standalone app. */
+    html {
+      --embed-bar-h: 0px;
+    }
+
+    html.embed {
+      /* 10px padding × 2 + 30px button + 1px top border. */
+      --embed-bar-h: 51px;
+    }
+
+    /* Host drives Save from its own chrome (?hidePanels=actions): the bar
+       goes, and every bottom offset that adds this var collapses with it. */
+    html.embed.hide-panel-actions {
+      --embed-bar-h: 0px;
+    }
+
     #embed-actions {
       display: none;
     }
 
     html.embed #embed-actions {
       display: flex;
+    }
+
+    /* Save/Cancel used to fill the header's centre column while the view
+       toggle was hidden. With them moved to the action bar, embed mode drops
+       to two columns so the right-hand actions stay right-aligned instead of
+       sliding into the middle. */
+    html.embed header>div {
+      grid-template-columns: 1fr auto;
+    }
+
+    /* Keep the last of the scrolling content clear of the fixed bar. Not in
+       fullscreen: there the layout is all fixed panels that already stop at
+       the bar, so the padding would be pure overflow — a scrollbar on a view
+       that has nothing to scroll. */
+    html.embed body {
+      padding-bottom: var(--embed-bar-h);
+    }
+
+    html.embed body:has(#view-editor.is-fullscreen) {
+      padding-bottom: 0;
+    }
+
+    /* Toasts and the Shortcuts pill stack above the bar, not behind it
+       (both are positioned with Tailwind's bottom-6 = 1.5rem). */
+    html.embed #toast-host,
+    html.embed #shortcuts-btn {
+      bottom: calc(1.5rem + var(--embed-bar-h));
+    }
+
+    /* Panels the host hid (?embed=1&hidePanels=zplOutput,warnings,header).
+       Presentation only — the panels keep updating, so preview refresh and
+       the header Template menu's Copy ZPL / Share stay live. !important
+       because the fullscreen rules for #zpl-card are more specific. */
+    html.embed.hide-panel-zplOutput #zpl-card,
+    html.embed.hide-panel-warnings #warnings-panel,
+    html.embed.hide-panel-header header,
+    html.embed.hide-panel-actions #embed-actions {
+      display: none !important;
     }
   </style>
   <link rel="stylesheet" href="src/gallery.css">
@@ -1168,20 +1250,6 @@
           <button type="button" id="view-tab-editor" data-view="editor" role="tab" aria-selected="true">
             <span class="material-icons-round">design_services</span>
             Editor
-          </button>
-        </div>
-
-        <!-- Center Section (embed mode): Save / Cancel — takes the view
-             toggle's grid column so the header layout stays identical -->
-        <div id="embed-actions" class="items-center gap-2">
-          <button id="embed-cancel-btn" data-tooltip="Discard changes and return to the host app"
-            class="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
-            <span>Cancel</span>
-          </button>
-          <button id="embed-save-btn" data-tooltip="Send the template back to the host app"
-            class="inline-flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
-            <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">check</span>
-            <span>Save</span>
           </button>
         </div>
 
@@ -2544,6 +2612,23 @@
       </div>
     </form>
   </dialog>
+
+  <!-- Embed mode action bar. Save / Cancel live here rather than in the
+       header so a host can hide the header entirely (?hidePanels=header);
+       the bar shows either way. Everything anchored to the bottom of the
+       viewport lifts by --embed-bar-h to clear it. -->
+  <div id="embed-actions"
+    class="fixed bottom-0 left-0 right-0 z-50 items-center justify-end gap-2 bg-white border-t border-slate-200 px-6 py-2.5">
+    <button id="embed-cancel-btn" data-tooltip="Discard changes and return to the host app"
+      class="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+      <span>Cancel</span>
+    </button>
+    <button id="embed-save-btn" data-tooltip="Send the template back to the host app"
+      class="inline-flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 text-xs font-medium px-3 py-1.5 rounded transition-colors shadow-sm">
+      <span class="material-icons-round text-[14px] leading-none" aria-hidden="true">check</span>
+      <span>Save</span>
+    </button>
+  </div>
 
   <!-- Toast host -->
   <div id="toast-host" class="fixed bottom-6 right-6 z-50 flex flex-col-reverse gap-2 pointer-events-none"></div>

@@ -2,7 +2,7 @@
 // inside a host application (?embed=1), either as an iframe or a window
 // opened from the host. Protocol v1, envelope both ways:
 //   { source, version, type, payload }
-// host→editor: init, loadTemplate, loadZPL
+// host→editor: init, loadTemplate, loadZPL, requestSave
 // editor→host: ready, save, cancel, change, error
 // Full reference in docs/EMBEDDING.md.
 
@@ -39,6 +39,8 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
     } catch (_) { }
   };
 
+  const sendSave = () => post('save', getResult(), hostOrigin);
+
   const applyContent = (payload) => {
     if (payload.template !== undefined && payload.template !== null) {
       const json = typeof payload.template === 'string'
@@ -73,6 +75,10 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
     }
     if (msg.type === 'init' || msg.type === 'loadTemplate' || msg.type === 'loadZPL') {
       applyContent(msg.payload || {});
+    } else if (msg.type === 'requestSave') {
+      // Same payload the Save button sends — a host driving the editor from
+      // its own chrome gets an identical `save` back.
+      sendSave();
     }
   });
 
@@ -88,7 +94,7 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
 
   document.getElementById('embed-save-btn').addEventListener('click', () => {
     if (hostOrigin === null) return;
-    post('save', getResult(), hostOrigin);
+    sendSave();
   });
   document.getElementById('embed-cancel-btn').addEventListener('click', () => {
     if (hostOrigin === null) return;

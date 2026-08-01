@@ -21,6 +21,9 @@
       padding: 10px;
       background: #1e293b;
       color: #e2e8f0;
+      /* Own stacking context so the dropdown paints above the iframe. */
+      position: relative;
+      z-index: 10;
     }
 
     #toolbar button {
@@ -31,6 +34,74 @@
       color: white;
       cursor: pointer;
       font-size: 13px;
+    }
+
+    #panels,
+    #layout {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 8px;
+      padding-left: 12px;
+      border-left: 1px solid #475569;
+      font-size: 13px;
+    }
+
+    #panels label,
+    #layout label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    /* Checkbox dropdown — friendlier than a native multi-select: no
+       ctrl-clicking, and the summary says what's picked without opening it. */
+    #hide-elements {
+      position: relative;
+    }
+
+    #hide-elements summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 4px 8px;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      background: #0f172a;
+      white-space: nowrap;
+    }
+
+    #hide-elements summary::-webkit-details-marker {
+      display: none;
+    }
+
+    #hide-elements summary::after {
+      content: ' ▾';
+      color: #94a3b8;
+    }
+
+    #hide-elements-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 30;
+      display: grid;
+      gap: 2px;
+      padding: 8px;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      background: #0f172a;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    }
+
+    #hide-elements-menu label {
+      padding: 2px 4px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    #hide-elements-menu label:hover {
+      background: #1e293b;
     }
 
     #status {
@@ -62,6 +133,33 @@
     <button id="load-template-btn">Load sample template</button>
     <button id="load-zpl-btn">Load sample ZPL</button>
     <button id="open-tab-btn">Open in new tab</button>
+    <button id="host-save-btn" title="Ask the editor for its state via handle.save()">Save (host)</button>
+    <span id="panels" title="Panel visibility is fixed when the iframe is created — toggling re-embeds the editor">
+      Show:
+      <label><input type="checkbox" data-panel="zplOutput" checked> ZPL Output</label>
+      <label><input type="checkbox" data-panel="warnings" checked> Warnings</label>
+      <label><input type="checkbox" data-panel="header" checked> Header</label>
+      <label><input type="checkbox" data-panel="actions" checked> Action bar</label>
+    </span>
+    <span id="layout" title="Launch layout — also fixed when the iframe is created">
+      <label><input type="checkbox" id="fullscreen-cb" checked> Fullscreen</label>
+      <details id="hide-elements">
+        <summary>Hide elements: <span id="hide-elements-count">none</span></summary>
+        <div id="hide-elements-menu">
+          <label><input type="checkbox" value="text"> Text</label>
+          <label><input type="checkbox" value="textblock"> Text Block</label>
+          <label><input type="checkbox" value="fieldblock"> Field Block</label>
+          <label><input type="checkbox" value="barcode"> 1D Barcode</label>
+          <label><input type="checkbox" value="qrcode"> 2D Barcode</label>
+          <label><input type="checkbox" value="box"> Box</label>
+          <label><input type="checkbox" value="line"> Line</label>
+          <label><input type="checkbox" value="circle"> Circle</label>
+          <label><input type="checkbox" value="diagonalline"> Diagonal</label>
+          <label><input type="checkbox" value="graphicsymbol"> Symbol</label>
+          <label><input type="checkbox" value="graphic"> Image</label>
+        </div>
+      </details>
+    </span>
     <span id="status">waiting for editor…</span>
   </div>
   <div id="editor-container"></div>
@@ -97,10 +195,72 @@
       },
     };
 
-    var handle = ZplDesigner.embed(Object.assign({
-      container: '#editor-container',
-      url: new URL('..', window.location.href).href,
-    }, callbacks));
+    var editorUrl = new URL('..', window.location.href).href;
+    var panelInputs = document.querySelectorAll('#panels input[data-panel]');
+    var fullscreenCb = document.getElementById('fullscreen-cb');
+
+    var hideElementsDetails = document.getElementById('hide-elements');
+    var hideElementsCount = document.getElementById('hide-elements-count');
+    var elementInputs = document.querySelectorAll('#hide-elements-menu input');
+
+    // Checkboxes are "show", the SDK option is "hide" — so invert.
+    function readHiddenPanels() {
+      var hidden = {};
+      panelInputs.forEach(function (input) { hidden[input.dataset.panel] = !input.checked; });
+      return hidden;
+    }
+
+    // Ticked boxes -> { barcode: true, qrcode: true }
+    function readHiddenElements() {
+      var hidden = {};
+      elementInputs.forEach(function (input) {
+        if (input.checked) hidden[input.value] = true;
+      });
+      return hidden;
+    }
+
+    // Both options travel in the iframe's URL, so they're fixed once it
+    // exists — changing one tears the editor down and embeds it again
+    // (losing edits, which is why a real host picks them up front).
+    var handle;
+    function embedEditor() {
+      if (handle) handle.destroy();
+      handle = ZplDesigner.embed(Object.assign({
+        container: '#editor-container',
+        url: editorUrl,
+        hidePanels: readHiddenPanels(),
+        hideElements: readHiddenElements(),
+        fullscreen: fullscreenCb.checked,
+      }, callbacks));
+    }
+    embedEditor();
+
+    function reembedOnChange(input) {
+      input.addEventListener('change', function () {
+        resultEl.style.display = 'none';
+        statusEl.textContent = 're-embedding…';
+        embedEditor();
+      });
+    }
+    panelInputs.forEach(reembedOnChange);
+    reembedOnChange(fullscreenCb);
+    elementInputs.forEach(reembedOnChange);
+
+    // Keep the collapsed summary honest about what's ticked.
+    elementInputs.forEach(function (input) {
+      input.addEventListener('change', function () {
+        var count = Object.keys(readHiddenElements()).length;
+        hideElementsCount.textContent = count ? count + ' hidden' : 'none';
+      });
+    });
+
+    // Dropdowns are expected to close when you click away from them. A click
+    // inside the editor iframe never reaches this document, so cover that
+    // case with the blur the parent window gets when the frame takes focus.
+    document.addEventListener('click', function (event) {
+      if (!hideElementsDetails.contains(event.target)) hideElementsDetails.open = false;
+    });
+    window.addEventListener('blur', function () { hideElementsDetails.open = false; });
 
     document.getElementById('load-template-btn').addEventListener('click', function () {
       handle.loadTemplate(sampleTemplate);
@@ -108,10 +268,18 @@
     document.getElementById('load-zpl-btn').addEventListener('click', function () {
       handle.loadZPL(sampleZPL);
     });
+    // Works whether or not the in-frame action bar is showing — this is what
+    // a host with its own footer would wire up.
+    document.getElementById('host-save-btn').addEventListener('click', function () {
+      handle.save();
+    });
     document.getElementById('open-tab-btn').addEventListener('click', function () {
       ZplDesigner.open(Object.assign({
-        url: new URL('..', window.location.href).href,
+        url: editorUrl,
         template: sampleTemplate,
+        hidePanels: readHiddenPanels(),
+        hideElements: readHiddenElements(),
+        fullscreen: fullscreenCb.checked,
       }, callbacks));
     });
   </script>

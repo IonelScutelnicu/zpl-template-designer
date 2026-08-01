@@ -11,9 +11,28 @@
   var SOURCE_HOST = 'zpl-designer-host';
   var DEFAULT_URL = 'https://ionelscutelnicu.github.io/zpl-template-designer/';
 
-  function buildEmbedUrl(url) {
-    var u = new URL(url || DEFAULT_URL, window.location.href);
+  // opts.hidePanels / opts.hideElements are maps of key -> hidden, so a host
+  // can keep every key it cares about listed and flip one to false.
+  function hiddenKeys(map) {
+    var out = [];
+    for (var key in map) {
+      if (map[key]) out.push(key);
+    }
+    return out;
+  }
+
+  // Launch state travels in the URL: which panels (?hidePanels=a,b) and which
+  // Add-palette element types (?hideElements=a,b) are gone, plus the layout
+  // (?fullscreen=). The editor applies all of it pre-paint (see the inline
+  // script in index.html), so nothing is visible switching in.
+  function buildEmbedUrl(opts) {
+    var u = new URL(opts.url || DEFAULT_URL, window.location.href);
     u.searchParams.set('embed', '1');
+    var panels = hiddenKeys(opts.hidePanels);
+    if (panels.length) u.searchParams.set('hidePanels', panels.join(','));
+    var elements = hiddenKeys(opts.hideElements);
+    if (elements.length) u.searchParams.set('hideElements', elements.join(','));
+    if (opts.fullscreen !== undefined) u.searchParams.set('fullscreen', opts.fullscreen ? '1' : '0');
     return u;
   }
 
@@ -71,6 +90,9 @@
         initPayload = { zpl: zpl };
         postToEditor('loadZPL', { zpl: zpl });
       },
+      save: function () {
+        postToEditor('requestSave', {});
+      },
       disconnect: function () {
         window.removeEventListener('message', onMessage);
       },
@@ -81,8 +103,9 @@
     /**
      * Embed the editor as an iframe.
      * ZplDesigner.embed({ container, url?, template?, zpl?, sandbox?,
-     *                     onReady?, onSave?, onCancel?, onChange?, onError? })
-     * Returns { iframe, loadTemplate(t), loadZPL(z), destroy() }.
+     *                     hidePanels?, hideElements?, fullscreen?, onReady?,
+     *                     onSave?, onCancel?, onChange?, onError? })
+     * Returns { iframe, loadTemplate(t), loadZPL(z), save(), destroy() }.
      */
     embed: function (opts) {
       var container = typeof opts.container === 'string'
@@ -90,13 +113,17 @@
         : opts.container;
       if (!container) throw new Error('ZplDesigner.embed: container not found');
 
-      var url = buildEmbedUrl(opts.url);
+      var url = buildEmbedUrl(opts);
       var iframe = document.createElement('iframe');
       if (opts.sandbox !== undefined) iframe.setAttribute('sandbox', opts.sandbox);
       iframe.src = url.href;
       iframe.style.width = '100%';
       iframe.style.height = '100%';
       iframe.style.border = '0';
+      // Without this the iframe sits on a text baseline, and the descender
+      // gap under it makes a full-height container overflow by a few px —
+      // giving the host page a scrollbar it never asked for.
+      iframe.style.display = 'block';
       iframe.allow = 'clipboard-write';
       container.appendChild(iframe);
 
@@ -112,6 +139,7 @@
         iframe: iframe,
         loadTemplate: conn.loadTemplate,
         loadZPL: conn.loadZPL,
+        save: conn.save,
         destroy: function () {
           conn.disconnect();
           iframe.remove();
@@ -121,12 +149,19 @@
 
     /**
      * Open the editor in a new tab. Same options as embed() minus container.
-     * Returns { window, loadTemplate(t), loadZPL(z), close() } or null when
-     * the popup was blocked.
+     * Returns { window, loadTemplate(t), loadZPL(z), save(), close() } or null
+     * when the popup was blocked.
      */
     open: function (opts) {
       opts = opts || {};
-      var url = buildEmbedUrl(opts.url);
+      // A popup carries no host chrome, so the editor's own action bar is the
+      // only way a user can send anything back — never let it be hidden here.
+      if (opts.hidePanels && opts.hidePanels.actions) {
+        opts = Object.assign({}, opts, {
+          hidePanels: Object.assign({}, opts.hidePanels, { actions: false }),
+        });
+      }
+      var url = buildEmbedUrl(opts);
       var win = window.open(url.href);
       if (!win) return null;
 
@@ -135,6 +170,7 @@
         window: win,
         loadTemplate: conn.loadTemplate,
         loadZPL: conn.loadZPL,
+        save: conn.save,
         close: function () {
           conn.disconnect();
           try { win.close(); } catch (_) { }

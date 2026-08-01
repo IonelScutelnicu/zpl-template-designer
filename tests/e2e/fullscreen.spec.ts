@@ -228,6 +228,36 @@ test.describe('Fullscreen editor', () => {
         });
     });
 
+    test.describe('?fullscreen= launch param', () => {
+        test('=1 lands in fullscreen', async ({ page }) => {
+            await page.goto('/?e2e=1&fullscreen=1');
+            await canvas.waitForReady();
+
+            await expect(fullscreen.viewEditor).toHaveClass(/\bis-fullscreen\b/);
+            await expect(fullscreen.exitBtn).toBeVisible();
+        });
+
+        test('=0 overrides the stored preference', async ({ page }) => {
+            await fullscreen.enter();
+            await expect(fullscreen.viewEditor).toHaveClass(/\bis-fullscreen\b/);
+
+            await page.goto('/?e2e=1&fullscreen=0');
+            await canvas.waitForReady();
+
+            await expect(fullscreen.viewEditor).not.toHaveClass(/\bis-fullscreen\b/);
+            await expect(fullscreen.toggleBtn).toBeVisible();
+        });
+
+        test('omitting it keeps restoring the stored preference', async ({ page }) => {
+            await fullscreen.enter();
+
+            await page.goto('/?e2e=1');
+            await canvas.waitForReady();
+
+            await expect(fullscreen.viewEditor).toHaveClass(/\bis-fullscreen\b/);
+        });
+    });
+
     test.describe('Cross-view persistence', () => {
         test('is-fullscreen survives a round trip through the templates view', async ({ page }) => {
             await fullscreen.enter();

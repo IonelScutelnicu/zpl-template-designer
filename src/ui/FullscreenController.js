@@ -75,7 +75,14 @@ export class FullscreenController {
     // Note: fullscreen state persists across editor ↔ templates view switches.
     // The `is-fullscreen` class stays on #view-editor while the user browses
     // templates; returning to the editor lands in the same layout they left.
-    try { if (localStorage.getItem('fullscreen') === '1') this.enter(); } catch (_) { }
+    let on = false;
+    try { on = localStorage.getItem('fullscreen') === '1'; } catch (_) { }
+    // ?fullscreen=1|0 wins over the stored preference for this load; hosts
+    // pick the launch layout through it (see docs/EMBEDDING.md).
+    const forced = new URLSearchParams(window.location.search).get('fullscreen');
+    if (forced === '1') on = true;
+    else if (forced === '0') on = false;
+    if (on) this.enter();
     document.documentElement.classList.remove('fs-restore');
   }
 

@@ -14,7 +14,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Undo/redo history** — full history panel with named entries
 - **Import/export** — import/export templates as JSON, plus experimental import from raw ZPL
 - **Shareable links** — compress the current template into a URL hash for quick sharing
-- **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK and two-way postMessage data flow; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
+- **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK, two-way postMessage data flow, and host-controlled panel visibility; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
 - **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
 - **Custom fonts** — register custom ZPL fonts via `^CW` commands
 - **Print settings** — orientation, mirror, media tracking (`^MN`, incl. continuous media with `^LL`), darkness, speed, home position, label top, and print quantity controls (`^PQ`)
