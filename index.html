@@ -1030,9 +1030,13 @@
       display: block;
     }
 
-    /* Section title shown at the top of the active tab in fullscreen. */
+    /* Section title shown at the top of the active tab in fullscreen.
+       Flex row so the collapse chevron sits at the right edge. */
     .fs-section-title {
       display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       font-size: 13px;
       font-weight: 600;
       color: #334155;
@@ -1070,14 +1074,16 @@
       display: grid;
     }
 
-    /* Section title: same visibility rules, but display: block when active. */
-    #view-editor.is-fullscreen[data-fs-active-tab="add"] .fs-section-title[data-fs-tab="add"],
-    #view-editor.is-fullscreen[data-fs-active-tab="layers"] .fs-section-title[data-fs-tab="layers"],
-    #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] .fs-section-title[data-fs-tab="label-setup"],
-    #view-editor.is-fullscreen[data-fs-active-tab="print-config"] .fs-section-title[data-fs-tab="print-config"],
-    #view-editor.is-fullscreen[data-fs-active-tab="offsets"] .fs-section-title[data-fs-tab="offsets"],
-    #view-editor.is-fullscreen[data-fs-active-tab="font"] .fs-section-title[data-fs-tab="font"] {
-      display: block;
+    /* Section title: same visibility rules, but display: flex when active.
+       The card prefix is needed to outrank the generic show-rule above,
+       which would otherwise force display: block. */
+    #view-editor.is-fullscreen[data-fs-active-tab="add"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="add"],
+    #view-editor.is-fullscreen[data-fs-active-tab="layers"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="layers"],
+    #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="label-setup"],
+    #view-editor.is-fullscreen[data-fs-active-tab="print-config"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="print-config"],
+    #view-editor.is-fullscreen[data-fs-active-tab="offsets"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="offsets"],
+    #view-editor.is-fullscreen[data-fs-active-tab="font"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="font"] {
+      display: flex;
     }
 
     /* Hide whichever card has no active section.
@@ -1415,7 +1421,12 @@
                 </button>
               </div>
               <!-- Fullscreen-only section title for the active tab -->
-              <h2 class="fs-section-title" data-fs-tab="add">Add element</h2>
+              <h2 class="fs-section-title" data-fs-tab="add">Add element
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
               <div class="p-3 grid grid-cols-2 gap-2" data-fs-tab="add">
                 <button id="add-textblock-btn" data-tooltip="Add Text Block element"
                   class="group flex flex-col items-center justify-center p-3 border border-slate-200 rounded-md bg-white hover:border-blue-500 hover:text-blue-600 transition-all text-xs shadow-sm hover:shadow active:scale-95">
@@ -1494,7 +1505,12 @@
               </div>
 
               <!-- Elements List -->
-              <h2 class="fs-section-title" data-fs-tab="layers">Layers</h2>
+              <h2 class="fs-section-title" data-fs-tab="layers">Layers
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
               <div class="border-t border-slate-100" data-fs-tab="layers">
                 <div id="elements-list" class="p-3 space-y-1.5 max-h-[300px] overflow-y-auto bg-slate-50/50">
                   <p class="text-center text-slate-400 py-4 italic text-xs">No elements added</p>
@@ -1512,7 +1528,12 @@
                   <span class="material-icons-round text-base">expand_more</span>
                 </button>
               </div>
-              <h2 class="fs-section-title" data-fs-tab="label-setup">Label Setup</h2>
+              <h2 class="fs-section-title" data-fs-tab="label-setup">Label Setup
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
               <!-- Label Settings -->
               <details class="group border-b border-slate-100" data-fs-tab="label-setup" open>
                 <summary
@@ -1678,7 +1699,12 @@
                 </div>
               </details>
 
-              <h2 class="fs-section-title" data-fs-tab="print-config">Print Configuration</h2>
+              <h2 class="fs-section-title" data-fs-tab="print-config">Print Configuration
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
               <!-- Printer Configuration -->
               <details class="group border-b border-slate-100" data-fs-tab="print-config">
                 <summary
@@ -1796,7 +1822,12 @@
                 </div>
               </details>
 
-              <h2 class="fs-section-title" data-fs-tab="offsets">Offsets</h2>
+              <h2 class="fs-section-title" data-fs-tab="offsets">Offsets
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
               <!-- Position & Offsets -->
               <details class="group border-b border-slate-100" data-fs-tab="offsets">
                 <summary
@@ -1838,7 +1869,12 @@
                 </div>
               </details>
 
-              <h2 class="fs-section-title" data-fs-tab="font">Default Font</h2>
+              <h2 class="fs-section-title" data-fs-tab="font">Default Font
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
               <!-- Font Settings -->
               <details class="group" data-fs-tab="font">
                 <summary

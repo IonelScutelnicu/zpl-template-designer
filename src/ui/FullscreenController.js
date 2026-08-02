@@ -41,6 +41,11 @@ export class FullscreenController {
         if (icon) icon.textContent = collapsed ? 'expand_more' : 'expand_less';
       });
     });
+    // Section-title chevron: collapses the content card the same way
+    // clicking the active rail icon does — only the icon rail stays.
+    document.querySelectorAll('[data-fs-section-collapse]').forEach(btn => {
+      btn.addEventListener('click', () => this.collapseRail());
+    });
     // Fullscreen icon rail: each button switches the visible tab.
     // Clicking the already-active icon collapses the content card so only
     // the rail stays visible; clicking any icon re-opens it.
@@ -51,8 +56,7 @@ export class FullscreenController {
           if (!tab) return;
           const collapsed = this.viewEditor.classList.contains('fs-rail-collapsed');
           if (tab === this._activeTab && !collapsed) {
-            this.viewEditor.classList.add('fs-rail-collapsed');
-            this.iconRail.querySelectorAll('.fs-icon-btn').forEach(b => b.classList.remove('active'));
+            this.collapseRail();
             return;
           }
           this.viewEditor.classList.remove('fs-rail-collapsed');
@@ -145,6 +149,13 @@ export class FullscreenController {
     try { localStorage.setItem('fullscreen', '1'); } catch (_) { }
     // Apply the class — transitions kick in
     this.viewEditor.classList.add('is-fullscreen');
+  }
+
+  collapseRail() {
+    this.viewEditor.classList.add('fs-rail-collapsed');
+    if (this.iconRail) {
+      this.iconRail.querySelectorAll('.fs-icon-btn').forEach(b => b.classList.remove('active'));
+    }
   }
 
   setActiveTab(tab) {
