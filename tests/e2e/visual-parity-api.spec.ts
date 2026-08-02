@@ -378,7 +378,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
                 height: apiBounds.height * labelHeightDots / apiDims.height,
             };
 
-            console.log(`[^GS ${symbol}] canvas dot-space:`, canvasDots, 'api dot-space:', apiDots);
 
             // Position must track within 20 dots for every symbol.
             expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(20);
@@ -447,7 +446,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
                 height: apiBounds.height * labelHeightDots / apiDims.height,
             };
 
-            console.log(`[^GS A ${h}h×${w}w] canvas dot-space:`, canvasDots, 'api dot-space:', apiDots);
 
             expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(20);
             expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(20);
@@ -505,8 +503,6 @@ test.describe('Visual Parity - Canvas vs API', () => {
             width: apiBounds.width * labelWidthDots / apiDims.width,
             height: apiBounds.height * labelHeightDots / apiDims.height,
         };
-
-        console.log('[^GS A I 250h×100w] canvas dot-space:', canvasDots, 'api dot-space:', apiDots);
 
         expect(Math.abs(canvasDots.left - apiDots.left)).toBeLessThan(6);
         expect(Math.abs(canvasDots.top - apiDots.top)).toBeLessThan(6);

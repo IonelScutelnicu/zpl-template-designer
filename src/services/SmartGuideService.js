@@ -1,7 +1,7 @@
 // Smart Guide Service
 // Detects alignment between dragged element and other elements/label edges
 
-import { getElementBoundsResolved } from '../utils/geometry.js';
+import { getElementBoundsResolved, isSpatial } from '../utils/geometry.js';
 
 const SNAP_THRESHOLD = 5; // dots
 
@@ -143,6 +143,7 @@ export class SmartGuideService {
     // Other elements
     for (const el of allElements) {
       if (el.id === dragElement.id) continue;
+      if (!isSpatial(el)) continue;
 
       let bounds;
       if (el.type === 'TEXT' && renderer) {

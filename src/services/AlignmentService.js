@@ -1,7 +1,7 @@
 // Alignment Service
 // Handles element alignment calculations and operations
 
-import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO, clampNumber } from '../utils/geometry.js';
+import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO, clampNumber, isSpatial } from '../utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
 import { getBarcodeGeometry, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 
@@ -61,7 +61,7 @@ export class AlignmentService {
    * @returns {boolean} Whether any element moved
    */
   alignElements(action, elements, labelSettings, renderer = null) {
-    const targets = (elements || []).filter(el => el && !el.locked);
+    const targets = (elements || []).filter(el => el && !el.locked && isSpatial(el));
     if (targets.length < 2) return false;
 
     const items = targets.map(el => ({ el, b: this._boundsFor(el, labelSettings, renderer) }));
@@ -102,7 +102,7 @@ export class AlignmentService {
    * @returns {boolean} Whether any element moved
    */
   alignElementsToLabel(action, elements, labelSettings, renderer = null) {
-    const targets = (elements || []).filter(el => el && !el.locked);
+    const targets = (elements || []).filter(el => el && !el.locked && isSpatial(el));
     if (targets.length === 0) return false;
 
     const labelSize = getLabelSizeDots(labelSettings);
@@ -180,7 +180,7 @@ export class AlignmentService {
    * @returns {boolean} Whether any element moved
    */
   distributeElements(axis, elements, labelSettings, renderer = null) {
-    const targets = (elements || []).filter(el => el && !el.locked);
+    const targets = (elements || []).filter(el => el && !el.locked && isSpatial(el));
     if (targets.length < 3) return false;
 
     const horizontal = axis === 'horizontal';

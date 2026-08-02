@@ -1,7 +1,7 @@
 // Canvas Renderer for ZPL Template Creator
 // Orchestrates rendering of all element types on HTML5 Canvas
 
-import { LINE_HEIGHT_RATIO } from './utils/geometry.js';
+import { LINE_HEIGHT_RATIO, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
@@ -375,6 +375,10 @@ export class CanvasRenderer {
   }
 
   drawSelectionIndicator(element, labelSettings) {
+    // Non-spatial elements (RAW) have no place on the label — drawing their
+    // zero-size bounds would put a stray dashed box and handles at the origin.
+    if (!isSpatial(element)) return;
+
     let x, y, width, height;
     if (element.type === 'TEXT' && labelSettings) {
       const bounds = this.measureTextBounds(element, labelSettings);

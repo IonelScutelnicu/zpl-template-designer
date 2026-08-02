@@ -20,4 +20,15 @@ export class ZPLElement {
     canMatchLabelSize() {
         return true;
     }
+
+    /**
+     * Whether this element occupies a position on the label. Spatial elements
+     * take part in hit-testing, dragging, marquee selection, arrow-key nudging,
+     * alignment and smart guides; non-spatial ones (RAW — its coordinates live
+     * inside opaque text) are stack-only and must be excluded from all of them,
+     * or their phantom origin distorts operations on real elements.
+     */
+    isSpatial() {
+        return true;
+    }
 }

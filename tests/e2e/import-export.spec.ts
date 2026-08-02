@@ -575,20 +575,17 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(await elementsPanel.getElementCount()).toBe(countBefore);
         });
 
-        test('should dismiss confirm modal on backdrop click', async ({ page }) => {
+        test('should keep confirm modal open on backdrop click', async ({ page }) => {
             await elementsPanel.addTextElement();
 
             await zplOutput.openMoreActions();
             await page.locator('#import-btn').click();
             await expect(page.locator('#confirm-modal')).toBeVisible();
 
-            // <dialog>'s ::backdrop forwards clicks to the dialog itself —
-            // simulate that with a dispatched event whose target is the dialog.
-            await page.evaluate(() => {
-                document.getElementById('confirm-modal')
-                    .dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            });
-            await expect(page.locator('#confirm-modal')).toBeHidden();
+            await page.mouse.click(5, 5);
+
+            await expect(page.locator('#confirm-modal')).toBeVisible();
+            await page.locator('#confirm-cancel-btn').click();
         });
 
         test('should proceed with import when Replace is clicked', async ({ page }) => {

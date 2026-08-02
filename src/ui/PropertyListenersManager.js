@@ -5,6 +5,7 @@ import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
+import { hasEnvelopeCommand } from './PropertiesPanelRenderer.js';
 
 /**
  * Manages property panel event listeners
@@ -87,6 +88,9 @@ export class PropertyListenersManager {
         break;
       case "GRAPHICSYMBOL":
         this.attachGraphicSymbolProperties(element, attach);
+        break;
+      case "RAW":
+        this.attachRawProperties(element, attach);
         break;
     }
 
@@ -739,6 +743,22 @@ export class PropertyListenersManager {
         setJustificationActive(value);
         this.callbacks.onPropertyChange(element);
       });
+    });
+  }
+
+  /**
+   * Attach RAW element property listeners
+   */
+  attachRawProperties(element, attach) {
+    attach("prop-raw-text", "text");
+
+    // A property edit doesn't re-render this panel, so keep the envelope
+    // warning in step with what's actually in the textarea.
+    const textarea = document.getElementById("prop-raw-text");
+    const warning = document.getElementById("prop-raw-envelope-warning");
+    if (!textarea || !warning) return;
+    textarea.addEventListener("input", (e) => {
+      warning.classList.toggle("hidden", !hasEnvelopeCommand(e.target.value));
     });
   }
 

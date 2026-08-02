@@ -35,6 +35,19 @@ export function getLabelSizeDots(labelSettings) {
 }
 
 /**
+ * Whether an element occupies a position on the label, and so takes part in
+ * hit-testing, dragging, marquee selection, nudging, alignment and smart
+ * guides. Non-spatial elements (RAW) are stack-only; including them would feed
+ * a phantom origin box into every one of those calculations.
+ * Tolerates plain serialized data objects, which have no methods.
+ * @param {Object} element
+ * @returns {boolean}
+ */
+export function isSpatial(element) {
+  return element?.isSpatial?.() !== false;
+}
+
+/**
  * Get element bounds with resolved font dimensions (for TEXT, FIELDBLOCK, and TEXTBLOCK)
  * @param {Object} element - Element to get bounds for
  * @param {Object} labelSettings - Label configuration (for default font sizes)

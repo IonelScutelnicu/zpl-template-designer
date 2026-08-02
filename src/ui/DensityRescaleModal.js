@@ -14,10 +14,10 @@ export class DensityRescaleModal {
   }
 
   /**
-   * @param {{oldDpmm: number, newDpmm: number, unscalableGraphicCount: number, clampedBarcodeCount: number}} info
+   * @param {{oldDpmm: number, newDpmm: number, unscalableGraphicCount: number, clampedBarcodeCount: number, rawElementCount: number}} info
    * @returns {Promise<'scale'|'keep'|'cancel'>}
    */
-  show({ oldDpmm, newDpmm, unscalableGraphicCount, clampedBarcodeCount }) {
+  show({ oldDpmm, newDpmm, unscalableGraphicCount, clampedBarcodeCount, rawElementCount = 0 }) {
     this._message.textContent =
       `Changing print density from ${oldDpmm} to ${newDpmm} dpmm. ` +
       `Scale all elements proportionally so they stay the same physical size?`;
@@ -33,6 +33,12 @@ export class DensityRescaleModal {
       const noun = clampedBarcodeCount === 1 ? 'barcode' : 'barcodes';
       notes.push(
         `${clampedBarcodeCount} ${noun} will hit a module-size limit and won't reach full scale.`
+      );
+    }
+    if (rawElementCount > 0) {
+      const noun = rawElementCount === 1 ? 'raw ZPL element' : 'raw ZPL elements';
+      notes.push(
+        `${rawElementCount} ${noun} can't be rescaled — their coordinates are inside text the editor doesn't interpret.`
       );
     }
     if (notes.length > 0) {

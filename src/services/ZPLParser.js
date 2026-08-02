@@ -106,8 +106,8 @@ export class ZPLParser {
       return { elements: [], labelSettings: this._defaultLabelSettings(dpmm, labelHeight), warnings: [{ command: '', message: 'Missing ^XA/^XZ delimiters' }] };
     }
 
-    const tokens = this._tokenize(zpl);
-    return this._processTokens(tokens, { dpmm, labelHeight });
+    const { source, tokens } = this._tokenize(zpl);
+    return this._processTokens(tokens, { dpmm, labelHeight, source });
   }
 
   /**
@@ -132,14 +132,18 @@ export class ZPLParser {
   /**
    * Tokenize ZPL into an array of command objects
    * @param {string} zpl - Raw ZPL string
-   * @returns {Array<{prefix: string, command: string, params: string}>}
+   * Tokens carry `start`/`end` offsets into the returned `source` string so a
+   * command can be recovered byte for byte (original casing, whitespace, and
+   * parameters the parser itself doesn't read). Passthrough capture depends on
+   * this — re-synthesising from `params` loses all three.
+   * @returns {{ source: string, tokens: Array<{prefix: string, command: string, params: string, start: number, end: number}> }}
    */
   _tokenize(zpl) {
     // Extract content between first ^XA and last ^XZ
     const xaIndex = zpl.indexOf('^XA');
     const xzIndex = zpl.lastIndexOf('^XZ');
     if (xaIndex === -1 || xzIndex === -1 || xaIndex >= xzIndex) {
-      return [];
+      return { source: '', tokens: [] };
     }
 
     const content = zpl.substring(xaIndex, xzIndex + 3);
@@ -155,7 +159,9 @@ export class ZPLParser {
       const parts = params.split(',');
       const isHexTrueType = (parts[1] || '').trim().toUpperCase() === 'A'
         && (parts[2] || '').trim().toUpperCase() === 'T';
-      if (isHexTrueType) tokens.push({ prefix: '~', command: 'DY', params });
+      // Sliced from the preamble, not from `content`, so these carry no span.
+      // ~DY is a known command and can never enter a passthrough run.
+      if (isHexTrueType) tokens.push({ prefix: '~', command: 'DY', params, start: -1, end: -1 });
     }
 
     // Match command starts: ^ or ~ followed by 1-2 letter command code
@@ -199,7 +205,7 @@ export class ZPLParser {
         }
         const paramEnd = fsIndex !== -1 ? fsIndex : nextIndex;
         const params = content.substring(m.codeEnd, paramEnd).replace(/^\s+/, '');
-        tokens.push({ prefix: m.prefix, command: m.command, params });
+        tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: paramEnd });
       } else if (m.command === 'FX') {
         // ^FX is a comment: consume everything through the matching ^FS as an
         // opaque payload, and skip the contained matches so any ^/~ sequences
@@ -213,17 +219,17 @@ export class ZPLParser {
         }
         const paramEnd = fsMatchIdx !== -1 ? matches[fsMatchIdx].index : nextIndex;
         const params = content.substring(m.codeEnd, paramEnd).replace(/^\s+/, '').replace(/\s+$/, '');
-        tokens.push({ prefix: m.prefix, command: 'FX', params });
+        tokens.push({ prefix: m.prefix, command: 'FX', params, start: m.index, end: paramEnd });
         // Jump to just before the ^FS so the loop resumes there (the ^FS is
         // still emitted normally to close the comment / any open group).
         if (fsMatchIdx !== -1) i = fsMatchIdx - 1;
       } else {
         const params = content.substring(m.codeEnd, nextIndex).replace(/^\s+/, '').replace(/\s+$/, '');
-        tokens.push({ prefix: m.prefix, command: m.command, params });
+        tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: nextIndex });
       }
     }
 
-    return tokens;
+    return { source: content, tokens };
   }
 
   /**
@@ -233,7 +239,7 @@ export class ZPLParser {
    * @returns {{ elements: Array, labelSettings: Object, warnings: Array }}
    */
   _processTokens(tokens, options) {
-    const { dpmm, labelHeight } = options;
+    const { dpmm, labelHeight, source = '' } = options;
 
     const state = {
       labelSettings: this._defaultLabelSettings(dpmm, labelHeight),
@@ -245,7 +251,10 @@ export class ZPLParser {
       customFonts: [],
       fontDownloads: new Map(),
       labelMeta: null,
-      sawCommand: false
+      sawCommand: false,
+      source,
+      rawRun: null,
+      lastBYSource: null
     };
 
     for (const token of tokens) {
@@ -267,9 +276,33 @@ export class ZPLParser {
       if (!isKnown) {
         state.warnings.push({
           command: `${token.prefix}${token.command}`,
-          message: `Unsupported command "${token.prefix}${token.command}" was ignored`
+          message: `Unsupported command "${token.prefix}${token.command}" was preserved as a Raw ZPL element`
         });
+        if (state.currentGroup) {
+          // Mark the group; its whole source span becomes one RAW at the ^FS.
+          state.currentGroup.hasUnknown = true;
+        } else if (state.rawRun) {
+          state.rawRun.end = token.end;
+        } else {
+          state.rawRun = { start: token.start, end: token.end };
+        }
         continue;
+      }
+
+      // A raw run absorbs the field data belonging to its unknown command
+      // (^RFW,H,1,2^FD1234^FS is one passthrough unit) and closes at the ^FS.
+      // Any other command ends the run and is then processed normally.
+      if (state.rawRun) {
+        if (token.command === 'FD' || token.command === 'FH' || token.command === 'FR') {
+          state.rawRun.end = token.end;
+          continue;
+        }
+        if (token.command === 'FS') {
+          state.rawRun.end = token.end;
+          this._flushRawRun(state);
+          continue;
+        }
+        this._flushRawRun(state);
       }
 
       // ^FX (comment): inert by design. Honor label metadata only from a leading
@@ -292,7 +325,8 @@ export class ZPLParser {
         state.currentGroup = {
           x: parseInt(parts[0]) || 0,
           y: parseInt(parts[1]) || 0,
-          commands: []
+          commands: [],
+          sourceStart: token.start
         };
         continue;
       }
@@ -304,24 +338,37 @@ export class ZPLParser {
         state.currentGroup = {
           x: parseInt(parts[0]) || 0,
           y: parseInt(parts[1]) || 0,
-          commands: []
+          commands: [],
+          sourceStart: token.start,
+          isFT: true
         };
-        if (!state.ftWarningAdded) {
-          state.warnings.push({
-            command: '^FT',
-            message: '^FT (Field Typeset) was converted to ^FO (Field Origin). Position may need adjustment — ^FT uses bottom-left origin while ^FO uses top-left.'
-          });
-          state.ftWarningAdded = true;
-        }
+        // The conversion warning waits until the group closes: a group that
+        // turns out to hold an unknown command is preserved verbatim as ^FT,
+        // so nothing was converted and the warning would be false.
         continue;
       }
 
       // ^FS ends the current element group
       if (token.command === 'FS') {
         if (state.currentGroup) {
-          const element = this._buildElement(state.currentGroup, state);
-          if (element) {
-            state.elements.push(element);
+          const group = state.currentGroup;
+          if (group.hasUnknown) {
+            // Any unknown command makes the whole group opaque. Splitting a
+            // known element out of it would silently drop the unknown one,
+            // which is the data loss this element type exists to prevent.
+            state.elements.push(this._buildRawData(state, group.sourceStart, token.end));
+          } else {
+            const element = this._buildElement(group, state);
+            if (element) {
+              state.elements.push(element);
+              if (group.isFT && !state.ftWarningAdded) {
+                state.warnings.push({
+                  command: '^FT',
+                  message: '^FT (Field Typeset) was converted to ^FO (Field Origin). Position may need adjustment — ^FT uses bottom-left origin while ^FO uses top-left.'
+                });
+                state.ftWarningAdded = true;
+              }
+            }
           }
           state.currentGroup = null;
         }
@@ -349,6 +396,9 @@ export class ZPLParser {
       }
     }
 
+    // A run that never saw its ^FS (or ran to ^XZ) is still preserved.
+    this._flushRawRun(state);
+
     // Apply custom fonts to label settings, attaching ~DY payloads to their
     // ^CW mappings here so command order doesn't matter.
     if (state.customFonts.length > 0) {
@@ -372,6 +422,38 @@ export class ZPLParser {
   }
 
   /**
+   * Build a RAW element data object from a source span. The span is sliced out
+   * of the original ZPL rather than re-synthesised from tokens, so casing,
+   * inner whitespace, ^FT vs ^FO and parameters the parser doesn't read (a
+   * third ^FO justification value, say) all survive untouched.
+   */
+  _buildRawData(state, start, end) {
+    let text = (start >= 0 && end > start)
+      ? state.source.substring(start, end).replace(/\s+$/, '')
+      : '';
+
+    // ^BY is modal: it sets barcode module width/ratio/height for every ^B that
+    // follows, and the generator re-emits it per known barcode rather than in
+    // the header. A preserved barcode therefore has to carry its own copy, or
+    // it round-trips at whatever defaults the previous element happened to
+    // leave behind. Only barcodes need it, and only if the span lacks its own.
+    if (state.lastBYSource && /\^B(?!Y)/i.test(text) && !/\^BY/i.test(text)) {
+      text = state.lastBYSource + text;
+    }
+
+    return { type: 'RAW', text };
+  }
+
+  /**
+   * Emit the open passthrough run, if any, as a RAW element.
+   */
+  _flushRawRun(state) {
+    if (!state.rawRun) return;
+    state.elements.push(this._buildRawData(state, state.rawRun.start, state.rawRun.end));
+    state.rawRun = null;
+  }
+
+  /**
    * Parse ^BY command (barcode field defaults)
    */
   _parseBY(token, state) {
@@ -379,6 +461,11 @@ export class ZPLParser {
     if (parts[0]) state.barcodeDefaults.width = parseInt(parts[0]) || 2;
     if (parts[1]) state.barcodeDefaults.ratio = parseFloat(parts[1]) || 2.0;
     if (parts[2]) state.barcodeDefaults.height = parseInt(parts[2]) || state.barcodeDefaults.height;
+    // Kept verbatim so a preserved barcode can re-assert these defaults; see
+    // _buildRawData.
+    if (token.start >= 0 && token.end > token.start) {
+      state.lastBYSource = state.source.substring(token.start, token.end).replace(/\s+$/, '');
+    }
   }
 
   /**

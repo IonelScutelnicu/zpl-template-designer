@@ -220,6 +220,7 @@ const addGraphicSymbolBtn = document.getElementById("add-graphicsymbol-btn");
 const addCircleBtn = document.getElementById("add-circle-btn");
 const addGraphicBtn = document.getElementById("add-graphic-btn");
 const addGraphicFileInput = document.getElementById("add-graphic-file-input");
+const addRawBtn = document.getElementById("add-raw-btn");
 const undoBtn = document.getElementById("undo-btn");
 const redoBtn = document.getElementById("redo-btn");
 const historyToggleBtn = document.getElementById("history-toggle-btn");
@@ -775,6 +776,7 @@ export function initApp() {
   addCircleBtn.addEventListener("click", addCircleElement);
   addGraphicBtn.addEventListener("click", () => addGraphicFileInput.click());
   addGraphicFileInput.addEventListener("change", handleGraphicFileSelected);
+  addRawBtn.addEventListener("click", addRawElement);
   copyBtn.addEventListener("click", copyZPL);
   copyZplMenu.addEventListener("click", () => { closeZPLMoreMenu(); copyZPL(); });
   previewErrorRetryBtn.addEventListener("click", () => { void updatePreview(); });
@@ -1014,6 +1016,7 @@ export function initApp() {
       newDpmm,
       unscalableGraphicCount: analysis.unscalableGraphicCount,
       clampedBarcodeCount: analysis.clampedBarcodeCount,
+      rawElementCount: analysis.rawElementCount,
     });
 
     if (choice === 'cancel') {
@@ -2462,6 +2465,10 @@ function addDiagonalLineElement() {
 
 function addCircleElement() {
   elementService.createElement('CIRCLE', { width: 80, height: 80, thickness: 3, color: 'B' });
+}
+
+function addRawElement() {
+  elementService.createElement('RAW', { text: '' });
 }
 
 let pendingGraphicReplaceId = null;

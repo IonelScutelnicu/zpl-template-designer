@@ -4,7 +4,8 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 
 ## Features
 
-- **9 element types** — Text, Text Block (`^TB`), Field Block (`^FB`), 1D Barcode (Code 128, Code 39, EAN-13, UPC-A), 2D Barcode (QR Code, Data Matrix, PDF417, Aztec), Box, Line, Circle, Image / Graphic Field (`^GF`)
+- **12 element types** — Text, Text Block (`^TB`), Field Block (`^FB`), 1D Barcode (Code 128, Code 39, EAN-13, UPC-A), 2D Barcode (QR Code, Data Matrix, PDF417, Aztec), Box, Line, Diagonal Line (`^GD`), Circle, Image / Graphic Field (`^GF`), Graphic Symbol (`^GS`), Raw ZPL passthrough
+- **Raw ZPL passthrough** — commands the editor can't model (RFID `^RF`/`^RS`/`^RB`, vendor extensions) are captured verbatim on import instead of being dropped, shown in the elements stack, editable as text, and re-emitted byte for byte
 - **Editor + template gallery** — switch between the visual editor and a curated templates gallery
 - **Three preview modes** — Edit canvas, Overlay mode on top of Labelary output, and Labelary Preview mode
 - **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge, and layer cycling
@@ -180,6 +181,9 @@ The application uses a modular architecture for maintainability and testability:
 - `src/elements/LineElement.js` — Horizontal/vertical line element
 - `src/elements/CircleElement.js` — Circle element with diameter and thickness
 - `src/elements/GraphicFieldElement.js` — Image/graphic field element (`^GF`/`^GFA`)
+- `src/elements/DiagonalLineElement.js` — Diagonal line element (`^GD`)
+- `src/elements/GraphicSymbolElement.js` — Graphic symbol element (`^GS`)
+- `src/elements/RawElement.js` — Raw ZPL passthrough for unsupported commands (see ADR 0011)
 
 ### State Management
 - `src/state/AppState.js` — Centralized observable state store

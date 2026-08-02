@@ -74,11 +74,11 @@ const FACTORY_LABEL_DEFAULTS = {
 
 /**
  * Inspect what a rescale would touch without mutating anything.
- * @returns {{hasWorkToDo: boolean, unscalableGraphicCount: number, clampedBarcodeCount: number}}
+ * @returns {{hasWorkToDo: boolean, unscalableGraphicCount: number, clampedBarcodeCount: number, rawElementCount: number}}
  */
 export function analyzeRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
   if (!oldDpmm || !newDpmm || oldDpmm === newDpmm) {
-    return { hasWorkToDo: false, unscalableGraphicCount: 0, clampedBarcodeCount: 0 };
+    return { hasWorkToDo: false, unscalableGraphicCount: 0, clampedBarcodeCount: 0, rawElementCount: 0 };
   }
   const s = newDpmm / oldDpmm;
 
@@ -91,9 +91,12 @@ export function analyzeRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
 
   let unscalableGraphicCount = 0;
   let clampedBarcodeCount = 0;
+  let rawElementCount = 0;
   if (hasElements) {
     for (const el of elements) {
       if (isUnscalableGraphic(el)) unscalableGraphicCount++;
+      // RAW dot coordinates live inside text the editor doesn't interpret.
+      if (el.type === 'RAW') rawElementCount++;
       // A barcode whose scaled module field would fall outside its ZPL/UI
       // range gets clamped on apply, so it won't reach full physical scale.
       for (const [field, bounds] of boundedBarcodeFields(el)) {
@@ -103,7 +106,7 @@ export function analyzeRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
     }
   }
 
-  return { hasWorkToDo, unscalableGraphicCount, clampedBarcodeCount };
+  return { hasWorkToDo, unscalableGraphicCount, clampedBarcodeCount, rawElementCount };
 }
 
 /**

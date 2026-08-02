@@ -12,6 +12,7 @@ import { CircleElement } from '../elements/CircleElement.js';
 import { TextBlockElement } from '../elements/TextBlockElement.js';
 import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
 import { GraphicSymbolElement } from '../elements/GraphicSymbolElement.js';
+import { RawElement } from '../elements/RawElement.js';
 import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 
 /**
@@ -241,6 +242,10 @@ export class SerializationService {
         break;
       }
 
+      case 'RAW':
+        element = new RawElement(data.text);
+        break;
+
       default:
         console.warn(`Unknown element type: ${data.type}`);
         return null;
@@ -255,6 +260,10 @@ export class SerializationService {
       // sanitized in the constructor — skip it here so the unsanitized raw
       // value can't slip back in.
       if (data.type === 'GRAPHIC' && (key === 'bytesB64' || key === 'bytes' || key === 'sourceDataUrl')) continue;
+      // `text` is type-checked in the RawElement constructor — skip it so a
+      // hand-edited JSON file can't put a non-string back on the element and
+      // break render().
+      if (data.type === 'RAW' && key === 'text') continue;
       element[key] = data[key];
     }
 
@@ -324,7 +333,7 @@ export class SerializationService {
     }
 
     // Validate element types
-    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'DIAGONALLINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC', 'GRAPHICSYMBOL'];
+    const validTypes = ['TEXT', 'TEXTBLOCK', 'BARCODE', 'QRCODE', 'BOX', 'LINE', 'DIAGONALLINE', 'FIELDBLOCK', 'CIRCLE', 'GRAPHIC', 'GRAPHICSYMBOL', 'RAW'];
     if (template.elements && Array.isArray(template.elements)) {
       template.elements.forEach((el, index) => {
         if (!el.type) {

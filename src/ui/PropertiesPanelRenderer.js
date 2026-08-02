@@ -49,6 +49,16 @@ const SYMBOLOGY_THUMBS = {
 };
 
 /**
+ * Whether a RAW passthrough payload carries the format-envelope commands.
+ * ^XA/^XZ open and close the label, so one inside an element would truncate or
+ * nest the generated output. Shared with PropertyListenersManager, which
+ * re-evaluates it as the user types.
+ */
+export function hasEnvelopeCommand(text) {
+  return /\^X[AZ]/i.test(text || '');
+}
+
+/**
  * Renderer for the properties panel UI
  */
 export class PropertiesPanelRenderer {
@@ -195,7 +205,8 @@ export class PropertiesPanelRenderer {
       FIELDBLOCK: () => this.renderFieldBlockProperties(element),
       CIRCLE: () => this.renderCircleProperties(element),
       GRAPHIC: () => this.renderGraphicProperties(element),
-      GRAPHICSYMBOL: () => this.renderGraphicSymbolProperties(element)
+      GRAPHICSYMBOL: () => this.renderGraphicSymbolProperties(element),
+      RAW: () => this.renderRawProperties(element)
     };
 
     const renderer = renderers[element.type];
@@ -1259,6 +1270,38 @@ export class PropertiesPanelRenderer {
         ${thresholdControl}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
+    `;
+  }
+
+  /**
+   * Render RAW (passthrough ZPL) properties.
+   *
+   * No position, alignment or appearance controls: a RAW element carries its
+   * own coordinates inside the text, so the editor has nothing to offer beyond
+   * the text itself.
+   */
+  renderRawProperties(element) {
+    const text = element.text || '';
+
+    // Always rendered; the listener toggles it as the user types, since a
+    // property edit never re-renders this panel.
+    const envelopeNotice = `
+      <div id="prop-raw-envelope-warning"
+        class="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800 leading-relaxed ${hasEnvelopeCommand(text) ? '' : 'hidden'}">
+        This text contains <code class="font-mono">^XA</code> or <code class="font-mono">^XZ</code>. Those open and close the label format — leaving them here will truncate or nest the generated label.
+      </div>
+    `;
+
+    return `
+      <div class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
+        ZPL the editor can't model (RFID, printer configuration, vendor extensions). It's passed through to the output exactly as written, so it can't be drawn on the canvas or positioned here.
+      </div>
+      ${this.renderSection("Raw ZPL", `
+        <textarea id="prop-raw-text" rows="6" spellcheck="false"
+          placeholder="^RFW,H,1,2,1^FD1234^FS"
+          class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs font-mono text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(text)}</textarea>
+        ${envelopeNotice}
+      `, { open: true, elementType: element.type })}
     `;
   }
 }

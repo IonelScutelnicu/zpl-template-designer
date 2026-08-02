@@ -2,7 +2,7 @@
 // Handles mouse clicks, drag-to-move, and keyboard events
 
 import { getBarcodeGeometry, matrixModuleDots, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from './utils/barcodeGeometry.js';
-import { LINE_HEIGHT_RATIO, clampNumber } from './utils/geometry.js';
+import { LINE_HEIGHT_RATIO, clampNumber, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
 import { GRAPHIC_SYMBOL_INK_RATIOS } from './elements/GraphicSymbolElement.js';
@@ -505,7 +505,9 @@ export class InteractionHandler {
    */
   buildDragGroup(primary, inMulti) {
     const selection = this.callbacks.getSelectedElements ? this.callbacks.getSelectedElements() : [];
-    const members = (inMulti ? selection : [primary]).filter(el => !el.locked);
+    // Non-spatial members would contribute a phantom origin to the span below,
+    // clamping how far the real elements can move.
+    const members = (inMulti ? selection : [primary]).filter(el => !el.locked && isSpatial(el));
     this.dragGroup = members.map(el => ({ el, dx: el.x - primary.x, dy: el.y - primary.y }));
 
     let minDx = Infinity, minDy = Infinity, maxDx = -Infinity, maxDy = -Infinity;
@@ -560,7 +562,7 @@ export class InteractionHandler {
     const rx2 = rect.x + rect.width;
     const ry2 = rect.y + rect.height;
     return this.elements.filter(el => {
-      if (el.locked) return false;
+      if (el.locked || !isSpatial(el)) return false;
       const b = this.getSelectionBounds(el);
       return !(b.x > rx2 || b.x + b.width < rect.x || b.y > ry2 || b.y + b.height < rect.y);
     });
@@ -1205,7 +1207,7 @@ export class InteractionHandler {
       return;
     }
 
-    const movable = selection.filter(el => !el.locked);
+    const movable = selection.filter(el => !el.locked && isSpatial(el));
     if (movable.length === 0) return;
 
     const moveAmount = e.shiftKey ? 10 : 1;
@@ -1337,6 +1339,7 @@ export class InteractionHandler {
     // Iterate in reverse order (top to bottom in z-order)
     for (let i = this.elements.length - 1; i >= 0; i--) {
       const element = this.elements[i];
+      if (!isSpatial(element)) continue;
       const bounds = this.getSelectionBounds(element);
 
       if (
@@ -1359,6 +1362,7 @@ export class InteractionHandler {
     const hits = [];
     for (let i = this.elements.length - 1; i >= 0; i--) {
       const element = this.elements[i];
+      if (!isSpatial(element)) continue;
       const bounds = this.getSelectionBounds(element);
       if (
         x >= bounds.x &&
