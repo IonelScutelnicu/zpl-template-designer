@@ -577,4 +577,83 @@ test.describe('ZPL bitmap font bucketing', () => {
             expect(afterRedo).toBe(22);
         });
     });
+
+    // ============== Label default font size controls ==============
+    // The Default Font panel drives ^CF, so its Height/Width must be constrained to the
+    // allowed grid exactly like the per-element controls are.
+    test.describe('Label default font size controls', () => {
+        let elementsPanel: ElementsPanel;
+        let zplOutput: ZPLOutput;
+
+        test.beforeEach(async ({ page }) => {
+            await page.goto('/?e2e=1');
+            elementsPanel = new ElementsPanel(page);
+            zplOutput = new ZPLOutput(page);
+            // An empty label emits no ZPL, and the Default Font section starts collapsed.
+            await elementsPanel.addTextElement();
+            await page.locator('details summary:has-text("Default Font")').click();
+        });
+
+        async function setLabelFont(page: import('@playwright/test').Page, id: string): Promise<void> {
+            await page.locator('#font-id').selectOption(id);
+        }
+
+        async function optionTexts(page: import('@playwright/test').Page, id: string): Promise<string[]> {
+            return await page.locator(`#${id} option`).allTextContents();
+        }
+
+        test('Font A: Height/Width become dropdowns of the allowed values', async ({ page }) => {
+            await setLabelFont(page, 'A');
+            expect(await page.locator('#default-font-height').evaluate((el) => el.tagName)).toBe('SELECT');
+            expect(await page.locator('#default-font-width').evaluate((el) => el.tagName)).toBe('SELECT');
+            // ^CF always emits a height, so the height list carries no "default" option.
+            expect(await optionTexts(page, 'default-font-height')).toEqual(
+                ['9', '18', '27', '36', '45', '54', '63', '72', '81', '90']
+            );
+            expect(await optionTexts(page, 'default-font-width')).toEqual(
+                ['Proportional', '5', '10', '15', '20', '25', '30', '35', '40', '45', '50']
+            );
+        });
+
+        test('switching to Font A snaps the stored default height onto the grid', async ({ page }) => {
+            await setLabelFont(page, 'A');
+            // Factory default 20 is off Font A's grid: round(20/9)=2 → 18.
+            await expect(page.locator('#default-font-height')).toHaveValue('18');
+            await zplOutput.verifyZPLContains('^CFA,18');
+        });
+
+        test('selecting an allowed height/width emits it verbatim', async ({ page }) => {
+            await setLabelFont(page, 'A');
+            await page.locator('#default-font-height').selectOption('45');
+            await page.locator('#default-font-width').selectOption('25');
+            await zplOutput.verifyZPLContains('^CFA,45,25');
+        });
+
+        test('Proportional width omits the width parameter from ^CF', async ({ page }) => {
+            await setLabelFont(page, 'A');
+            await page.locator('#default-font-width').selectOption('25');
+            await zplOutput.verifyZPLContains('^CFA,18,25');
+            await page.locator('#default-font-width').selectOption('0');
+            await zplOutput.verifyZPLContains('^CFA,18\n');
+        });
+
+        test('switching back to scalable Font 0 restores numeric inputs', async ({ page }) => {
+            await setLabelFont(page, 'A');
+            await setLabelFont(page, '0');
+            expect(await page.locator('#default-font-height').evaluate((el) => el.tagName)).toBe('INPUT');
+            expect(await page.locator('#default-font-width').evaluate((el) => el.tagName)).toBe('INPUT');
+            await page.locator('#default-font-height').fill('23');
+            await page.locator('#default-font-height').dispatchEvent('input');
+            await zplOutput.verifyZPLContains('^CF0,23');
+        });
+
+        test('an inherited element gets size dropdowns without being re-selected', async ({ page }) => {
+            await elementsPanel.selectElementByIndex(0);
+            // Element inherits the label font (fontId === ''), which is scalable Font 0.
+            expect(await page.locator('#prop-font-size').evaluate((el) => el.tagName)).toBe('INPUT');
+            await setLabelFont(page, 'A');
+            expect(await page.locator('#prop-font-size').evaluate((el) => el.tagName)).toBe('SELECT');
+            expect(await page.locator('#prop-font-width').evaluate((el) => el.tagName)).toBe('SELECT');
+        });
+    });
 });

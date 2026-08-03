@@ -36,7 +36,8 @@ import { DriveTemplateService } from './services/DriveTemplateService.js';
 import * as driveAuth from './services/DriveAuth.js';
 import { isConfigured as isDriveConfigured } from './config/drive-config.js';
 import { getCurrentView } from './router.js';
-import { normalizeElementFontSize } from './utils/zplFontSnap.js';
+import { normalizeElementFontSize, getBitmapFontAllowedSizes, snapRequestedToAllowed, enforceFontMinSize } from './utils/zplFontSnap.js';
+import { fontSizeSelectHtml } from './ui/fontSizeSelect.js';
 import { SYMBOLOGY_META, resolveSymbology } from './utils/barcodeGeometry.js';
 import { isEmbedMode, initEmbedBridge } from './services/EmbedBridge.js';
 
@@ -341,8 +342,7 @@ const pauseCount = document.getElementById("pause-count");
 const replicatesInput = document.getElementById("replicates");
 const printQuantityPlaceholder = document.getElementById("print-quantity-placeholder");
 const fontId = document.getElementById("font-id");
-const defaultFontHeight = document.getElementById("default-font-height");
-const defaultFontWidth = document.getElementById("default-font-width");
+const defaultFontSizeControls = document.getElementById("default-font-size-controls");
 const newFontId = document.getElementById("new-font-id");
 const newFontFile = document.getElementById("new-font-file");
 const addCustomFontBtn = document.getElementById("add-custom-font-btn");
@@ -1170,10 +1170,18 @@ export function initApp() {
   // Font settings event listeners
   fontId.addEventListener("change", (e) => {
     const newFontId = e.target.value || "0";
-    state.updateLabelSettings({ fontId: newFontId });
+    // The label defaults themselves have to land on the new font's allowed grid before
+    // the size controls re-render, or the dropdown would offer an off-grid value.
+    const snapped = snapRequestedToAllowed(newFontId, state.labelSettings.defaultFontHeight, state.labelSettings.defaultFontWidth);
+    const clamped = enforceFontMinSize(newFontId, snapped.height, snapped.width);
+    state.updateLabelSettings({ fontId: newFontId, defaultFontHeight: clamped.height, defaultFontWidth: clamped.width });
     // Elements inheriting the label font (fontId === '') now resolve to the new
     // default — re-snap their bitmap sizes to that font's allowed grid.
     state.elements.forEach(el => { if (!el.fontId) normalizeElementFontSize(el, newFontId); });
+    renderDefaultFontSizeControls();
+    // Inheriting elements resolve their size controls through the label font, so the
+    // properties panel has to be rebuilt for the input/dropdown swap to take effect.
+    renderPropertiesPanel();
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
@@ -1182,21 +1190,23 @@ export function initApp() {
   // Custom fonts management
   addCustomFontBtn.addEventListener("click", addCustomFont);
 
-  defaultFontHeight.addEventListener("input", (e) => {
+  // Delegated: the height/width controls are regenerated whenever the label font changes,
+  // so direct refs would go stale. A <select> fires both events; the handler is idempotent.
+  const handleDefaultFontSize = (e) => {
     const parsed = parseInt(e.target.value);
-    state.updateLabelSettings({ defaultFontHeight: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
+    if (e.target.id === "default-font-height") {
+      state.updateLabelSettings({ defaultFontHeight: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
+    } else if (e.target.id === "default-font-width") {
+      state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 0 : Math.max(0, parsed) });
+    } else {
+      return;
+    }
     updateZPLOutput();
     renderCanvasPreview();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
-  });
-
-  defaultFontWidth.addEventListener("input", (e) => {
-    const parsed = parseInt(e.target.value);
-    state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 0 : Math.max(0, parsed) });
-    updateZPLOutput();
-    renderCanvasPreview();
-    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
-  });
+  };
+  defaultFontSizeControls.addEventListener("input", handleDefaultFontSize);
+  defaultFontSizeControls.addEventListener("change", handleDefaultFontSize);
 
   // Position offset event listeners
   homeX.addEventListener("input", (e) => {
@@ -1311,6 +1321,7 @@ export function initApp() {
   setPreviewMode('canvas');
   // Convert the static mm defaults in the inputs when the persisted unit is inches.
   refreshLabelDimensionInputs();
+  renderDefaultFontSizeControls();
 
   updateZPLOutput();
   renderCanvasPreview();
@@ -1880,8 +1891,38 @@ function syncLabelSettingsInputs() {
   // exists, so the pickers have to carry the restored font list first.
   refreshCustomFontPickers();
   fontId.value = state.labelSettings.fontId;
-  defaultFontHeight.value = state.labelSettings.defaultFontHeight;
-  defaultFontWidth.value = state.labelSettings.defaultFontWidth || '';
+  renderDefaultFontSizeControls();
+}
+
+/**
+ * Renders the label default font Height/Width controls. Bitmap fonts (A–H) only render at
+ * integer magnifications of their base cell, so they get dropdowns of the allowed values;
+ * scalable fonts (0, custom) keep free numeric inputs.
+ */
+function renderDefaultFontSizeControls() {
+  const height = state.labelSettings.defaultFontHeight;
+  const width = state.labelSettings.defaultFontWidth || 0;
+  const allowed = getBitmapFontAllowedSizes(state.labelSettings.fontId);
+  const inputClass = "w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white";
+  // ^CF always emits a height, so the height control has no "default" option; a width of
+  // 0 omits the parameter and lets the printer pick the proportional width.
+  const heightControl = allowed
+    ? fontSizeSelectHtml("default-font-height", height, allowed.heights, null)
+    : `<input type="number" id="default-font-height" value="${height}" min="1" class="${inputClass}" />`;
+  const widthControl = allowed
+    ? fontSizeSelectHtml("default-font-width", width, allowed.widths, "Proportional")
+    : `<input type="number" id="default-font-width" value="${width || ''}" min="0" class="${inputClass}" />`;
+
+  defaultFontSizeControls.innerHTML = `
+    <div>
+      <label class="block font-medium text-slate-700 mb-1">Height</label>
+      ${heightControl}
+    </div>
+    <div>
+      <label class="block font-medium text-slate-700 mb-1">Width</label>
+      ${widthControl}
+    </div>
+  `;
 }
 
 function addCustomFont() {

@@ -3,6 +3,7 @@
 
 import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
+import { fontSizeSelectHtml } from './fontSizeSelect.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
 import { SYMBOLOGY_LABELS, SYMBOLOGY_META, BARCODE_SYMBOLOGIES, QR_SYMBOLOGIES, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
@@ -585,15 +586,10 @@ export class PropertiesPanelRenderer {
   }
 
   renderFontSizeSelect(label, id, value, values, defaultLabel) {
-    const inList = values.includes(value);
     return `
       <div class="mb-3">
         <label class="block text-xs font-medium text-slate-700 mb-1">${label}</label>
-        <select id="${id}" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-          <option value="0" ${value === 0 ? 'selected' : ''}>${defaultLabel}</option>
-          ${values.map(v => `<option value="${v}" ${value === v ? 'selected' : ''}>${v}</option>`).join('')}
-          ${(!inList && value !== 0) ? `<option value="${value}" selected>${value}</option>` : ''}
-        </select>
+        ${fontSizeSelectHtml(id, value, values, defaultLabel)}
       </div>
     `;
   }
