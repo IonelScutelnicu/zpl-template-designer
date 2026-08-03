@@ -250,6 +250,41 @@ test.describe('Embed mode', () => {
             .toHaveClass(/\bis-fullscreen\b/);
     });
 
+    test('SDK hidePanels.fullscreenToggle pins the launch layout', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        await page.evaluate(() => {
+            const container = document.createElement('div');
+            container.id = 'lock-container';
+            document.body.appendChild(container);
+            (window as any).ZplDesigner.embed({
+                container,
+                url: new URL('..', window.location.href).href,
+                fullscreen: true,
+                hidePanels: { fullscreenToggle: true },
+            });
+        });
+
+        await expect(page.locator('#lock-container iframe'))
+            .toHaveAttribute('src', /hidePanels=fullscreenToggle/);
+        const frame = page.frameLocator('#lock-container iframe');
+        // Launched in fullscreen with no way out — both buttons are gone.
+        await expect(frame.locator('#view-editor')).toHaveClass(/\bis-fullscreen\b/);
+        await expect(frame.locator('#fullscreen-exit-btn')).toBeHidden();
+        await expect(frame.locator('#fullscreen-toggle-btn')).toBeHidden();
+        // The editing surface is untouched.
+        await expect(frame.locator('#preview-card')).toBeVisible();
+    });
+
+    test('?embed=1&hidePanels=fullscreenToggle locks normal view too', async ({ page }) => {
+        await page.goto('/?embed=1&hidePanels=fullscreenToggle&fullscreen=0');
+        await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);
+        await expect(page.locator('#view-editor')).not.toHaveClass(/\bis-fullscreen\b/);
+        await expect(page.locator('#fullscreen-toggle-btn')).toBeHidden();
+        await expect(page.locator('#fullscreen-exit-btn')).toBeHidden();
+    });
+
     test('?embed=1&view=gallery still lands on the editor', async ({ page }) => {
         await page.goto('/?embed=1&view=gallery');
         await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);

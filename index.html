@@ -1203,11 +1203,15 @@
     /* Panels the host hid (?embed=1&hidePanels=zplOutput,warnings,header).
        Presentation only — the panels keep updating, so preview refresh and
        the header Template menu's Copy ZPL / Share stay live. !important
-       because the fullscreen rules for #zpl-card are more specific. */
+       because the fullscreen rules for #zpl-card are more specific.
+       `fullscreenToggle` takes both the enter and the exit button, so the
+       layout the host launched with is the one the user stays in. */
     html.embed.hide-panel-zplOutput #zpl-card,
     html.embed.hide-panel-warnings #warnings-panel,
     html.embed.hide-panel-header header,
-    html.embed.hide-panel-actions #embed-actions {
+    html.embed.hide-panel-actions #embed-actions,
+    html.embed.hide-panel-fullscreenToggle #fullscreen-toggle-btn,
+    html.embed.hide-panel-fullscreenToggle #fullscreen-exit-btn {
       display: none !important;
     }
   </style>
