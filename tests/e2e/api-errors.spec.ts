@@ -209,8 +209,8 @@ test.describe('Labelary API - Error Scenarios', () => {
             await previewPanel.previewImage.waitFor({ state: 'visible', timeout: 10000 });
 
             shouldFail = true;
-            await page.locator('#prop-preview-text').fill('Failure case');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Failure case');
+            await page.locator('#prop-content').dispatchEvent('change');
             // The edit auto-refreshes (debounced); the new fetch fails.
             await previewPanel.previewError.waitFor({ state: 'visible', timeout: 10000 });
 

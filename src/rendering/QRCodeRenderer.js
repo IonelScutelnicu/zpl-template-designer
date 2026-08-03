@@ -21,7 +21,7 @@ export class QRCodeRenderer {
     const dpmm = labelSettings?.dpmm || 8;
     const helpers = createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels: SYMBOLOGY_LABELS, dpmm });
     const frame = helpers.frame(element, transform);
-    const geom = getBarcodeGeometry(element);
+    const geom = getBarcodeGeometry(element, labelSettings?.previewData);
     getQRCodeSymbology(symbology).renderCanvas(ctx, canvas, element, geom, frame, helpers);
   }
 }

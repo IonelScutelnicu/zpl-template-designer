@@ -32,6 +32,7 @@ export class AppState {
       pauseCount: 0,           // ^PQ pause/cut count (0-99999999)
       replicates: 0,           // ^PQ replicates of each serial number (0-99999999)
       printQuantityPlaceholder: '', // ^PQ quantity placeholder name (e.g. 'qty' → %qty%)
+      previewData: {},         // Preview Data: placeholder name → sample value (canvas + preview only)
       fontId: "0",             // ^CF default font identifier
       customFonts: [],         // Array of {id, fontFile} for ^CW commands
       defaultFontHeight: 20,   // ^CF default font height

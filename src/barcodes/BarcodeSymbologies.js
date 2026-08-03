@@ -11,8 +11,8 @@ import {
 } from '../utils/barcodeGeometry.js';
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
-function fieldData(element, value, preservePlaceholders) {
-  return renderFieldDataCommand(value, '_', element.fieldHex, { preservePlaceholders });
+function fieldData(element, value) {
+  return renderFieldDataCommand(value, '_', element.fieldHex);
 }
 
 function commonParams(element) {
@@ -29,13 +29,13 @@ class BarcodeSymbology {
     this.id = id;
   }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g } = commonParams(element);
-    return `^BC${o},${element.height},${f}${g}${fieldData(element, `>:${content}`, preservePlaceholders)}`;
+    return `^BC${o},${element.height},${f}${g}${fieldData(element, `>:${content}`)}`;
   }
 
-  displayText(element) {
-    return element.previewData || '';
+  displayText(element, data = '') {
+    return data;
   }
 
   forcesHri() {
@@ -66,14 +66,13 @@ class CheckDigitBarcodeSymbology extends BarcodeSymbology {
 class Code39Symbology extends CheckDigitBarcodeSymbology {
   hasRatio() { return true; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g } = commonParams(element);
     const e = element.checkDigit ? 'Y' : 'N';
-    return `^B3${o},${e},${element.height},${f}${g}${fieldData(element, content, preservePlaceholders)}`;
+    return `^B3${o},${e},${element.height},${f}${g}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    const data = element.previewData || '';
+  displayText(element, data = '') {
     return `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
   }
 }
@@ -82,14 +81,13 @@ class Code11Symbology extends CheckDigitBarcodeSymbology {
   hasRatio() { return true; }
   checkDigitControl() { return { label: 'Single Check Digit' }; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g } = commonParams(element);
     const e = element.checkDigit ? 'Y' : 'N';
-    return `^B1${o},${e},${element.height},${f}${g}${fieldData(element, content, preservePlaceholders)}`;
+    return `^B1${o},${e},${element.height},${f}${g}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    const data = element.previewData || '';
+  displayText(element, data = '') {
     return `${CODE11_GUARD_START_CHAR}${data}${code11CheckDigits(data, element.checkDigit)}${CODE11_GUARD_STOP_CHAR}`;
   }
 }
@@ -98,14 +96,14 @@ class Interleaved2of5Symbology extends CheckDigitBarcodeSymbology {
   hasRatio() { return true; }
   checkDigitControl() { return { label: 'Mod-10 Check Digit' }; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g, gVal } = commonParams(element);
     const tail = element.checkDigit ? `,${gVal},Y` : g;
-    return `^B2${o},${element.height},${f}${tail}${fieldData(element, content, preservePlaceholders)}`;
+    return `^B2${o},${element.height},${f}${tail}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    return interleaved2of5Digits(element.previewData || '', element.checkDigit);
+  displayText(element, data = '') {
+    return interleaved2of5Digits(data, element.checkDigit);
   }
 }
 
@@ -120,9 +118,9 @@ class PlainBarcodeSymbology extends BarcodeSymbology {
 
   hasRatio() { return this._hasRatio; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g } = commonParams(element);
-    return `${this.command}${o},${element.height},${f}${g}${fieldData(element, content, preservePlaceholders)}`;
+    return `${this.command}${o},${element.height},${f}${g}${fieldData(element, content)}`;
   }
 }
 
@@ -130,23 +128,22 @@ class UspsPostalSymbology extends PlainBarcodeSymbology {
   // ^B5 Planet / ^BZ POSTNET: the printer drops non-digit ^FD characters from the
   // HRI as well as the bars (Labelary: ^FD12A45 prints "1245"), so the display
   // text is the same digit-stripped data the bars encode (check digit not shown).
-  displayText(element) {
-    return normalizeBarcodeData(this.id, element.previewData || '');
+  displayText(element, data = '') {
+    return normalizeBarcodeData(this.id, data);
   }
 }
 
 class MsiSymbology extends BarcodeSymbology {
   hasRatio() { return true; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g, gVal } = commonParams(element);
     const e = element.msiCheckMode || 'B';
     const tail = element.msiCheckInText ? `,${gVal},Y` : g;
-    return `^BM${o},${e},${element.height},${f}${tail}${fieldData(element, content, preservePlaceholders)}`;
+    return `^BM${o},${e},${element.height},${f}${tail}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    const data = element.previewData || '';
+  displayText(element, data = '') {
     return `${data}${element.msiCheckInText ? msiCheckDigits(data, element.msiCheckMode) : ''}`;
   }
 
@@ -167,14 +164,13 @@ class PlesseySymbology extends CheckDigitBarcodeSymbology {
   hasRatio() { return true; }
   checkDigitControl() { return { label: 'Print Check Digit' }; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g } = commonParams(element);
     const e = element.checkDigit ? 'Y' : 'N';
-    return `^BP${o},${e},${element.height},${f}${g}${fieldData(element, content, preservePlaceholders)}`;
+    return `^BP${o},${e},${element.height},${f}${g}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    const data = element.previewData || '';
+  displayText(element, data = '') {
     return `${data}${element.checkDigit ? plesseyCheckDigits(data) : ''}`;
   }
 }
@@ -183,13 +179,13 @@ class LogmarsSymbology extends BarcodeSymbology {
   hasRatio() { return true; }
   forcesHri() { return true; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { o, g } = commonParams(element);
-    return `^BL${o},${element.height}${g}${fieldData(element, content, preservePlaceholders)}`;
+    return `^BL${o},${element.height}${g}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    const up = (element.previewData || '').toUpperCase();
+  displayText(element, data = '') {
+    const up = data.toUpperCase();
     return `${up}${code39CheckChar(up)}`;
   }
 }
@@ -197,14 +193,13 @@ class LogmarsSymbology extends BarcodeSymbology {
 class Code93Symbology extends CheckDigitBarcodeSymbology {
   checkDigitControl() { return { label: 'Print Check Digits' }; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g, gVal } = commonParams(element);
     const tail = element.checkDigit ? `,${gVal},Y` : g;
-    return `^BA${o},${element.height},${f}${tail}${fieldData(element, content, preservePlaceholders)}`;
+    return `^BA${o},${element.height},${f}${tail}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    const data = element.previewData || '';
+  displayText(element, data = '') {
     const checks = element.checkDigit ? code93CheckChars(data) : '';
     return `${CODE93_GUARD_CHAR}${data}${checks}${CODE93_GUARD_CHAR}`;
   }
@@ -213,18 +208,18 @@ class Code93Symbology extends CheckDigitBarcodeSymbology {
 class CodabarSymbology extends BarcodeSymbology {
   hasRatio() { return true; }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g, gVal } = commonParams(element);
     const start = element.startChar || 'A';
     const stop = element.stopChar || 'A';
     const tail = (start !== 'A' || stop !== 'A') ? `,${gVal},${start},${stop}` : g;
-    return `^BK${o},N,${element.height},${f}${tail}${fieldData(element, content, preservePlaceholders)}`;
+    return `^BK${o},N,${element.height},${f}${tail}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
+  displayText(element, data = '') {
     const start = (element.startChar || 'A').toUpperCase();
     const stop = (element.stopChar || 'A').toUpperCase();
-    return `${start}${element.previewData || ''}${stop}`;
+    return `${start}${data}${stop}`;
   }
 
   extraSettings(panel, element) {
@@ -247,9 +242,9 @@ class EanUpcSymbology extends BarcodeSymbology {
     this.command = command;
   }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, g } = commonParams(element);
-    return `${this.command}${o},${element.height},${f}${g}${fieldData(element, content, preservePlaceholders)}`;
+    return `${this.command}${o},${element.height},${f}${g}${fieldData(element, content)}`;
   }
 }
 
@@ -258,13 +253,13 @@ class UpcEanExtSymbology extends EanUpcSymbology {
     super('UPCEANEXT', '^BS');
   }
 
-  renderZpl(element, content, preservePlaceholders) {
+  renderZpl(element, content) {
     const { f, o, gVal } = commonParams(element);
-    return `^BS${o},${element.height},${f},${gVal}${fieldData(element, content, preservePlaceholders)}`;
+    return `^BS${o},${element.height},${f},${gVal}${fieldData(element, content)}`;
   }
 
-  displayText(element) {
-    return normalizeUpcEanExt(element.previewData || '');
+  displayText(element, data = '') {
+    return normalizeUpcEanExt(data);
   }
 }
 

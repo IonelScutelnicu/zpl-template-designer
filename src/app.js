@@ -11,6 +11,7 @@ import { TemplateManager } from './services/TemplateManager.js';
 import { PropertiesPanelRenderer } from './ui/PropertiesPanelRenderer.js';
 import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
+import { PreviewDataPanel } from './ui/PreviewDataPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
 import { MAX_CUSTOM_FONT_BYTES, buildFontDownloadPreamble, bytesToBase64, fontPreambleSignature, formatFontDownload, isTrueTypeFont, nextCustomFontId, normalizeCustomFontSources, sanitizePrinterFontPath, sha256Hex } from './utils/customFonts.js';
 import { ensureCustomFontLoaded } from './utils/fontLoader.js';
@@ -204,6 +205,7 @@ propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings,
 
 // Initialize UI renderers (will be fully initialized after DOM elements are loaded)
 let historyPanelUI;
+let previewDataPanel;
 let customFontsManager;
 let propertyListenersManager;
 let fullscreen;
@@ -457,6 +459,16 @@ export function initApp() {
     }
   );
 
+  // Initialize the Preview Data panel
+  previewDataPanel = new PreviewDataPanel(
+    document.getElementById('preview-data-panel'),
+    (previewData) => applyPreviewData(previewData)
+  );
+  // Render once up front: every other call site is an element or settings change,
+  // so an empty label would otherwise show a blank panel with no way to add a
+  // placeholder by hand.
+  renderPreviewDataPanel();
+
   // Initialize custom fonts manager
   customFontsManager = new CustomFontsManager(
     {
@@ -493,6 +505,23 @@ export function initApp() {
         kind: "edit",
         detail: element.getDisplayName()
       });
+    },
+    // Preview values are label-wide, so this deliberately skips
+    // renderPropertiesPanel() — a rebuild would steal focus on every keystroke.
+    onPreviewValueChange: (name, value) => {
+      applyPreviewData({ ...state.labelSettings.previewData, [name]: value });
+    },
+    onRevealPreviewData: () => revealPreviewDataPanel(),
+    onContentPlaceholdersChanged: (element) => {
+      const host = document.getElementById("prop-content-placeholders");
+      if (host) host.innerHTML = propertiesPanelRenderer.renderContentPlaceholders(element);
+    },
+    getPlaceholderNames: () => PreviewDataPanel.known(state.elements, state.labelSettings),
+    getPreviewData: () => state.labelSettings.previewData || {},
+    // Defining from the insert menu seeds an empty value; the placeholder still
+    // shows up in Preview Data, ready for a sample.
+    onDefinePlaceholder: (name) => {
+      applyPreviewData({ ...state.labelSettings.previewData, [name]: '' });
     },
     onAlignmentAction: (action, element) => {
       applyAlignmentAction(action, element);
@@ -1163,6 +1192,7 @@ export function initApp() {
 
   printQuantityPlaceholder.addEventListener("input", (e) => {
     state.updateLabelSettings({ printQuantityPlaceholder: e.target.value || '' });
+    renderPreviewDataPanel();
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
@@ -1395,6 +1425,11 @@ export function initApp() {
         const template = JSON.parse(serializationService.exportTemplate(state.elements, state.labelSettings));
         if (currentTemplateMetadata) template.metadata = currentTemplateMetadata;
         return { template, zpl: zplGenerator.generateZPL(state.elements, state.labelSettings) };
+      },
+      // Merged, not replaced: a host topping up one value must not wipe the
+      // placeholders the loaded template already defined.
+      setPreviewData: (map) => {
+        applyPreviewData({ ...state.labelSettings.previewData, ...map });
       },
     });
   }
@@ -1887,6 +1922,8 @@ function syncLabelSettingsInputs() {
   pauseCount.value = state.labelSettings.pauseCount ?? 0;
   replicatesInput.value = state.labelSettings.replicates ?? 0;
   printQuantityPlaceholder.value = state.labelSettings.printQuantityPlaceholder ?? '';
+  // The Qty Placeholder is discovered alongside the Content placeholders.
+  renderPreviewDataPanel();
   // Before assigning fontId.value: a custom font id only sticks once its option
   // exists, so the pickers have to carry the restored font list first.
   refreshCustomFontPickers();
@@ -2467,19 +2504,19 @@ function deleteSelectedElements() {
 
 // Add Element Functions (delegated to ElementService)
 function addTextBlockElement() {
-  elementService.createElement('TEXTBLOCK', { text: 'Sample text block content', blockWidth: 200, blockHeight: 50 });
+  elementService.createElement('TEXTBLOCK', { content: 'Sample text block content', blockWidth: 200, blockHeight: 50 });
 }
 
 function addTextElement() {
-  elementService.createElement('TEXT', { text: 'Sample Text', orientation: 'N' });
+  elementService.createElement('TEXT', { content: 'Sample Text', orientation: 'N' });
 }
 
 function addBarcodeElement() {
-  elementService.createElement('BARCODE', { data: '1234567890', height: 50, width: 2, ratio: 2.0 });
+  elementService.createElement('BARCODE', { content: '1234567890', height: 50, width: 2, ratio: 2.0 });
 }
 
 function addQRCodeElement() {
-  elementService.createElement('QRCODE', { data: 'https://example.com', model: 2, magnification: 5, errorCorrection: 'Q' });
+  elementService.createElement('QRCODE', { content: 'https://example.com', model: 2, magnification: 5, errorCorrection: 'Q' });
 }
 
 function addBoxElement() {
@@ -2487,7 +2524,7 @@ function addBoxElement() {
 }
 
 function addFieldBlockElement() {
-  elementService.createElement('FIELDBLOCK', { text: 'Sample text that can wrap across multiple lines', blockWidth: 200, maxLines: 3, justification: 'L' });
+  elementService.createElement('FIELDBLOCK', { content: 'Sample text that can wrap across multiple lines', blockWidth: 200, maxLines: 3, justification: 'L' });
 }
 
 function addLineElement() {
@@ -2752,6 +2789,45 @@ function updateZplDocLink() {
 function updateElementsList() {
   const html = elementsListRenderer.render(state.elements, state.getSelectedElements(), state.warnings);
   elementsList.innerHTML = html;
+  // Placeholders are discovered from element Content, so the list of Preview Data
+  // rows can change with any element edit.
+  renderPreviewDataPanel();
+}
+
+function renderPreviewDataPanel() {
+  previewDataPanel?.render(state.elements, state.labelSettings);
+}
+
+/**
+ * The single write path for Preview Data, shared by the Preview Data panel, the
+ * inline Preview Value rows in Element Properties, and the Host in Embed mode.
+ * Both editors show the same values, so each one syncs the other's inputs in
+ * place rather than re-rendering it out from under the caret.
+ */
+function applyPreviewData(previewData) {
+  state.updateLabelSettings({ previewData });
+  renderCanvasPreview();
+  renderPreviewDataPanel();
+  syncInlinePreviewValues();
+  scheduleHistoryCommit("preview-data", "Updated preview data", { kind: "settings" });
+}
+
+function syncInlinePreviewValues() {
+  const values = state.labelSettings.previewData || {};
+  for (const input of document.querySelectorAll("[data-content-placeholder]")) {
+    if (input === document.activeElement) continue;
+    input.value = values[input.dataset.contentPlaceholder] ?? "";
+  }
+}
+
+/** Open the Preview Data section and put the caret in it. */
+function revealPreviewDataPanel() {
+  const panel = document.getElementById("preview-data-panel");
+  const section = panel?.closest("details");
+  if (section) section.open = true;
+  if (fullscreen?.isOn()) fullscreen.setActiveTab("preview-data");
+  section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  panel?.querySelector("[data-placeholder]")?.focus();
 }
 
 // Element operations (delegated to ElementService)
@@ -3364,6 +3440,11 @@ function escapeHtmlForZPLImport(text) {
 
 // Import Template from JSON
 function importTemplate(template, { historyLabel = "Imported template", historyKind = "import" } = {}) {
+  // Every load path (gallery, share URL, file import, Drive, embed, New) funnels
+  // through here, so this is the one place the pre-Content format is upgraded.
+  // Must run before the label settings below are merged — it seeds Preview Data.
+  serializationService.migrateTemplate(template);
+
   // Reset viewport to Fit for the new template — different label dimensions
   // need a fresh fit, and the user's prior zoom/pan no longer makes sense.
   isAtFit = true;

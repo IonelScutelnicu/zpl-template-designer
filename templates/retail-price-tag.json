@@ -17,11 +17,10 @@
       "id": 1777582363450.0762,
       "locked": false,
       "type": "QRCODE",
-      "previewData": "https://example.com/example",
-      "placeholder": "product_url",
       "model": 2,
       "magnification": 3,
-      "errorCorrection": "Q"
+      "errorCorrection": "Q",
+      "content": "%product_url%"
     },
     {
       "x": 15,
@@ -29,13 +28,12 @@
       "id": 1777582363450.892,
       "locked": false,
       "type": "TEXT",
-      "previewText": "SOMA",
-      "placeholder": "brand",
       "fontId": "",
       "fontSize": 35,
       "fontWidth": 35,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%brand%"
     },
     {
       "x": 15,
@@ -43,13 +41,12 @@
       "id": 1777582363450.347,
       "locked": false,
       "type": "TEXT",
-      "previewText": "SS26 / TEE",
-      "placeholder": "season_product_category",
       "fontId": "",
       "fontSize": 14,
       "fontWidth": 14,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%season_product_category%"
     },
     {
       "x": 15,
@@ -57,13 +54,12 @@
       "id": 1777582363450.7527,
       "locked": false,
       "type": "TEXT",
-      "previewText": "$24.05",
-      "placeholder": "price",
       "fontId": "",
       "fontSize": 50,
       "fontWidth": 50,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%price%"
     },
     {
       "x": 15,
@@ -71,13 +67,12 @@
       "id": 1777582363450.1694,
       "locked": false,
       "type": "TEXT",
-      "previewText": "SKU KX-2219-B / M / NAVY",
-      "placeholder": "description",
       "fontId": "",
       "fontSize": 14,
       "fontWidth": 14,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%description%"
     },
     {
       "x": 15,
@@ -85,12 +80,11 @@
       "id": 1777582363450.1406,
       "locked": false,
       "type": "BARCODE",
-      "previewData": "1234567890",
-      "placeholder": "sku",
       "height": 32,
       "width": 2,
       "ratio": 2,
-      "showText": false
+      "showText": false,
+      "content": "%sku%"
     }
   ],
   "labelSettings": {
@@ -113,6 +107,14 @@
     "defaultFontWidth": 0,
     "homeX": 0,
     "homeY": 0,
-    "labelTop": 0
+    "labelTop": 0,
+    "previewData": {
+      "product_url": "https://example.com/example",
+      "brand": "SOMA",
+      "season_product_category": "SS26 / TEE",
+      "price": "$24.05",
+      "description": "SKU KX-2219-B / M / NAVY",
+      "sku": "1234567890"
+    }
   }
 }

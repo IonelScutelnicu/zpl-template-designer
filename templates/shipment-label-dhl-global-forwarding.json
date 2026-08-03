@@ -94,13 +94,12 @@
       "id": 1778404182904.021,
       "locked": false,
       "type": "TEXT",
-      "previewText": "AA0",
-      "placeholder": "routing_code",
       "fontId": "",
       "fontSize": 67,
       "fontWidth": 84,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%routing_code%"
     },
     {
       "x": 402,
@@ -121,13 +120,12 @@
       "id": 1778404182904.2573,
       "locked": false,
       "type": "BARCODE",
-      "previewData": "H8FE7018+Y0001+",
-      "placeholder": "barcode",
       "height": 204,
       "width": 3,
       "ratio": 2,
       "showText": true,
-      "reverse": false
+      "reverse": false,
+      "content": "%barcode%"
     },
     {
       "x": 32,
@@ -135,13 +133,12 @@
       "id": 1778404182904.1465,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Housebill",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 22,
       "fontWidth": 27,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Housebill"
     },
     {
       "x": 273,
@@ -149,13 +146,12 @@
       "id": 1778404182904.9988,
       "locked": false,
       "type": "TEXT",
-      "previewText": "8FE7018",
-      "placeholder": "housebill_awb",
       "fontId": "",
       "fontSize": 65,
       "fontWidth": 76,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%housebill_awb%"
     },
     {
       "x": 32,
@@ -163,13 +159,12 @@
       "id": 1778404182904.9624,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Destination",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Destination"
     },
     {
       "x": 436,
@@ -177,13 +172,12 @@
       "id": 1778404182904.4766,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Total Number of Pieces",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Total Number of Pieces"
     },
     {
       "x": 31,
@@ -191,13 +185,12 @@
       "id": 1778404182904.3735,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Date",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Date"
     },
     {
       "x": 438,
@@ -205,13 +198,12 @@
       "id": 1778404182904.3591,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Total Weight",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Total Weight"
     },
     {
       "x": 32,
@@ -219,13 +211,12 @@
       "id": 1778404182904.4993,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Origin",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Origin"
     },
     {
       "x": 439,
@@ -233,13 +224,12 @@
       "id": 1778404182904.8738,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Destination",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Destination"
     },
     {
       "x": 34,
@@ -247,13 +237,12 @@
       "id": 1778404182904.3127,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Additional Information",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Additional Information"
     },
     {
       "x": 31,
@@ -261,13 +250,12 @@
       "id": 1778404182904.8445,
       "locked": false,
       "type": "TEXT",
-      "previewText": "HKG",
-      "placeholder": "destination_iata_code",
       "fontId": "",
       "fontSize": 66,
       "fontWidth": 80,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%destination_iata_code%"
     },
     {
       "x": 432,
@@ -275,13 +263,12 @@
       "id": 1778404182904.5503,
       "locked": false,
       "type": "TEXT",
-      "previewText": "1",
-      "placeholder": "total_number_pieces",
       "fontId": "",
       "fontSize": 66,
       "fontWidth": 80,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%total_number_pieces%"
     },
     {
       "x": 28,
@@ -289,13 +276,12 @@
       "id": 1778404182904.028,
       "locked": false,
       "type": "TEXT",
-      "previewText": "01JAN21",
-      "placeholder": "date",
       "fontId": "",
       "fontSize": 39,
       "fontWidth": 47,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%date%"
     },
     {
       "x": 434,
@@ -303,13 +289,12 @@
       "id": 1778404182904.3215,
       "locked": false,
       "type": "TEXT",
-      "previewText": "50 K",
-      "placeholder": "total_weight",
       "fontId": "",
       "fontSize": 39,
       "fontWidth": 47,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%total_weight%"
     },
     {
       "x": 31,
@@ -317,13 +302,12 @@
       "id": 1778404182904.317,
       "locked": false,
       "type": "TEXT",
-      "previewText": "LEJ",
-      "placeholder": "origin_iata_code",
       "fontId": "",
       "fontSize": 39,
       "fontWidth": 47,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%origin_iata_code%"
     },
     {
       "x": 436,
@@ -331,13 +315,12 @@
       "id": 1778404182904.8618,
       "locked": false,
       "type": "TEXT",
-      "previewText": "HKG",
-      "placeholder": "destination_iata_code",
       "fontId": "",
       "fontSize": 39,
       "fontWidth": 47,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%destination_iata_code%"
     },
     {
       "x": 31,
@@ -345,15 +328,14 @@
       "id": 1778404182904.7231,
       "locked": false,
       "type": "TEXTBLOCK",
-      "previewText": "This is a test label",
-      "placeholder": "details",
       "fontId": "",
       "fontSize": 26,
       "fontWidth": 28,
       "blockWidth": 757,
       "blockHeight": 298,
       "reverse": false,
-      "orientation": "N"
+      "orientation": "N",
+      "content": "%details%"
     },
     {
       "x": 403,
@@ -396,6 +378,17 @@
     "defaultFontWidth": 0,
     "homeX": 0,
     "homeY": 0,
-    "labelTop": 0
+    "labelTop": 0,
+    "previewData": {
+      "routing_code": "AA0",
+      "barcode": "H8FE7018+Y0001+",
+      "housebill_awb": "8FE7018",
+      "destination_iata_code": "HKG",
+      "total_number_pieces": "1",
+      "date": "01JAN21",
+      "total_weight": "50 K",
+      "origin_iata_code": "LEJ",
+      "details": "This is a test label"
+    }
   }
 }

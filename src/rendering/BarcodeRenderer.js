@@ -5,6 +5,7 @@ import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConf
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // EAN-13/UPC-A guard bars extend this many dots below the barcode height
 // (e.g. a 50-dot symbol gets 63-dot guard bars).
@@ -37,7 +38,7 @@ export class BarcodeRenderer {
    * @param {Object} _labelSettings - Label settings (unused, kept for uniform signature)
    * @param {Object} transform - Transform parameters {scale, homeX, homeY, labelTop}
    */
-  render(ctx, canvas, element, _labelSettings, transform) {
+  render(ctx, canvas, element, labelSettings, transform) {
     const { scale, homeX, homeY, labelTop } = transform;
 
     const x = (element.x + homeX) * scale;
@@ -47,17 +48,17 @@ export class BarcodeRenderer {
     const moduleWidth = moduleWidthDots * scale;
     const orientation = element.orientation || 'N';
 
-    const geom = getBarcodeGeometry(element);
+    const geom = getBarcodeGeometry(element, labelSettings?.previewData);
 
     if (geom.kind !== 'linear') {
-      const width = linearFallbackModules((element.previewData || '').length) * moduleWidth;
+      const width = linearFallbackModules(resolvePlaceholders(element.content, labelSettings?.previewData).length) * moduleWidth;
       drawPlaceholder(ctx, { x, y, width, height, label: SYMBOLOGY_LABELS[resolveSymbology(element)] });
       return;
     }
 
     const sym = resolveSymbology(element);
     const symbology = getBarcodeSymbology(sym);
-    const displayText = symbology.displayText(element);
+    const displayText = symbology.displayText(element, resolvePlaceholders(element.content, labelSettings?.previewData));
     const totalWidth = geom.modules * moduleWidth;
     const above = element.printTextAbove === true;
     // HRI line config (per symbology + position); null when no HRI is shown. ^BL LOGMARS

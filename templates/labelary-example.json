@@ -52,13 +52,12 @@
       "id": 1777488061864.9314,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Intershipping, Inc.",
-      "placeholder": "",
       "fontId": "0",
       "fontSize": 60,
       "fontWidth": 60,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Intershipping, Inc."
     },
     {
       "x": 220,
@@ -66,13 +65,12 @@
       "id": 1777488311788.5881,
       "locked": false,
       "type": "TEXT",
-      "previewText": "1000 Shipping Lane",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "1000 Shipping Lane"
     },
     {
       "x": 220,
@@ -80,13 +78,12 @@
       "id": 1777488410579.0105,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Shelbyville TN 38102",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Shelbyville TN 38102"
     },
     {
       "x": 220,
@@ -94,13 +91,12 @@
       "id": 1777488441265.1887,
       "locked": false,
       "type": "TEXT",
-      "previewText": "United States (USA)",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "United States (USA)"
     },
     {
       "x": 50,
@@ -120,13 +116,12 @@
       "id": 1777488549230.4382,
       "locked": false,
       "type": "TEXT",
-      "previewText": "John Doe",
-      "placeholder": "",
       "fontId": "A",
       "fontSize": 30,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "John Doe"
     },
     {
       "x": 50,
@@ -134,13 +129,12 @@
       "id": 1777488594225.6316,
       "locked": false,
       "type": "TEXT",
-      "previewText": "100 Main Street",
-      "placeholder": "",
       "fontId": "A",
       "fontSize": 30,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "100 Main Street"
     },
     {
       "x": 50,
@@ -148,13 +142,12 @@
       "id": 1777488620592.8315,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Springfield TN 39021",
-      "placeholder": "",
       "fontId": "A",
       "fontSize": 30,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Springfield TN 39021"
     },
     {
       "x": 50,
@@ -162,13 +155,12 @@
       "id": 1777488634526.9524,
       "locked": false,
       "type": "TEXT",
-      "previewText": "United States (USA)",
-      "placeholder": "",
       "fontId": "A",
       "fontSize": 30,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "United States (USA)"
     },
     {
       "x": 600,
@@ -188,13 +180,12 @@
       "id": 1777488700616.9426,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Permit",
-      "placeholder": "",
       "fontId": "A",
       "fontSize": 15,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Permit"
     },
     {
       "x": 638,
@@ -202,13 +193,12 @@
       "id": 1777488716971.9797,
       "locked": false,
       "type": "TEXT",
-      "previewText": "123456",
-      "placeholder": "",
       "fontId": "A",
       "fontSize": 15,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "123456"
     },
     {
       "x": 50,
@@ -228,12 +218,11 @@
       "id": 1777487867330.9329,
       "locked": false,
       "type": "BARCODE",
-      "previewData": "12345678",
-      "placeholder": "",
       "height": 270,
       "width": 5,
       "ratio": 2,
-      "showText": true
+      "showText": true,
+      "content": "12345678"
     },
     {
       "x": 50,
@@ -265,13 +254,12 @@
       "id": 1777489250070.0962,
       "locked": false,
       "type": "TEXT",
-      "previewText": "Ctr. X34B-1",
-      "placeholder": "",
       "fontId": "0",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "Ctr. X34B-1"
     },
     {
       "x": 100,
@@ -279,13 +267,12 @@
       "id": 1777489244955.8787,
       "locked": false,
       "type": "TEXT",
-      "previewText": "REF1 F00B47",
-      "placeholder": "",
       "fontId": "0",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "REF1 F00B47"
     },
     {
       "x": 100,
@@ -293,13 +280,12 @@
       "id": 1777489247996.9966,
       "locked": false,
       "type": "TEXT",
-      "previewText": "REF2 BL4H8",
-      "placeholder": "",
       "fontId": "0",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "REF2 BL4H8"
     },
     {
       "x": 470,
@@ -307,13 +293,12 @@
       "id": 1777489197365.9897,
       "locked": false,
       "type": "TEXT",
-      "previewText": "CA",
-      "placeholder": "",
       "fontId": "0",
       "fontSize": 190,
       "fontWidth": 190,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "CA"
     }
   ],
   "labelSettings": {

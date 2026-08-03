@@ -46,10 +46,9 @@ export class ElementService {
       case 'TEXT':
         element = new TextElement(
           x, y,
-          props.text || 'Sample Text',
+          props.content || 'Sample Text',
           props.fontSize || 0,
           props.fontWidth || 0,
-          props.placeholder || '',
           props.fontId || '',
           props.orientation || 'N',
           props.reverse || false,
@@ -61,11 +60,10 @@ export class ElementService {
         const symbology = props.symbology || 'CODE128';
         element = new BarcodeElement(
           x, y,
-          props.data ?? DEFAULT_PREVIEW_DATA[symbology],
+          props.content ?? DEFAULT_PREVIEW_DATA[symbology],
           props.height || 50,
           props.width || 2,
           props.ratio || 2.0,
-          props.placeholder || '',
           props.showText !== undefined ? props.showText : true,
           props.reverse || false,
           symbology,
@@ -85,11 +83,10 @@ export class ElementService {
         const symbology = props.symbology || 'QR';
         element = new QRCodeElement(
           x, y,
-          props.data ?? DEFAULT_PREVIEW_DATA[symbology],
+          props.content ?? DEFAULT_PREVIEW_DATA[symbology],
           props.model || 2,
           props.magnification || 5,
           props.errorCorrection || 'Q',
-          props.placeholder || '',
           props.reverse || false,
           symbology,
           props.moduleSize || 4,
@@ -170,7 +167,7 @@ export class ElementService {
       case 'FIELDBLOCK':
         element = new FieldBlockElement(
           x, y,
-          props.text || 'Sample text that can wrap across multiple lines',
+          props.content || 'Sample text that can wrap across multiple lines',
           props.fontSize || 0,
           props.fontWidth || 0,
           props.blockWidth || 200,
@@ -178,7 +175,6 @@ export class ElementService {
           props.lineSpacing || 0,
           props.justification || 'L',
           props.hangingIndent || 0,
-          props.placeholder || '',
           props.fontId || '',
           props.reverse || false,
           props.orientation || 'N',
@@ -189,12 +185,11 @@ export class ElementService {
       case 'TEXTBLOCK':
         element = new TextBlockElement(
           x, y,
-          props.text || 'Sample text block content',
+          props.content || 'Sample text block content',
           props.fontSize || 0,
           props.fontWidth || 0,
           props.blockWidth || 200,
           props.blockHeight || 50,
-          props.placeholder || '',
           props.fontId || '',
           props.reverse || false,
           props.orientation || 'N',

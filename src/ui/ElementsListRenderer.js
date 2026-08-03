@@ -2,6 +2,7 @@
 // Generates HTML for the elements list sidebar
 
 import { SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
+import { placeholderName } from '../utils/placeholders.js';
 
 /**
  * Renderer for the elements list UI
@@ -96,8 +97,11 @@ export class ElementsListRenderer {
   }
 
   renderDisplayLabel(element) {
-    if (element.placeholder) {
-      const truncated = element.placeholder.substring(0, 20) + (element.placeholder.length > 20 ? '...' : '');
+    // Content that is nothing but a single placeholder is shown as such; mixed
+    // literal + placeholder content reads better as its plain display name.
+    const name = placeholderName(element.content);
+    if (name) {
+      const truncated = name.substring(0, 20) + (name.length > 20 ? '...' : '');
       return `<span class="text-amber-600 font-mono">{{${this.escapeHtml(truncated)}}}</span>`;
     }
     return `<span class="text-slate-600">${this.escapeHtml(element.getDisplayName())}</span>`;

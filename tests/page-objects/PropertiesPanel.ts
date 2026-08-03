@@ -95,8 +95,8 @@ export class PropertiesPanel {
     async getTextY(): Promise<string> { return this.getProperty('prop-y'); }
     async setTextY(value: number): Promise<void> { await this.setProperty('prop-y', value); }
 
-    async getTextContent(): Promise<string> { return this.getProperty('prop-preview-text'); }
-    async setTextContent(value: string): Promise<void> { await this.setProperty('prop-preview-text', value); }
+    async getTextContent(): Promise<string> { return this.getProperty('prop-content'); }
+    async setTextContent(value: string): Promise<void> { await this.setProperty('prop-content', value); }
 
     async getFontHeight(): Promise<string> { return this.getProperty('prop-font-size'); }
     async setFontHeight(value: number): Promise<void> { await this.setProperty('prop-font-size', value); }
@@ -105,8 +105,8 @@ export class PropertiesPanel {
     async setFontWidth(value: number): Promise<void> { await this.setProperty('prop-font-width', value); }
 
     // Barcode properties
-    async getBarcodeData(): Promise<string> { return this.getProperty('prop-preview-data'); }
-    async setBarcodeData(value: string): Promise<void> { await this.setProperty('prop-preview-data', value); }
+    async getBarcodeData(): Promise<string> { return this.getProperty('prop-content'); }
+    async setBarcodeData(value: string): Promise<void> { await this.setProperty('prop-content', value); }
 
     async getBarcodeHeight(): Promise<string> { return this.getProperty('prop-height'); }
     async setBarcodeHeight(value: number): Promise<void> { await this.setProperty('prop-height', value); }

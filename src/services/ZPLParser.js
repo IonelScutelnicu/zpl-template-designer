@@ -4,6 +4,7 @@
 import { b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
+import { placeholderName } from '../utils/placeholders.js';
 import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive } from '../utils/customFonts.js';
 
@@ -646,10 +647,10 @@ export class ZPLParser {
       case 'PQ': {
         const parts = token.params.split(',');
         const qtyStr = parts[0] || '';
-        // Detect placeholder pattern %name%
-        const placeholderMatch = qtyStr.match(/^%([^%]+)%$/);
-        if (placeholderMatch) {
-          state.labelSettings.printQuantityPlaceholder = placeholderMatch[1];
+        // ^PQ's quantity is a bare placeholder name, not a Content template
+        const qtyPlaceholder = placeholderName(qtyStr);
+        if (qtyPlaceholder) {
+          state.labelSettings.printQuantityPlaceholder = qtyPlaceholder;
           state.labelSettings.printQuantity = 1;
         } else {
           state.labelSettings.printQuantity = parseInt(qtyStr) || 1;
@@ -864,8 +865,8 @@ export class ZPLParser {
   }
 
   /**
-   * Parse ^FD content, detecting placeholder patterns
-   * @returns {{ text: string, placeholder: string }}
+   * Decode ^FD into an element's Content (placeholders included)
+   * @returns {string}
    */
   _decodeFieldDataToken(fdToken, fhToken = null) {
     if (!fdToken) return '';
@@ -875,14 +876,8 @@ export class ZPLParser {
   }
 
   _parseFieldData(fdToken, fhToken = null) {
-    if (!fdToken) return { text: '', placeholder: '' };
-
-    const content = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = content.match(/^%([^%]+)%$/);
-    if (match) {
-      return { text: match[1], placeholder: match[1] };
-    }
-    return { text: content, placeholder: '' };
+    if (!fdToken) return '';
+    return this._decodeFieldDataToken(fdToken, fhToken);
   }
 
   /**
@@ -890,14 +885,13 @@ export class ZPLParser {
    */
   _parseText(group, aToken, fdToken, hasReverse, state, fhToken = null) {
     const font = this._parseFontCommand(aToken);
-    const { text, placeholder } = this._parseFieldData(fdToken, fhToken);
+    const content = this._parseFieldData(fdToken, fhToken);
 
     return {
       type: 'TEXT',
       x: group.x,
       y: group.y,
-      previewText: text,
-      placeholder,
+      content,
       fieldHex: Boolean(fhToken),
       ...this._resolveFontSize(font, state),
       orientation: font.orientation,
@@ -925,17 +919,11 @@ export class ZPLParser {
       fdContent = fdContent.slice(0, -2);
     }
 
-    // Detect placeholder in the cleaned content
-    const match = fdContent.match(/^%([^%]+)%$/);
-    const text = match ? match[1] : fdContent;
-    const placeholder = match ? match[1] : '';
-
     return {
       type: 'FIELDBLOCK',
       x: group.x,
       y: group.y,
-      previewText: text,
-      placeholder,
+      content: fdContent,
       fieldHex: Boolean(fhToken),
       ...this._resolveFontSize(font, state),
       blockWidth,
@@ -970,14 +958,13 @@ export class ZPLParser {
     // Use ^A orientation if available, fall back to ^TB orientation
     const orientation = font.orientation !== 'N' ? font.orientation : tbOrientation;
 
-    const { text, placeholder } = this._parseFieldData(fdToken, fhToken);
+    const content = this._parseFieldData(fdToken, fhToken);
 
     return {
       type: 'TEXTBLOCK',
       x: group.x,
       y: group.y,
-      previewText: text,
-      placeholder,
+      content,
       fieldHex: Boolean(fhToken),
       ...this._resolveFontSize(font, state),
       blockWidth,
@@ -1058,24 +1045,18 @@ export class ZPLParser {
     // The command's own height parameter, when present, overrides the ^BY default.
     if (parts[heightIdx]) height = parseInt(parts[heightIdx]) || height;
 
-    // Strip Code 128 Subset B start character (>:) before detecting the
-    // placeholder — the placeholder pattern is anchored, so the prefix would
-    // otherwise prevent a match.
+    // Strip the Code 128 Subset B start character (>:); it is an encoding
+    // prefix the editor re-adds on render, not part of the element's Content.
     let rawData = this._decodeFieldDataToken(fdToken, fhToken);
     if (symbology === 'CODE128' && rawData.startsWith('>:')) {
       rawData = rawData.slice(2);
     }
-    const match = rawData.match(/^%([^%]+)%$/);
-    const cleanText = match ? match[1] : rawData;
-    const placeholder = match ? match[1] : '';
-
     return {
       type: 'BARCODE',
       symbology,
       x: group.x,
       y: group.y,
-      previewData: cleanText,
-      placeholder,
+      content: rawData,
       fieldHex: Boolean(fhToken),
       height,
       width,
@@ -1103,15 +1084,12 @@ export class ZPLParser {
     const quality = parseInt(parts[2]) || 200;
 
     const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
     return {
       type: 'QRCODE',
       symbology: 'DATAMATRIX',
       x: group.x,
       y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
+      content: rawData,
       fieldHex: Boolean(fhToken),
       orientation,
       moduleSize,
@@ -1138,15 +1116,12 @@ export class ZPLParser {
     }
 
     const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
     return {
       type: 'QRCODE',
       symbology: 'PDF417',
       x: group.x,
       y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
+      content: rawData,
       fieldHex: Boolean(fhToken),
       orientation,
       moduleWidth,
@@ -1174,15 +1149,12 @@ export class ZPLParser {
     }
 
     const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
     return {
       type: 'QRCODE',
       symbology: 'MICROPDF417',
       x: group.x,
       y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
+      content: rawData,
       fieldHex: Boolean(fhToken),
       orientation,
       moduleWidth,
@@ -1211,15 +1183,12 @@ export class ZPLParser {
     }
 
     const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const match = rawData.match(/^%([^%]+)%$/);
-
     return {
       type: 'QRCODE',
       symbology: 'CODE49',
       x: group.x,
       y: group.y,
-      previewData: match ? match[1] : rawData,
-      placeholder: match ? match[1] : '',
+      content: rawData,
       fieldHex: Boolean(fhToken),
       orientation,
       moduleWidth,
@@ -1255,18 +1224,12 @@ export class ZPLParser {
       }
     }
 
-    // Detect placeholder in the data portion
-    const placeholderMatch = rawData.match(/^%([^%]+)%$/);
-    const previewData = placeholderMatch ? placeholderMatch[1] : rawData;
-    const placeholder = placeholderMatch ? placeholderMatch[1] : '';
-
     return {
       type: 'QRCODE',
       symbology: 'QR',
       x: group.x,
       y: group.y,
-      previewData,
-      placeholder,
+      content: rawData,
       fieldHex: Boolean(fhToken),
       orientation,
       model,
@@ -1309,17 +1272,12 @@ export class ZPLParser {
 
     // ^FD carries the raw data (no error-correction prefix, unlike ^BQ).
     const rawData = this._decodeFieldDataToken(fdToken, fhToken);
-    const placeholderMatch = rawData.match(/^%([^%]+)%$/);
-    const previewData = placeholderMatch ? placeholderMatch[1] : rawData;
-    const placeholder = placeholderMatch ? placeholderMatch[1] : '';
-
     return {
       type: 'QRCODE',
       symbology: 'AZTEC',
       x: group.x,
       y: group.y,
-      previewData,
-      placeholder,
+      content: rawData,
       fieldHex: Boolean(fhToken),
       orientation,
       magnification,

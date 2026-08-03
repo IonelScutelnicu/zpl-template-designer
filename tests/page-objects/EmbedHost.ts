@@ -12,6 +12,7 @@ export class EmbedHost {
     readonly loadTemplateBtn: Locator;
     readonly loadZplBtn: Locator;
     readonly openTabBtn: Locator;
+    readonly setPreviewDataBtn: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -21,6 +22,7 @@ export class EmbedHost {
         this.loadTemplateBtn = page.locator('#load-template-btn');
         this.loadZplBtn = page.locator('#load-zpl-btn');
         this.openTabBtn = page.locator('#open-tab-btn');
+        this.setPreviewDataBtn = page.locator('#set-preview-data-btn');
     }
 
     /** Navigate to the demo and wait for the ready handshake. */

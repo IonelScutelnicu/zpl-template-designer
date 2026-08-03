@@ -4,6 +4,7 @@
 import { getLabelSizeDots, getElementBoundsResolved, LINE_HEIGHT_RATIO, clampNumber, isSpatial } from '../utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
 import { getBarcodeGeometry, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 /**
  * Service for applying alignment operations to elements
@@ -268,11 +269,11 @@ export class AlignmentService {
       }
 
       case 'BARCODE':
-        this.matchBarcodeWidth(element, labelSize);
+        this.matchBarcodeWidth(element, labelSize, labelSettings);
         break;
 
       case 'QRCODE':
-        this.matchQRCodeSize(element, labelSize, 'width');
+        this.matchQRCodeSize(element, labelSize, 'width', labelSettings);
         break;
 
       case 'TEXT':
@@ -324,7 +325,7 @@ export class AlignmentService {
         break;
 
       case 'QRCODE':
-        this.matchQRCodeSize(element, labelSize, 'height');
+        this.matchQRCodeSize(element, labelSize, 'height', labelSettings);
         break;
 
       case 'FIELDBLOCK': {
@@ -382,11 +383,11 @@ export class AlignmentService {
   /**
    * Calculate barcode width to match label
    */
-  matchBarcodeWidth(element, labelSize) {
-    const geom = getBarcodeGeometry(element);
+  matchBarcodeWidth(element, labelSize, labelSettings) {
+    const geom = getBarcodeGeometry(element, labelSettings?.previewData);
     const totalModules = geom.kind === 'linear'
       ? geom.modules
-      : linearFallbackModules((element.previewData || '').length);
+      : linearFallbackModules(resolvePlaceholders(element.content, labelSettings?.previewData).length);
     const targetMultiplier = totalModules > 0 ? labelSize.width / totalModules : element.width;
     element.width = clampNumber(Math.round(targetMultiplier), 1, 10);
   }
@@ -395,8 +396,8 @@ export class AlignmentService {
    * Calculate 2D barcode size to match a label dimension, by adjusting the
    * symbology's module size.
    */
-  matchQRCodeSize(element, labelSize, dimension) {
-    const geom = getBarcodeGeometry(element);
+  matchQRCodeSize(element, labelSize, dimension, labelSettings) {
+    const geom = getBarcodeGeometry(element, labelSettings?.previewData);
     if (geom.kind !== 'matrix') return;
     const target = dimension === 'width' ? labelSize.width : labelSize.height;
     const b = BARCODE_2D_SIZE_BOUNDS;
@@ -416,7 +417,7 @@ export class AlignmentService {
    * Match text width to label width
    */
   matchTextWidth(element, labelSize, labelSettings) {
-    const textLength = (element.previewText || '').length;
+    const textLength = resolvePlaceholders(element.content, labelSettings.previewData).length;
     if (textLength > 0) {
       const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
       const currentWidth = Math.max(textLength * resolvedWidth * 0.6, 50);

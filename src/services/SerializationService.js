@@ -14,6 +14,20 @@ import { GraphicFieldElement } from '../elements/GraphicFieldElement.js';
 import { GraphicSymbolElement } from '../elements/GraphicSymbolElement.js';
 import { RawElement } from '../elements/RawElement.js';
 import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
+import { toPlaceholder } from '../utils/placeholders.js';
+
+/**
+ * Element Content from a serialized element, upgrading the pre-Content format
+ * (a bare `placeholder` name plus a separate sample value) to a single template
+ * string. Kept permanently: user-saved templates, Drive templates and old share
+ * URLs still carry the old shape. Seeding Preview Data with the old sample value
+ * is the template-level half of the migration — see migrateTemplate().
+ */
+function elementContent(data) {
+  if (data.content !== undefined) return data.content;
+  if (data.placeholder) return toPlaceholder(data.placeholder);
+  return data.previewText ?? data.previewData ?? '';
+}
 
 /**
  * Service for serializing and deserializing elements and application state
@@ -61,10 +75,9 @@ export class SerializationService {
         element = new TextElement(
           data.x,
           data.y,
-          data.previewText,
+          elementContent(data),
           data.fontSize,
           data.fontWidth,
-          data.placeholder,
           data.fontId,
           data.orientation,
           data.reverse,
@@ -76,11 +89,10 @@ export class SerializationService {
         element = new BarcodeElement(
           data.x,
           data.y,
-          data.previewData,
+          elementContent(data),
           data.height,
           data.width,
           data.ratio,
-          data.placeholder,
           data.showText,
           data.reverse,
           data.symbology,
@@ -96,7 +108,7 @@ export class SerializationService {
         break;
 
       case 'QRCODE':
-        element = new QRCodeElement(data);
+        element = new QRCodeElement({ ...data, content: elementContent(data) });
         if (data.symbology === 'TLC39') {
           element.tlc39Code39Width = data.tlc39Code39Width || data.moduleWidth || 2;
           element.tlc39Ratio = data.tlc39Ratio || 3;
@@ -123,7 +135,7 @@ export class SerializationService {
         element = new FieldBlockElement(
           data.x,
           data.y,
-          data.previewText,
+          elementContent(data),
           data.fontSize,
           data.fontWidth,
           data.blockWidth,
@@ -131,7 +143,6 @@ export class SerializationService {
           data.lineSpacing,
           data.justification,
           data.hangingIndent,
-          data.placeholder,
           data.fontId,
           data.reverse,
           data.orientation,
@@ -143,12 +154,11 @@ export class SerializationService {
         element = new TextBlockElement(
           data.x,
           data.y,
-          data.previewText,
+          elementContent(data),
           data.fontSize,
           data.fontWidth,
           data.blockWidth,
           data.blockHeight,
-          data.placeholder,
           data.fontId,
           data.reverse,
           data.orientation,
@@ -299,6 +309,34 @@ export class SerializationService {
       elements: elements.map(el => this.serializeElementWithId(el)),
       labelSettings: JSON.parse(JSON.stringify(labelSettings))
     };
+  }
+
+  /**
+   * Upgrade a template from the pre-Content format. Elements carried a bare
+   * `placeholder` name alongside a sample value; the name becomes a placeholder in the
+   * element's Content and the sample value seeds the label's Preview Data. This is
+   * the template-level half of the migration (Preview Data is label-level, so it
+   * cannot be seeded from the per-element elementContent()).
+   * @param {Object} template - Template to upgrade in place
+   * @returns {Object} The same template
+   */
+  migrateTemplate(template) {
+    if (!template || !Array.isArray(template.elements)) return template;
+
+    const seeded = {};
+    for (const element of template.elements) {
+      if (!element || !element.placeholder) continue;
+      const sample = element.previewText ?? element.previewData;
+      if (sample) seeded[element.placeholder] = sample;
+    }
+    if (Object.keys(seeded).length === 0) return template;
+
+    // Values already in the template win — this only fills the gaps.
+    template.labelSettings = {
+      ...template.labelSettings,
+      previewData: { ...seeded, ...(template.labelSettings?.previewData || {}) }
+    };
+    return template;
   }
 
   /**

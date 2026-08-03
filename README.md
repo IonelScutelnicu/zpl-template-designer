@@ -17,6 +17,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Shareable links** — compress the current template into a URL hash for quick sharing
 - **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK, two-way postMessage data flow, and host-controlled panel visibility; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
 - **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
+- **Placeholders** — mix literal text with `%name%` placeholders in any element's content (`Price: %price%`); exported ZPL keeps the placeholders for your templating system, while the canvas and Labelary preview render sample values from the Preview Data panel. Insert one from the **% Insert** button on the Content field, or type `%` and pick from autocomplete
 - **Custom fonts** — register custom ZPL fonts via `^CW` commands
 - **Print settings** — orientation, mirror, media tracking (`^MN`, incl. continuous media with `^LL`), darkness, speed, home position, label top, and print quantity controls (`^PQ`)
 - **ZPL warnings** — Labelary API linter warnings with element-level attribution
@@ -49,19 +50,19 @@ Use `npm run test:labelary-cache` when you want to refresh the committed Labelar
 ## Element Properties
 
 ### Text
-Position (X, Y), preview text, placeholder token, font size, font width, font override, orientation, reverse print.
+Position (X, Y), content, font size, font width, font override, orientation, reverse print.
 
 ### Text Block
-Position (X, Y), preview text, placeholder token, font size, font width, block width, block height, font override, orientation, reverse print.
+Position (X, Y), content, font size, font width, block width, block height, font override, orientation, reverse print.
 
 ### Field Block
-Position (X, Y), preview text, placeholder token, font size, font width, block width, max lines, line spacing, justification (L/C/R/J), hanging indent, font override, orientation, reverse print.
+Position (X, Y), content, font size, font width, block width, max lines, line spacing, justification (L/C/R/J), hanging indent, font override, orientation, reverse print.
 
 ### 1D Barcode
-Symbology (Code 128 `^BC`, Code 39 `^B3`, EAN-13 `^BE`, UPC-A `^BU`), position (X, Y), barcode data, placeholder token, height, width multiplier; ratio + mod-43 check digit (Code 39 only); orientation (N/R/I/B), show interpretation line and print it above the code, reverse print.
+Symbology (Code 128 `^BC`, Code 39 `^B3`, EAN-13 `^BE`, UPC-A `^BU`), position (X, Y), content, height, width multiplier; ratio + mod-43 check digit (Code 39 only); orientation (N/R/I/B), show interpretation line and print it above the code, reverse print.
 
 ### 2D Barcode
-Symbology (QR Code `^BQ`, Data Matrix `^BX`, PDF417 `^B7`, Aztec `^B0`), position (X, Y), data, placeholder token, reverse print; plus per-symbology settings — QR: magnification, model, error correction (H/Q/M/L); Data Matrix: module size, quality (ECC); PDF417: module width, row height, security level, columns; Aztec: magnification, symbol type (auto/full/compact/rune), error control %, layers.
+Symbology (QR Code `^BQ`, Data Matrix `^BX`, PDF417 `^B7`, Aztec `^B0`), position (X, Y), content, reverse print; plus per-symbology settings — QR: magnification, model, error correction (H/Q/M/L); Data Matrix: module size, quality (ECC); PDF417: module width, row height, security level, columns; Aztec: magnification, symbol type (auto/full/compact/rune), error control %, layers.
 
 On-canvas previews for all symbologies are rendered from the real encoded symbol via bwip-js (see `docs/adr/0005`); Labelary remains the authoritative preview.
 
@@ -172,7 +173,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/interaction-handler.js` — Canvas interaction and drag/drop logic
 
 ### Element Definitions
-- `src/elements/TextElement.js` — Text element with font overrides, placeholders, and orientation support
+- `src/elements/TextElement.js` — Text element with font overrides, Content placeholders, and orientation support
 - `src/elements/TextBlockElement.js` — `^TB` text block element
 - `src/elements/FieldBlockElement.js` — `^FB` multi-line text with wrapping and justification
 - `src/elements/BarcodeElement.js` — 1D barcode element (Code 128, Code 39, EAN-13, UPC-A)

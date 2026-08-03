@@ -7,6 +7,7 @@ import bwipjs from '../vendor/bwip-js.mjs';
 import { maxicodeGeometry, maxicodeSize, maxicodeScmText } from '../barcodes/maxicodeGeometry.js';
 import { getTlc39Geometry } from '../barcodes/tlc39Geometry.js';
 import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText, expandStackedDatabar } from '../barcodes/databarGeometry.js';
+import { resolvePlaceholders } from './placeholders.js';
 
 export { maxicodeSize };
 export { DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM };
@@ -666,25 +667,28 @@ export function microPdf417Version(mode) {
   return `${rows}x${cols}`;
 }
 
-/** Build the bwip-js options object for an element's current symbology + data. */
-function buildBwipOptions(element) {
+/**
+ * Build the bwip-js options object for an element's current symbology + data.
+ * `data` is the element's Content with its placeholders already resolved.
+ */
+function buildBwipOptions(element, data) {
   const symbology = resolveSymbology(element);
-  const opts = { bcid: BWIP_BCID[symbology] || 'code128', text: normalizeBarcodeData(symbology, element.previewData) };
+  const opts = { bcid: BWIP_BCID[symbology] || 'code128', text: normalizeBarcodeData(symbology, data) };
   if (symbology === 'INTERLEAVED2OF5') {
     // Resolve the encoded digits ourselves (mod-10 check + even-length leading-zero
     // pad) and feed bwip the literal string with no implicit check digit — bwip's own
     // includecheck/even-padding behaviour doesn't match Zebra's. (See interleaved2of5Digits.)
-    opts.text = interleaved2of5Digits(element.previewData, element.checkDigit);
+    opts.text = interleaved2of5Digits(data, element.checkDigit);
   }
   if (symbology === 'UPCE') {
     // ZPL ^B9 takes 6 data digits with the number-system digit fixed at 0 (Zebra doc;
     // confirmed on Labelary: ^FD123456 -> "0 123456 5"). bwip's `upce` needs the
     // 7-digit number-system + 6 form, so prepend the fixed 0; bwip computes the check.
-    opts.text = '0' + normalizeBarcodeData(symbology, element.previewData);
+    opts.text = '0' + normalizeBarcodeData(symbology, data);
   }
   if (symbology === 'UPCEANEXT') {
     // ^BS is a 2- or 5-digit add-on; the data length selects bwip's ean2/ean5 bcid.
-    const text = normalizeUpcEanExt(element.previewData);
+    const text = normalizeUpcEanExt(data);
     opts.text = text;
     opts.bcid = text.length === 2 ? 'ean2' : 'ean5';
   }
@@ -699,7 +703,7 @@ function buildBwipOptions(element) {
     // ^BL is Code 39 for the US DoD: the mod-43 check digit is mandatory (always in the
     // bars) and lowercase ^FD is converted to uppercase. Feed bwip the uppercased data
     // with includecheck on so the canvas bar count matches Labelary.
-    opts.text = (element.previewData || '').toUpperCase();
+    opts.text = (data || '').toUpperCase();
     opts.includecheck = true;
   }
   if (symbology === 'MSI') {
@@ -726,13 +730,13 @@ function buildBwipOptions(element) {
     // text (e.g. A12345A). The body accepts digits and - $ : / . + only.
     const start = (element.startChar || 'A').toUpperCase();
     const stop = (element.stopChar || 'A').toUpperCase();
-    opts.text = start + normalizeBarcodeData(symbology, element.previewData) + stop;
+    opts.text = start + normalizeBarcodeData(symbology, data) + stop;
   }
   if (symbology === 'CODE11') {
     // ^B1 always appends check digit(s): e=N → 2 (C+K), e=Y → 1 (C). bwip's own
     // includecheck picks the count from data length, which doesn't match Zebra, so we
     // compute the digits and feed the literal string with bwip's check disabled.
-    opts.text = (element.previewData || '') + code11CheckDigits(element.previewData, element.checkDigit);
+    opts.text = (data || '') + code11CheckDigits(data, element.checkDigit);
   }
   if (symbology === 'CODE93') {
     // Code 93's two check characters (C, K) are mandatory — Zebra always encodes
@@ -760,7 +764,7 @@ function buildBwipOptions(element) {
     const layers = element.aztecLayers || 0;
     if (mode === 'rune') {
       opts.format = 'rune';
-      opts.text = normalizeAztecRune(element.previewData); // rune = single 0–255 byte
+      opts.text = normalizeAztecRune(data); // rune = single 0–255 byte
     } else if (mode === 'compact') {
       opts.format = 'compact';
       if (layers > 0) opts.layers = Math.min(layers, 4);
@@ -797,13 +801,13 @@ function buildBwipOptions(element) {
     if (mode === 2 || mode === 3) {
       // bwip rejects non-SCM data and the canvas would fall back to a placeholder;
       // feed it a synthesised SCM so a representative symbol renders (see maxicodeScmText).
-      opts.text = maxicodeScmText(element.previewData, mode);
+      opts.text = maxicodeScmText(data, mode);
     }
   } else if (symbology === 'GS1DATABAR') {
     // The databarType picks the bwip bcid; the data is a (01) GTIN (or a GS1 element
     // string for expanded). See databarBwipText / DATABAR_BCID.
     opts.bcid = DATABAR_BCID[element.databarType] || 'databaromni';
-    opts.text = databarBwipText(element);
+    opts.text = databarBwipText(element, data);
   }
   return opts;
 }
@@ -894,9 +898,12 @@ function pdf417PreferredColumns(opts) {
  *          | {kind:'matrix', cols:number, rows:number, pixs:number[]}
  *          | {kind:'error', message:string}}
  */
-export function getBarcodeGeometry(element) {
-  if (resolveSymbology(element) === 'TLC39') return getTlc39Geometry(element);
-  const opts = buildBwipOptions(element);
+export function getBarcodeGeometry(element, previewData = {}) {
+  // Geometry is measured from the resolved Content: the canvas draws the real
+  // encoded symbol, so an unset placeholder falls back to its bare name.
+  const data = resolvePlaceholders(element.content, previewData);
+  if (resolveSymbology(element) === 'TLC39') return getTlc39Geometry(element, data);
+  const opts = buildBwipOptions(element, data);
   const symbology = resolveSymbology(element);
   // Code 39 & Interleaved 2 of 5 take their wide:narrow ratio from the element (^BY
   // ratio), not bwip. The printer can only print whole dots, so the wide bar is

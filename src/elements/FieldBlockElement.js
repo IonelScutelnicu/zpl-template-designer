@@ -1,14 +1,14 @@
 import { ZPLElement } from './ZPLElement.js';
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // Field Block Element Class
 export class FieldBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, placeholder = '', fontId = '', reverse = false, orientation = 'N', fieldHex = false) {
+    constructor(x = 0, y = 0, content = '', fontSize = 0, fontWidth = 0, blockWidth = 200, maxLines = 1, lineSpacing = 0, justification = 'L', hangingIndent = 0, fontId = '', reverse = false, orientation = 'N', fieldHex = false) {
         super(x, y);
         this.type = 'FIELDBLOCK';
-        this.previewText = previewText;
-        this.placeholder = placeholder;
+        this.content = content; // Template string: literal text mixed with %placeholder%s
         this.fontId = fontId; // Element-level font override (empty = use label default)
         this.fontSize = fontSize; // 0 = use label default
         this.fontWidth = fontWidth; // 0 = use label default
@@ -22,7 +22,7 @@ export class FieldBlockElement extends ZPLElement {
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
-    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+    _render(rawContent, defaultFontId, defaultFontHeight, defaultFontWidth) {
         // ZPL format: ^FOx,y^A{fontId}N,height[,width]^FBa,b,c,d,e^FDtext^FS
         // ^FO - Field Origin (position)
         // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
@@ -32,33 +32,28 @@ export class FieldBlockElement extends ZPLElement {
         //   c = line spacing adjustment
         //   d = text justification (L/C/R/J)
         //   e = hanging indent in dots
-        // ^FD - Field Data (uses placeholder for template)
+        // ^FD - Field Data (Content: literal text mixed with %placeholder%s)
         // ^FS - Field Separator
         const fontId = this.fontId || defaultFontId;
-        const rawContent = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const content = this.justification === 'C' ? `${rawContent}\\&` : rawContent;
         const reverseCmd = this.reverse ? '^FR' : '';
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(content, '_', this.fieldHex, { preservePlaceholders: Boolean(this.placeholder) })}^FS`;
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
     }
 
-    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
-        // Uses preview text for Labelary API visualization
-        const fontId = this.fontId || defaultFontId;
-        const reverseCmd = this.reverse ? '^FR' : '';
-        // Use label defaults if element values are 0
-        const fontSize = this.fontSize || defaultFontHeight;
-        const fontWidth = this.fontWidth || defaultFontWidth;
-        const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        const previewContent = this.justification === 'C' ? `${this.previewText}\\&` : this.previewText;
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(previewContent, '_', this.fieldHex)}^FS`;
+    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+        return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth);
+    }
+
+    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0, previewData = {}) {
+        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth);
     }
 
     getDisplayName() {
-        const displayText = this.placeholder || this.previewText;
+        const displayText = this.content;
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 

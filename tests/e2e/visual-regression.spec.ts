@@ -34,8 +34,8 @@ test.describe('Visual Regression Tests', () => {
             await page.locator('#prop-x').dispatchEvent('input');
             await page.locator('#prop-y').fill('100');
             await page.locator('#prop-y').dispatchEvent('input');
-            await page.locator('#prop-preview-text').fill('Visual Test');
-            await page.locator('#prop-preview-text').dispatchEvent('input');
+            await page.locator('#prop-content').fill('Visual Test');
+            await page.locator('#prop-content').dispatchEvent('input');
             await page.locator('#prop-font-size').fill('30');
             await page.locator('#prop-font-size').dispatchEvent('input');
 
@@ -54,8 +54,8 @@ test.describe('Visual Regression Tests', () => {
             await page.locator('#prop-x').dispatchEvent('input');
             await page.locator('#prop-y').fill('50');
             await page.locator('#prop-y').dispatchEvent('input');
-            await page.locator('#prop-preview-text').fill('Multi-line\ntext block');
-            await page.locator('#prop-preview-text').dispatchEvent('input');
+            await page.locator('#prop-content').fill('Multi-line\ntext block');
+            await page.locator('#prop-content').dispatchEvent('input');
 
             await canvas.waitForReady();
             const screenshot = await canvas.takeScreenshot();
@@ -72,8 +72,8 @@ test.describe('Visual Regression Tests', () => {
             await page.locator('#prop-x').dispatchEvent('input');
             await page.locator('#prop-y').fill('80');
             await page.locator('#prop-y').dispatchEvent('input');
-            await page.locator('#prop-preview-data').fill('1234567890');
-            await page.locator('#prop-preview-data').dispatchEvent('input');
+            await page.locator('#prop-content').fill('1234567890');
+            await page.locator('#prop-content').dispatchEvent('input');
 
             await canvas.waitForReady();
             const screenshot = await canvas.takeScreenshot();
@@ -90,8 +90,8 @@ test.describe('Visual Regression Tests', () => {
             await page.locator('#prop-x').dispatchEvent('input');
             await page.locator('#prop-y').fill('120');
             await page.locator('#prop-y').dispatchEvent('input');
-            await page.locator('#prop-preview-data').fill('https://test.com');
-            await page.locator('#prop-preview-data').dispatchEvent('input');
+            await page.locator('#prop-content').fill('https://test.com');
+            await page.locator('#prop-content').dispatchEvent('input');
 
             await canvas.waitForReady();
             const screenshot = await canvas.takeScreenshot();
@@ -174,8 +174,8 @@ test.describe('Visual Regression Tests', () => {
                 await page.locator('#prop-x').dispatchEvent('input');
                 await page.locator('#prop-y').fill('80');
                 await page.locator('#prop-y').dispatchEvent('input');
-                await page.locator('#prop-preview-data').fill(c.data);
-                await page.locator('#prop-preview-data').dispatchEvent('input');
+                await page.locator('#prop-content').fill(c.data);
+                await page.locator('#prop-content').dispatchEvent('input');
 
                 await canvas.waitForReady();
                 const screenshot = await canvas.takeScreenshot();

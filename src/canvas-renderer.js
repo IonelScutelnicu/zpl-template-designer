@@ -3,6 +3,7 @@
 
 import { LINE_HEIGHT_RATIO, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
+import { resolvePlaceholders } from './utils/placeholders.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
@@ -354,7 +355,7 @@ export class CanvasRenderer {
     const { fontConfig, fontSize, snappedHeight, snappedWidth, scaleX, isBitmap } =
       resolveFontMetrics(element, labelSettings, 1);
     // Match the glyphs the renderer actually draws (uppercase/filtered fonts).
-    const raw = element.previewText || '';
+    const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     this.ctx.save();
     this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
@@ -407,7 +408,10 @@ export class CanvasRenderer {
         height = blockH;
       }
     } else {
-      const bounds = element.getBounds(labelSettings?.dpmm);
+      // Preview Data matters here: a barcode's width comes from the encoded
+      // string, so measuring the raw Content would size the box to the
+      // placeholder name rather than to the symbol actually drawn.
+      const bounds = element.getBounds(labelSettings?.dpmm, labelSettings?.previewData);
       x = (bounds.x + this.homeX) * this.scale;
       y = (bounds.y + this.homeY + this.labelTop) * this.scale;
       width = bounds.width * this.scale;

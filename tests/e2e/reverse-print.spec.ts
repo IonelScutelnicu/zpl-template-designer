@@ -90,8 +90,8 @@ test.describe('^FR (Reverse Print) — JSON round-trip', () => {
         const template = {
             labelSettings: { width: 100, height: 50, dpmm: 8 },
             elements: [
-                { type: 'BARCODE', x: 10, y: 10,  previewData: '12345', placeholder: '', height: 50, width: 2, ratio: 2, showText: true, reverse: true },
-                { type: 'QRCODE',  x: 10, y: 80,  previewData: 'qr',    placeholder: '', model: 2, magnification: 5, errorCorrection: 'Q', reverse: true },
+                { type: 'BARCODE', x: 10, y: 10,  content: '12345', placeholder: '', height: 50, width: 2, ratio: 2, showText: true, reverse: true },
+                { type: 'QRCODE',  x: 10, y: 80,  content: 'qr',    placeholder: '', model: 2, magnification: 5, errorCorrection: 'Q', reverse: true },
                 { type: 'BOX',     x: 10, y: 160, width: 100, height: 50, thickness: 3, color: 'B', rounding: 0, reverse: true },
                 { type: 'LINE',    x: 10, y: 220, width: 100, thickness: 3, orientation: 'H', color: 'B', rounding: 0, reverse: true },
                 { type: 'CIRCLE',  x: 10, y: 260, width: 60, height: 60, thickness: 2, color: 'B', reverse: true },

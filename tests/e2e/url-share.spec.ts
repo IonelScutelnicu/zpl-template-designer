@@ -86,8 +86,8 @@ test.describe('URL Sharing', () => {
             // Create a template with a text element
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
-            await page.locator('#prop-preview-text').fill('Shared Text');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Shared Text');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             // Share and get URL
             const sharedUrl = await shareAndReadUrl();
@@ -103,7 +103,7 @@ test.describe('URL Sharing', () => {
 
             // Verify element properties
             await elementsPanel.selectElementByIndex(0);
-            await expect(page.locator('#prop-preview-text')).toHaveValue('Shared Text');
+            await expect(page.locator('#prop-content')).toHaveValue('Shared Text');
         });
 
         test('should clean URL hash after import', async ({ page, context }) => {

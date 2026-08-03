@@ -41,8 +41,8 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
             const beforeScreenshot = await canvas.takeScreenshot();
 
-            await page.locator('#prop-preview-text').fill('Updated Text');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Updated Text');
+            await page.locator('#prop-content').dispatchEvent('change');
             await canvas.waitForReady();
 
             const afterScreenshot = await canvas.takeScreenshot();
@@ -127,8 +127,8 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
         test('should maintain element state when switching modes', async ({ page }) => {
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
-            await page.locator('#prop-preview-text').fill('Mode Switch Test');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Mode Switch Test');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             await previewPanel.switchToAPIMode();
             await previewPanel.switchToCanvasMode();
@@ -137,7 +137,7 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             expect(await elementsPanel.getElementCount()).toBe(1);
             await elementsPanel.selectElementByIndex(0);
 
-            const text = await page.locator('#prop-preview-text').inputValue();
+            const text = await page.locator('#prop-content').inputValue();
             expect(text).toBe('Mode Switch Test');
         });
 
@@ -304,13 +304,13 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
             requestCount = 0;
 
-            const previewText = page.locator('#prop-preview-text');
-            await previewText.fill('Overlay 1');
-            await previewText.dispatchEvent('change');
-            await previewText.fill('Overlay 2');
-            await previewText.dispatchEvent('change');
-            await previewText.fill('Overlay 3');
-            await previewText.dispatchEvent('change');
+            const content = page.locator('#prop-content');
+            await content.fill('Overlay 1');
+            await content.dispatchEvent('change');
+            await content.fill('Overlay 2');
+            await content.dispatchEvent('change');
+            await content.fill('Overlay 3');
+            await content.dispatchEvent('change');
 
             await page.waitForTimeout(1300);
             await previewPanel.waitForOverlayPreviewLoaded();
@@ -326,8 +326,8 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             await elementsPanel.selectElementByIndex(0);
 
             const page = previewPanel.page;
-            await page.locator('#prop-preview-text').fill('Parity Test');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Parity Test');
+            await page.locator('#prop-content').dispatchEvent('change');
             await page.locator('#prop-font-size').fill('40');
             await page.locator('#prop-font-size').dispatchEvent('change');
 
@@ -432,10 +432,10 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             await previewPanel.waitForAPIPreviewLoaded();
 
             requestCount = 0;
-            const previewText = page.locator('#prop-preview-text');
+            const content = page.locator('#prop-content');
             await elementsPanel.selectElementByIndex(0);
-            await previewText.fill('Auto Refresh');
-            await previewText.dispatchEvent('change');
+            await content.fill('Auto Refresh');
+            await content.dispatchEvent('change');
 
             await page.waitForTimeout(1300);
             await previewPanel.waitForAPIPreviewLoaded();
@@ -453,25 +453,25 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
 
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
-            const previewText = page.locator('#prop-preview-text');
-            await previewText.fill('State A');
-            await previewText.dispatchEvent('change');
+            const content = page.locator('#prop-content');
+            await content.fill('State A');
+            await content.dispatchEvent('change');
 
             await previewPanel.switchToAPIMode();
             await previewPanel.waitForAPIPreviewLoaded();
             const countAfterA = requestCount;
 
             // Edit to a new state B → new request
-            await previewText.fill('State B');
-            await previewText.dispatchEvent('change');
+            await content.fill('State B');
+            await content.dispatchEvent('change');
             await page.waitForTimeout(1300);
             await previewPanel.waitForAPIPreviewLoaded();
             expect(requestCount).toBeGreaterThan(countAfterA);
             const countAfterB = requestCount;
 
             // Edit back to the identical State A → served from cache, no new request
-            await previewText.fill('State A');
-            await previewText.dispatchEvent('change');
+            await content.fill('State A');
+            await content.dispatchEvent('change');
             await page.waitForTimeout(1300);
 
             expect(requestCount).toBe(countAfterB);

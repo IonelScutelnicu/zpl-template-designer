@@ -6,6 +6,8 @@ import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { hasEnvelopeCommand } from './PropertiesPanelRenderer.js';
+import { PlaceholderAutocomplete } from './PlaceholderAutocomplete.js';
+import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
 
 /**
  * Manages property panel event listeners
@@ -94,8 +96,60 @@ export class PropertyListenersManager {
         break;
     }
 
+    // Content placeholders: inline Preview Value editing + name completion
+    this._attachContentPlaceholders(element, propertiesPanel);
+
     // Attach section toggle listeners for state persistence
     this.attachSectionToggleListeners(propertiesPanel);
+  }
+
+  /**
+   * Wire the Preview Value rows and the %name% autocomplete on the Content field.
+   * Preview values are label-wide, not element state, so they go through their own
+   * callback — routing them via onPropertyChange would re-render this panel and
+   * steal focus on every keystroke.
+   */
+  _attachContentPlaceholders(element, propertiesPanel) {
+    // The rows are rebuilt as the Content is typed, so their listeners are
+    // delegated. The panel node itself outlives every re-render — hence the flag,
+    // which keeps attachListeners from stacking a duplicate on each render.
+    if (!propertiesPanel.dataset.placeholderRowsBound) {
+      propertiesPanel.dataset.placeholderRowsBound = "1";
+      propertiesPanel.addEventListener("input", (e) => {
+        const name = e.target.dataset?.contentPlaceholder;
+        if (name) this.callbacks.onPreviewValueChange?.(name, e.target.value);
+      });
+      propertiesPanel.addEventListener("click", (e) => {
+        if (e.target.closest("#prop-show-preview-data")) this.callbacks.onRevealPreviewData?.();
+      });
+    }
+
+    const content = document.getElementById("prop-content");
+    if (!content) return;
+
+    const list = document.getElementById("prop-content-autocomplete");
+    if (list && this.callbacks.getPlaceholderNames) {
+      new PlaceholderAutocomplete(content, list, this.callbacks.getPlaceholderNames);
+    }
+
+    const insertBtn = document.getElementById("prop-insert-placeholder");
+    const insertMenu = document.getElementById("prop-insert-placeholder-menu");
+    if (insertBtn && insertMenu && this.callbacks.getPlaceholderNames) {
+      new PlaceholderInsertMenu(
+        { button: insertBtn, panel: insertMenu, input: content },
+        {
+          getNames: this.callbacks.getPlaceholderNames,
+          getValues: this.callbacks.getPreviewData,
+          onDefine: this.callbacks.onDefinePlaceholder,
+        },
+      );
+    }
+
+    // Refresh only the rows. Re-rendering the whole panel would move focus out of
+    // the Content field the user is still typing in.
+    content.addEventListener("input", () => {
+      this.callbacks.onContentPlaceholdersChanged?.(element);
+    });
   }
 
   /**
@@ -123,8 +177,7 @@ export class PropertyListenersManager {
    * Attach TEXT element property listeners
    */
   attachTextProperties(element, attach) {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-text", "previewText");
+    attach("prop-content", "content");
     this._attachToggle("prop-field-hex", element, "fieldHex");
     this._attachFontControls(element, attach);
     this._attachOrientationButtons(element);
@@ -150,8 +203,8 @@ export class PropertyListenersManager {
     symEl.addEventListener("change", (e) => {
       const prev = element.symbology;
       const next = e.target.value;
-      if (element.previewData === DEFAULT_PREVIEW_DATA[prev] && DEFAULT_PREVIEW_DATA[next] !== undefined) {
-        element.previewData = DEFAULT_PREVIEW_DATA[next];
+      if (element.content === DEFAULT_PREVIEW_DATA[prev] && DEFAULT_PREVIEW_DATA[next] !== undefined) {
+        element.content = DEFAULT_PREVIEW_DATA[next];
       }
       // GS1 DataBar reuses rowHeight as the bar height; the 2D default (4) is far too
       // short for a linear barcode, so give it a usable height on first switch.
@@ -267,8 +320,7 @@ export class PropertyListenersManager {
    */
   attachBarcodeProperties(element, attach) {
     this._attachSymbologyPicker(element);
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-data", "previewData");
+    attach("prop-content", "content");
     this._attachToggle("prop-field-hex", element, "fieldHex");
     attach("prop-height", "height", (v) => parseInt(v) || 50);
     attach("prop-width", "width", (v) => parseInt(v) || 2);
@@ -320,8 +372,7 @@ export class PropertyListenersManager {
    */
   attachQRCodeProperties(element, attach) {
     this._attachSymbologyPicker(element);
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-data", "previewData");
+    attach("prop-content", "content");
     this._attachToggle("prop-field-hex", element, "fieldHex");
     const barcodeType = getQRCodeSymbology(element.symbology);
     barcodeType.attachProperties(this, element, attach);
@@ -686,8 +737,7 @@ export class PropertyListenersManager {
    * Attach FIELDBLOCK element property listeners
    */
   attachFieldBlockProperties(element, attach) {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-text", "previewText");
+    attach("prop-content", "content");
     this._attachToggle("prop-field-hex", element, "fieldHex");
     this._attachFontControls(element, attach);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 200);
@@ -766,8 +816,7 @@ export class PropertyListenersManager {
    * Attach TEXTBLOCK element property listeners
    */
   attachTextBlockProperties(element, attach) {
-    attach("prop-placeholder", "placeholder");
-    attach("prop-preview-text", "previewText");
+    attach("prop-content", "content");
     this._attachToggle("prop-field-hex", element, "fieldHex");
     this._attachFontControls(element, attach);
     attach("prop-block-width", "blockWidth", (v) => parseInt(v) || 300);

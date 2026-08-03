@@ -1,13 +1,13 @@
 import { ZPLElement } from './ZPLElement.js';
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // TEXT Element Class
 export class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewText = '', fontSize = 0, fontWidth = 0, placeholder = '', fontId = '', orientation = 'N', reverse = false, fieldHex = false) {
+    constructor(x = 0, y = 0, content = '', fontSize = 0, fontWidth = 0, fontId = '', orientation = 'N', reverse = false, fieldHex = false) {
         super(x, y);
         this.type = 'TEXT';
-        this.previewText = previewText;
-        this.placeholder = placeholder;
+        this.content = content; // Template string: literal text mixed with %placeholder%s
         this.fontId = fontId; // Element-level font override (empty = use label default)
         this.fontSize = fontSize; // 0 = use label default
         this.fontWidth = fontWidth; // 0 = use label default
@@ -16,43 +16,43 @@ export class TextElement extends ZPLElement {
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
+    // Geometry measures the placeholder names, not the Preview Data values, so an
+    // element's box stays put while sample values are edited. The canvas sizes
+    // TEXT through getElementBoundsResolved(), which does see Preview Data.
     getEstimatedWidth() {
-        return Math.max(this.previewText.length * (this.fontWidth || 30) * 0.6, 50);
+        return Math.max(resolvePlaceholders(this.content).length * (this.fontWidth || 30) * 0.6, 50);
     }
 
     getEstimatedHeight() {
         return (this.fontSize || 30) + 10;
     }
 
-    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+    _render(content, defaultFontId, defaultFontHeight, defaultFontWidth) {
         const fontId = this.fontId || defaultFontId;
-        const content = this.placeholder ? `%${this.placeholder}%` : this.previewText;
         const reverseCmd = this.reverse ? '^FR' : '';
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(content, '_', this.fieldHex, { preservePlaceholders: Boolean(this.placeholder) })}^FS`;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
     }
 
-    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
-        const fontId = this.fontId || defaultFontId;
-        const reverseCmd = this.reverse ? '^FR' : '';
-        // Use label defaults if element values are 0
-        const fontSize = this.fontSize || defaultFontHeight;
-        const fontWidth = this.fontWidth || defaultFontWidth;
-        const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(this.previewText, '_', this.fieldHex)}^FS`;
+    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+        return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth);
+    }
+
+    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0, previewData = {}) {
+        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth);
     }
 
     getDisplayName() {
-        const displayText = this.placeholder || this.previewText;
+        const displayText = this.content;
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     getBounds() {
         // Estimate text dimensions (unrotated)
-        const textW = Math.max(this.previewText.length * (this.fontWidth || 30) * 0.6, 50);
+        const textW = this.getEstimatedWidth();
         const textH = (this.fontSize || 30) + 10;
 
         let width = textW;

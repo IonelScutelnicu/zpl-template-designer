@@ -32,7 +32,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update text content and reflect in ZPL output', async () => {
-            await propertiesPanel.setProperty('prop-preview-text', 'Custom Text');
+            await propertiesPanel.setProperty('prop-content', 'Custom Text');
             await zplOutput.verifyZPLContains('^FDCustom Text^FS');
         });
 
@@ -78,7 +78,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should preserve property values after re-selecting element', async ({ page }) => {
-            await propertiesPanel.setProperty('prop-preview-text', 'Test Value');
+            await propertiesPanel.setProperty('prop-content', 'Test Value');
             await propertiesPanel.setProperty('prop-x', 100);
 
             // Add another element and select it
@@ -89,7 +89,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             // Re-select text element
             await elementsPanel.selectElementByIndex(0);
 
-            await propertiesPanel.verifyPropertyValue('prop-preview-text', 'Test Value');
+            await propertiesPanel.verifyPropertyValue('prop-content', 'Test Value');
             await propertiesPanel.verifyPropertyValue('prop-x', '100');
         });
     });
@@ -113,7 +113,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update text content and reflect in ZPL output', async () => {
-            await propertiesPanel.setProperty('prop-preview-text', 'Multi-line text content');
+            await propertiesPanel.setProperty('prop-content', 'Multi-line text content');
             await zplOutput.verifyZPLContains('Multi-line text content');
         });
 
@@ -221,7 +221,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update barcode data and reflect in ZPL output', async () => {
-            await propertiesPanel.setProperty('prop-preview-data', '1234567890');
+            await propertiesPanel.setProperty('prop-content', '1234567890');
             await zplOutput.verifyZPLContains('^FD>:1234567890^FS');
         });
 
@@ -255,7 +255,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update QR data and reflect in ZPL output', async () => {
-            await propertiesPanel.setProperty('prop-preview-data', 'https://example.com');
+            await propertiesPanel.setProperty('prop-content', 'https://example.com');
             await zplOutput.verifyZPLContains('https://example.com');
         });
 
@@ -624,13 +624,13 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             // Add two text elements with distinct text
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
-            await page.locator('#prop-preview-text').fill('ElementAlpha');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('ElementAlpha');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(1);
-            await page.locator('#prop-preview-text').fill('ElementBeta');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('ElementBeta');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             const zplBefore = await zplOutput.getZPLCode();
             expect(zplBefore).toContain('ElementAlpha');

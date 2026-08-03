@@ -1,6 +1,7 @@
 import { ZPLElement } from './ZPLElement.js';
 import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
@@ -8,12 +9,11 @@ import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 //   MSI -> ^BM,  PLESSEY -> ^BP,  PLANET -> ^B5,  POSTNET -> ^BZ,  EAN13 -> ^BE,
 //   EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', height = 50, width = 2, ratio = 2.0, placeholder = '', showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A', msiCheckMode = 'B', msiCheckInText = false) {
+    constructor(x = 0, y = 0, content = '', height = 50, width = 2, ratio = 2.0, showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A', msiCheckMode = 'B', msiCheckInText = false) {
         super(x, y);
         this.type = 'BARCODE';
         this.symbology = symbology;
-        this.previewData = previewData;
-        this.placeholder = placeholder;
+        this.content = content; // Template string: literal text mixed with %placeholder%s
         this.height = height;
         this.width = width;
         this.ratio = ratio;
@@ -29,32 +29,32 @@ export class BarcodeElement extends ZPLElement {
         this.msiCheckInText = msiCheckInText; // MSI insert check digit into HRI (^BM e2 param)
     }
 
-    _render(content, preservePlaceholders = false) {
+    _render(content) {
         const reverseCmd = this.reverse ? '^FR' : '';
         const pos = `^FO${this.x},${this.y}${reverseCmd}`;
         const by = `^BY${this.width},${this.ratio}`;
-        return `${pos}${by}${getBarcodeSymbology(this.symbology).renderZpl(this, content, preservePlaceholders)}^FS`;
+        return `${pos}${by}${getBarcodeSymbology(this.symbology).renderZpl(this, content)}^FS`;
     }
 
     render() {
-        return this._render(this.placeholder ? `%${this.placeholder}%` : this.previewData, Boolean(this.placeholder));
+        return this._render(this.content);
     }
 
-    renderPreview() {
-        // Uses preview data for Labelary API visualization
-        return this._render(this.previewData);
+    renderPreview(defaultFontId, defaultFontHeight, defaultFontWidth, previewData = {}) {
+        // Placeholders resolve to their Preview Data values for the Labelary preview
+        return this._render(resolvePlaceholders(this.content, previewData));
     }
 
     getDisplayName() {
-        const displayText = this.placeholder || this.previewData;
+        const displayText = this.content;
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
-    getBounds() {
-        const geom = getBarcodeGeometry(this);
+    getBounds(dpmm, previewData = {}) {
+        const geom = getBarcodeGeometry(this, previewData);
         const modules = geom.kind === 'linear'
             ? geom.modules
-            : linearFallbackModules(this.previewData.length);
+            : linearFallbackModules(resolvePlaceholders(this.content, previewData).length);
         const w = modules * this.width;
         // R/B rotate the symbol 90°, so the screen-space box swaps width/height.
         if (this.orientation === 'R' || this.orientation === 'B') {

@@ -65,8 +65,7 @@ function databarGtin13(data) {
   return d.length >= 13 ? d.slice(0, 13) : d.padStart(13, '0');
 }
 
-export function databarBwipText(element) {
-  const data = element.previewData || '';
+export function databarBwipText(element, data = '') {
   if (element.databarType === 'expanded') {
     return data.includes('(') ? data : `(01)${databarGtin13(data)}`;
   }

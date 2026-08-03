@@ -16,12 +16,11 @@
       "id": 1777638416219.754,
       "locked": false,
       "type": "BARCODE",
-      "previewData": "W0381 26 095422",
-      "placeholder": "donation_identification_number",
       "height": 78,
       "width": 2,
       "ratio": 2,
-      "showText": true
+      "showText": true,
+      "content": "%donation_identification_number%"
     },
     {
       "x": 30,
@@ -29,13 +28,12 @@
       "id": 1777638429014.7554,
       "locked": false,
       "type": "TEXT",
-      "previewText": "W0381 26 095422",
-      "placeholder": "donation_identification_number",
       "fontId": "",
       "fontSize": 30,
       "fontWidth": 30,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%donation_identification_number%"
     },
     {
       "x": 30,
@@ -43,13 +41,12 @@
       "id": 1777638437164.6548,
       "locked": false,
       "type": "TEXT",
-      "previewText": "DIN",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 15,
       "fontWidth": 15,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "DIN"
     },
     {
       "x": 539,
@@ -69,13 +66,12 @@
       "id": 1777638506646.0698,
       "locked": false,
       "type": "TEXT",
-      "previewText": "A POS",
-      "placeholder": "blood_group",
       "fontId": "",
       "fontSize": 50,
       "fontWidth": 50,
       "orientation": "N",
-      "reverse": true
+      "reverse": true,
+      "content": "%blood_group%"
     },
     {
       "x": 613,
@@ -83,13 +79,12 @@
       "id": 1777638853317.1606,
       "locked": false,
       "type": "TEXT",
-      "previewText": "RhD POSITIVE",
-      "placeholder": "rh_factor",
       "fontId": "",
       "fontSize": 15,
       "fontWidth": 15,
       "orientation": "N",
-      "reverse": true
+      "reverse": true,
+      "content": "%rh_factor%"
     },
     {
       "x": 539,
@@ -97,13 +92,12 @@
       "id": 1777639264194.5732,
       "locked": false,
       "type": "TEXT",
-      "previewText": "PRODUCT",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 15,
       "fontWidth": 15,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "PRODUCT"
     },
     {
       "x": 539,
@@ -111,13 +105,12 @@
       "id": 1777639294543.789,
       "locked": false,
       "type": "TEXT",
-      "previewText": "E0382V00 RBC",
-      "placeholder": "product_code",
       "fontId": "",
       "fontSize": 0,
       "fontWidth": 0,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "%product_code%"
     }
   ],
   "labelSettings": {
@@ -140,6 +133,12 @@
     "defaultFontWidth": 0,
     "homeX": 0,
     "homeY": 0,
-    "labelTop": 0
+    "labelTop": 0,
+    "previewData": {
+      "donation_identification_number": "W0381 26 095422",
+      "blood_group": "A POS",
+      "rh_factor": "RhD POSITIVE",
+      "product_code": "E0382V00 RBC"
+    }
   }
 }

@@ -149,7 +149,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const wideDots = (w: number, ratio: number) => {
-                const g = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', previewData: 'AB', ratio, width: w, showText: false } as any) as any;
+                const g = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', content: 'AB', ratio, width: w, showText: false } as any) as any;
                 return Math.round(Math.max(...g.sbs) * w);
             };
             return {
@@ -169,7 +169,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry, code39CheckChar } = await import('/src/utils/barcodeGeometry.js');
             const geom = (checkDigit: boolean) =>
-                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', previewData: 'CODE39', showText: true, ratio: 3, checkDigit });
+                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', content: 'CODE39', showText: true, ratio: 3, checkDigit });
             return {
                 checkChar: code39CheckChar('CODE39'),
                 noCheck: (geom(false) as any).modules,
@@ -198,7 +198,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const wideDots = (w: number, ratio: number) => {
-                const g = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INTERLEAVED2OF5', previewData: '1234', ratio, width: w, showText: false } as any) as any;
+                const g = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INTERLEAVED2OF5', content: '1234', ratio, width: w, showText: false } as any) as any;
                 return Math.round(Math.max(...g.sbs) * w);
             };
             return { w2_r20: wideDots(2, 2.0), w2_r30: wideDots(2, 3.0), w3_r24: wideDots(3, 2.4) };
@@ -211,8 +211,8 @@ test.describe('Barcode symbology', () => {
     test('Interleaved 2 of 5 resolves digits: mod-10 check + even-length leading-zero pad', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const { mod10CheckChar, interleaved2of5Digits, getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
-            const geom = (previewData: string, checkDigit: boolean) =>
-                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'INTERLEAVED2OF5', previewData, showText: true, ratio: 2, width: 2, checkDigit } as any) as any).modules;
+            const geom = (content: string, checkDigit: boolean) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'INTERLEAVED2OF5', content, showText: true, ratio: 2, width: 2, checkDigit } as any) as any).modules;
             return {
                 check1234: mod10CheckChar('1234'),
                 evenNoPad: interleaved2of5Digits('1234', false),     // already even
@@ -236,7 +236,7 @@ test.describe('Barcode symbology', () => {
                 import('/src/services/ZPLParser.js'),
             ]);
             const parser = new ZPLParser();
-            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'INTERLEAVED2OF5', true, 'I', true);
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, true, false, 'INTERLEAVED2OF5', true, 'I', true);
             const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
             return {
                 sym: parsed?.symbology,
@@ -267,7 +267,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry, code93CheckChars } = await import('/src/utils/barcodeGeometry.js');
             const geom = (checkDigit: boolean) =>
-                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE93', previewData: '12345ABC', showText: true, width: 2, checkDigit } as any) as any;
+                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE93', content: '12345ABC', showText: true, width: 2, checkDigit } as any) as any;
             return {
                 checkChars: code93CheckChars('12345ABC'),
                 shiftCheck: code93CheckChars('M0'),  // exercises the 'a'–'d' check values
@@ -292,7 +292,7 @@ test.describe('Barcode symbology', () => {
                 import('/src/services/ZPLParser.js'),
             ]);
             const parser = new ZPLParser();
-            const el: any = new BarcodeElement(10, 10, 'CODE93', 50, 2, 3, '', true, false, 'CODE93', true, 'I', true);
+            const el: any = new BarcodeElement(10, 10, 'CODE93', 50, 2, 3, true, false, 'CODE93', true, 'I', true);
             const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
             return {
                 sym: parsed?.symbology,
@@ -312,7 +312,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { code11CheckDigits, getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const modules = (single: boolean) =>
-                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE11', previewData: '123456', checkDigit: single, ratio: 3, width: 2, showText: true } as any) as any).modules;
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE11', content: '123456', checkDigit: single, ratio: 3, width: 2, showText: true } as any) as any).modules;
             return {
                 two: code11CheckDigits('123456', false), // e=N -> C+K
                 one: code11CheckDigits('123456', true),  // e=Y -> C
@@ -335,7 +335,7 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // checkDigit=true (single), orientation I, printTextAbove true.
-            const el: any = new BarcodeElement(10, 10, '123456', 50, 2, 3, '', true, false, 'CODE11', true, 'I', true);
+            const el: any = new BarcodeElement(10, 10, '123456', 50, 2, 3, true, false, 'CODE11', true, 'I', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             return {
@@ -363,10 +363,10 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // orientation I, printTextAbove true. ^BI has no e/check-digit param.
-            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'INDUSTRIAL2OF5', false, 'I', true);
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, true, false, 'INDUSTRIAL2OF5', false, 'I', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
-            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INDUSTRIAL2OF5', previewData: '1234567890', ratio: 3, width: 2, showText: true } as any);
+            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INDUSTRIAL2OF5', content: '1234567890', ratio: 3, width: 2, showText: true } as any);
             return {
                 emits: zpl.includes('^BII,50,Y,Y'),
                 sym: parsed?.symbology,
@@ -396,13 +396,13 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // orientation I, printTextAbove true. ^BJ has no e/check-digit param.
-            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'STANDARD2OF5', false, 'I', true);
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, true, false, 'STANDARD2OF5', false, 'I', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
-            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'STANDARD2OF5', previewData: '1234567890', ratio: 3, width: 2, showText: true } as any);
+            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'STANDARD2OF5', content: '1234567890', ratio: 3, width: 2, showText: true } as any);
             // Standard 2 of 5 has shorter start/stop bars than Industrial, so the same
             // data encodes to fewer modules (Labelary: 149 vs 159 for "1234567890").
-            const industrial: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INDUSTRIAL2OF5', previewData: '1234567890', ratio: 3, width: 2, showText: true } as any);
+            const industrial: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'INDUSTRIAL2OF5', content: '1234567890', ratio: 3, width: 2, showText: true } as any);
             return {
                 emits: zpl.includes('^BJI,50,Y,Y'),
                 sym: parsed?.symbology,
@@ -434,15 +434,15 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // orientation I, printTextAbove true. ^BL has no f param; check digit mandatory.
-            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, '', true, false, 'LOGMARS', false, 'I', true);
+            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, true, false, 'LOGMARS', false, 'I', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             // Lowercase ^FD round-trips (printer uppercases); HRI is always on (no f to omit).
             const lower: any = parser.parse('^XA^FO0,0^BLN,80^FDlogmars^FS^XZ').elements[0];
-            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'LOGMARS', previewData: '12345', ratio: 3, width: 2 } as any);
+            const geom: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'LOGMARS', content: '12345', ratio: 3, width: 2 } as any);
             // LOGMARS bars are identical to Code 39 with the mod-43 check digit on.
-            const c39: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', previewData: '12345', checkDigit: true, ratio: 3, width: 2 } as any);
-            const c39NoCheck: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', previewData: '12345', checkDigit: false, ratio: 3, width: 2 } as any);
+            const c39: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', content: '12345', checkDigit: true, ratio: 3, width: 2 } as any);
+            const c39NoCheck: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODE39', content: '12345', checkDigit: false, ratio: 3, width: 2 } as any);
             return {
                 emits: zpl.includes('^BLI,80,Y'),
                 hasNoFParam: !/\^BLI,80,Y,/.test(zpl), // only o,h,g — no trailing param after g
@@ -483,11 +483,11 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // mode C (2× mod-10), e2 (show check in HRI) on, orientation I, above true.
-            const el: any = new BarcodeElement(10, 10, '1234567', 80, 2, 3, '', true, false, 'MSI', false, 'I', true, false, 'A', 'A', 'C', true);
+            const el: any = new BarcodeElement(10, 10, '1234567', 80, 2, 3, true, false, 'MSI', false, 'I', true, false, 'A', 'A', 'C', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             // default element (mode B, e2 off) emits a clean o,e,h,f with no trailing params.
-            const def: any = new BarcodeElement(10, 10, '1234567', 50, 2, 3, '', true, false, 'MSI');
+            const def: any = new BarcodeElement(10, 10, '1234567', 50, 2, 3, true, false, 'MSI');
             return {
                 emitsC: zpl.includes('^BMI,C,80,Y,Y,Y'), // o=I,e=C,h=80,f=Y,g=Y,e2=Y
                 defEmit: def.render().includes('^BMN,B,50,Y^FD'),
@@ -518,7 +518,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const mod = (mode: string, checkInText = false) =>
-                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'MSI', previewData: '1234567', msiCheckMode: mode, msiCheckInText: checkInText, ratio: 3, width: 2 } as any) as any).modules;
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'MSI', content: '1234567', msiCheckMode: mode, msiCheckInText: checkInText, ratio: 3, width: 2 } as any) as any).modules;
             return { a: mod('A'), b: mod('B'), c: mod('C'), d: mod('D'), bE2: mod('B', true) };
         });
         // Verified against Labelary for "1234567": A=121, B=137, C=D=153.
@@ -541,11 +541,11 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // e (print check digit) on, orientation R, interpretation line above on.
-            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, '', true, false, 'PLESSEY', true, 'R', true);
+            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, true, false, 'PLESSEY', true, 'R', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             // default element (e off) emits a clean o,e,h,f with no trailing g.
-            const def: any = new BarcodeElement(10, 10, '12345', 50, 2, 3, '', true, false, 'PLESSEY');
+            const def: any = new BarcodeElement(10, 10, '12345', 50, 2, 3, true, false, 'PLESSEY');
             return {
                 emitsE: zpl.includes('^BPR,Y,80,Y,Y'), // o=R,e=Y,h=80,f=Y,g=Y
                 defEmit: def.render().includes('^BPN,N,50,Y^FD'),
@@ -572,7 +572,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const mod = (data: string, ratio: number, checkDigit = false) =>
-                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLESSEY', previewData: data, ratio, width: 2, checkDigit } as any) as any).modules;
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLESSEY', content: data, ratio, width: 2, checkDigit } as any) as any).modules;
             return {
                 r3: mod('12345', 3), r2: mod('12345', 2),
                 seven: mod('1234567', 3), abc: mod('ABCDEF', 3),
@@ -597,10 +597,10 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // orientation R, interpretation line above on; plain o,h,f,g layout (no ratio/check).
-            const el: any = new BarcodeElement(10, 10, '12345678901', 80, 2, 3, '', true, false, 'PLANET', false, 'R', true);
+            const el: any = new BarcodeElement(10, 10, '12345678901', 80, 2, 3, true, false, 'PLANET', false, 'R', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
-            const def: any = new BarcodeElement(10, 10, '12345678901', 50, 2, 3, '', true, false, 'PLANET');
+            const def: any = new BarcodeElement(10, 10, '12345678901', 50, 2, 3, true, false, 'PLANET');
             return {
                 emits: zpl.includes('^B5R,80,Y,Y'), // o=R,h=80,f=Y,g=Y
                 defEmit: def.render().includes('^B5N,50,Y^FD'),
@@ -619,10 +619,10 @@ test.describe('Barcode symbology', () => {
     test('Planet Code is height-modulated: uniform-width bars at two heights (tall + 0.4·h short)', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
-            const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '12345678901', width: 2, ratio: 3 } as any);
+            const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', content: '12345678901', width: 2, ratio: 3 } as any);
             const round = (a: number[]) => [...new Set(a.map((v) => +v.toFixed(4)))].sort((x, y) => x - y);
-            const g13: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '1234567890123', width: 2, ratio: 3 } as any);
-            const gEmpty: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', previewData: '', width: 2, ratio: 3 } as any);
+            const g13: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', content: '1234567890123', width: 2, ratio: 3 } as any);
+            const gEmpty: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'PLANET', content: '', width: 2, ratio: 3 } as any);
             return {
                 kind: g.kind,
                 bars: g.bhs?.length,
@@ -651,10 +651,10 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // orientation R, interpretation line above on; plain o,h,f,g layout (t=0 POSTNET omitted).
-            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, '', true, false, 'POSTNET', false, 'R', true);
+            const el: any = new BarcodeElement(10, 10, '12345', 80, 2, 3, true, false, 'POSTNET', false, 'R', true);
             const zpl = el.render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
-            const def: any = new BarcodeElement(10, 10, '12345', 50, 2, 3, '', true, false, 'POSTNET');
+            const def: any = new BarcodeElement(10, 10, '12345', 50, 2, 3, true, false, 'POSTNET');
             return {
                 emits: zpl.includes('^BZR,80,Y,Y'), // o=R,h=80,f=Y,g=Y
                 defEmit: def.render().includes('^BZN,50,Y^FD'),
@@ -674,10 +674,10 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const round = (a: number[]) => [...new Set(a.map((v) => +v.toFixed(4)))].sort((x, y) => x - y);
-            const g5: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '12345', width: 2, ratio: 3 } as any);
-            const g9: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '123456789', width: 2, ratio: 3 } as any);
-            const g11: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '12345678901', width: 2, ratio: 3 } as any);
-            const gEmpty: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', previewData: '', width: 2, ratio: 3 } as any);
+            const g5: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', content: '12345', width: 2, ratio: 3 } as any);
+            const g9: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', content: '123456789', width: 2, ratio: 3 } as any);
+            const g11: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', content: '12345678901', width: 2, ratio: 3 } as any);
+            const gEmpty: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'POSTNET', content: '', width: 2, ratio: 3 } as any);
             return {
                 kind: g5.kind,
                 bars5: g5.bhs?.length,
@@ -711,8 +711,8 @@ test.describe('Barcode symbology', () => {
                 import('/src/utils/barcodeGeometry.js'),
                 import('/src/barcodes/BarcodeSymbologies.js'),
             ]);
-            const bars = (symbology: string, previewData: string) =>
-                (getBarcodeGeometry({ type: 'BARCODE', symbology, previewData, width: 2, ratio: 3 } as any) as any).bhs?.length;
+            const bars = (symbology: string, content: string) =>
+                (getBarcodeGeometry({ type: 'BARCODE', symbology, content, width: 2, ratio: 3 } as any) as any).bhs?.length;
             return {
                 planet1: bars('PLANET', '1'),               // 12 bars
                 planet5: bars('PLANET', '12345'),           // 32 bars (the reported case)
@@ -720,8 +720,8 @@ test.describe('Barcode symbology', () => {
                 planetAlpha: bars('PLANET', '12A45'),       // 'A' dropped -> 4 digits, 27 bars
                 postnet4: bars('POSTNET', '1234'),          // 27 bars
                 postnet7: bars('POSTNET', '1234567'),       // 42 bars
-                planetHri: (getBarcodeSymbology('PLANET') as any).displayText({ previewData: '12A45' }),
-                postnetHri: (getBarcodeSymbology('POSTNET') as any).displayText({ previewData: '12A45' }),
+                planetHri: (getBarcodeSymbology('PLANET') as any).displayText({}, '12A45'),
+                postnetHri: (getBarcodeSymbology('POSTNET') as any).displayText({}, '12A45'),
             };
         });
         expect(r.planet1).toBe(12);
@@ -738,8 +738,8 @@ test.describe('Barcode symbology', () => {
     test('PLANET and POSTNET independently round each bar origin at odd module widths', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
-            const positions = (symbology: string, previewData: string) => {
-                const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology, previewData, width: 3, ratio: 3 } as any);
+            const positions = (symbology: string, content: string) => {
+                const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology, content, width: 3, ratio: 3 } as any);
                 return g.barXs.map((x: number) => x * 3);
             };
             return {
@@ -771,10 +771,10 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const geom = (startChar: string, stopChar: string) =>
-                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', previewData: '12345', startChar, stopChar, showText: true, ratio: 3, width: 2 } as any) as any;
+                getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', content: '12345', startChar, stopChar, showText: true, ratio: 3, width: 2 } as any) as any;
             const ok = geom('A', 'A');
             // The body must be digits / - $ : / . + only; letters can't encode -> fallback.
-            const bad = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', previewData: 'AB', startChar: 'A', stopChar: 'A', showText: true } as any) as any;
+            const bad = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', content: 'AB', startChar: 'A', stopChar: 'A', showText: true } as any) as any;
             return { kind: ok.kind, modules: ok.modules, badKind: bad.kind };
         });
         expect(r.kind).toBe('linear');
@@ -790,7 +790,7 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             // ctor: ...symbology, checkDigit, orientation, printTextAbove, fieldHex, startChar, stopChar
-            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'CODABAR', false, 'I', true, false, 'B', 'C');
+            const el: any = new BarcodeElement(10, 10, '1234567890', 50, 2, 3, true, false, 'CODABAR', false, 'I', true, false, 'B', 'C');
             const parsed: any = parser.parse('^XA' + el.render() + '^XZ').elements[0];
             return {
                 sym: parsed?.symbology,
@@ -812,7 +812,7 @@ test.describe('Barcode symbology', () => {
         const r = await page.evaluate(async () => {
             const { normalizeUpcEanExt, getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const modules = (d: string) =>
-                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCEANEXT', previewData: d, showText: true, width: 2 } as any) as any).modules;
+                (getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCEANEXT', content: d, showText: true, width: 2 } as any) as any).modules;
             return {
                 pad1: normalizeUpcEanExt('7'),        // ≤2 -> 2-digit, left-padded
                 keep2: normalizeUpcEanExt('12'),
@@ -843,7 +843,7 @@ test.describe('Barcode symbology', () => {
             const aboveOmitted: any = parser.parse('^XA^FO10,10^BY2^BSN,80,Y^FD12345^FS^XZ').elements[0];
             const belowExplicit: any = parser.parse('^XA^FO10,10^BY2^BSN,80,Y,N^FD12345^FS^XZ').elements[0];
             // Element render() always emits g explicitly, so canvas and Labelary agree.
-            const el: any = new BarcodeElement(10, 10, '12', 50, 2, 2, '', true, false, 'UPCEANEXT', false, 'N', false);
+            const el: any = new BarcodeElement(10, 10, '12', 50, 2, 2, true, false, 'UPCEANEXT', false, 'N', false);
             return {
                 sym: aboveOmitted?.symbology,
                 omittedAbove: aboveOmitted?.printTextAbove,
@@ -905,10 +905,10 @@ test.describe('Barcode symbology', () => {
                 ]);
                 const parser = new ZPLParser();
                 const samples = [
-                    new BarcodeElement(10, 10, '1234567890', 50, 2, 3, '', true, false, 'CODE128', false, 'R', true),
-                    new BarcodeElement(10, 10, 'CODE39', 50, 2, 3, '', true, false, 'CODE39', true, 'I', true),
-                    new BarcodeElement(10, 10, '123456789012', 50, 2, 3, '', true, false, 'EAN13', false, 'B', false),
-                    new BarcodeElement(10, 10, '12345678901', 50, 2, 3, '', true, false, 'UPCA', false, 'R', true),
+                    new BarcodeElement(10, 10, '1234567890', 50, 2, 3, true, false, 'CODE128', false, 'R', true),
+                    new BarcodeElement(10, 10, 'CODE39', 50, 2, 3, true, false, 'CODE39', true, 'I', true),
+                    new BarcodeElement(10, 10, '123456789012', 50, 2, 3, true, false, 'EAN13', false, 'B', false),
+                    new BarcodeElement(10, 10, '12345678901', 50, 2, 3, true, false, 'UPCA', false, 'R', true),
                 ];
                 return samples.map((el: any) => {
                     const parsed = parser.parse('^XA' + el.render() + '^XZ').elements[0];
@@ -947,7 +947,7 @@ test.describe('Barcode symbology', () => {
         const cases = await page.evaluate(async () => {
             const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
             const d = (mode: string, ec = 0, layers = 0) => {
-                const el: any = new QRCodeElement(0, 0, 'X', 2, 5, 'Q', '', false, 'AZTEC', 4, 200, 2, 4, 5, 0, mode, ec, layers);
+                const el: any = new QRCodeElement(0, 0, 'X', 2, 5, 'Q', false, 'AZTEC', 4, 200, 2, 4, 5, 0, mode, ec, layers);
                 // d=0 (default) is omitted entirely; treat a missing d as '0'.
                 return el.render().match(/\^B0N,5,N(?:,(\d+))?\^FD/)?.[1] ?? '0';
             };
@@ -970,7 +970,7 @@ test.describe('Barcode symbology', () => {
         const kinds = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const kind = (mode: string, data: string) =>
-                (getBarcodeGeometry({ type: 'QRCODE', symbology: 'AZTEC', previewData: data, magnification: 5, aztecSizeMode: mode, aztecErrorControl: 0, aztecLayers: 0 } as any) as any).kind;
+                (getBarcodeGeometry({ type: 'QRCODE', symbology: 'AZTEC', content: data, magnification: 5, aztecSizeMode: mode, aztecErrorControl: 0, aztecLayers: 0 } as any) as any).kind;
             return {
                 auto: kind('auto', 'Aztec'),
                 compact: kind('compact', 'Hi'),
@@ -994,14 +994,14 @@ test.describe('Barcode symbology', () => {
                 import('/src/utils/barcodeGeometry.js'),
                 import('/src/elements/QRCodeElement.js'),
             ]);
-            const rune = (data: string, placeholder = '') =>
-                new QRCodeElement(0, 0, data, 2, 5, 'Q', placeholder, false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'rune', 0, 0);
+            const rune = (data: string) =>
+                new QRCodeElement(0, 0, data, 2, 5, 'Q', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'rune', 0, 0);
             return {
                 norm: ['Aztec', '300', '42', '', '7x9'].map((d) => normalizeAztecRune(d)),
                 zplNonNumeric: rune('Aztec').render(),
                 zplInRange: rune('200').render(),
                 // A placeholder token is left intact for the templating system.
-                zplPlaceholder: rune('Aztec', 'tok').render(),
+                zplPlaceholder: rune('%tok%').render(),
             };
         });
         expect(r.norm).toEqual(['0', '255', '42', '0', '79']); // '7x9' -> digits '79'
@@ -1028,12 +1028,12 @@ test.describe('Barcode symbology', () => {
         // Fresh element holds the CODE128 default; switching replaces it with the
         // EAN-13 default (12 digits).
         await propertiesPanel.setSelectValue('prop-symbology', 'EAN13');
-        await propertiesPanel.verifyPropertyValue('prop-preview-data', '123456789012');
+        await propertiesPanel.verifyPropertyValue('prop-content', '123456789012');
 
         // Edit the data, then switch again — the typed value must survive.
-        await propertiesPanel.setProperty('prop-preview-data', '111111111111');
+        await propertiesPanel.setProperty('prop-content', '111111111111');
         await propertiesPanel.setSelectValue('prop-symbology', 'UPCA');
-        await propertiesPanel.verifyPropertyValue('prop-preview-data', '111111111111');
+        await propertiesPanel.verifyPropertyValue('prop-content', '111111111111');
     });
 
     test('symbology-specific fields appear and disappear', async () => {
@@ -1086,7 +1086,7 @@ test.describe('Barcode symbology', () => {
         await propertiesPanel.setSelectValue('prop-symbology', 'EAN13');
         // EAN-13 requires 12 digits — letters make bwip-js throw; the renderer
         // must fall back to a placeholder box rather than error out.
-        await propertiesPanel.setProperty('prop-preview-data', 'not-a-number');
+        await propertiesPanel.setProperty('prop-content', 'not-a-number');
 
         // The element remains and ZPL is still produced with the (invalid) data.
         expect(await elementsPanel.getElementCount()).toBe(1);
@@ -1129,7 +1129,7 @@ test.describe('Barcode symbology', () => {
         // geometry is a guard-bar linear symbol whose HRI fragments are exactly that.
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
-            const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCE', previewData: '123456', showText: true, width: 2 });
+            const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCE', content: '123456', showText: true, width: 2 });
             return {
                 kind: g.kind,
                 hasGuardBars: Array.isArray(g.bhs) && g.bhs.some((v: number) => v > 1),
@@ -1152,7 +1152,7 @@ test.describe('Barcode symbology', () => {
             // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
             //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode
             const make = (mode: number) =>
-                new QRCodeElement(10, 10, '12345', 2, 5, 'Q', '', false, 'MICROPDF417', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, mode);
+                new QRCodeElement(10, 10, '12345', 2, 5, 'Q', false, 'MICROPDF417', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, mode);
             const cols = (mode: number) => {
                 const g: any = geo.getBarcodeGeometry(make(mode));
                 return g.kind === 'matrix' ? g.cols : -1;
@@ -1168,7 +1168,7 @@ test.describe('Barcode symbology', () => {
                 cols4: cols(33),  // 4 data columns (widest)
                 sym: parsed?.symbology,
                 mode: parsed?.microPdfMode,
-                data: parsed?.previewData,
+                data: parsed?.content,
             };
         });
         expect(r.versionMode0).toBe('11x1');
@@ -1192,7 +1192,7 @@ test.describe('Barcode symbology', () => {
             // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
             //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode
             const make = (mode: string, data = 'CODE 49') =>
-                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'CODE49', 4, 200, 3, 6, 5, 0, 'auto', 0, 0, false, 0, mode);
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', false, 'CODE49', 4, 200, 3, 6, 5, 0, 'auto', 0, 0, false, 0, mode);
             const parser = new ZPLParser();
             const zpl = make('2').render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
@@ -1212,7 +1212,7 @@ test.describe('Barcode symbology', () => {
                 mode: parsed?.code49Mode,
                 mw: parsed?.moduleWidth,
                 rh: parsed?.rowHeight,
-                data: parsed?.previewData,
+                data: parsed?.content,
             };
         });
         expect(r.emits).toBe(true);
@@ -1242,7 +1242,7 @@ test.describe('Barcode symbology', () => {
                 import('/src/utils/barcodeGeometry.js'),
             ]);
             const make = (data: string) => {
-                const e = new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'TLC39');
+                const e = new QRCodeElement(10, 10, data, 2, 5, 'Q', false, 'TLC39');
                 e.moduleWidth = 2; e.rowHeight = 40; return e;
             };
             const parser = new ZPLParser();
@@ -1250,7 +1250,7 @@ test.describe('Barcode symbology', () => {
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
             const customParsed: any = parser.parse('^XA^FO10,10^BTN,3,2,55,4,6^FD123456,17234,1A^FS^XZ').elements[0];
             const custom = new QRCodeElement({
-                x: 10, y: 10, previewData: '123456,17234,1A', symbology: 'TLC39',
+                x: 10, y: 10, content: '123456,17234,1A', symbology: 'TLC39',
                 tlc39Code39Width: 3, tlc39Ratio: 2, tlc39Code39Height: 55,
                 tlc39MicroPdfWidth: 4, tlc39MicroPdfRowHeight: 6,
             });
@@ -1275,7 +1275,7 @@ test.describe('Barcode symbology', () => {
                 sym: parsed?.symbology,
                 mw: parsed?.moduleWidth,
                 h: parsed?.rowHeight,
-                data: parsed?.previewData,
+                data: parsed?.content,
             };
         });
         expect(r.emits).toBe(true);
@@ -1305,7 +1305,7 @@ test.describe('Barcode symbology', () => {
             ]);
             // ctor: ...symbology, ..., microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType
             const make = (type: string, data: string) =>
-                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'GS1DATABAR', 4, 200, 2, 40, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4', type);
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', false, 'GS1DATABAR', 4, 200, 2, 40, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4', type);
             const parser = new ZPLParser();
             const omni = make('omni', '0001234567890');
             const omniZpl = omni.render();
@@ -1318,7 +1318,7 @@ test.describe('Barcode symbology', () => {
             // magnification), NOT the ^BR height param, matching Labelary. Height is
             // therefore independent of rowHeight.
             const height = (type: string, data: string, mag = 5, rowHeight = 40) => Math.round(
-                new QRCodeElement(10, 10, data, 2, mag, 'Q', '', false, 'GS1DATABAR', 4, 200, 2, rowHeight, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4', type).getBounds().height
+                new QRCodeElement(10, 10, data, 2, mag, 'Q', false, 'GS1DATABAR', 4, 200, 2, rowHeight, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4', type).getBounds().height
             );
             return {
                 omniEmits: omniZpl.includes('^BRN,1,5,2,40'),
@@ -1382,7 +1382,7 @@ test.describe('Barcode symbology', () => {
             ]);
             // ctor: ...symbology, ..., fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode
             const make = (mode: string, data = 'This is a test') =>
-                new QRCodeElement(10, 10, data, 2, 6, 'Q', '', false, 'MAXICODE', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', mode);
+                new QRCodeElement(10, 10, data, 2, 6, 'Q', false, 'MAXICODE', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', mode);
             const parser = new ZPLParser();
             const zpl = make('5').render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
@@ -1402,7 +1402,7 @@ test.describe('Barcode symbology', () => {
             // ^BD has no size parameter: the symbol is a fixed 25 mm square that
             // scales only with density, never with magnification (matches Labelary).
             const boundsAt = (mag: number, dpmm: number) =>
-                new QRCodeElement(10, 10, 'This is a test', 2, mag, 'Q', '', false, 'MAXICODE', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4').getBounds(dpmm);
+                new QRCodeElement(10, 10, 'This is a test', 2, mag, 'Q', false, 'MAXICODE', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0, 'A', 'F', '4').getBounds(dpmm);
             const wAt = (mag: number, dpmm: number) => Math.round(boundsAt(mag, dpmm).width);
             return {
                 emits: zpl.includes('^BD5,1,1'),
@@ -1414,7 +1414,7 @@ test.describe('Barcode symbology', () => {
                 type: parsed?.type,
                 sym: parsed?.symbology,
                 mode: parsed?.maxicodeMode,
-                data: parsed?.previewData,
+                data: parsed?.content,
                 w8: wAt(5, 8),
                 h8: Math.round(boundsAt(5, 8).height),
                 w8BigMag: wAt(20, 8), // magnification ignored -> same width as w8
@@ -1469,7 +1469,7 @@ test.describe('Barcode symbology', () => {
             // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
             //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode
             const make = (mode: string, data = 'Codablock') =>
-                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'CODABLOCK', 4, 200, 3, 8, 5, 0, 'auto', 0, 0, false, 0, 'A', mode);
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', false, 'CODABLOCK', 4, 200, 3, 8, 5, 0, 'auto', 0, 0, false, 0, 'A', mode);
             const parser = new ZPLParser();
             const zpl = make('E').render();
             const parsed: any = parser.parse('^XA' + zpl + '^XZ').elements[0];
@@ -1493,7 +1493,7 @@ test.describe('Barcode symbology', () => {
                 mode: parsed?.codablockMode,
                 mw: parsed?.moduleWidth,
                 rh: parsed?.rowHeight,
-                data: parsed?.previewData,
+                data: parsed?.content,
             };
         });
         expect(r.emits).toBe(true);
@@ -1523,7 +1523,7 @@ test.describe('Barcode symbology', () => {
             const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
             // mode 0 = 1 data column × 11 rows (the narrowest, lowest-capacity variant).
             const make = (data: string) =>
-                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, 'MICROPDF417', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0);
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', false, 'MICROPDF417', 4, 200, 2, 4, 5, 0, 'auto', 0, 0, false, 0);
             const kind = (data: string) => (geo.getBarcodeGeometry(make(data)) as any).kind;
             return { sevenDigits: kind('1234567'), alpha: kind('ABCDE') };
         });
@@ -1542,9 +1542,9 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             const make1D = (data: string, sym: string, checkDigit = false) =>
-                new BarcodeElement(10, 10, data, 50, 2, 3, '', true, false, sym, checkDigit);
+                new BarcodeElement(10, 10, data, 50, 2, 3, true, false, sym, checkDigit);
             const make2D = (data: string, sym: string) =>
-                new QRCodeElement(10, 10, data, 2, 5, 'Q', '', false, sym);
+                new QRCodeElement(10, 10, data, 2, 5, 'Q', false, sym);
 
             const samples = [
                 make1D('1234567890', 'CODE128'),
@@ -1577,7 +1577,7 @@ test.describe('Barcode symbology', () => {
                 return {
                     expected: el.symbology,
                     gotSymbology: parsed?.symbology,
-                    dataOk: parsed?.previewData === el.previewData,
+                    dataOk: parsed?.content === el.content,
                 };
             });
         });
@@ -1596,7 +1596,7 @@ test.describe('Barcode symbology', () => {
             ]);
             const parser = new ZPLParser();
             const make = (mode: string, ec: number, layers: number) =>
-                new QRCodeElement(10, 10, 'Aztec', 2, 5, 'Q', '', false, 'AZTEC', 4, 200, 2, 4, 5, 0, mode, ec, layers);
+                new QRCodeElement(10, 10, 'Aztec', 2, 5, 'Q', false, 'AZTEC', 4, 200, 2, 4, 5, 0, mode, ec, layers);
             const samples = [
                 make('auto', 0, 0),
                 make('auto', 50, 0),
@@ -1630,7 +1630,7 @@ test.describe('Barcode symbology', () => {
                 import('/src/services/SerializationService.js'),
             ]);
             const svc = new SerializationService();
-            const el = new QRCodeElement(10, 10, 'Aztec', 2, 5, 'Q', 'tok', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'compact', 33, 3);
+            const el = new QRCodeElement(10, 10, '%tok%', 2, 5, 'Q', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'compact', 33, 3);
             // Round-trip through the same JSON the export writes.
             const data = JSON.parse(JSON.stringify(svc.serializeElement(el)));
             const restored: any = svc.createElementFromData(data, { keepId: false });
@@ -1640,8 +1640,7 @@ test.describe('Barcode symbology', () => {
                 mode: restored?.aztecSizeMode,
                 ec: restored?.aztecErrorControl,
                 layers: restored?.aztecLayers,
-                data: restored?.previewData,
-                placeholder: restored?.placeholder,
+                content: restored?.content,
             };
         });
         expect(r.type).toBe('QRCODE');
@@ -1649,8 +1648,7 @@ test.describe('Barcode symbology', () => {
         expect(r.mode).toBe('compact');
         expect(r.ec).toBe(33);
         expect(r.layers).toBe(3);
-        expect(r.data).toBe('Aztec');
-        expect(r.placeholder).toBe('tok');
+        expect(r.content).toBe('%tok%');
     });
 
     // ZPL paste/import path: parser output → createElementFromData (as app.js
@@ -1662,7 +1660,7 @@ test.describe('Barcode symbology', () => {
                 import('/src/services/ZPLParser.js'),
                 import('/src/services/SerializationService.js'),
             ]);
-            const src = new QRCodeElement(20, 30, 'Aztec', 2, 7, 'Q', '', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'full', 0, 5);
+            const src = new QRCodeElement(20, 30, 'Aztec', 2, 7, 'Q', false, 'AZTEC', 4, 200, 2, 4, 5, 0, 'full', 0, 5);
             const parsed = new ZPLParser().parse('^XA' + src.render() + '^XZ').elements[0];
             const el: any = new SerializationService().createElementFromData(parsed, { keepId: false });
             return {

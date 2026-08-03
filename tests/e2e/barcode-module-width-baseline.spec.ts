@@ -74,7 +74,7 @@ for (const { sym, data } of SYMBOLOGIES) {
                         // the cursor and the band follows below.
                         const y = above ? yCursor + b : yCursor;
                         const el = new (BarcodeElement as any)(
-                            PADDING, y, data, h, w, 2.0, '', true, false, sym, false, 'N', above,
+                            PADDING, y, data, h, w, 2.0, true, false, sym, false, 'N', above,
                         );
                         elements.push(el);
 

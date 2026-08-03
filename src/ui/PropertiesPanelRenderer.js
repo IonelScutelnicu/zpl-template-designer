@@ -8,6 +8,7 @@ import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
 import { SYMBOLOGY_LABELS, SYMBOLOGY_META, BARCODE_SYMBOLOGIES, QR_SYMBOLOGIES, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
+import { placeholderNames } from '../utils/placeholders.js';
 
 // Small inline-SVG glyphs for the symbology picker. Linear symbologies share one
 // barcode glyph; the 2D ones get a representative matrix/stacked glyph.
@@ -519,6 +520,76 @@ export class PropertiesPanelRenderer {
     `;
   }
 
+  /**
+   * The Content control every data-bearing element shares: the field itself, the
+   * autocomplete dropdown it anchors, the grammar hint, and one Preview Value row
+   * per placeholder found in the Content.
+   * @param {Object} element
+   * @param {number} rows - 0 renders a single-line input, >0 a textarea
+   */
+  renderContentControl(element, rows = 0) {
+    const shared = "w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white";
+    const field = rows > 0
+      ? `<textarea id="prop-content" rows="${rows}" autocomplete="off" class="${shared}">${escapeHtml(element.content)}</textarea>`
+      : `<input type="text" id="prop-content" value="${escapeAttr(element.content)}" autocomplete="off" class="${shared}">`;
+
+    return `
+      <div class="mb-3">
+        <div class="relative flex items-center justify-between gap-2 mb-1">
+          <label for="prop-content" class="text-xs font-medium text-slate-700">Content</label>
+          <button type="button" id="prop-insert-placeholder" aria-haspopup="menu" aria-expanded="false"
+            class="shrink-0 flex items-center gap-1 rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:border-blue-500 hover:text-blue-600">
+            <span class="font-mono">%</span> Insert
+            <span class="material-icons-round text-sm leading-none">expand_more</span>
+          </button>
+          <div id="prop-insert-placeholder-menu" role="menu"
+            class="hidden absolute z-30 top-full right-0 mt-1 w-64 rounded-md border border-slate-200 bg-white shadow-lg"></div>
+        </div>
+        <div class="relative">
+          ${field}
+          <div id="prop-content-autocomplete" role="listbox"
+            class="hidden absolute z-20 left-0 right-0 mt-1 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg"></div>
+        </div>
+      </div>
+      <p class="text-[10px] text-slate-400 mb-3 -mt-2">Use <code>%name%</code> for a placeholder; <code>%%</code> prints a literal %.</p>
+      <div id="prop-content-placeholders">${this.renderContentPlaceholders(element)}</div>
+    `;
+  }
+
+  /**
+   * Preview Value rows for the placeholders this element's Content uses. The
+   * values are the label-wide Preview Data — editing one here is the same edit as
+   * making it in the Preview Data panel.
+   */
+  renderContentPlaceholders(element) {
+    const names = placeholderNames(element.content);
+    if (names.length === 0) return "";
+    const values = this.labelSettings?.previewData || {};
+
+    return `
+      <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5">
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <span class="text-[11px] font-medium text-slate-700">
+            ${names.length === 1 ? "Placeholder" : `${names.length} placeholders`} in this Content
+          </span>
+          <button type="button" id="prop-show-preview-data"
+            class="shrink-0 text-[10px] font-medium text-blue-600 hover:text-blue-700">Preview Data &rarr;</button>
+        </div>
+        <div class="space-y-2">
+          ${names.map(name => `
+            <div>
+              <span class="block text-[10px] font-mono text-amber-800">%${escapeHtml(name)}%</span>
+              <input type="text" data-content-placeholder="${escapeAttr(name)}"
+                value="${escapeAttr(values[name] ?? "")}" placeholder="Preview value"
+                class="w-full rounded-md border border-amber-200 py-1 px-2 text-xs text-slate-700 bg-white focus:ring-1 focus:ring-amber-400 focus:border-amber-400">
+            </div>
+          `).join("")}
+        </div>
+        <p class="mt-2 text-[10px] text-amber-700/80">Used on the canvas and preview only — exported ZPL keeps the placeholders.</p>
+      </div>
+    `;
+  }
+
   renderFieldHexToggle(element) {
     const fieldHexEnabled = element.fieldHex === true;
     const alignmentClass = fieldHexEnabled ? "items-start" : "items-center";
@@ -535,7 +606,7 @@ export class PropertiesPanelRenderer {
           </span>
           ${fieldHexEnabled ? `
             <span class="mt-2 block text-[11px] leading-4 text-slate-500">
-              Replaces _XX sequences in the placeholder value with hex bytes at print time.
+              Replaces _XX sequences in the Content with hex bytes at print time.
             </span>
           ` : ""}
         </span>
@@ -640,8 +711,7 @@ export class PropertiesPanelRenderer {
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Text Content", `
-        ${this.createInputGroup("Preview Text", "prop-preview-text", element.previewText)}
-        ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderContentControl(element)}
         ${this.renderFieldHexToggle(element)}
       `, { open: true, elementType: element.type })}
       ${this.renderSection("Font Settings", `
@@ -673,8 +743,7 @@ export class PropertiesPanelRenderer {
         ${this.renderOrientationButtons(element.orientation || "N")}
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
-        ${this.createInputGroup("Preview Data", "prop-preview-data", element.previewData)}
-        ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderContentControl(element)}
         ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Barcode Settings", `
@@ -713,15 +782,7 @@ export class PropertiesPanelRenderer {
         ${orientationControls}
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
-        <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-700 mb-1">Preview Data</label>
-          <textarea
-            id="prop-preview-data"
-            rows="2"
-            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-          >${element.previewData}</textarea>
-        </div>
-        ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderContentControl(element, 2)}
         ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("2D Barcode Settings", this.renderQRCodeSettings(element), { open: true, elementType: element.type })}
@@ -985,12 +1046,7 @@ export class PropertiesPanelRenderer {
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Text Content", `
-        <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
-          <textarea id="prop-preview-text" rows="3"
-            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(element.previewText)}</textarea>
-        </div>
-        ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderContentControl(element, 3)}
         ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Font Settings", `
@@ -1055,12 +1111,7 @@ export class PropertiesPanelRenderer {
         </div>
       `, { elementType: element.type })}
       ${this.renderSection("Text Content", `
-        <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-700 mb-1">Preview Text</label>
-          <textarea id="prop-preview-text" rows="3"
-            class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">${escapeHtml(element.previewText)}</textarea>
-        </div>
-        ${this.createInputGroup("Placeholder", "prop-placeholder", element.placeholder)}
+        ${this.renderContentControl(element, 3)}
         ${this.renderFieldHexToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Font Settings", `

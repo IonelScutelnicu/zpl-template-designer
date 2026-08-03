@@ -4,6 +4,7 @@
 import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 /**
  * Renderer for FIELDBLOCK elements
@@ -36,7 +37,7 @@ export class FieldBlockRenderer {
     ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
     ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
-    const raw = element.previewText || '';
+    const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
 
     const hangingIndentPx = (element.hangingIndent || 0) * scale;

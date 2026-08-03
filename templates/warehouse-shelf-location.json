@@ -16,13 +16,12 @@
       "id": 1777491265285.2607,
       "locked": false,
       "type": "BARCODE",
-      "previewData": "A-14-014-08G",
-      "placeholder": "",
       "height": 150,
       "width": 3,
       "ratio": 3,
       "showText": true,
-      "reverse": false
+      "reverse": false,
+      "content": "A-14-014-08G"
     },
     {
       "x": 10,
@@ -30,13 +29,12 @@
       "id": 1777491443753.5642,
       "locked": false,
       "type": "TEXT",
-      "previewText": "A-14-014-08G",
-      "placeholder": "",
       "fontId": "0",
       "fontSize": 140,
       "fontWidth": 110,
       "orientation": "N",
-      "reverse": false
+      "reverse": false,
+      "content": "A-14-014-08G"
     },
     {
       "x": 609,
@@ -56,13 +54,12 @@
       "id": 1777491581301.6138,
       "locked": false,
       "type": "TEXT",
-      "previewText": "17",
-      "placeholder": "",
       "fontId": "",
       "fontSize": 100,
       "fontWidth": 100,
       "orientation": "N",
-      "reverse": true
+      "reverse": true,
+      "content": "17"
     }
   ],
   "labelSettings": {

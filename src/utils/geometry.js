@@ -1,6 +1,7 @@
 // Geometry and Math Utilities for ZPL Template Creator
 
 import { resolveFontLineHeight, resolveFontMetrics } from './fontMetrics.js';
+import { resolvePlaceholders } from './placeholders.js';
 
 /**
  * Line height multiplier for FieldBlock rendering.
@@ -83,7 +84,7 @@ export function getElementBoundsResolved(element, labelSettings) {
   if (element.type === 'TEXT') {
     const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
     const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
-    const textW = Math.max((element.previewText || '').length * resolvedWidth * 0.6, 50);
+    const textW = Math.max(resolvePlaceholders(element.content, labelSettings.previewData).length * resolvedWidth * 0.6, 50);
     let w = textW, h = resolvedHeight;
     if (element.orientation === 'R' || element.orientation === 'B') {
       w = resolvedHeight;
@@ -99,6 +100,6 @@ export function getElementBoundsResolved(element, labelSettings) {
     }
     return { x: element.x, y: element.y, width: w, height: h };
   }
-  return element.getBounds(labelSettings?.dpmm);
+  return element.getBounds(labelSettings?.dpmm, labelSettings?.previewData);
 }
 

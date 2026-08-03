@@ -239,8 +239,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
                 const settings = { width: 50, height: 30, dpmm: 8 };
                 const svc = new SerializationService();
                 const elements = [
-                    svc.createElementFromData({ type: 'TEXT', x: 10, y: 10, previewText: 'Plain ASCII', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false }),
-                    svc.createElementFromData({ type: 'TEXT', x: 10, y: 50, previewText: 'A^B~C_D °é', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false }),
+                    svc.createElementFromData({ type: 'TEXT', x: 10, y: 10, content: 'Plain ASCII', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false }),
+                    svc.createElementFromData({ type: 'TEXT', x: 10, y: 50, content: 'A^B~C_D °é', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false }),
                 ];
                 const zpl = new ZPLGenerator().generatePreviewZPL(elements, settings);
                 const parsed = new ZPLParser().parse(zpl, settings);
@@ -249,7 +249,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
                     zpl,
                     parsedTexts: parsed.elements
                         .filter((el) => el.type === 'TEXT')
-                        .map((el) => el.previewText),
+                        .map((el) => el.content),
                 };
             });
 
@@ -269,17 +269,16 @@ test.describe('ZPL Output - Generation and Validation', () => {
                     '^XZ';
                 return new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 30 }).elements.map((el) => ({
                     type: el.type,
-                    text: el.previewText ?? null,
-                    data: el.previewData ?? null,
+                    content: el.content ?? null,
                     symbology: el.symbology ?? null,
                 }));
             });
 
             expect(result).toEqual([
-                { type: 'TEXT', text: '^°_zz', data: null, symbology: null },
-                { type: 'TEXT', text: 'Tilde ~ Inserted', data: null, symbology: null },
-                { type: 'BARCODE', text: null, data: '^~_', symbology: 'CODE128' },
-                { type: 'QRCODE', text: null, data: 'URL^é', symbology: 'QR' },
+                { type: 'TEXT', content: '^°_zz', symbology: null },
+                { type: 'TEXT', content: 'Tilde ~ Inserted', symbology: null },
+                { type: 'BARCODE', content: '^~_', symbology: 'CODE128' },
+                { type: 'QRCODE', content: 'URL^é', symbology: 'QR' },
             ]);
         });
 
@@ -287,8 +286,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
 
-            await page.locator('#prop-placeholder').fill('name');
-            await page.locator('#prop-placeholder').dispatchEvent('input');
+            await page.locator('#prop-content').fill('%name%');
+            await page.locator('#prop-content').dispatchEvent('input');
             await page.locator('#prop-field-hex').check({ force: true });
 
             const zpl = await zplOutput.getZPLCode();
@@ -619,8 +618,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await page.locator('#prop-x').dispatchEvent('change');
             await page.locator('#prop-y').fill('50');
             await page.locator('#prop-y').dispatchEvent('change');
-            await page.locator('#prop-preview-text').fill('TestLabel');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('TestLabel');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             await zplOutput.verifyZPLContains('^FO100,50');
             await zplOutput.verifyZPLContains('^FDTestLabel^FS');

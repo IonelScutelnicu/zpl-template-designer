@@ -3,6 +3,7 @@
 
 import { resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 /**
  * Renderer for TEXT elements
@@ -26,7 +27,7 @@ export class TextRenderer {
 
     const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
     const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
-    const raw = element.previewText || '';
+    const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 

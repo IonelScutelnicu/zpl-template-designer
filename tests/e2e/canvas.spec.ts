@@ -55,7 +55,7 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             // Ensure the element uses label defaults for size
             await propertiesPanel.setProperty('prop-font-size', 0);
             await propertiesPanel.setProperty('prop-font-width', 0);
-            await propertiesPanel.setProperty('prop-preview-text', 'Default Font');
+            await propertiesPanel.setProperty('prop-content', 'Default Font');
             await propertiesPanel.setProperty('prop-x', 80);
             await propertiesPanel.setProperty('prop-y', 80);
 
@@ -714,8 +714,8 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             await page.locator('#prop-x').dispatchEvent('change');
             await page.locator('#prop-y').fill('100');
             await page.locator('#prop-y').dispatchEvent('change');
-            await page.locator('#prop-preview-text').fill('Test');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Test');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             await canvas.waitForReady();
 

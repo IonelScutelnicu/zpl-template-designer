@@ -2,6 +2,7 @@
 // Handles mouse clicks, drag-to-move, and keyboard events
 
 import { getBarcodeGeometry, matrixModuleDots, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from './utils/barcodeGeometry.js';
+import { resolvePlaceholders } from './utils/placeholders.js';
 import { LINE_HEIGHT_RATIO, clampNumber, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
@@ -284,7 +285,7 @@ export class InteractionHandler {
         this.resizeStartY = selectedElement.y;
 
         if (selectedElement.type === 'LINE' || selectedElement.type === 'BARCODE' || selectedElement.type === 'QRCODE') {
-          const bounds = selectedElement.getBounds(this.labelSettings?.dpmm);
+          const bounds = selectedElement.getBounds(this.labelSettings?.dpmm, this.labelSettings?.previewData);
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
         } else if (selectedElement.type === 'CIRCLE' || selectedElement.type === 'DIAGONALLINE') {
@@ -618,7 +619,7 @@ export class InteractionHandler {
         const el = this.dragElement;
         const newWidth = Math.max(10, coords.x - el.x);
         const newHeight = Math.max(10, coords.y - el.y);
-        const geom = getBarcodeGeometry(el);
+        const geom = getBarcodeGeometry(el, this.labelSettings?.previewData);
         const b = BARCODE_2D_SIZE_BOUNDS;
         if (el.symbology === 'GS1DATABAR') {
           // GS1 DataBar sizing is driven by magnification (the module width).
@@ -844,8 +845,8 @@ export class InteractionHandler {
           this.dragElement.bytesPerRow = Math.ceil(this.dragElement.widthDots / 8);
           this.dragElement._needsReencode = true;
         } else if (this.dragElement.type === 'BARCODE') {
-          const dataLength = (this.dragElement.previewData || '').length;
-          const geom = getBarcodeGeometry(this.dragElement);
+          const dataLength = resolvePlaceholders(this.dragElement.content, this.labelSettings?.previewData).length;
+          const geom = getBarcodeGeometry(this.dragElement, this.labelSettings?.previewData);
           const totalModules = geom.kind === 'linear' ? geom.modules : linearFallbackModules(dataLength);
           // R/B rotate the symbol 90°, so the screen axes swap: the horizontal
           // drag drives the bar height and the vertical drag drives the module
@@ -1415,7 +1416,7 @@ export class InteractionHandler {
       }
       return { x: element.x, y: element.y, width: blockW, height: totalHeight };
     }
-    return element.getBounds(this.labelSettings?.dpmm);
+    return element.getBounds(this.labelSettings?.dpmm, this.labelSettings?.previewData);
   }
 
   getHandleAtPosition(x, y, element) {

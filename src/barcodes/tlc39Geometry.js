@@ -17,8 +17,7 @@ function applyCode39Ratio(sbs, ratio) {
   return Array.from(sbs, (v) => (v === 3 ? ratio : v));
 }
 
-export function getTlc39Geometry(element) {
-  const data = element.previewData || '';
+export function getTlc39Geometry(element, data = '') {
   const { w1, r1, h1, w2, h2 } = tlc39Settings(element);
   const key = `${data}|${w1}|${r1}|${h1}|${w2}|${h2}`;
   const cached = tlc39Cache.get(key);

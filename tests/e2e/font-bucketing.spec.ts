@@ -193,7 +193,7 @@ test.describe('ZPL bitmap font bucketing', () => {
             await elementsPanel.selectElementByIndex(0);
             // Pin the preview text so screenshot equality isn't shifted by
             // default text-content changes between runs.
-            await propertiesPanel.setProperty('prop-preview-text', 'Hello');
+            await propertiesPanel.setProperty('prop-content', 'Hello');
         });
 
         async function renderAt(fontId: string, h: number, w: number): Promise<Buffer> {
@@ -319,7 +319,7 @@ test.describe('ZPL bitmap font bucketing', () => {
         test('Font B: glyph aspect ratio is scale-invariant across magnifications', async ({ page }) => {
             await propertiesPanel.setSelectValue('prop-font-id', 'B');
             await propertiesPanel.setProperty('prop-font-width', '');
-            await propertiesPanel.setProperty('prop-preview-text', 'HHHHHH');
+            await propertiesPanel.setProperty('prop-content', 'HHHHHH');
 
             const aspects: number[] = [];
             for (const h of [22, 44, 66, 99]) { // magnifications n = 2,4,6,9
@@ -436,11 +436,11 @@ test.describe('ZPL bitmap font bucketing', () => {
                 const s = new Svc();
                 // fontId '' inherits the label default. Font A: 33→36, 11→10.
                 const el = s.createElementFromData(
-                    { type: 'TEXT', x: 0, y: 0, previewText: 'X', fontId: '', fontSize: 33, fontWidth: 11, orientation: 'N', reverse: false },
+                    { type: 'TEXT', x: 0, y: 0, content: 'X', fontId: '', fontSize: 33, fontWidth: 11, orientation: 'N', reverse: false },
                     { labelFontId: 'A' },
                 );
                 const elNoDefault = s.createElementFromData(
-                    { type: 'TEXT', x: 0, y: 0, previewText: 'X', fontId: '', fontSize: 33, fontWidth: 11, orientation: 'N', reverse: false },
+                    { type: 'TEXT', x: 0, y: 0, content: 'X', fontId: '', fontSize: 33, fontWidth: 11, orientation: 'N', reverse: false },
                     {},
                 );
                 return {

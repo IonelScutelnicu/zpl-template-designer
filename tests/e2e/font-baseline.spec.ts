@@ -99,7 +99,7 @@ for (const font of FONTS) {
                     await elementsPanel.addTextElement();
                     await elementsPanel.selectElementByIndex(i);
                     await propertiesPanel.setSelectValue('prop-font-id', font.id);
-                    await propertiesPanel.setProperty('prop-preview-text', SAMPLE_TEXT);
+                    await propertiesPanel.setProperty('prop-content', SAMPLE_TEXT);
                     await propertiesPanel.setProperty('prop-x', PADDING);
                     await propertiesPanel.setProperty('prop-y', yCursor);
                     await propertiesPanel.setFontHeight(h);
@@ -172,7 +172,7 @@ for (const fontId of ROTATION_FONTS) {
                 await elementsPanel.addTextElement();
                 await elementsPanel.selectElementByIndex(0);
                 await propertiesPanel.setSelectValue('prop-font-id', fontId);
-                await propertiesPanel.setProperty('prop-preview-text', 'Sample');
+                await propertiesPanel.setProperty('prop-content', 'Sample');
                 await propertiesPanel.setProperty('prop-x', 60);
                 await propertiesPanel.setProperty('prop-y', 60);
                 await propertiesPanel.setFontHeight(ROT_SIZE_BY_FONT[fontId]);

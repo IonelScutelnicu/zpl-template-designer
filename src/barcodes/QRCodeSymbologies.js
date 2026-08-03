@@ -1,5 +1,5 @@
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
-import { placeholderName } from '../utils/placeholders.js';
+import { placeholderNames } from '../utils/placeholders.js';
 import { drawLinear, drawMatrix, drawMaxiCode, drawPlaceholder } from '../rendering/barcodeRender.js';
 import { applyReverseOverlay, captureReverseBg } from '../rendering/reverseOverlay.js';
 import { maxicodeSize, maxicodePitchDots } from './maxicodeGeometry.js';
@@ -8,8 +8,8 @@ import { databarLinearBarDots, DATABAR_SEPARATOR_HEIGHT } from './databarGeometr
 export const DATABAR_TYPE_NUM = { omni: 1, truncated: 2, stacked: 3, stackedomni: 4, limited: 5, expanded: 6 };
 export const DATABAR_TYPE_BY_NUM = { 1: 'omni', 2: 'truncated', 3: 'stacked', 4: 'stackedomni', 5: 'limited', 6: 'expanded' };
 
-function fieldData(value, element, preservePlaceholders = false) {
-  return renderFieldDataCommand(value, '_', element.fieldHex, { preservePlaceholders });
+function fieldData(value, element) {
+  return renderFieldDataCommand(value, '_', element.fieldHex);
 }
 
 function intParam(value, fallback) {
@@ -27,11 +27,8 @@ function parseOrientation(value) {
 }
 
 function fieldPayload(parser, fdToken, fhToken) {
-  const rawData = parser._decodeFieldDataToken(fdToken, fhToken);
-  const name = placeholderName(rawData);
   return {
-    previewData: name || rawData,
-    placeholder: name,
+    content: parser._decodeFieldDataToken(fdToken, fhToken),
     fieldHex: Boolean(fhToken),
   };
 }
@@ -41,12 +38,12 @@ class QRSymbology {
     this.id = id;
   }
 
-  render(element, content, preservePlaceholders) {
-    return this.renderDefault(element, content, preservePlaceholders);
+  render(element, content) {
+    return this.renderDefault(element, content);
   }
 
-  renderDefault(element, content, preservePlaceholders) {
-    return `^BQN,${element.model},${element.magnification}${fieldData(`${element.errorCorrection}A,${content}`, element, preservePlaceholders)}`;
+  renderDefault(element, content) {
+    return `^BQN,${element.model},${element.magnification}${fieldData(`${element.errorCorrection}A,${content}`, element)}`;
   }
 
   supportsOrientation() {
@@ -96,8 +93,8 @@ class QRSymbology {
 class DataMatrixSymbology extends QRSymbology {
   supportsOrientation() { return true; }
 
-  render(element, content, preservePlaceholders) {
-    return `^BX${orientationParam(element)},${element.moduleSize},${element.quality}${fieldData(content, element, preservePlaceholders)}`;
+  render(element, content) {
+    return `^BX${orientationParam(element)},${element.moduleSize},${element.quality}${fieldData(content, element)}`;
   }
 
   moduleDots(element) {
@@ -146,9 +143,9 @@ class StackedRowsSymbology extends QRSymbology {
 }
 
 class PDF417Symbology extends StackedRowsSymbology {
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const cols = element.columns > 0 ? `,${element.columns}` : '';
-    return `^BY${element.moduleWidth}^B7${orientationParam(element)},${element.rowHeight},${element.securityLevel}${cols}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^B7${orientationParam(element)},${element.rowHeight},${element.securityLevel}${cols}${fieldData(content, element)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -166,9 +163,9 @@ class PDF417Symbology extends StackedRowsSymbology {
 }
 
 class MicroPDF417Symbology extends StackedRowsSymbology {
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const mode = Math.max(0, Math.min(33, element.microPdfMode || 0));
-    return `^BY${element.moduleWidth}^BF${orientationParam(element)},${element.rowHeight},${mode}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^BF${orientationParam(element)},${element.rowHeight},${mode}${fieldData(content, element)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -182,9 +179,9 @@ class MicroPDF417Symbology extends StackedRowsSymbology {
 }
 
 class Code49Symbology extends StackedRowsSymbology {
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const mode = ['0', '1', '2', '3', '4', '5', 'A'].includes(element.code49Mode) ? element.code49Mode : 'A';
-    return `^BY${element.moduleWidth}^B4${orientationParam(element)},${element.rowHeight},N,${mode}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^B4${orientationParam(element)},${element.rowHeight},N,${mode}${fieldData(content, element)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -206,9 +203,9 @@ class Code49Symbology extends StackedRowsSymbology {
 }
 
 class CodablockSymbology extends StackedRowsSymbology {
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const mode = ['A', 'E', 'F'].includes(element.codablockMode) ? element.codablockMode : 'F';
-    return `^BY${element.moduleWidth}^BB${orientationParam(element)},${element.rowHeight},N,,,${mode}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BY${element.moduleWidth}^BB${orientationParam(element)},${element.rowHeight},N,,,${mode}${fieldData(content, element)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -247,14 +244,16 @@ class CodablockSymbology extends StackedRowsSymbology {
 class AztecSymbology extends QRSymbology {
   supportsOrientation() { return true; }
 
-  render(element, content, preservePlaceholders) {
-    const isPlaceholder = /^%.*%$/.test(content);
+  render(element, content) {
+    // A rune is a single 0–255 byte, so only normalize once the placeholders are
+    // gone — an unresolved placeholder would be mangled into a number.
+    const isPlaceholder = placeholderNames(content).length > 0;
     const data = element.aztecSizeMode === 'rune' && !isPlaceholder && typeof element.normalizeAztecRune === 'function'
       ? element.normalizeAztecRune(content)
       : content;
     const d = typeof element.aztecD === 'function' ? element.aztecD() : 0;
     const dParam = d > 0 ? `,${d}` : '';
-    return `^B0${orientationParam(element)},${element.magnification},N${dParam}${fieldData(data, element, preservePlaceholders)}`;
+    return `^B0${orientationParam(element)},${element.magnification},N${dParam}${fieldData(data, element)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -280,9 +279,9 @@ class AztecSymbology extends QRSymbology {
 }
 
 class MaxiCodeSymbology extends QRSymbology {
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const mode = ['2', '3', '4', '5', '6'].includes(String(element.maxicodeMode)) ? String(element.maxicodeMode) : '4';
-    return `^BD${mode},1,1${fieldData(content, element, preservePlaceholders)}`;
+    return `^BD${mode},1,1${fieldData(content, element)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -347,9 +346,9 @@ class MaxiCodeSymbology extends QRSymbology {
 class GS1DataBarSymbology extends QRSymbology {
   supportsOrientation() { return true; }
 
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const t = DATABAR_TYPE_NUM[element.databarType] || 1;
-    return `^BR${orientationParam(element)},${t},${element.magnification || 5},${DATABAR_SEPARATOR_HEIGHT},${element.rowHeight || 40}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BR${orientationParam(element)},${t},${element.magnification || 5},${DATABAR_SEPARATOR_HEIGHT},${element.rowHeight || 40}${fieldData(content, element)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {
@@ -415,13 +414,13 @@ class GS1DataBarSymbology extends QRSymbology {
 class TLC39Symbology extends QRSymbology {
   supportsOrientation() { return true; }
 
-  render(element, content, preservePlaceholders) {
+  render(element, content) {
     const w1 = element.tlc39Code39Width || element.moduleWidth || 2;
     const r1 = element.tlc39Ratio || 3;
     const h1 = element.tlc39Code39Height || element.rowHeight || 40;
     const w2 = element.tlc39MicroPdfWidth || w1;
     const h2 = element.tlc39MicroPdfRowHeight || w2;
-    return `^BT${orientationParam(element)},${w1},${r1},${h1},${w2},${h2}${fieldData(content, element, preservePlaceholders)}`;
+    return `^BT${orientationParam(element)},${w1},${r1},${h1},${w2},${h2}${fieldData(content, element)}`;
   }
 
   parse(parser, group, token, fdToken, hasReverse, fhToken) {

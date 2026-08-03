@@ -1,7 +1,7 @@
 import { ZPLElement } from './ZPLElement.js';
 import { getBarcodeGeometry, normalizeAztecRune } from '../utils/barcodeGeometry.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
-import { placeholderToken } from '../utils/placeholders.js';
+import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
@@ -11,15 +11,14 @@ import { placeholderToken } from '../utils/placeholders.js';
 // QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
 // Aztec has no quiet zone, so it keeps the default 0 offset.
 export class QRCodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, previewData = '', model = 2, magnification = 5, errorCorrection = 'Q', placeholder = '', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni', orientation = 'N') {
+    constructor(x = 0, y = 0, content = '', model = 2, magnification = 5, errorCorrection = 'Q', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni', orientation = 'N') {
         const opts = (x && typeof x === 'object')
             ? x
-            : { x, y, previewData, model, magnification, errorCorrection, placeholder, reverse, symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel, columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType, orientation };
+            : { x, y, content, model, magnification, errorCorrection, reverse, symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel, columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode, codablockMode, maxicodeMode, databarType, orientation };
         super(opts.x ?? 0, opts.y ?? 0);
         this.type = 'QRCODE';
         this.symbology = opts.symbology || 'QR';
-        this.previewData = opts.previewData ?? opts.data ?? '';
-        this.placeholder = opts.placeholder || '';
+        this.content = opts.content ?? ''; // Template string: literal text mixed with %placeholder%s
         // QR (^BQ)
         this.model = opts.model || 2;              // 1 = original, 2 = enhanced (recommended)
         this.magnification = opts.magnification || 5; // 1-10 (scaling factor)
@@ -84,31 +83,31 @@ export class QRCodeElement extends ZPLElement {
         }
     }
 
-    _render(content, preservePlaceholders = false) {
+    _render(content) {
         const reverseCmd = this.reverse ? '^FR' : '';
         const pos = `^FO${this.x},${this.y}${reverseCmd}`;
-        return `${pos}${getQRCodeSymbology(this.symbology).render(this, content, preservePlaceholders)}^FS`;
+        return `${pos}${getQRCodeSymbology(this.symbology).render(this, content)}^FS`;
     }
 
     render() {
-        return this._render(this.placeholder ? placeholderToken(this.placeholder) : this.previewData, Boolean(this.placeholder));
+        return this._render(this.content);
     }
 
-    renderPreview() {
-        // Uses preview data for Labelary API visualization
-        return this._render(this.previewData, false);
+    renderPreview(defaultFontId, defaultFontHeight, defaultFontWidth, previewData = {}) {
+        // Placeholders resolve to their Preview Data values for the Labelary preview
+        return this._render(resolvePlaceholders(this.content, previewData));
     }
 
     getDisplayName() {
-        const displayText = this.placeholder || this.previewData;
+        const displayText = this.content;
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
     // dpmm sizes the fixed MaxiCode symbol (defaults to the factory 8 dpmm when a
     // caller has no label settings); all other symbologies ignore it.
-    getBounds(dpmm = 8) {
+    getBounds(dpmm = 8, previewData = {}) {
         const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
-        const geom = getBarcodeGeometry(this);
+        const geom = getBarcodeGeometry(this, previewData);
         const symbology = getQRCodeSymbology(this.symbology);
         const bounds = symbology.bounds(this, geom, {
             yOffset,

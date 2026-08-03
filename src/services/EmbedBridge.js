@@ -2,9 +2,11 @@
 // inside a host application (?embed=1), either as an iframe or a window
 // opened from the host. Protocol v1, envelope both ways:
 //   { source, version, type, payload }
-// host→editor: init, loadTemplate, loadZPL, requestSave
+// host→editor: init, loadTemplate, loadZPL, setPreviewData, requestSave
 // editor→host: ready, save, cancel, change, error
 // Full reference in docs/EMBEDDING.md.
+
+import { isValidPlaceholderName } from '../utils/placeholders.js';
 
 const PROTOCOL_VERSION = 1;
 const SOURCE_EDITOR = 'zpl-designer';
@@ -21,8 +23,9 @@ export function isEmbedMode() {
  * @param {Function} deps.importTemplateJson - (jsonString) => boolean success
  * @param {Function} deps.importZPL - (zpl) => warnings[] (never throws)
  * @param {Function} deps.getResult - () => { template, zpl }
+ * @param {Function} deps.setPreviewData - (map) => void, merges host Preview Data
  */
-export function initEmbedBridge({ state, importTemplateJson, importZPL, getResult }) {
+export function initEmbedBridge({ state, importTemplateJson, importZPL, getResult, setPreviewData }) {
   const hostWindow = window.parent !== window ? window.parent : window.opener;
   if (!hostWindow) return;
 
@@ -41,6 +44,26 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
 
   const sendSave = () => post('save', getResult(), hostOrigin);
 
+  // Host-supplied Preview Data. Keys that could never be recognised as a placeholder
+  // are dropped rather than silently populating an unreachable row; a key with an
+  // empty value is legitimate — it defines the placeholder without sampling it.
+  const applyPreviewData = (map) => {
+    if (!map || typeof map !== 'object' || Array.isArray(map)) {
+      post('error', { message: 'previewData must be an object' }, hostOrigin);
+      return;
+    }
+    const clean = {};
+    const rejected = [];
+    for (const [name, value] of Object.entries(map)) {
+      if (isValidPlaceholderName(name)) clean[name] = String(value ?? '');
+      else rejected.push(name);
+    }
+    if (rejected.length > 0) {
+      post('error', { message: 'Ignored invalid placeholder names', names: rejected }, hostOrigin);
+    }
+    setPreviewData(clean);
+  };
+
   const applyContent = (payload) => {
     if (payload.template !== undefined && payload.template !== null) {
       const json = typeof payload.template === 'string'
@@ -54,6 +77,10 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
       if (warnings.length > 0) {
         post('error', { message: 'ZPL imported with warnings', warnings }, hostOrigin);
       }
+    }
+    // After the import, so host values win over whatever the template carried.
+    if (payload.previewData !== undefined) {
+      applyPreviewData(payload.previewData);
     }
     // Imports fire elementsChanged/labelSettingsChanged synchronously;
     // host-initiated loads shouldn't read as user edits.
@@ -75,6 +102,8 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
     }
     if (msg.type === 'init' || msg.type === 'loadTemplate' || msg.type === 'loadZPL') {
       applyContent(msg.payload || {});
+    } else if (msg.type === 'setPreviewData') {
+      applyPreviewData((msg.payload || {}).previewData);
     } else if (msg.type === 'requestSave') {
       // Same payload the Save button sends — a host driving the editor from
       // its own chrome gets an identical `save` back.

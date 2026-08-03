@@ -46,7 +46,7 @@ test.describe('Embed mode', () => {
         await host.frame.locator('#embed-save-btn').click();
         await host.expectStatus('saved');
         const result = await host.getResultText();
-        expect(result).toContain('"previewText": "Hello from host"');
+        expect(result).toContain('"content": "Hello from host"');
         expect(result).toContain('^XA');
         expect(result).toContain('^XZ');
     });
@@ -58,6 +58,94 @@ test.describe('Embed mode', () => {
         await host.loadZplBtn.click();
         await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(2);
         await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
+    });
+
+    test('host-supplied preview data reaches the Preview Data panel', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        await host.setPreviewDataBtn.click();
+
+        // The demo embeds with fullscreen=1, so the panel is reached from the
+        // icon rail rather than by opening a <details>.
+        await host.frame.locator('#fs-icon-rail [data-fs-tab="preview-data"]').click();
+        const panel = host.frame.locator('#preview-data-panel');
+        await expect(panel.locator('[data-placeholder="price"]')).toHaveValue('19.99');
+        await expect(panel.locator('[data-placeholder="sku"]')).toHaveValue('KX-2219-B');
+        // A host may define a placeholder without sampling it; it still appears.
+        await expect(panel.locator('[data-placeholder="lot"]')).toHaveValue('');
+    });
+
+    // A template load is a whole-document swap, so it resets Preview Data to
+    // whatever the incoming template carries. A host that wants its own values
+    // to apply sends them in the same message.
+    test('preview data sent with a template load applies to it', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        await page.evaluate(() => {
+            (document.querySelector('#editor-container iframe') as HTMLIFrameElement)
+                .contentWindow!.postMessage(
+                    {
+                        source: 'zpl-designer-host', version: 1, type: 'loadTemplate',
+                        payload: {
+                            template: {
+                                labelSettings: { width: 100, height: 50, dpmm: 8 },
+                                elements: [{ type: 'TEXT', x: 20, y: 20, content: 'Price: %price%', fontSize: 30 }],
+                            },
+                            previewData: { price: '19.99' },
+                        },
+                    },
+                    '*',
+                );
+        });
+
+        await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+        await host.frame.locator('#fs-icon-rail [data-fs-tab="preview-data"]').click();
+        await expect(host.frame.locator('#preview-data-panel [data-placeholder="price"]'))
+            .toHaveValue('19.99');
+
+        // The sample value is preview-only — the saved ZPL still carries the placeholder.
+        await host.frame.locator('#embed-save-btn').click();
+        await host.expectStatus('saved');
+        const result = await host.getResultText();
+        expect(result).toContain('%price%');
+        expect(result).not.toContain('^FDPrice: 19.99');
+    });
+
+    test('a bare template load resets host preview data to the template\'s own', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        await host.setPreviewDataBtn.click();
+        await host.frame.locator('#fs-icon-rail [data-fs-tab="preview-data"]').click();
+        await expect(host.frame.locator('#preview-data-panel [data-placeholder="price"]')).toHaveValue('19.99');
+
+        await host.loadTemplateBtn.click();
+        await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+
+        await expect(host.frame.locator('#preview-data-panel [data-placeholder="price"]')).toHaveCount(0);
+    });
+
+    test('an invalid placeholder name is rejected, not silently shown', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        await page.evaluate(() => {
+            (document.querySelector('#editor-container iframe') as HTMLIFrameElement)
+                .contentWindow!.postMessage(
+                    {
+                        source: 'zpl-designer-host', version: 1, type: 'setPreviewData',
+                        payload: { previewData: { '9bad': 'x', good: 'y' } },
+                    },
+                    '*',
+                );
+        });
+
+        await host.frame.locator('#fs-icon-rail [data-fs-tab="preview-data"]').click();
+        const panel = host.frame.locator('#preview-data-panel');
+        await expect(panel.locator('[data-placeholder="good"]')).toHaveValue('y');
+        await expect(panel.locator('[data-placeholder="9bad"]')).toHaveCount(0);
     });
 
     test('user edits emit a change ping; cancel notifies the host', async ({ page }) => {
@@ -179,7 +267,7 @@ test.describe('Embed mode', () => {
         await page.locator('#host-save-btn').click();
         await host.expectStatus('saved');
         const result = await host.getResultText();
-        expect(result).toContain('"previewText": "Hello from host"');
+        expect(result).toContain('"content": "Hello from host"');
         expect(result).toContain('^XA');
     });
 
@@ -396,7 +484,7 @@ test.describe('Embed mode', () => {
         await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
         await host.frame.locator('#embed-save-btn').click();
         await host.expectStatus('saved');
-        expect(await host.getResultText()).toContain('"previewText": "Hello from host"');
+        expect(await host.getResultText()).toContain('"content": "Hello from host"');
     });
 
     test('new-tab flow round-trips a save through window.opener', async ({ page, context }) => {
@@ -414,6 +502,6 @@ test.describe('Embed mode', () => {
         await expect(popup.locator('#elements-list .element-item')).toHaveCount(1);
         await popup.locator('#embed-save-btn').click();
         await host.expectStatus('saved');
-        expect(await host.getResultText()).toContain('"previewText": "Hello from host"');
+        expect(await host.getResultText()).toContain('"content": "Hello from host"');
     });
 });

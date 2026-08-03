@@ -16,12 +16,11 @@
       "id": 1777485103694.2844,
       "locked": false,
       "type": "BARCODE",
-      "previewData": "X001NP49XJ",
-      "placeholder": "barcode",
       "height": 50,
       "width": 2,
       "ratio": 2,
-      "showText": true
+      "showText": true,
+      "content": "%barcode%"
     },
     {
       "x": 5,
@@ -41,15 +40,14 @@
       "id": 1777485276074.506,
       "locked": false,
       "type": "TEXTBLOCK",
-      "previewText": "Field Notes 3-pack — Memo Books Graph paper, 48 pages",
-      "placeholder": "product_description",
       "fontId": "0",
       "fontSize": 0,
       "fontWidth": 0,
       "blockWidth": 390,
       "blockHeight": 76,
       "reverse": false,
-      "orientation": "N"
+      "orientation": "N",
+      "content": "%product_description%"
     },
     {
       "x": 5,
@@ -57,15 +55,14 @@
       "id": 1777485354643.715,
       "locked": false,
       "type": "TEXTBLOCK",
-      "previewText": "New",
-      "placeholder": "product_condition",
       "fontId": "0",
       "fontSize": 16,
       "fontWidth": 16,
       "blockWidth": 390,
       "blockHeight": 20,
       "reverse": false,
-      "orientation": "N"
+      "orientation": "N",
+      "content": "%product_condition%"
     }
   ],
   "labelSettings": {
@@ -88,6 +85,11 @@
     "defaultFontWidth": 0,
     "homeX": 0,
     "homeY": 0,
-    "labelTop": 0
+    "labelTop": 0,
+    "previewData": {
+      "barcode": "X001NP49XJ",
+      "product_description": "Field Notes 3-pack — Memo Books Graph paper, 48 pages",
+      "product_condition": "New"
+    }
   }
 }

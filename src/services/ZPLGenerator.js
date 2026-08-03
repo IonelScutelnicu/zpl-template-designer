@@ -3,6 +3,7 @@
 
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
+import { toPlaceholder, resolvePlaceholders } from '../utils/placeholders.js';
 
 /**
  * Service for generating ZPL (Zebra Programming Language) output
@@ -50,7 +51,8 @@ export class ZPLGenerator {
         let cmd = element.renderPreview(
           labelSettings.fontId,
           labelSettings.defaultFontHeight || 20,
-          labelSettings.defaultFontWidth ?? 0
+          labelSettings.defaultFontWidth ?? 0,
+          labelSettings.previewData
         );
 
         // Optional: Add debug highlighting for selected text elements
@@ -175,16 +177,21 @@ export class ZPLGenerator {
       printQuantity = 1,
       pauseCount = 0,
       replicates = 0,
-      printQuantityPlaceholder = ''
+      printQuantityPlaceholder = '',
+      previewData = {}
     } = labelSettings;
 
     let footer = '';
 
-    // Print quantity (^PQ: quantity, pause count, replicates)
+    // Print quantity (^PQ: quantity, pause count, replicates). ^PQ takes a bare
+    // number, so its placeholder is a name rather than a Content template; the
+    // preview substitutes its Preview Data value, falling back to the quantity.
     if (printQuantity > 1 || pauseCount > 0 || replicates > 0 || printQuantityPlaceholder) {
-      const qty = (!preview && printQuantityPlaceholder)
-        ? `%${printQuantityPlaceholder}%`
-        : printQuantity;
+      const qty = !printQuantityPlaceholder
+        ? printQuantity
+        : preview
+          ? (previewData[printQuantityPlaceholder] || printQuantity)
+          : toPlaceholder(printQuantityPlaceholder);
       footer += `^PQ${qty},${pauseCount},${replicates}\n`;
     }
 
@@ -209,7 +216,7 @@ export class ZPLGenerator {
       const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
       boxHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
     } else if (element.type === 'TEXT') {
-      const text = element.previewText || '';
+      const text = resolvePlaceholders(element.content, labelSettings.previewData);
       const fontWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
       boxWidth = Math.max(text.length * fontWidth * 0.6, 50);
       boxHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
@@ -259,7 +266,8 @@ export class ZPLGenerator {
       const cmd = element.renderPreview(
         labelSettings.fontId,
         labelSettings.defaultFontHeight || 20,
-        labelSettings.defaultFontWidth ?? 0
+        labelSettings.defaultFontWidth ?? 0,
+        labelSettings.previewData
       );
 
       const cmdBytes = encoder.encode(cmd).length;

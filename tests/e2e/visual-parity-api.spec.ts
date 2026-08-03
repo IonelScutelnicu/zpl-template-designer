@@ -30,8 +30,8 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-x').dispatchEvent('input');
         await page.locator('#prop-y').fill('100');
         await page.locator('#prop-y').dispatchEvent('input');
-        await page.locator('#prop-preview-text').fill('Parity');
-        await page.locator('#prop-preview-text').dispatchEvent('input');
+        await page.locator('#prop-content').fill('Parity');
+        await page.locator('#prop-content').dispatchEvent('input');
 
         // Get canvas at full dot resolution (unaffected by CSS scaling)
         await canvas.waitForReady();
@@ -211,8 +211,8 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-block-height').fill('200');
         await page.locator('#prop-block-height').dispatchEvent('input');
         // Long word without spaces — must be hard-split
-        await page.locator('#prop-preview-text').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-        await page.locator('#prop-preview-text').dispatchEvent('input');
+        await page.locator('#prop-content').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+        await page.locator('#prop-content').dispatchEvent('input');
 
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 
@@ -239,8 +239,8 @@ test.describe('Visual Parity - Canvas vs API', () => {
         await page.locator('#prop-max-lines').fill('5');
         await page.locator('#prop-max-lines').dispatchEvent('input');
         // Long word without spaces — must be hard-split
-        await page.locator('#prop-preview-text').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
-        await page.locator('#prop-preview-text').dispatchEvent('input');
+        await page.locator('#prop-content').fill('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+        await page.locator('#prop-content').dispatchEvent('input');
 
         const canvasImage = await canvas.takeFullResolutionScreenshot();
 

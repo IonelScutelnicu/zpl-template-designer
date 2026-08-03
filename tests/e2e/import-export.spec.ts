@@ -82,8 +82,8 @@ test.describe('Import/Export - Template Persistence', () => {
             await page.locator('#prop-x').dispatchEvent('change');
             await page.locator('#prop-y').fill('456');
             await page.locator('#prop-y').dispatchEvent('change');
-            await page.locator('#prop-preview-text').fill('Export Test');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Export Test');
+            await page.locator('#prop-content').dispatchEvent('change');
 
             const downloadPromise = page.waitForEvent('download');
             await zplOutput.exportTemplate();
@@ -98,7 +98,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const textElement = json.elements[0];
             expect(textElement.x).toBe(123);
             expect(textElement.y).toBe(456);
-            expect(textElement.previewText).toBe('Export Test');
+            expect(textElement.content).toBe('Export Test');
 
             fs.unlinkSync(tempPath);
         });
@@ -133,8 +133,8 @@ test.describe('Import/Export - Template Persistence', () => {
             await elementsPanel.addBarcodeElement();
             await elementsPanel.selectElementByIndex(0);
 
-            await page.locator('#prop-preview-data').fill('ABC123');
-            await page.locator('#prop-preview-data').dispatchEvent('change');
+            await page.locator('#prop-content').fill('ABC123');
+            await page.locator('#prop-content').dispatchEvent('change');
             await page.locator('#prop-height').fill('80');
             await page.locator('#prop-height').dispatchEvent('change');
             await page.locator('#properties-panel [data-orientation="R"]').click();
@@ -151,7 +151,7 @@ test.describe('Import/Export - Template Persistence', () => {
 
             const el = json.elements[0];
             expect(el.type).toBe('BARCODE');
-            expect(el.previewData).toBe('ABC123');
+            expect(el.content).toBe('ABC123');
             expect(el.height).toBe(80);
             expect(el.orientation).toBe('R');
 
@@ -163,8 +163,8 @@ test.describe('Import/Export - Template Persistence', () => {
             await elementsPanel.selectElementByIndex(0);
             await propertiesPanel.setSelectValue('prop-symbology', 'DATAMATRIX');
 
-            await page.locator('#prop-preview-data').fill('https://example.com');
-            await page.locator('#prop-preview-data').dispatchEvent('change');
+            await page.locator('#prop-content').fill('https://example.com');
+            await page.locator('#prop-content').dispatchEvent('change');
             await page.locator('#prop-module-size').fill('4');
             await page.locator('#prop-module-size').dispatchEvent('change');
             await page.locator('#properties-panel [data-orientation="B"]').click();
@@ -182,7 +182,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const el = json.elements[0];
             expect(el.type).toBe('QRCODE');
             expect(el.symbology).toBe('DATAMATRIX');
-            expect(el.previewData).toBe('https://example.com');
+            expect(el.content).toBe('https://example.com');
             expect(el.moduleSize).toBe(4);
             expect(el.orientation).toBe('B');
 
@@ -335,7 +335,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'TEXT', x: 100, y: 100, placeholder: '{data}', previewText: 'Imported Text', fontSize: 30, fontWidth: 30, fontId: '' }
+                    { type: 'TEXT', x: 100, y: 100, placeholder: '{data}', content: 'Imported Text', fontSize: 30, fontWidth: 30, fontId: '' }
                 ]
             };
 
@@ -357,7 +357,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'TEXT', x: 150, y: 200, placeholder: '{data}', previewText: 'Property Test', fontSize: 40, fontWidth: 35, fontId: '', id: Date.now(), orientation: 'N', reverse: false }
+                    { type: 'TEXT', x: 150, y: 200, placeholder: '{data}', content: 'Property Test', fontSize: 40, fontWidth: 35, fontId: '', id: Date.now(), orientation: 'N', reverse: false }
                 ]
             };
 
@@ -371,7 +371,7 @@ test.describe('Import/Export - Template Persistence', () => {
 
             await propertiesPanel.verifyPropertyValue('prop-x', '150');
             await propertiesPanel.verifyPropertyValue('prop-y', '200');
-            await propertiesPanel.verifyPropertyValue('prop-preview-text', 'Property Test');
+            await propertiesPanel.verifyPropertyValue('prop-content', 'Property Test');
 
             fs.unlinkSync(tempPath);
         });
@@ -380,8 +380,8 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'TEXT', x: 50, y: 50, placeholder: '{data}', previewText: 'Text 1', fontSize: 20, fontWidth: 20, fontId: '' },
-                    { type: 'BARCODE', x: 50, y: 100, placeholder: '{barcode}', previewData: '12345', height: 50, width: 2, ratio: 2 },
+                    { type: 'TEXT', x: 50, y: 50, placeholder: '{data}', content: 'Text 1', fontSize: 20, fontWidth: 20, fontId: '' },
+                    { type: 'BARCODE', x: 50, y: 100, placeholder: '{barcode}', content: '12345', height: 50, width: 2, ratio: 2 },
                     { type: 'BOX', x: 50, y: 200, width: 100, height: 80, thickness: 2, color: 'B', rounding: 0 }
                 ]
             };
@@ -443,7 +443,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'TEXT', x: 100, y: 100, previewText: 'ZPL Test', fontSize: 30, fontWidth: 30, fontId: '' }
+                    { type: 'TEXT', x: 100, y: 100, content: 'ZPL Test', fontSize: 30, fontWidth: 30, fontId: '' }
                 ]
             };
 
@@ -462,8 +462,8 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'BARCODE', x: 50, y: 100, previewData: 'ABC123', height: 80, width: 2, ratio: 2, showText: true, symbology: 'CODE128', orientation: 'I' },
-                    { type: 'QRCODE', x: 150, y: 100, previewData: 'https://example.com', moduleSize: 4, quality: 200, symbology: 'DATAMATRIX', orientation: 'R' }
+                    { type: 'BARCODE', x: 50, y: 100, content: 'ABC123', height: 80, width: 2, ratio: 2, showText: true, symbology: 'CODE128', orientation: 'I' },
+                    { type: 'QRCODE', x: 150, y: 100, content: 'https://example.com', moduleSize: 4, quality: 200, symbology: 'DATAMATRIX', orientation: 'R' }
                 ]
             };
 
@@ -594,7 +594,7 @@ test.describe('Import/Export - Template Persistence', () => {
             const template = {
                 labelSettings: { width: 100, height: 50, dpmm: 8 },
                 elements: [
-                    { type: 'TEXT', x: 50, y: 50, previewText: 'REPLACED', placeholder: '', fontSize: 20, fontWidth: 0, fontId: '', orientation: 'N', reverse: false }
+                    { type: 'TEXT', x: 50, y: 50, content: 'REPLACED', placeholder: '', fontSize: 20, fontWidth: 0, fontId: '', orientation: 'N', reverse: false }
                 ]
             };
 
@@ -624,8 +624,8 @@ test.describe('Import/Export - Template Persistence', () => {
             // Create element with specific values
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
-            await page.locator('#prop-preview-text').fill('Round Trip Test');
-            await page.locator('#prop-preview-text').dispatchEvent('change');
+            await page.locator('#prop-content').fill('Round Trip Test');
+            await page.locator('#prop-content').dispatchEvent('change');
             await page.locator('#prop-x').fill('175');
             await page.locator('#prop-x').dispatchEvent('change');
             await page.locator('#prop-y').fill('225');
@@ -690,32 +690,27 @@ test.describe('Import/Export - Template Persistence', () => {
         const CASES = [
             {
                 name: 'TEXT',
-                data: { type: 'TEXT', x: 10, y: 10, previewText: 'sample', placeholder: 'name', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
-                field: 'previewText',
+                data: { type: 'TEXT', x: 10, y: 10, content: '%name%', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
             },
             {
                 name: 'TEXTBLOCK',
-                data: { type: 'TEXTBLOCK', x: 10, y: 10, previewText: 'sample', placeholder: 'address', fontSize: 30, fontWidth: 30, blockWidth: 200, blockHeight: 50, fontId: '', orientation: 'N', reverse: false },
-                field: 'previewText',
+                data: { type: 'TEXTBLOCK', x: 10, y: 10, content: '%address%', fontSize: 30, fontWidth: 30, blockWidth: 200, blockHeight: 50, fontId: '', orientation: 'N', reverse: false },
             },
             {
                 name: 'FIELDBLOCK',
-                data: { type: 'FIELDBLOCK', x: 10, y: 10, previewText: 'sample', placeholder: 'description', fontSize: 30, fontWidth: 30, blockWidth: 200, maxLines: 2, lineSpacing: 0, justification: 'L', hangingIndent: 0, fontId: '', orientation: 'N', reverse: false },
-                field: 'previewText',
+                data: { type: 'FIELDBLOCK', x: 10, y: 10, content: '%description%', fontSize: 30, fontWidth: 30, blockWidth: 200, maxLines: 2, lineSpacing: 0, justification: 'L', hangingIndent: 0, fontId: '', orientation: 'N', reverse: false },
             },
             {
                 name: 'BARCODE',
-                data: { type: 'BARCODE', x: 7, y: 0, previewData: '12345', placeholder: 'barcode', height: 20, width: 2, ratio: 3, showText: true, reverse: false },
-                field: 'previewData',
+                data: { type: 'BARCODE', x: 7, y: 0, content: '%barcode%', height: 20, width: 2, ratio: 3, showText: true, reverse: false },
             },
             {
                 name: 'QRCODE',
-                data: { type: 'QRCODE', x: 10, y: 10, previewData: 'https://example.com', placeholder: 'url', model: 2, magnification: 5, errorCorrection: 'Q', reverse: false },
-                field: 'previewData',
+                data: { type: 'QRCODE', x: 10, y: 10, content: '%url%', model: 2, magnification: 5, errorCorrection: 'Q', reverse: false },
             },
         ];
 
-        for (const { name, data, field } of CASES) {
+        for (const { name, data } of CASES) {
             test(`reads ${name} placeholder on import`, async ({ page }) => {
                 const parsed = await page.evaluate(async (elementData) => {
                     const [{ SerializationService }, { ZPLGenerator }, { ZPLParser }] = await Promise.all([
@@ -731,9 +726,8 @@ test.describe('Import/Export - Template Persistence', () => {
 
                 const el = parsed.elements.find((e: { type: string }) => e.type === name);
                 expect(el, `${name} element should be parsed`).toBeTruthy();
-                expect(el.placeholder).toBe(data.placeholder);
-                // Preview value falls back to the placeholder name when a field is templated.
-                expect(el[field]).toBe(data.placeholder);
+                // Content round-trips verbatim: the token is never collapsed to its name.
+                expect(el.content).toBe(data.content);
             });
         }
     });
@@ -750,12 +744,12 @@ test.describe('Import/Export - Template Persistence', () => {
                 const settings = { width: 50, height: 30, dpmm: 8 };
                 const svc = new SerializationService();
                 const source = [
-                    { type: 'TEXT', x: 10, y: 10, previewText: 'Text ^~_ °é', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
-                    { type: 'TEXT', x: 10, y: 30, previewText: 'Name', placeholder: 'name', fieldHex: true, fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
-                    { type: 'FIELDBLOCK', x: 10, y: 50, previewText: 'Block ^~_ °é', fontSize: 30, fontWidth: 30, blockWidth: 200, maxLines: 2, lineSpacing: 0, justification: 'L', hangingIndent: 0, fontId: '', orientation: 'N', reverse: false },
-                    { type: 'TEXTBLOCK', x: 10, y: 90, previewText: 'TB ^~_ °é', fontSize: 30, fontWidth: 30, blockWidth: 200, blockHeight: 50, fontId: '', orientation: 'N', reverse: false },
-                    { type: 'BARCODE', x: 10, y: 130, previewData: 'BC^~_', height: 50, width: 2, ratio: 2, showText: true, reverse: false, symbology: 'CODE128', orientation: 'N' },
-                    { type: 'QRCODE', x: 10, y: 200, previewData: 'QR^~_é', model: 2, magnification: 5, errorCorrection: 'Q', reverse: false, symbology: 'QR' },
+                    { type: 'TEXT', x: 10, y: 10, content: 'Text ^~_ °é', fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'TEXT', x: 10, y: 30, content: '%name%', fieldHex: true, fontSize: 30, fontWidth: 30, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'FIELDBLOCK', x: 10, y: 50, content: 'Block ^~_ °é', fontSize: 30, fontWidth: 30, blockWidth: 200, maxLines: 2, lineSpacing: 0, justification: 'L', hangingIndent: 0, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'TEXTBLOCK', x: 10, y: 90, content: 'TB ^~_ °é', fontSize: 30, fontWidth: 30, blockWidth: 200, blockHeight: 50, fontId: '', orientation: 'N', reverse: false },
+                    { type: 'BARCODE', x: 10, y: 130, content: 'BC^~_', height: 50, width: 2, ratio: 2, showText: true, reverse: false, symbology: 'CODE128', orientation: 'N' },
+                    { type: 'QRCODE', x: 10, y: 200, content: 'QR^~_é', model: 2, magnification: 5, errorCorrection: 'Q', reverse: false, symbology: 'QR' },
                 ];
                 const elements = source.map((data) => svc.createElementFromData(data, { keepId: true }));
                 const json = svc.exportTemplate(elements, settings);
@@ -764,14 +758,14 @@ test.describe('Import/Export - Template Persistence', () => {
                 const generator = new ZPLGenerator();
                 const zpl = generator.generatePreviewZPL(rehydrated, imported.labelSettings);
                 const productionZpl = generator.generateZPL(rehydrated, imported.labelSettings);
-                const parsed = new ZPLParser().parse(zpl, settings);
+                const parsed = new ZPLParser().parse(productionZpl, settings);
 
                 return {
                     json,
-                    values: rehydrated.map((el) => el.previewText ?? el.previewData),
+                    values: rehydrated.map((el) => el.content),
                     zpl,
                     productionZpl,
-                    parsedValues: parsed.elements.map((el) => el.previewText ?? el.previewData),
+                    parsedValues: parsed.elements.map((el) => el.content),
                 };
             });
 
@@ -779,7 +773,7 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(result.json).toContain('"fieldHex": true');
             expect(result.json).toContain('QR^~_é');
             expect(result.json).not.toContain('_5E_7E_5F');
-            expect(result.values).toEqual(['Text ^~_ °é', 'Name', 'Block ^~_ °é', 'TB ^~_ °é', 'BC^~_', 'QR^~_é']);
+            expect(result.values).toEqual(['Text ^~_ °é', '%name%', 'Block ^~_ °é', 'TB ^~_ °é', 'BC^~_', 'QR^~_é']);
             expect(result.zpl).toContain('^FH');
             expect(result.productionZpl).toContain('^FH^FD%name%^FS');
             expect(result.parsedValues).toEqual(result.values);

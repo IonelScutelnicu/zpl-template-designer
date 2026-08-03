@@ -1049,7 +1049,10 @@
     /* ---- Tab switching: which card and which subsection is visible ----
        Driven by data-fs-active-tab on #view-editor (set by FullscreenController).
        The "add" and "layers" tabs live inside #elements-card;
-       "label-setup", "print-config", "offsets", "font" live inside #settings-card. */
+       "preview-data", "label-setup", "print-config", "offsets", "font" live
+       inside #settings-card. Every tab name must be listed in all three rule
+       blocks below (content, section title, and the hide-the-other-card rule) —
+       a name missing from them renders as an empty panel. */
 
     /* Default: when fullscreen is on, hide every [data-fs-tab] block inside
        the two content cards; individual rules below re-show the matching one.
@@ -1062,6 +1065,7 @@
     /* Show the active tab's content + title. */
     #view-editor.is-fullscreen[data-fs-active-tab="add"] :is(#elements-card, #settings-card) [data-fs-tab="add"],
     #view-editor.is-fullscreen[data-fs-active-tab="layers"] :is(#elements-card, #settings-card) [data-fs-tab="layers"],
+    #view-editor.is-fullscreen[data-fs-active-tab="preview-data"] :is(#elements-card, #settings-card) [data-fs-tab="preview-data"],
     #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] :is(#elements-card, #settings-card) [data-fs-tab="label-setup"],
     #view-editor.is-fullscreen[data-fs-active-tab="print-config"] :is(#elements-card, #settings-card) [data-fs-tab="print-config"],
     #view-editor.is-fullscreen[data-fs-active-tab="offsets"] :is(#elements-card, #settings-card) [data-fs-tab="offsets"],
@@ -1079,6 +1083,7 @@
        which would otherwise force display: block. */
     #view-editor.is-fullscreen[data-fs-active-tab="add"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="add"],
     #view-editor.is-fullscreen[data-fs-active-tab="layers"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="layers"],
+    #view-editor.is-fullscreen[data-fs-active-tab="preview-data"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="preview-data"],
     #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="label-setup"],
     #view-editor.is-fullscreen[data-fs-active-tab="print-config"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="print-config"],
     #view-editor.is-fullscreen[data-fs-active-tab="offsets"] :is(#elements-card, #settings-card) .fs-section-title[data-fs-tab="offsets"],
@@ -1088,9 +1093,11 @@
 
     /* Hide whichever card has no active section.
        add + layers live in #elements-card → hide #settings-card on those tabs.
-       label-setup/print-config/offsets/font live in #settings-card → hide #elements-card. */
+       preview-data/label-setup/print-config/offsets/font live in #settings-card
+       → hide #elements-card. */
     #view-editor.is-fullscreen[data-fs-active-tab="add"] #settings-card,
     #view-editor.is-fullscreen[data-fs-active-tab="layers"] #settings-card,
+    #view-editor.is-fullscreen[data-fs-active-tab="preview-data"] #elements-card,
     #view-editor.is-fullscreen[data-fs-active-tab="label-setup"] #elements-card,
     #view-editor.is-fullscreen[data-fs-active-tab="print-config"] #elements-card,
     #view-editor.is-fullscreen[data-fs-active-tab="offsets"] #elements-card,
@@ -1392,6 +1399,10 @@
         </button>
         <button type="button" class="fs-icon-btn" data-fs-tab="layers" data-tooltip="Layers" aria-label="Layers">
           <span class="material-icons-outlined">layers</span>
+        </button>
+        <button type="button" class="fs-icon-btn" data-fs-tab="preview-data" data-tooltip="Preview Data"
+          aria-label="Preview Data">
+          <span class="material-icons-outlined">data_object</span>
         </button>
         <button type="button" class="fs-icon-btn" data-fs-tab="label-setup" data-tooltip="Label Setup"
           aria-label="Label Setup">
@@ -1829,6 +1840,27 @@
                     </div>
                   </div>
                 </div>
+              </details>
+
+              <h2 class="fs-section-title" data-fs-tab="preview-data">Preview Data
+                <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
+                  aria-label="Collapse panel">
+                  <span class="material-icons-round text-base">chevron_left</span>
+                </button>
+              </h2>
+              <!-- Preview Data: sample values for the placeholders found in element Content -->
+              <details class="group border-b border-slate-100" data-fs-tab="preview-data">
+                <summary
+                  class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
+                  <span>Preview Data</span>
+                  <span class="transition group-open:rotate-180">
+                    <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
+                      stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
+                      <path d="M6 9l6 6 6-6"></path>
+                    </svg>
+                  </span>
+                </summary>
+                <div id="preview-data-panel" class="p-4 text-slate-500 text-xs space-y-3"></div>
               </details>
 
               <h2 class="fs-section-title" data-fs-tab="offsets">Offsets

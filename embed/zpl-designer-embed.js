@@ -48,6 +48,7 @@
     var initPayload = {};
     if (opts.template !== undefined) initPayload.template = opts.template;
     if (opts.zpl !== undefined) initPayload.zpl = opts.zpl;
+    if (opts.previewData !== undefined) initPayload.previewData = opts.previewData;
 
     function postToEditor(type, payload) {
       var win = getWindow();
@@ -85,13 +86,21 @@
     window.addEventListener('message', onMessage);
 
     return {
-      loadTemplate: function (template) {
+      loadTemplate: function (template, previewData) {
         initPayload = { template: template };
-        postToEditor('loadTemplate', { template: template });
+        if (previewData !== undefined) initPayload.previewData = previewData;
+        postToEditor('loadTemplate', initPayload);
       },
-      loadZPL: function (zpl) {
+      loadZPL: function (zpl, previewData) {
         initPayload = { zpl: zpl };
-        postToEditor('loadZPL', { zpl: zpl });
+        if (previewData !== undefined) initPayload.previewData = previewData;
+        postToEditor('loadZPL', initPayload);
+      },
+      // Define placeholders and/or set their sample values without reloading.
+      // Merged into whatever the editor already has, so a partial map is fine.
+      setPreviewData: function (previewData) {
+        initPayload.previewData = Object.assign({}, initPayload.previewData, previewData);
+        postToEditor('setPreviewData', { previewData: previewData });
       },
       save: function () {
         postToEditor('requestSave', {});
@@ -108,7 +117,8 @@
      * ZplDesigner.embed({ container, url?, template?, zpl?, sandbox?,
      *                     hidePanels?, hideElements?, fullscreen?, onReady?,
      *                     onSave?, onCancel?, onChange?, onError? })
-     * Returns { iframe, loadTemplate(t), loadZPL(z), save(), destroy() }.
+     * Returns { iframe, loadTemplate(t), loadZPL(z), setPreviewData(m), save(),
+     *            destroy() }.
      */
     embed: function (opts) {
       var container = typeof opts.container === 'string'
@@ -142,6 +152,7 @@
         iframe: iframe,
         loadTemplate: conn.loadTemplate,
         loadZPL: conn.loadZPL,
+        setPreviewData: conn.setPreviewData,
         save: conn.save,
         destroy: function () {
           conn.disconnect();
@@ -152,7 +163,8 @@
 
     /**
      * Open the editor in a new tab. Same options as embed() minus container.
-     * Returns { window, loadTemplate(t), loadZPL(z), save(), close() } or null
+     * Returns { window, loadTemplate(t), loadZPL(z), setPreviewData(m), save(),
+     * close() } or null
      * when the popup was blocked.
      */
     open: function (opts) {
@@ -173,6 +185,7 @@
         window: win,
         loadTemplate: conn.loadTemplate,
         loadZPL: conn.loadZPL,
+        setPreviewData: conn.setPreviewData,
         save: conn.save,
         close: function () {
           conn.disconnect();

@@ -79,7 +79,7 @@ test.describe('Open in Labelary', () => {
         await elementsPanel.selectElementByIndex(0);
         await propertiesPanel.setSelectValue('prop-font-id', 'A');
         await propertiesPanel.setFontHeight(72); // allowed value for Font A (9×8)
-        await propertiesPanel.setProperty('prop-preview-text', 'Sample Text');
+        await propertiesPanel.setProperty('prop-content', 'Sample Text');
 
         const { url } = await captureLabelaryUrl(page);
         const zpl = new URL(url).searchParams.get('zpl') || '';

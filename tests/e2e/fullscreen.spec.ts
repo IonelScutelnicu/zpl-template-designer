@@ -164,6 +164,32 @@ test.describe('Fullscreen editor', () => {
             await expect(fullscreen.iconRailButton('add')).toHaveClass(/\bactive\b/);
         });
 
+        // Each tab name has to be listed in three separate CSS rule blocks in
+        // index.html. A name missing from them still switches the active tab but
+        // renders an empty panel, so assert every rail button reveals content.
+        test('every rail tab reveals its section content', async ({ page }) => {
+            await fullscreen.enter();
+
+            const tabs = await fullscreen.iconRail
+                .locator('.fs-icon-btn')
+                .evaluateAll((btns) => btns.map((b) => (b as HTMLElement).dataset.fsTab));
+
+            for (const tab of tabs) {
+                // Clicking the already-active icon collapses the rail instead.
+                const active = await fullscreen.viewEditor.getAttribute('data-fs-active-tab');
+                if (active !== tab) await fullscreen.iconRailButton(tab!).click();
+                await expect(fullscreen.viewEditor).toHaveAttribute('data-fs-active-tab', tab!);
+
+                // The section titles stay hidden in fullscreen (the rail labels them);
+                // it is the content block that has to become visible.
+                const section = page.locator(
+                    `#elements-card [data-fs-tab="${tab}"]:not(.fs-section-title),` +
+                    ` #settings-card [data-fs-tab="${tab}"]:not(.fs-section-title)`
+                ).first();
+                await expect(section, `tab "${tab}" should reveal its section`).toBeVisible();
+            }
+        });
+
         test('rail collapse is reset on exit and re-enter', async () => {
             await fullscreen.enter();
             await fullscreen.iconRailButton('add').click();
@@ -211,7 +237,7 @@ test.describe('Fullscreen editor', () => {
             expect(initial).toMatch(/\^XA/);
 
             // Edit the text content so the ZPL must regenerate.
-            await propertiesPanel.setProperty('prop-preview-text', 'INLINE-FS-PROBE');
+            await propertiesPanel.setProperty('prop-content', 'INLINE-FS-PROBE');
 
             await expect(fullscreen.zplOutputInline).toContainText('INLINE-FS-PROBE');
             const updated = (await fullscreen.zplOutputInline.textContent()) || '';
