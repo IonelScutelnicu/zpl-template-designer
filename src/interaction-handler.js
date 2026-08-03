@@ -847,19 +847,31 @@ export class InteractionHandler {
           const dataLength = (this.dragElement.previewData || '').length;
           const geom = getBarcodeGeometry(this.dragElement);
           const totalModules = geom.kind === 'linear' ? geom.modules : linearFallbackModules(dataLength);
+          // R/B rotate the symbol 90°, so the screen axes swap: the horizontal
+          // drag drives the bar height and the vertical drag drives the module
+          // width (matching getBounds()).
+          const rotated90 = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
+          const moduleExtent = rotated90 ? newHeight : newWidth;
+          const barExtent = rotated90 ? newWidth : newHeight;
           // 10 is the ZPL ^BY maximum module width; the label edge no longer
           // caps growth — overflow is clipped like everything else.
           const maxMultiplier = totalModules > 0 ? 10 : this.dragElement.width;
-          const targetMultiplier = totalModules > 0 ? newWidth / totalModules : this.dragElement.width;
+          const targetMultiplier = totalModules > 0 ? moduleExtent / totalModules : this.dragElement.width;
           const roundedMultiplier = Math.round(targetMultiplier);
           const clampedMultiplier = Math.max(1, Math.min(maxMultiplier, roundedMultiplier));
 
           this.dragElement.width = clampedMultiplier;
-          this.dragElement.height = Math.round(newHeight);
+          this.dragElement.height = Math.round(barExtent);
 
-          const actualWidth = totalModules * this.dragElement.width;
-          if (this.resizeHandle.includes('l') || this.resizeHandle === 'l') {
-            this.dragElement.x = Math.round(this.resizeStartX + this.resizeStartWidth - actualWidth);
+          // The module axis quantizes to whole multipliers, so anchor the
+          // opposite edge when dragging from the leading handle on that axis.
+          const actualModuleExtent = totalModules * this.dragElement.width;
+          if (rotated90) {
+            if (this.resizeHandle.includes('t')) {
+              this.dragElement.y = Math.round(this.resizeStartY + this.resizeStartHeight - actualModuleExtent);
+            }
+          } else if (this.resizeHandle.includes('l')) {
+            this.dragElement.x = Math.round(this.resizeStartX + this.resizeStartWidth - actualModuleExtent);
           }
         }
 
