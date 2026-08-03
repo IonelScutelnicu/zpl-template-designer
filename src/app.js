@@ -957,8 +957,6 @@ export function initApp() {
         closeZPLMoreMenu();
       } else if (historyPanel.classList.contains('open')) {
         closeHistoryPanel();
-      } else if (fullscreen.isOn()) {
-        fullscreen.exit();
       }
     }
   });

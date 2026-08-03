@@ -41,14 +41,14 @@ test.describe('Fullscreen editor', () => {
     });
 
     test.describe('Escape key', () => {
-        test('exits fullscreen when on', async ({ page }) => {
+        test('does not exit fullscreen when on', async ({ page }) => {
             await fullscreen.enter();
             expect(await fullscreen.isOn()).toBe(true);
 
             await page.keyboard.press('Escape');
 
-            await expect(fullscreen.viewEditor).not.toHaveClass(/\bis-fullscreen\b/);
-            expect(await fullscreen.isOn()).toBe(false);
+            await expect(fullscreen.viewEditor).toHaveClass(/\bis-fullscreen\b/);
+            expect(await fullscreen.isOn()).toBe(true);
         });
 
         test('does not enter fullscreen when off', async ({ page }) => {
