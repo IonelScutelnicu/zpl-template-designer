@@ -106,9 +106,11 @@ export class ZPLGenerator {
     // a JSON comment the parser reads back on import. Carrying width in mm too
     // avoids ^PW↔mm rounding drift. The sentinel key keeps this apart from any
     // human-authored ^FX note; JSON contains no ^/~, so it's tokenizer safe.
-    // Emitted as the first command after ^XA.
+    // Emitted as the first command after ^XA, unterminated: the comment runs to
+    // the end of its line (no ^FS), which keeps the output free of a field
+    // separator that closes nothing.
     const meta = { labelMeta: { w: width, h: labelSettings.height, dpmm } };
-    let header = `^XA\n^FX${JSON.stringify(meta)}^FS\n`;
+    let header = `^XA\n^FX${JSON.stringify(meta)}\n`;
 
     // Print width
     header += `^PW${printWidthDots}\n`;

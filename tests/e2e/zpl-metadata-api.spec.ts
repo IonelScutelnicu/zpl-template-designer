@@ -14,11 +14,13 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
             const settings = { width: 101, height: 152.4, dpmm: 12, fontId: '0', defaultFontHeight: 20 };
             const els = [{ render: () => '^FO10,10^A0N,30,30^FDx^FS' }];
             const zpl = new (ZPLGenerator as any)().generateZPL(els, settings);
-            const m = zpl.match(/\^FX(\{.*?\})\^FS/);
-            return { found: !!m, json: m ? m[1] : null };
+            // Unterminated by design: the comment ends at the end of its line.
+            const m = zpl.match(/\^FX(\{.*?\})\n/);
+            return { found: !!m, hasFS: /\^FX\{.*?\}\^FS/.test(zpl), json: m ? m[1] : null };
         });
 
         expect(meta.found).toBe(true);
+        expect(meta.hasFS).toBe(false);
         const parsed = JSON.parse(meta.json as string);
         expect(parsed.labelMeta).toEqual({ w: 101, h: 152.4, dpmm: 12 });
     });
@@ -38,6 +40,26 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
         expect(result.height).toBe(152.4);
         expect(result.width).toBe(101);
         expect(result.warnings).toBe(0);
+    });
+
+    test('unterminated metadata comment applies and does not swallow the label', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            // No ^FS after the comment — the shape ZPLGenerator emits.
+            const zpl =
+                '^XA\n^FX{"labelMeta":{"w":101,"h":152.4,"dpmm":12}}\n^PW808\n' +
+                '^FO10,10^A0N,30,30^FDx^FS\n^XZ';
+            const r = new (ZPLParser as any)().parse(zpl, { dpmm: 8, labelHeight: 50 });
+            return {
+                width: r.labelSettings.width,
+                height: r.labelSettings.height,
+                dpmm: r.labelSettings.dpmm,
+                elements: r.elements.length,
+                warnings: r.warnings.length,
+            };
+        });
+
+        expect(result).toEqual({ width: 101, height: 152.4, dpmm: 12, elements: 1, warnings: 0 });
     });
 
     test('out-of-range values are ignored and warn; settings fall back', async ({ page }) => {

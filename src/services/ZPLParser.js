@@ -210,20 +210,29 @@ export class ZPLParser {
       } else if (m.command === 'FX') {
         // ^FX is a comment: consume everything through the matching ^FS as an
         // opaque payload, and skip the contained matches so any ^/~ sequences
-        // inside the comment are NOT re-tokenized as live commands.
+        // inside the comment are NOT re-tokenized as live commands. The ^FS is
+        // optional (the label-metadata comment is emitted without one), so the
+        // search is bounded to the comment's own line — otherwise an
+        // unterminated comment would swallow a later element's ^FS and every
+        // command in between.
+        const nlIndex = content.indexOf('\n', m.codeEnd);
+        const lineEnd = nlIndex === -1 ? content.length : nlIndex;
         let fsMatchIdx = -1;
-        for (let j = i + 1; j < matches.length; j++) {
+        let lastInside = i;
+        for (let j = i + 1; j < matches.length && matches[j].index < lineEnd; j++) {
           if (matches[j].command === 'FS') {
             fsMatchIdx = j;
             break;
           }
+          lastInside = j;
         }
-        const paramEnd = fsMatchIdx !== -1 ? matches[fsMatchIdx].index : nextIndex;
+        const paramEnd = fsMatchIdx !== -1 ? matches[fsMatchIdx].index : lineEnd;
         const params = content.substring(m.codeEnd, paramEnd).replace(/^\s+/, '').replace(/\s+$/, '');
         tokens.push({ prefix: m.prefix, command: 'FX', params, start: m.index, end: paramEnd });
-        // Jump to just before the ^FS so the loop resumes there (the ^FS is
-        // still emitted normally to close the comment / any open group).
-        if (fsMatchIdx !== -1) i = fsMatchIdx - 1;
+        // Resume just before the ^FS so it is still emitted normally (it closes
+        // the comment / any open group); with no ^FS, resume after the inert
+        // matches the comment consumed.
+        i = fsMatchIdx !== -1 ? fsMatchIdx - 1 : lastInside;
       } else {
         const params = content.substring(m.codeEnd, nextIndex).replace(/^\s+/, '').replace(/\s+$/, '');
         tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: nextIndex });
