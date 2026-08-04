@@ -504,4 +504,49 @@ test.describe('Embed mode', () => {
         await host.expectStatus('saved');
         expect(await host.getResultText()).toContain('"content": "Hello from host"');
     });
+
+    // The unsaved-changes prompt is the editor's own beforeunload guard, so it
+    // only reaches the user in the new-tab flow, where the editor is top-level.
+    test.describe('closing the editor tab', () => {
+        const openEditorTab = async (host: EmbedHost, context: any) => {
+            const [popup] = await Promise.all([
+                context.waitForEvent('page'),
+                host.openTabBtn.click(),
+            ]);
+            await setupLabelaryCacheInterceptor(popup as Page);
+            await popup.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);
+            await expect(popup.locator('#elements-list .element-item')).toHaveCount(1);
+            return popup as Page;
+        };
+
+        test('an unsaved edit still warns', async ({ page, context }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            const popup = await openEditorTab(host, context);
+
+            const dialogs: string[] = [];
+            popup.on('dialog', (d) => { dialogs.push(d.type()); d.accept().catch(() => { }); });
+
+            await popup.locator('#add-text-btn').click();
+            await popup.close({ runBeforeUnload: true });
+            await expect.poll(() => dialogs).toEqual(['beforeunload']);
+        });
+
+        test('a saved edit does not warn', async ({ page, context }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            const popup = await openEditorTab(host, context);
+
+            const dialogs: string[] = [];
+            popup.on('dialog', (d) => { dialogs.push(d.type()); d.accept().catch(() => { }); });
+
+            await popup.locator('#add-text-btn').click();
+            await popup.locator('#embed-save-btn').click();
+            await host.expectStatus('saved');
+
+            await popup.close({ runBeforeUnload: true });
+            await expect.poll(() => popup.isClosed()).toBe(true);
+            expect(dialogs).toEqual([]);
+        });
+    });
 });

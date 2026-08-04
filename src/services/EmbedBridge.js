@@ -24,8 +24,9 @@ export function isEmbedMode() {
  * @param {Function} deps.importZPL - (zpl) => warnings[] (never throws)
  * @param {Function} deps.getResult - () => { template, zpl }
  * @param {Function} deps.setPreviewData - (map) => void, merges host Preview Data
+ * @param {Function} deps.onSaveSent - () => void, the payload reached the host
  */
-export function initEmbedBridge({ state, importTemplateJson, importZPL, getResult, setPreviewData }) {
+export function initEmbedBridge({ state, importTemplateJson, importZPL, getResult, setPreviewData, onSaveSent }) {
   const hostWindow = window.parent !== window ? window.parent : window.opener;
   if (!hostWindow) return;
 
@@ -42,7 +43,16 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
     } catch (_) { }
   };
 
-  const sendSave = () => post('save', getResult(), hostOrigin);
+  // Handing the payload to the host is this editor's save — there is no ack in
+  // the protocol, so the document stops counting as unsaved work here (the host
+  // decides what to do with it in onSave). Any edit debounced just before the
+  // click would otherwise ping `change` right after the `save` and re-dirty the
+  // host's own close guard.
+  const sendSave = () => {
+    post('save', getResult(), hostOrigin);
+    clearTimeout(changeTimer);
+    if (onSaveSent) onSaveSent();
+  };
 
   // Host-supplied Preview Data. Keys that could never be recognised as a placeholder
   // are dropped rather than silently populating an unreachable row; a key with an

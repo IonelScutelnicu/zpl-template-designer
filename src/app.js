@@ -1431,6 +1431,9 @@ export function initApp() {
       setPreviewData: (map) => {
         applyPreviewData({ ...state.labelSettings.previewData, ...map });
       },
+      // The host now holds the template, so drop the unsaved-changes state that
+      // would otherwise make the browser warn when the embed window is closed.
+      onSaveSent: markClean,
     });
   }
 
