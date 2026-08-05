@@ -2,7 +2,7 @@ import { bytesToHex } from './graphicField.js';
 
 export const CUSTOM_FONT_IDS = ['I', 'K', 'M', 'O', 'W', 'X', 'Y', 'Z'];
 export const MAX_CUSTOM_FONT_BYTES = 2 * 1024 * 1024;
-export const PRINTER_FONT_PATH_RE = /^[REBA]:[A-Z0-9]{1,16}\.TTF$/;
+export const PRINTER_FONT_PATH_RE = /^[REBA]:[A-Z0-9_]{1,16}\.TTF$/;
 
 // Validate the sfnt table directory without relying on FontFace. A printer may
 // support a valid TrueType font that the browser's font sanitizer declines to

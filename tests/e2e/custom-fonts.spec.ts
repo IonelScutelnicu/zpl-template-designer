@@ -90,6 +90,110 @@ test.describe('Custom fonts', () => {
     });
   });
 
+  test('registers ^A@ font files as custom fonts and rewrites the fields to their IDs', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const result = await page.evaluate(async () => {
+      const { ZPLParser } = await import('/src/services/ZPLParser.js');
+      const parser = new ZPLParser();
+      // A path-less ^A@ inherits the file declared by the preceding ^A@.
+      const template = parser.parse([
+        '^XA',
+        '^LH0,0',
+        '^PW400',
+        '^CI28',
+        '^FO160,18^A@N,20,18,fontX.TTF^FDTest^FS',
+        '^FO140,35^A@N,20,18^FDTest^FS',
+        '^FO30,114^A@N,19,18^FDTest^FS',
+        '^PQ%number_of_copies%',
+        '^XZ',
+      ].join('\n'));
+      // A second file gets the next free ID; re-declaring a file reuses its ID.
+      const twoFonts = parser.parse([
+        '^XA',
+        '^FO160,18^A@N,20,18,E:fontA.TTF^FDTest^FS',
+        '^FO140,35^A@N,20,18^FDTest^FS',
+        '^FO160,60^A@N,20,18,R:fontB.TTF^FDTest^FS',
+        '^FO140,80^A@N,20,18^FDTest^FS',
+        '^FO140,100^A@N,20,18,E:FONTA.TTF^FDTest^FS',
+        '^XZ',
+      ].join('\n'));
+      // An existing ^CW mapping for the same file is reused rather than duplicated.
+      const declared = parser.parse(
+        '^XA\n^CWM,R:X.TTF\n^FO10,10^A@N,20,18,X.TTF^FDTest^FS\n^XZ'
+      );
+      // ^CW after the fields still owns its ID, so the allocator must skip it.
+      const lateDeclared = parser.parse(
+        '^XA\n^FO10,10^A@N,20,18,A.TTF^FDTest^FS\n^CWI,R:B.TTF\n^XZ'
+      );
+      // No file declared anywhere: fall back to the label default and warn.
+      const orphan = parser.parse('^XA\n^FO10,10^A@N,20,18^FDTest^FS\n^XZ');
+
+      const fontIds = (r: { elements: { type: string, fontId?: string }[] }) =>
+        r.elements.filter(el => el.type === 'TEXT').map(el => el.fontId);
+      return {
+        templateFonts: template.labelSettings.customFonts,
+        templateFontIds: fontIds(template),
+        templateWarnings: template.warnings.map((w: { command: string }) => w.command),
+        twoFonts: twoFonts.labelSettings.customFonts,
+        twoFontIds: fontIds(twoFonts),
+        declaredFonts: declared.labelSettings.customFonts,
+        declaredFontIds: fontIds(declared),
+        lateDeclaredFonts: lateDeclared.labelSettings.customFonts,
+        lateDeclaredFontIds: fontIds(lateDeclared),
+        orphanFontIds: fontIds(orphan),
+        orphanWarnings: orphan.warnings.map((w: { command: string }) => w.command),
+      };
+    });
+
+    // Paths are normalized the same way ^CW normalizes them: driveless → R:, upper-cased.
+    expect(result.templateFonts).toEqual([{ id: 'I', fontFile: 'R:FONTX.TTF' }]);
+    expect(result.templateFontIds).toEqual(['I', 'I', 'I']);
+    // A recognized font is not a warning, so this template imports cleanly.
+    expect(result.templateWarnings).toEqual([]);
+
+    expect(result.twoFonts).toEqual([
+      { id: 'I', fontFile: 'E:FONTA.TTF' },
+      { id: 'K', fontFile: 'R:FONTB.TTF' },
+    ]);
+    expect(result.twoFontIds).toEqual(['I', 'I', 'K', 'K', 'I']);
+
+    expect(result.declaredFonts).toEqual([{ id: 'M', fontFile: 'R:X.TTF' }]);
+    expect(result.declaredFontIds).toEqual(['M']);
+
+    expect(result.lateDeclaredFonts).toEqual([
+      { id: 'K', fontFile: 'R:A.TTF' },
+      { id: 'I', fontFile: 'R:B.TTF' },
+    ]);
+    expect(result.lateDeclaredFontIds).toEqual(['K']);
+
+    expect(result.orphanFontIds).toEqual(['']);
+    expect(result.orphanWarnings).toEqual(['^A@']);
+  });
+
+  test('regenerates an imported ^A@ font as a ^CW mapping', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const zpl = await page.evaluate(async () => {
+      const { ZPLParser } = await import('/src/services/ZPLParser.js');
+      const { ZPLGenerator } = await import('/src/services/ZPLGenerator.js');
+      const { SerializationService } = await import('/src/services/SerializationService.js');
+      const parsed = new ZPLParser().parse([
+        '^XA',
+        '^FO160,18^A@N,20,18,fontX.TTF^FDTest^FS',
+        '^FO140,35^A@N,20,18^FDTest^FS',
+        '^XZ',
+      ].join('\n'));
+      const svc = new SerializationService();
+      const elements = parsed.elements
+        .map((d: unknown) => svc.createElementFromData(d, { keepId: true }))
+        .filter((el: unknown) => el !== null);
+      return new ZPLGenerator().generateZPL(elements, parsed.labelSettings);
+    });
+
+    expect(zpl).toContain('^CWI,R:FONTX.TTF');
+    expect(zpl).not.toContain('^A@');
+    expect(zpl.match(/\^AIN,/g)).toHaveLength(2);
+  });
+
   test('steps text-block lines by the font\'s own line height, field blocks by the font height', async ({ page }) => {
     await page.goto('/?e2e=1');
     const result = await page.evaluate(async () => {

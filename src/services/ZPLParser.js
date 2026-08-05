@@ -6,7 +6,7 @@ import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap
 import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapseLineBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { placeholderName } from '../utils/placeholders.js';
 import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
-import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive } from '../utils/customFonts.js';
+import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive, normalizePrinterFontPath, nextCustomFontId } from '../utils/customFonts.js';
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
@@ -260,6 +260,11 @@ export class ZPLParser {
       defaultFont: { id: '0', height: 20, width: 0 },
       customFonts: [],
       fontDownloads: new Map(),
+      // ^CW may appear after the fields it applies to, so its font IDs are
+      // reserved up front — an ^A@ font must not be assigned a letter that a
+      // later ^CW claims, or the label would emit two ^CW for the same ID.
+      reservedFontIds: tokens.filter(t => t.command === 'CW').map(t => ({ id: t.params.split(',')[0].trim() })),
+      lastScalableFontFile: null,
       labelMeta: null,
       sawCommand: false,
       source,
@@ -832,8 +837,9 @@ export class ZPLParser {
 
   /**
    * Parse ^A font command params
-   * Format: {fontId}{orientation},{height},{width} (e.g., "0N,30,30")
-   * @returns {{ fontId: string, orientation: string, height: number, width: number }}
+   * Format: {fontId}{orientation},{height},{width}[,{fontPath}] (e.g., "0N,30,30")
+   * The font path is only carried by the scalable font ^A@ (e.g. "@N,20,18,E:FONT.TTF").
+   * @returns {{ fontId: string, orientation: string, height: number, width: number, fontPath: string }}
    */
   _parseFontCommand(aToken) {
     const params = aToken.params;
@@ -852,8 +858,47 @@ export class ZPLParser {
     const parts = rest.split(',').filter(p => p !== '');
     const height = parseInt(parts[0]) || 0;
     const width = parseInt(parts[1]) || 0;
+    // Read the path off the unfiltered params (minus the separator that follows
+    // the font ID) so an omitted height or width can't shift it out of place.
+    const fontPath = (rest.replace(/^,/, '').split(',')[2] || '').trim();
 
-    return { fontId, orientation, height, width };
+    return { fontId, orientation, height, width, fontPath };
+  }
+
+  /**
+   * Map the scalable font ^A@ onto a custom font ID the editor can render and edit.
+   * ^A@ addresses a printer-resident TrueType by path, and a path-less ^A@ reuses the
+   * last one declared; each distinct path is registered once as a ^CW custom font and
+   * every field referencing it gets that font's letter.
+   */
+  _resolveScalableFontId(font, state) {
+    if (font.fontId !== '@') return font.fontId;
+
+    const fontFile = font.fontPath
+      ? ensurePrinterDrive(normalizePrinterFontPath(font.fontPath))
+      : state.lastScalableFontFile;
+    if (!fontFile) {
+      state.warnings.push({
+        command: '^A@',
+        message: '^A@ was used before any font file was declared; the label default font was used instead'
+      });
+      return '';
+    }
+    state.lastScalableFontFile = fontFile;
+
+    const existing = state.customFonts.find(f => normalizePrinterFontPath(f.fontFile) === fontFile);
+    if (existing) return existing.id;
+
+    const id = nextCustomFontId([...state.customFonts, ...state.reservedFontIds]);
+    if (!id) {
+      state.warnings.push({
+        command: '^A@',
+        message: `No custom font ID is left for "${fontFile}"; the label default font was used instead`
+      });
+      return '';
+    }
+    state.customFonts.push({ id, fontFile });
+    return id;
   }
 
   /**
@@ -862,12 +907,13 @@ export class ZPLParser {
    * snap explicit sizes to the font's allowed grid (no-op for scalable fonts).
    */
   _resolveFontSize(font, state) {
+    const fontId = this._resolveScalableFontId(font, state);
     const rawSize = font.height === state.defaultFont.height ? 0 : font.height;
     const rawWidth = font.width === state.defaultFont.width ? 0 : font.width;
-    const snapped = snapRequestedToAllowed(font.fontId, rawSize, rawWidth);
-    const clamped = enforceFontMinSize(font.fontId, snapped.height, snapped.width);
+    const snapped = snapRequestedToAllowed(fontId, rawSize, rawWidth);
+    const clamped = enforceFontMinSize(fontId, snapped.height, snapped.width);
     return {
-      fontId: font.fontId === state.defaultFont.id ? '' : font.fontId,
+      fontId: fontId === state.defaultFont.id ? '' : fontId,
       fontSize: clamped.height,
       fontWidth: clamped.width
     };
