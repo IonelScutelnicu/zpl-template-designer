@@ -3639,8 +3639,9 @@ function wireDriveEditorBindings() {
     }
   });
 
-  // Confirm-on-close if dirty.
-  window.addEventListener('beforeunload', (e) => {
+  // Confirm-on-close if dirty. Not in embed mode: the host owns the close
+  // decision there and gets `change` pings to warn on its own terms.
+  if (!isEmbedMode()) window.addEventListener('beforeunload', (e) => {
     if (driveDoc.dirty) {
       e.preventDefault();
       e.returnValue = '';

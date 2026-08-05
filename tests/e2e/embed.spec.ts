@@ -505,8 +505,9 @@ test.describe('Embed mode', () => {
         expect(await host.getResultText()).toContain('"content": "Hello from host"');
     });
 
-    // The unsaved-changes prompt is the editor's own beforeunload guard, so it
-    // only reaches the user in the new-tab flow, where the editor is top-level.
+    // In embed mode the editor registers no beforeunload guard — the host owns
+    // the close decision and gets `change` pings to warn on its own terms. The
+    // new-tab flow is where such a prompt would otherwise reach the user.
     test.describe('closing the editor tab', () => {
         const openEditorTab = async (host: EmbedHost, context: any) => {
             const [popup] = await Promise.all([
@@ -519,7 +520,7 @@ test.describe('Embed mode', () => {
             return popup as Page;
         };
 
-        test('an unsaved edit still warns', async ({ page, context }) => {
+        test('an unsaved edit does not warn', async ({ page, context }) => {
             const host = new EmbedHost(page);
             await host.goto();
             const popup = await openEditorTab(host, context);
@@ -528,8 +529,11 @@ test.describe('Embed mode', () => {
             popup.on('dialog', (d) => { dialogs.push(d.type()); d.accept().catch(() => { }); });
 
             await popup.locator('#add-text-btn').click();
+            await host.expectStatus('unsaved changes');
+
             await popup.close({ runBeforeUnload: true });
-            await expect.poll(() => dialogs).toEqual(['beforeunload']);
+            await expect.poll(() => popup.isClosed()).toBe(true);
+            expect(dialogs).toEqual([]);
         });
 
         test('a saved edit does not warn', async ({ page, context }) => {
