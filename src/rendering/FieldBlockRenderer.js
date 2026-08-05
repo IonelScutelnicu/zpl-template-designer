@@ -5,6 +5,7 @@ import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, me
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
+import { decodeFieldBlockBreaks } from '../utils/zplFieldData.js';
 
 /**
  * Renderer for FIELDBLOCK elements
@@ -37,7 +38,10 @@ export class FieldBlockRenderer {
     ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
     ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
-    const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
+    // ^FB breaks on \& as well as on a real newline, and a user can type the
+    // escape straight into the Content — so fold both to \n before wrapping,
+    // or the canvas would draw a literal "\&" the printer never prints.
+    const raw = decodeFieldBlockBreaks(resolvePlaceholders(element.content, labelSettings?.previewData));
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
 
     const hangingIndentPx = (element.hangingIndent || 0) * scale;

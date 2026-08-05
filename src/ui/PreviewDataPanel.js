@@ -9,7 +9,7 @@
 // an "Unused" heading rather than disappearing.
 
 import { placeholderNames, isValidPlaceholderName } from '../utils/placeholders.js';
-import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
+import { escapeHtml, escapeAttr, autoGrowTextarea } from '../utils/dom-helpers.js';
 
 export class PreviewDataPanel {
   /**
@@ -24,7 +24,9 @@ export class PreviewDataPanel {
     // Delegated listeners survive every re-render.
     this.container.addEventListener('input', (e) => {
       const name = e.target.dataset?.placeholder;
-      if (name) this.onChange({ ...this.values, [name]: e.target.value });
+      if (!name) return;
+      autoGrowTextarea(e.target);
+      this.onChange({ ...this.values, [name]: e.target.value });
     });
 
     this.container.addEventListener('click', (e) => {
@@ -113,17 +115,17 @@ export class PreviewDataPanel {
     this.renderedSignature = signature;
 
     const row = (name, isUsed) => `
-      <div>
-        <div class="flex items-center justify-between gap-1">
-          <span class="text-[10px] text-slate-400 uppercase tracking-wider font-mono">${escapeHtml(name)}</span>
+      <div class="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
+        <div class="flex items-center justify-between gap-1 mb-1.5">
+          <span class="text-[11px] text-slate-500 font-mono">${escapeHtml(name)}</span>
           ${isUsed ? '' : `
             <button type="button" data-remove-placeholder="${escapeAttr(name)}"
               aria-label="Remove ${escapeAttr(name)}"
               class="shrink-0 text-slate-300 hover:text-red-500 leading-none text-sm">&times;</button>`}
         </div>
-        <input type="text" data-placeholder="${escapeAttr(name)}"
-          value="${escapeAttr(this.values[name] ?? '')}" placeholder="${escapeAttr(name)}"
-          class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
+        <textarea rows="1" data-placeholder="${escapeAttr(name)}" placeholder="${escapeAttr(name)}"
+          class="w-full resize-none overflow-hidden rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white">
+${escapeHtml(this.values[name] ?? '')}</textarea>
       </div>`;
 
     const usedSection = used.length > 0
@@ -153,6 +155,10 @@ export class PreviewDataPanel {
         <p id="preview-data-new-error" class="hidden mt-1 text-[10px] text-red-500"></p>
       </div>`;
 
+    for (const field of this.container.querySelectorAll('[data-placeholder]')) {
+      autoGrowTextarea(field);
+    }
+
     if (this._focusAfterRender) {
       this.container.querySelector(`[data-placeholder="${CSS.escape(this._focusAfterRender)}"]`)?.focus();
       this._focusAfterRender = null;
@@ -164,6 +170,7 @@ export class PreviewDataPanel {
     for (const input of this.container.querySelectorAll('[data-placeholder]')) {
       if (input === document.activeElement) continue;
       input.value = this.values[input.dataset.placeholder] ?? '';
+      autoGrowTextarea(input);
     }
   }
 }

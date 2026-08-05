@@ -272,7 +272,9 @@ export function measureStyledText(ctx, text, fontConfig, fontSize, scaleX) {
 
 /**
  * Wrap text into lines that fit a per-line max width, soft-breaking on spaces and
- * hard-breaking words longer than the line. All width measurement goes through
+ * hard-breaking words longer than the line. A newline in the text is an explicit
+ * break (both ^FB and ^TB honor one, see ADR 0013); consecutive newlines produce
+ * blank lines, matching the printer. All width measurement goes through
  * measureStyledText so wrapping and hard-breaking honor the same per-character
  * render rules the renderer draws with. ctx.font (and any letter/word spacing)
  * must be set before calling.
@@ -306,30 +308,44 @@ export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxW
     return chunks;
   };
 
+  const source = String(text ?? '');
+  if (source === '') return [];
+
   const lines = [];
-  let currentLine = '';
 
-  text.split(' ').forEach(word => {
-    const testLine = currentLine + (currentLine ? ' ' : '') + word;
-    if (measure(testLine) > lineMaxWidth(lines.length) && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
+  // lineMaxWidth is indexed on the running total, so a hanging indent still
+  // applies to every line after the first — including lines after a break.
+  for (const segment of source.split('\n')) {
+    if (segment === '') {
+      lines.push('');
+      continue;
     }
 
-    // Hard-break if the line still exceeds the (possibly updated) line width.
-    const maxWidth = lineMaxWidth(lines.length);
-    if (measure(currentLine) > maxWidth) {
-      const chunks = breakWord(currentLine, maxWidth);
-      for (let i = 0; i < chunks.length - 1; i++) {
-        lines.push(chunks[i]);
+    let currentLine = '';
+
+    segment.split(' ').forEach(word => {
+      const testLine = currentLine + (currentLine ? ' ' : '') + word;
+      if (measure(testLine) > lineMaxWidth(lines.length) && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
       }
-      currentLine = chunks[chunks.length - 1] || '';
-    }
-  });
 
-  if (currentLine) lines.push(currentLine);
+      // Hard-break if the line still exceeds the (possibly updated) line width.
+      const maxWidth = lineMaxWidth(lines.length);
+      if (measure(currentLine) > maxWidth) {
+        const chunks = breakWord(currentLine, maxWidth);
+        for (let i = 0; i < chunks.length - 1; i++) {
+          lines.push(chunks[i]);
+        }
+        currentLine = chunks[chunks.length - 1] || '';
+      }
+    });
+
+    if (currentLine) lines.push(currentLine);
+  }
+
   return lines;
 }
 

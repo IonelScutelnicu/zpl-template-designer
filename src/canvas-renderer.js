@@ -4,6 +4,7 @@
 import { LINE_HEIGHT_RATIO, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
 import { resolvePlaceholders } from './utils/placeholders.js';
+import { collapseLineBreaks } from './utils/zplFieldData.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
@@ -354,8 +355,9 @@ export class CanvasRenderer {
     // scale=1: work in label-dot space, not screen pixels.
     const { fontConfig, fontSize, snappedHeight, snappedWidth, scaleX, isBitmap } =
       resolveFontMetrics(element, labelSettings, 1);
-    // Match the glyphs the renderer actually draws (uppercase/filtered fonts).
-    const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
+    // Match the glyphs the renderer actually draws (uppercase/filtered fonts,
+    // and ^A's line-break collapse).
+    const raw = collapseLineBreaks(resolvePlaceholders(element.content, labelSettings?.previewData));
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     this.ctx.save();
     this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;

@@ -3,6 +3,30 @@ import { PLACEHOLDER_SPLIT_RE, WHOLE_PLACEHOLDER_RE } from './placeholders.js';
 const DEFAULT_HEX_INDICATOR = '_';
 const HEX_RE = /^[0-9A-Fa-f]{2}$/;
 
+// Each ZPL text command breaks lines its own way (see ADR 0013): ^FB uses the
+// \& escape and discards raw line feeds, ^TB uses a real line feed (so _0A via
+// ^FH) and prints \& literally, and ^A supports neither.
+export const FB_LINE_BREAK = '\\&';
+const LINE_BREAK_RE = /\r\n?|\n/g;
+
+export function normalizeLineBreaks(value) {
+  return String(value ?? '').replace(LINE_BREAK_RE, '\n');
+}
+
+/** ^FB: line breaks are the \& escape. Both chars are printable, so they survive encodeFieldData. */
+export function encodeFieldBlockBreaks(value) {
+  return String(value ?? '').replace(LINE_BREAK_RE, FB_LINE_BREAK);
+}
+
+export function decodeFieldBlockBreaks(value) {
+  return String(value ?? '').split(FB_LINE_BREAK).join('\n');
+}
+
+/** ^A: a line feed truncates the field at print time, so collapse each break to a space. */
+export function collapseLineBreaks(value) {
+  return String(value ?? '').replace(LINE_BREAK_RE, ' ');
+}
+
 function byteToHex(byte) {
   return byte.toString(16).toUpperCase().padStart(2, '0');
 }

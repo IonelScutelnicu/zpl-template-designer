@@ -1,5 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
-import { renderFieldDataCommand } from '../utils/zplFieldData.js';
+import { renderFieldDataCommand, normalizeLineBreaks } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // Text Block Element Class (^TB command)
@@ -25,7 +25,9 @@ export class TextBlockElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+        // ^TB breaks on a real line feed, which renderFieldDataCommand escapes as
+        // _0A under ^FH. Normalizing first keeps a pasted CRLF from emitting _0D.
+        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(normalizeLineBreaks(content), '_', this.fieldHex)}^FS`;
     }
 
     render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {

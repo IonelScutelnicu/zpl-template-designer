@@ -8,6 +8,7 @@ import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { hasEnvelopeCommand } from './PropertiesPanelRenderer.js';
 import { PlaceholderAutocomplete } from './PlaceholderAutocomplete.js';
 import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
+import { autoGrowTextarea } from '../utils/dom-helpers.js';
 
 /**
  * Manages property panel event listeners
@@ -117,11 +118,17 @@ export class PropertyListenersManager {
       propertiesPanel.dataset.placeholderRowsBound = "1";
       propertiesPanel.addEventListener("input", (e) => {
         const name = e.target.dataset?.contentPlaceholder;
-        if (name) this.callbacks.onPreviewValueChange?.(name, e.target.value);
+        if (!name) return;
+        autoGrowTextarea(e.target);
+        this.callbacks.onPreviewValueChange?.(name, e.target.value);
       });
       propertiesPanel.addEventListener("click", (e) => {
         if (e.target.closest("#prop-show-preview-data")) this.callbacks.onRevealPreviewData?.();
       });
+    }
+
+    for (const field of propertiesPanel.querySelectorAll("[data-content-placeholder]")) {
+      autoGrowTextarea(field);
     }
 
     const content = document.getElementById("prop-content");

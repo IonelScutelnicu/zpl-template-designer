@@ -32,7 +32,7 @@ import { DensityRescaleModal } from './ui/DensityRescaleModal.js';
 import { analyzeRescale, applyRescale } from './services/DensityRescaleService.js';
 import { imageToBitmap } from './utils/graphicField.js';
 import { loadImage } from './utils/loadImage.js';
-import { escapeHtml, escapeAttr } from './utils/dom-helpers.js';
+import { escapeHtml, escapeAttr, autoGrowTextarea } from './utils/dom-helpers.js';
 import { DriveTemplateService } from './services/DriveTemplateService.js';
 import * as driveAuth from './services/DriveAuth.js';
 import { isConfigured as isDriveConfigured } from './config/drive-config.js';
@@ -544,7 +544,9 @@ export function initApp() {
     onRevealPreviewData: () => revealPreviewDataPanel(),
     onContentPlaceholdersChanged: (element) => {
       const host = document.getElementById("prop-content-placeholders");
-      if (host) host.innerHTML = propertiesPanelRenderer.renderContentPlaceholders(element);
+      if (!host) return;
+      host.innerHTML = propertiesPanelRenderer.renderContentPlaceholders(element);
+      for (const field of host.querySelectorAll("[data-content-placeholder]")) autoGrowTextarea(field);
     },
     getPlaceholderNames: () => PreviewDataPanel.known(state.elements, state.labelSettings),
     getPreviewData: () => state.labelSettings.previewData || {},
@@ -2864,6 +2866,7 @@ function syncInlinePreviewValues() {
   for (const input of document.querySelectorAll("[data-content-placeholder]")) {
     if (input === document.activeElement) continue;
     input.value = values[input.dataset.contentPlaceholder] ?? "";
+    autoGrowTextarea(input);
   }
 }
 

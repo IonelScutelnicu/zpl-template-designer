@@ -4,6 +4,7 @@
 import { resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
+import { collapseLineBreaks } from '../utils/zplFieldData.js';
 
 /**
  * Renderer for TEXT elements
@@ -27,7 +28,9 @@ export class TextRenderer {
 
     const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
     const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
-    const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
+    // ^A collapses line breaks to spaces (ADR 0013) — match it so a multiline
+    // Preview Data value looks the same on the canvas as in the Preview.
+    const raw = collapseLineBreaks(resolvePlaceholders(element.content, labelSettings?.previewData));
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
     const font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
 

@@ -1,6 +1,6 @@
 import { ZPLElement } from './ZPLElement.js';
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
-import { renderFieldDataCommand } from '../utils/zplFieldData.js';
+import { renderFieldDataCommand, encodeFieldBlockBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // Field Block Element Class
@@ -35,7 +35,10 @@ export class FieldBlockElement extends ZPLElement {
         // ^FD - Field Data (Content: literal text mixed with %placeholder%s)
         // ^FS - Field Separator
         const fontId = this.fontId || defaultFontId;
-        const content = this.justification === 'C' ? `${rawContent}\\&` : rawContent;
+        // ^FB discards raw line feeds; its line break is the \& escape. Convert
+        // before appending the centre-justification marker so both survive.
+        const escaped = encodeFieldBlockBreaks(rawContent);
+        const content = this.justification === 'C' ? `${escaped}${FB_LINE_BREAK}` : escaped;
         const reverseCmd = this.reverse ? '^FR' : '';
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;

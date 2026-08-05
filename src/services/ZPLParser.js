@@ -3,7 +3,7 @@
 
 import { b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
-import { decodeFieldData, getFieldHexIndicator } from '../utils/zplFieldData.js';
+import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapseLineBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { placeholderName } from '../utils/placeholders.js';
 import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive } from '../utils/customFonts.js';
@@ -894,7 +894,8 @@ export class ZPLParser {
    */
   _parseText(group, aToken, fdToken, hasReverse, state, fhToken = null) {
     const font = this._parseFontCommand(aToken);
-    const content = this._parseFieldData(fdToken, fhToken);
+    // ^A cannot hold a line break, and its Content control is single-line.
+    const content = collapseLineBreaks(this._parseFieldData(fdToken, fhToken));
 
     return {
       type: 'TEXT',
@@ -924,9 +925,11 @@ export class ZPLParser {
 
     // Parse ^FD content - strip trailing \& for center-justified text blocks
     let fdContent = this._decodeFieldDataToken(fdToken, fhToken);
-    if (fdContent.endsWith('\\&')) {
-      fdContent = fdContent.slice(0, -2);
+    if (fdContent.endsWith(FB_LINE_BREAK)) {
+      fdContent = fdContent.slice(0, -FB_LINE_BREAK.length);
     }
+    // Any remaining \& is a real line break the user typed.
+    fdContent = decodeFieldBlockBreaks(fdContent);
 
     return {
       type: 'FIELDBLOCK',

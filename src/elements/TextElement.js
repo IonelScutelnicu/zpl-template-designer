@@ -1,5 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
-import { renderFieldDataCommand } from '../utils/zplFieldData.js';
+import { renderFieldDataCommand, collapseLineBreaks } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 
 // TEXT Element Class
@@ -34,7 +34,9 @@ export class TextElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+        // ^A has no line-break escape and a raw line feed truncates the field, so
+        // Preview Data (or pasted Content) that spans lines collapses to spaces.
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(collapseLineBreaks(content), '_', this.fieldHex)}^FS`;
     }
 
     render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
