@@ -41,6 +41,7 @@ import { normalizeElementFontSize, getBitmapFontAllowedSizes, snapRequestedToAll
 import { fontSizeSelectHtml } from './ui/fontSizeSelect.js';
 import { SYMBOLOGY_META, resolveSymbology } from './utils/barcodeGeometry.js';
 import { isEmbedMode, initEmbedBridge } from './services/EmbedBridge.js';
+import { isLocalDraftEnabled, saveLocalDraft, readLocalDraft, clearLocalDraft } from './services/LocalDraftService.js';
 
 // Initialize centralized state management
 const state = new AppState();
@@ -125,6 +126,35 @@ function rehydrateFromHandoff() {
       showToast('Couldn\'t load template from Drive: ' + (err.message || ''), 'error');
     });
   }
+}
+
+// Localhost-only debug aid: bring back the label that was open before the
+// refresh. Skipped whenever another load path owns this boot — a gallery
+// handoff, ?drive=<id>, a share URL or an embed host all supply their own
+// template and must win over the draft.
+function restoreLocalDraft() {
+  const json = readLocalDraft();
+  if (!json) return;
+  if (isEmbedMode()) return;
+  if (new URLSearchParams(window.location.search).has('drive')) return;
+  if (urlShareService.getTemplateFromUrl()) return;
+  try {
+    if (sessionStorage.getItem('gallery_template')) return;
+  } catch (_) { }
+
+  const template = serializationService.importTemplate(json);
+  if (!template) {
+    clearLocalDraft();
+    return;
+  }
+  importTemplate(template, { historyLabel: 'Restored local draft' });
+}
+
+// Snapshot of the open label in the shape importTemplate() expects.
+function localDraftTemplate() {
+  const template = serializationService.serializeAppState(state.elements, state.labelSettings);
+  if (currentTemplateMetadata) template.metadata = currentTemplateMetadata;
+  return template;
 }
 
 // Single-slot registry for outside-click listeners attached to `document`.
@@ -967,6 +997,16 @@ export function initApp() {
     }
   });
 
+  // Mirror the label into localStorage (localhost only). `historyChanged` is
+  // what catches property edits, which mutate elements in place and so never
+  // fire `elementsChanged`.
+  if (isLocalDraftEnabled()) {
+    const queueDraftSave = () => saveLocalDraft(localDraftTemplate);
+    state.subscribe('elementsChanged', queueDraftSave);
+    state.subscribe('labelSettingsChanged', queueDraftSave);
+    state.subscribe('historyChanged', queueDraftSave);
+  }
+
   // Subscribe to warnings changes
   state.subscribe('warningsChanged', (warnings) => {
     if (warnings.length > 0) {
@@ -1357,6 +1397,10 @@ export function initApp() {
   renderCanvasPreview();
   resetHistory("Initial state", { kind: "init" });
   updateCopyExportUI();
+
+  // Restore the localhost debug draft before the other load paths, so any
+  // template they bring overwrites it.
+  restoreLocalDraft();
 
   // Hydrate from sessionStorage (gallery handoff) or ?drive=<id> URL param.
   rehydrateFromHandoff();
