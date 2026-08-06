@@ -1,5 +1,5 @@
 import { resolveSymbology, getHriConfig } from './barcodeGeometry.js';
-import { customFontFamily, fontBytesFromSource } from './customFonts.js';
+import { customFontFamily, fontBytesFromSource, isValidFontHash } from './customFonts.js';
 
 const FONT_SOURCES = {
   A: { family: 'Bitstream Vera Sans Mono', src: 'src/fonts/VeraMono.ttf' },
@@ -48,7 +48,9 @@ function customFontKey(source) {
 // font ended up loaded; browser rejection of a printer-valid TTF is recorded
 // as failed, never thrown.
 export function ensureCustomFontLoaded(source) {
-  if (!source?.sha256) return Promise.resolve(false);
+  // An unverified hash has no family of its own to register under (and would
+  // make the FontFace constructor throw on the way in).
+  if (!isValidFontHash(source?.sha256)) return Promise.resolve(false);
   const key = customFontKey(source);
   if (loaded.has(key)) return Promise.resolve(true);
   if (failed.has(key)) return Promise.resolve(false);

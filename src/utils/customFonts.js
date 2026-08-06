@@ -109,8 +109,21 @@ export function exceedsApiPreview(source) {
   return fontSourceSize(source) > MAX_API_PREVIEW_FONT_BYTES;
 }
 
+// A source's sha256 is its identity: it names the FontFace family, keys the
+// preview caches, and reaches CSS through the specimen. Templates arrive from
+// places the editor doesn't control (share URL, file import, embed host), so a
+// hash that isn't a real digest is never taken for one.
+const FONT_HASH_RE = /^[0-9a-f]{64}$/;
+
+export function isValidFontHash(hash) {
+  return typeof hash === 'string' && FONT_HASH_RE.test(hash);
+}
+
+// Invalid hashes collapse onto one inert family that nothing ever registers,
+// so the specimen falls back instead of carrying an attacker-chosen string
+// into CSS or canvas font declarations.
 export function customFontFamily(source) {
-  return `zpl-custom-${source.sha256}`;
+  return `zpl-custom-${isValidFontHash(source?.sha256) ? source.sha256 : 'unverified'}`;
 }
 
 export function fontBytesFromSource(source) {
@@ -143,9 +156,11 @@ export async function sha256Hex(bytes) {
 // without a sha256. Fill it in (the content identity for FontFace families and
 // preview caching) before the fonts are committed to app state; a payload that
 // no longer decodes is dropped to reference-only rather than kept half-valid.
+// A hash the template supplied is recomputed rather than trusted — only the
+// bytes decide the identity.
 export async function normalizeCustomFontSources(customFonts = []) {
   for (const font of customFonts) {
-    if (!font.source || font.source.sha256) continue;
+    if (!font.source) continue;
     const bytes = fontBytesFromSource(font.source);
     if (bytes) {
       font.source.sha256 = await sha256Hex(bytes);

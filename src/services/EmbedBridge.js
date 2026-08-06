@@ -39,8 +39,18 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
   let hostOrigin = null;
   let changeTimer = null;
   // Host-initiated loads in flight: the edits they fire are not user edits.
-  // A count, not a flag — a host may send its next load before this one settles.
+  // A count, not a flag — the queue below keeps loads from overlapping, but the
+  // Save button can still fire while one is settling.
   let loading = 0;
+  // Applying a message is asynchronous (fonts are hashed and registered, then
+  // the content is imported), so messages are run one after another instead of
+  // being started as they arrive: two loads in flight would race to be the last
+  // writer, and a save or a preview-data update could read half-loaded content.
+  let queue = Promise.resolve();
+  // A task that throws must not stall everything the host sends afterwards.
+  const enqueue = (task) => {
+    queue = queue.then(task).catch(() => { });
+  };
 
   const post = (type, payload, targetOrigin) => {
     try {
@@ -155,17 +165,18 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
       return;
     }
     if (msg.type === 'init' || msg.type === 'loadTemplate' || msg.type === 'loadZPL') {
-      applyContent(msg.payload || {});
+      enqueue(() => applyContent(msg.payload || {}));
     } else if (msg.type === 'setPreviewData') {
-      applyPreviewData((msg.payload || {}).previewData);
+      enqueue(() => applyPreviewData((msg.payload || {}).previewData));
     } else if (msg.type === 'setFonts') {
       // Through applyContent so matching a font doesn't read as a user edit
       // either. `?? null` keeps a payload with no fonts an error, not a no-op.
-      applyContent({ fonts: (msg.payload || {}).fonts ?? null });
+      enqueue(() => applyContent({ fonts: (msg.payload || {}).fonts ?? null }));
     } else if (msg.type === 'requestSave') {
       // Same payload the Save button sends — a host driving the editor from
-      // its own chrome gets an identical `save` back.
-      sendSave();
+      // its own chrome gets an identical `save` back. Queued so it reports the
+      // content of the loads that preceded it, not of one still landing.
+      enqueue(sendSave);
     }
   });
 
@@ -181,7 +192,7 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
 
   document.getElementById('embed-save-btn').addEventListener('click', () => {
     if (hostOrigin === null) return;
-    sendSave();
+    enqueue(sendSave);
   });
   document.getElementById('embed-cancel-btn').addEventListener('click', () => {
     if (hostOrigin === null) return;

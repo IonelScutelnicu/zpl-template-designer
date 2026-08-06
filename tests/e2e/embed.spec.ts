@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { test as base, expect, Page } from '@playwright/test';
 import { EmbedHost } from '../page-objects';
 import { setupLabelaryCacheInterceptor } from '../fixtures/labelary-cache';
@@ -136,6 +138,37 @@ test.describe('Embed mode', () => {
         const result = await host.getResultText();
         expect(result).toContain('%price%');
         expect(result).not.toContain('^FDPrice: 19.99');
+    });
+
+    // Applying a message is asynchronous — fonts are hashed and registered
+    // before the import — so a host that doesn't wait between messages must
+    // still get its own order back: the second load wins, and the save that
+    // follows both reports it rather than whatever had landed by then.
+    test('host messages apply in order when an earlier load is slower', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        const fontBase64 = fs.readFileSync(path.resolve('src/fonts/OCRA.ttf')).toString('base64');
+        await page.evaluate((data) => {
+            const editor = (document.querySelector('#editor-container iframe') as HTMLIFrameElement).contentWindow!;
+            const send = (type: string, payload: unknown) =>
+                editor.postMessage({ source: 'zpl-designer-host', version: 1, type, payload }, '*');
+            const template = (content: string) => ({
+                labelSettings: { width: 100, height: 50, dpmm: 8 },
+                elements: [{ type: 'TEXT', x: 20, y: 20, content, fontSize: 30 }],
+            });
+            // The first load drags: its font is hashed and registered before the import.
+            send('loadTemplate', { template: template('SLOW FIRST'), fonts: [{ name: 'OCRA.ttf', data }] });
+            send('loadTemplate', { template: template('FAST SECOND') });
+            send('requestSave', {});
+        }, fontBase64);
+
+        await host.expectStatus('saved');
+        const result = await host.getResultText();
+        expect(result).toContain('FAST SECOND');
+        expect(result).not.toContain('SLOW FIRST');
+        await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+        await expect(host.frame.locator('#elements-list')).toContainText('FAST SECOND');
     });
 
     test('a bare template load resets host preview data to the template\'s own', async ({ page }) => {

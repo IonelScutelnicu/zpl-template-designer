@@ -547,4 +547,36 @@ test.describe('Custom fonts', () => {
     await expect(page.locator('#prop-font-id')).toHaveValue('');
     await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^A0N,/);
   });
+
+  // A template can come from anywhere the editor doesn't control — a share URL,
+  // a file, a gallery handoff — so none of its font metadata may reach the
+  // specimen markup as anything but text.
+  test('renders a font whose metadata is markup as inert text', async ({ page }) => {
+    const breakout = `x'"><img src=x onerror="window.__xss=1">`;
+    await page.addInitScript((payload) => {
+      sessionStorage.setItem('gallery_template', payload);
+    }, JSON.stringify({
+      elements: [{ type: 'TEXT', x: 30, y: 30, content: 'hi', fontSize: 20, fontWidth: 20, fontId: 'M' }],
+      labelSettings: {
+        width: 100, height: 50, dpmm: 8,
+        customFonts: [{
+          id: 'M',
+          fontFile: `E:EVIL.TTF" onmouseover="window.__xss=1`,
+          source: { fileName: `evil.ttf${breakout}`, mimeType: 'font/ttf', size: 4, sha256: breakout, data: 'AAEAAA==' },
+        }],
+      },
+    }));
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+
+    const specimen = page.locator('.replace-preview-font');
+    await expect(specimen).toBeVisible();
+    expect(await specimen.getAttribute('onmouseover')).toBeNull();
+    await expect(page.locator('#custom-fonts-list img')).toHaveCount(0);
+    // The hash isn't a digest, so it names no face: the specimen falls back
+    // instead of carrying the crafted string into the style attribute.
+    await expect(specimen).toHaveCSS('font-family', /^"?zpl-custom-unverified"?, Arial/);
+    await page.locator('#custom-fonts-list').hover();
+    expect(await page.evaluate(() => (window as any).__xss)).toBeUndefined();
+  });
 });
