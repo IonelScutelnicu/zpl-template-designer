@@ -131,6 +131,14 @@ test.describe('Fullscreen editor', () => {
     });
 
     test.describe('Icon-rail active tab', () => {
+        test('places Preview Data last in the rail', async () => {
+            const tabs = await fullscreen.iconRail
+                .locator('.fs-icon-btn')
+                .evaluateAll((btns) => btns.map((b) => (b as HTMLElement).dataset.fsTab));
+
+            expect(tabs.at(-1)).toBe('preview-data');
+        });
+
         test('defaults to "add" on enter', async () => {
             await fullscreen.enter();
 

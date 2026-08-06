@@ -578,7 +578,7 @@ export class PropertiesPanelRenderer {
         <div class="space-y-2">
           ${names.map(name => `
             <div>
-              <span class="block text-[10px] font-mono text-amber-800">%${escapeHtml(name)}%</span>
+              <span class="block break-all text-[10px] leading-tight font-mono text-amber-800">%${escapeHtml(name)}%</span>
               <textarea rows="1" data-content-placeholder="${escapeAttr(name)}" placeholder="Preview value"
                 class="w-full resize-none overflow-hidden rounded-md border border-amber-200 py-1 px-2 text-xs text-slate-700 bg-white focus:ring-1 focus:ring-amber-400 focus:border-amber-400">
 ${escapeHtml(values[name] ?? "")}</textarea>

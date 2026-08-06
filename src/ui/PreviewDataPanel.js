@@ -117,7 +117,7 @@ export class PreviewDataPanel {
     const row = (name, isUsed) => `
       <div class="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
         <div class="flex items-center justify-between gap-1 mb-1.5">
-          <span class="text-[11px] text-slate-500 font-mono">${escapeHtml(name)}</span>
+          <span class="min-w-0 break-all text-[11px] leading-tight text-slate-500 font-mono">${escapeHtml(name)}</span>
           ${isUsed ? '' : `
             <button type="button" data-remove-placeholder="${escapeAttr(name)}"
               aria-label="Remove ${escapeAttr(name)}"

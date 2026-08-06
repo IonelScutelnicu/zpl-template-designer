@@ -182,6 +182,23 @@ test.describe('Content placeholders and Preview Data', () => {
             await expect(panel.locator('[data-placeholder="price"]')).toBeVisible();
             await expect(panel.locator('[data-remove-placeholder="price"]')).toHaveCount(0);
         });
+
+        test('keeps long placeholder names inside their card', async ({ page }) => {
+            const name = 'wrapped_layout_preferences_line';
+            await page.locator('details[data-fs-tab="preview-data"] summary').click();
+            const panel = page.locator('#preview-data-panel');
+
+            await panel.locator('#preview-data-new').fill(name);
+            await panel.locator('#preview-data-add').click();
+
+            const card = panel.locator(`[data-placeholder="${name}"]`).locator('..');
+            const label = card.locator('span').first();
+            const [cardBox, labelBox] = await Promise.all([card.boundingBox(), label.boundingBox()]);
+
+            expect(cardBox).not.toBeNull();
+            expect(labelBox).not.toBeNull();
+            expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width);
+        });
     });
 
     test.describe('Element Properties', () => {
@@ -223,6 +240,21 @@ test.describe('Content placeholders and Preview Data', () => {
             await panelInput.fill('24.50');
             await panelInput.dispatchEvent('input');
             await expect(inline).toHaveValue('24.50');
+        });
+
+        test('keeps long placeholder names inside the Preview Value card', async ({ page }) => {
+            const name = 'wrapped_layout_preferences_line_for_content';
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+            await propertiesPanel.setProperty('prop-content', `%${name}%`);
+
+            const card = page.locator('#prop-content-placeholders > div');
+            const label = card.locator('.font-mono').first();
+            const [cardBox, labelBox] = await Promise.all([card.boundingBox(), label.boundingBox()]);
+
+            expect(cardBox).not.toBeNull();
+            expect(labelBox).not.toBeNull();
+            expect(labelBox!.x + labelBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width);
         });
     });
 
