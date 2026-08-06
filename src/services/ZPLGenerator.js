@@ -87,7 +87,7 @@ export class ZPLGenerator {
       printMirror = 'N',
       mediaTracking = '',
       mediaType = 'D',
-      mediaDarkness = 25,
+      mediaDarkness = 15,
       printSpeed = 4,
       slewSpeed = 4,
       backfeedSpeed = 4,

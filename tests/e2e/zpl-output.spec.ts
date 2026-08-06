@@ -42,8 +42,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
             await zplOutput.verifyZPLContains('^PM');
         });
 
-        test('should include media darkness ~SD command in output', async () => {
-            await zplOutput.verifyZPLContains('~SD');
+        test('should include default media darkness ~SD command in output', async () => {
+            await zplOutput.verifyZPLContains('~SD15');
         });
 
         test('should include label home ^LH command in output', async () => {
