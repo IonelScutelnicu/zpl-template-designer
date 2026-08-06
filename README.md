@@ -211,6 +211,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/ui/PropertyListenersManager.js` — Property change event handling
 - `src/ui/HistoryPanel.js` — History panel UI and navigation
 - `src/ui/CustomFontsManager.js` — Custom font management UI
+- `src/ui/FontPicker.js` — Specimen-row font dropdown shared by `^CF` and the element override
 - `src/ui/ContextMenu.js` — Canvas context menu actions
 - `src/ui/WarningsPanelRenderer.js` — ZPL warning rendering and attribution
 - `src/ui/OnboardingWalkthrough.js` — Guided first-run tour

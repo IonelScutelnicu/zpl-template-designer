@@ -439,4 +439,91 @@ test.describe('Custom fonts', () => {
     await expect.poll(() => requestBody, { timeout: 10000 }).toContain('~DYE:OCRA,A,T,15896,,');
     expect(requestBody.indexOf('~DY')).toBeLessThan(requestBody.indexOf('^XA'));
   });
+
+  test('picks the label default font from a grouped specimen list', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#font-picker .font-picker-trigger').click();
+
+    const menu = page.locator('[data-menu-for="font-id"]');
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText('Scalable');
+    await expect(menu).toContainText('Resident bitmap');
+    // One row per built-in font, each carrying its cell metrics.
+    await expect(menu.locator('.font-picker-option')).toHaveCount(9);
+    await expect(menu.locator('[data-font-id="G"]')).toContainText('G · 60×40 · Resident bitmap');
+    // The specimen renders in the font's own bundled face, not the page font.
+    await expect(menu.locator('[data-font-id="H"] span span').first())
+      .toHaveCSS('font-family', /OCRA/);
+
+    // The list scrolls past the fold. Repositioning on scroll must not re-insert the
+    // menu — moving the node would snap the list back to the top on every wheel tick.
+    const list = menu.locator('.font-picker-list');
+    await list.evaluate(el => { el.scrollTop = 180; });
+    await expect.poll(() => list.evaluate(el => el.scrollTop)).toBe(180);
+
+    await menu.locator('[data-font-id="G"]').click();
+    await expect(menu).toBeHidden();
+    await expect(page.locator('#font-id')).toHaveValue('G');
+    await expect(page.locator('#font-picker .font-picker-trigger')).toContainText('G · Bitmap');
+    // Selecting through the popover runs the same wiring as the select did:
+    // G's allowed sizes replace the previous font's grid.
+    await expect(page.locator('#default-font-height')).toHaveValue('60');
+  });
+
+  test('flags a font with no preview file in the picker', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#new-font-id').fill('M');
+    await page.locator('#new-font-file').fill('E:PRESET.TTF');
+    await page.locator('#add-custom-font-btn').click();
+
+    await page.locator('#font-picker .font-picker-trigger').click();
+    const row = page.locator('[data-menu-for="font-id"] [data-font-id="M"]');
+    await expect(row).toContainText('M · PRESET · Declared ^CW');
+    await expect(row).toContainText('No preview');
+
+    // Attaching a preview file clears the chip and moves the row onto the real face.
+    await page.keyboard.press('Escape');
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('.attach-custom-font').click();
+    await (await chooser).setFiles(path.resolve('src/fonts/OCRA.ttf'));
+    await expect(page.locator('#custom-fonts-list')).toContainText('Ready');
+
+    await page.locator('#font-picker .font-picker-trigger').click();
+    await expect(row).toContainText('M · PRESET · Embedded TTF');
+    await expect(row).not.toContainText('No preview');
+    await expect(row.locator('span span').first()).toHaveCSS('font-family', /zpl-custom-/);
+  });
+
+  test('clears an element font override from the picker', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+
+    const trigger = page.locator('.font-picker[data-select="prop-font-id"] .font-picker-trigger');
+    const menu = page.locator('[data-menu-for="prop-font-id"]');
+    await trigger.click();
+    // The menu is parked on <body> while open: #properties-card carries a
+    // backdrop-filter, which would otherwise become the containing block for the
+    // fixed menu and push it off-screen.
+    const viewport = page.viewportSize()!;
+    const menuBox = (await menu.boundingBox())!;
+    const triggerBox = (await trigger.boundingBox())!;
+    const centreOffset = (menuBox.x + menuBox.width / 2) - (triggerBox.x + triggerBox.width / 2);
+    expect(Math.abs(centreOffset)).toBeLessThan(1);
+    expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(viewport.width);
+    expect(menuBox.y).toBeLessThan(viewport.height);
+
+    await menu.locator('[data-font-id="B"]').click();
+    await expect(page.locator('#prop-font-id')).toHaveValue('B');
+    await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^ABN,/);
+
+    // The first row hands the element back to the label default.
+    await trigger.click();
+    await expect(menu.locator('.font-picker-option').first()).toContainText('Use label default');
+    await menu.locator('.font-picker-option').first().click();
+    await expect(page.locator('#prop-font-id')).toHaveValue('');
+    await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^A0N,/);
+  });
 });

@@ -13,6 +13,7 @@ import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
 import { PreviewDataPanel } from './ui/PreviewDataPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
+import { attachFontPicker, ensureSpecimenFaces, fontPickerHtml } from './ui/FontPicker.js';
 import { MAX_CUSTOM_FONT_BYTES, buildFontDownloadPreamble, bytesToBase64, fontPreambleSignature, formatFontDownload, isTrueTypeFont, nextCustomFontId, normalizeCustomFontSources, normalizePrinterFontPath, sanitizePrinterFontPath, sha256Hex } from './utils/customFonts.js';
 import { ensureCustomFontLoaded } from './utils/fontLoader.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
@@ -378,6 +379,7 @@ const replicatesInput = document.getElementById("replicates");
 const printQuantityPlaceholder = document.getElementById("print-quantity-placeholder");
 const fontId = document.getElementById("font-id");
 const defaultFontSizeControls = document.getElementById("default-font-size-controls");
+const fontPicker = document.getElementById("font-picker");
 const newFontId = document.getElementById("new-font-id");
 const newFontFile = document.getElementById("new-font-file");
 const addCustomFontBtn = document.getElementById("add-custom-font-btn");
@@ -1254,6 +1256,7 @@ export function initApp() {
     // The sizes have to land on the new font's allowed grid before the size controls
     // re-render, or the dropdown would offer an off-grid value.
     applyLabelDefaultFont(e.target.value || "0");
+    renderDefaultFontPicker();
     renderDefaultFontSizeControls();
     // Inheriting elements resolve their size controls through the label font, so the
     // properties panel has to be rebuilt for the input/dropdown swap to take effect.
@@ -1397,6 +1400,7 @@ export function initApp() {
   setPreviewMode('canvas');
   // Convert the static mm defaults in the inputs when the persisted unit is inches.
   refreshLabelDimensionInputs();
+  renderDefaultFontPicker();
   renderDefaultFontSizeControls();
 
   updateZPLOutput();
@@ -1994,6 +1998,22 @@ function syncLabelSettingsInputs() {
 }
 
 /**
+ * Renders the specimen-row popover that drives the hidden #font-id select. Rebuilt
+ * whenever the selected font or the custom font list changes, so the trigger and the
+ * rows stay in step with the select.
+ */
+function renderDefaultFontPicker() {
+  if (!fontPicker) return;
+  fontPicker.innerHTML = fontPickerHtml({
+    selectId: "font-id",
+    current: state.labelSettings.fontId,
+    customFonts: state.labelSettings.customFonts,
+  });
+  attachFontPicker(fontPicker);
+  ensureSpecimenFaces(state.labelSettings.customFonts);
+}
+
+/**
  * Renders the label default font Height/Width controls. Bitmap fonts (A–H) only render at
  * integer magnifications of their base cell, so they get dropdowns of the allowed values;
  * scalable fonts (0, custom) keep free numeric inputs.
@@ -2264,6 +2284,7 @@ function exportCustomFontInstall(fontIdToExport) {
 
 function updateFontDropdownOptions() {
   customFontsManager.updateFontDropdown(state.labelSettings.customFonts);
+  renderDefaultFontPicker();
 }
 
 

@@ -1,9 +1,9 @@
 // Properties Panel Renderer
 // Generates HTML for the element properties editing panel
 
-import { BUILTIN_FONTS, FONT_LABELS } from '../config/constants.js';
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
 import { fontSizeSelectHtml } from './fontSizeSelect.js';
+import { fontPickerHtml } from './FontPicker.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
 import { SYMBOLOGY_LABELS, SYMBOLOGY_META, BARCODE_SYMBOLOGIES, QR_SYMBOLOGIES, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
@@ -620,17 +620,20 @@ ${escapeHtml(values[name] ?? "")}</textarea>
   }
 
   /**
-   * Render font selection dropdown
+   * Render the font selection picker. Same specimen-row popover as the label default
+   * font, with a leading "Use label default" row for clearing the override.
    */
   renderFontSelect(element) {
     return `
       <div class="mb-3">
         <label class="block text-xs font-medium text-slate-700 mb-1">Font ID (override)</label>
-        <select id="prop-font-id" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-          <option value="">Use label default</option>
-          ${BUILTIN_FONTS.map(id => `<option value="${id}" ${element.fontId === id ? 'selected' : ''}>${FONT_LABELS[id] || id}</option>`).join('')}
-          ${this.labelSettings.customFonts.map(font => `<option value="${font.id}" ${element.fontId === font.id ? 'selected' : ''}>${font.id} - Custom</option>`).join('')}
-        </select>
+        ${fontPickerHtml({
+          selectId: "prop-font-id",
+          current: element.fontId || "",
+          customFonts: this.labelSettings.customFonts,
+          labelFontId: this.labelSettings.fontId,
+          override: true,
+        })}
       </div>
     `;
   }

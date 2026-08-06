@@ -9,6 +9,7 @@ import { hasEnvelopeCommand } from './PropertiesPanelRenderer.js';
 import { PlaceholderAutocomplete } from './PlaceholderAutocomplete.js';
 import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
 import { autoGrowTextarea } from '../utils/dom-helpers.js';
+import { attachFontPicker, ensureSpecimenFaces } from './FontPicker.js';
 
 /**
  * Manages property panel event listeners
@@ -175,6 +176,11 @@ export class PropertyListenersManager {
         this.callbacks.onPropertyChange(element);
         this.callbacks.onRerenderProperties?.();
       });
+      // The panel is rebuilt on every render, so the picker markup is new each time
+      // and its popover has to be re-wired. Faces load once per process.
+      const customFonts = this.callbacks.getLabelSettings?.()?.customFonts || [];
+      attachFontPicker(fontIdEl.closest(".font-picker"));
+      ensureSpecimenFaces(customFonts);
     }
     attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
     attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));

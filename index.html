@@ -1935,8 +1935,9 @@
                         href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-cf.html"
                         target="_blank" class="text-blue-500 hover:underline">^CF</a>
                     </label>
-                    <select id="font-id"
-                      class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <!-- The canonical value lives on this select (kept out of view);
+                         #font-picker renders the specimen-row popover that drives it. -->
+                    <select id="font-id" class="sr-only" tabindex="-1" aria-hidden="true">
                       <option value="0" selected>0 - Default</option>
                       <option value="A">A - 9×5</option>
                       <option value="B">B - 11×7</option>
@@ -1947,6 +1948,8 @@
                       <option value="G">G - 60×40</option>
                       <option value="H">H - 21×13</option>
                     </select>
+                    <div id="font-picker"></div>
+                    <p class="text-[10px] text-slate-400 mt-1">Applies to every text field that has no font override.</p>
                   </div>
                   <div id="default-font-size-controls" class="grid grid-cols-2 gap-2"></div>
                   <!-- Custom Fonts Sub-section -->
