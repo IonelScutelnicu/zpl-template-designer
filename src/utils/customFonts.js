@@ -1,7 +1,12 @@
 import { bytesToHex } from './graphicField.js';
 
 export const CUSTOM_FONT_IDS = ['I', 'K', 'M', 'O', 'W', 'X', 'Y', 'Z'];
-export const MAX_CUSTOM_FONT_BYTES = 2 * 1024 * 1024;
+export const MAX_CUSTOM_FONT_BYTES = 10 * 1024 * 1024;
+// Labelary rejects oversized requests, so a font past this size is embedded for
+// the canvas (and printer install) only and left out of the ~DY preamble the
+// API preview carries. Uploading it is still worth it: the canvas shows the
+// real face and the ^CW mapping is what the printer resolves.
+export const MAX_API_PREVIEW_FONT_BYTES = 2 * 1024 * 1024;
 export const PRINTER_FONT_PATH_RE = /^[REBA]:[A-Z0-9_]{1,16}\.TTF$/;
 
 // Validate the sfnt table directory without relying on FontFace. A printer may
@@ -93,6 +98,17 @@ export function ensurePrinterDrive(path) {
   return path && !path.includes(':') ? `R:${path}` : path;
 }
 
+// Byte length of a font source. Uploaded and imported sources both record it;
+// the base64 estimate is the fallback for a hand-authored template.
+export function fontSourceSize(source) {
+  if (Number.isFinite(source?.size)) return source.size;
+  return Math.floor((source?.data?.length || 0) * 3 / 4);
+}
+
+export function exceedsApiPreview(source) {
+  return fontSourceSize(source) > MAX_API_PREVIEW_FONT_BYTES;
+}
+
 export function customFontFamily(source) {
   return `zpl-custom-${source.sha256}`;
 }
@@ -178,10 +194,16 @@ export function formatFontDownload(font) {
 // Identity of the ~DY preamble that buildFontDownloadPreamble would emit,
 // small enough to use in cache keys instead of the multi-MB preamble itself.
 export function fontPreambleSignature(elements, labelSettings) {
-  return referencedCustomFonts(elements, labelSettings)
-    .filter(font => font.source)
+  return apiPreviewFonts(elements, labelSettings)
     .map(font => `${font.source.sha256}:${normalizePrinterFontPath(font.fontFile)}`)
     .join(';');
+}
+
+// The referenced fonts small enough to travel to Labelary. An oversized font
+// still renders on the canvas; the API preview just falls back to its own face.
+function apiPreviewFonts(elements, labelSettings) {
+  return referencedCustomFonts(elements, labelSettings)
+    .filter(font => font.source && !exceedsApiPreview(font.source));
 }
 
 export function referencedCustomFonts(elements, labelSettings) {
@@ -191,7 +213,7 @@ export function referencedCustomFonts(elements, labelSettings) {
 }
 
 export function buildFontDownloadPreamble(elements, labelSettings) {
-  return referencedCustomFonts(elements, labelSettings)
+  return apiPreviewFonts(elements, labelSettings)
     .map(formatFontDownload)
     .filter(Boolean)
     .join('\n');

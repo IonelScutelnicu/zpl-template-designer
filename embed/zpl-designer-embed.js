@@ -49,6 +49,9 @@
     if (opts.template !== undefined) initPayload.template = opts.template;
     if (opts.zpl !== undefined) initPayload.zpl = opts.zpl;
     if (opts.previewData !== undefined) initPayload.previewData = opts.previewData;
+    // Fonts stay on the payload across later loads: `ready` re-fires on reload,
+    // and the editor's registry is gone by then.
+    if (opts.fonts !== undefined) initPayload.fonts = opts.fonts;
 
     function postToEditor(type, payload) {
       var win = getWindow();
@@ -87,14 +90,22 @@
 
     return {
       loadTemplate: function (template, previewData) {
-        initPayload = { template: template };
+        initPayload = { template: template, fonts: initPayload.fonts };
         if (previewData !== undefined) initPayload.previewData = previewData;
         postToEditor('loadTemplate', initPayload);
       },
       loadZPL: function (zpl, previewData) {
-        initPayload = { zpl: zpl };
+        initPayload = { zpl: zpl, fonts: initPayload.fonts };
         if (previewData !== undefined) initPayload.previewData = previewData;
         postToEditor('loadZPL', initPayload);
+      },
+      // Preview fonts for the printer-resident fonts a template names: a
+      // template declaring E:NOTO.TTF renders in the NOTO.TTF sent here,
+      // with no user action. `data` is an ArrayBuffer, a typed array, or
+      // base64 text. Merged with fonts already supplied.
+      setFonts: function (fonts) {
+        initPayload.fonts = (initPayload.fonts || []).concat(fonts);
+        postToEditor('setFonts', { fonts: fonts });
       },
       // Define placeholders and/or set their sample values without reloading.
       // Merged into whatever the editor already has, so a partial map is fine.
@@ -114,11 +125,11 @@
   window.ZplDesigner = {
     /**
      * Embed the editor as an iframe.
-     * ZplDesigner.embed({ container, url?, template?, zpl?, sandbox?,
+     * ZplDesigner.embed({ container, url?, template?, zpl?, fonts?, sandbox?,
      *                     hidePanels?, hideElements?, fullscreen?, onReady?,
      *                     onSave?, onCancel?, onChange?, onError? })
-     * Returns { iframe, loadTemplate(t), loadZPL(z), setPreviewData(m), save(),
-     *            destroy() }.
+     * Returns { iframe, loadTemplate(t), loadZPL(z), setPreviewData(m),
+     *            setFonts(f), save(), destroy() }.
      */
     embed: function (opts) {
       var container = typeof opts.container === 'string'
@@ -153,6 +164,7 @@
         loadTemplate: conn.loadTemplate,
         loadZPL: conn.loadZPL,
         setPreviewData: conn.setPreviewData,
+        setFonts: conn.setFonts,
         save: conn.save,
         destroy: function () {
           conn.disconnect();
@@ -163,8 +175,8 @@
 
     /**
      * Open the editor in a new tab. Same options as embed() minus container.
-     * Returns { window, loadTemplate(t), loadZPL(z), setPreviewData(m), save(),
-     * close() } or null
+     * Returns { window, loadTemplate(t), loadZPL(z), setPreviewData(m),
+     * setFonts(f), save(), close() } or null
      * when the popup was blocked.
      */
     open: function (opts) {
@@ -186,6 +198,7 @@
         loadTemplate: conn.loadTemplate,
         loadZPL: conn.loadZPL,
         setPreviewData: conn.setPreviewData,
+        setFonts: conn.setFonts,
         save: conn.save,
         close: function () {
           conn.disconnect();

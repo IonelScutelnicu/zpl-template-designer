@@ -1,7 +1,12 @@
 // Custom Fonts Manager
 // Manages the custom fonts UI and functionality
 
-import { CUSTOM_FONT_IDS, PRINTER_FONT_PATH_RE, ensurePrinterDrive, normalizePrinterFontPath } from '../utils/customFonts.js';
+import { CUSTOM_FONT_IDS, PRINTER_FONT_PATH_RE, customFontFamily, ensurePrinterDrive, exceedsApiPreview, normalizePrinterFontPath } from '../utils/customFonts.js';
+import { ensureCustomFontLoaded } from '../utils/fontLoader.js';
+
+// Kept short on purpose: the specimen box narrows to ~130px in the compact
+// sidebar, and a specimen clipped mid-word defeats the point of showing the face.
+const SPECIMEN_TEXT = 'Handling 0123';
 
 /**
  * Manager for custom ZPL fonts UI
@@ -11,6 +16,9 @@ export class CustomFontsManager {
     this.elements = elements;
     this.builtinFonts = builtinFonts;
     this.callbacks = callbacks;
+    // Specimens whose FontFace registration has already been requested, so the
+    // re-render that shows the real face happens once per font, not per render.
+    this.specimenRequested = new Set();
   }
 
   /**
@@ -115,22 +123,46 @@ export class CustomFontsManager {
       return;
     }
 
+    const notes = [
+      customFonts.some(font => !font.source)
+        && 'A font without a preview file renders on the canvas in a fallback face.',
+      customFonts.some(font => font.source && exceedsApiPreview(font.source))
+        && 'Fonts over 2 MB are too large for the Labelary preview — the canvas uses the real face, the API preview falls back.',
+    ].filter(Boolean);
+    const hint = notes
+      .map(note => `<p class="text-[10px] text-slate-400 italic">${note}</p>`)
+      .join('');
+
     this.elements.list.innerHTML = customFonts.map(font => `
-      <div class="flex items-center gap-2 bg-slate-50 rounded px-2 py-1.5 border border-slate-100">
-        <span class="font-mono font-bold text-blue-600 w-6">${this.escapeHtml(font.id)}</span>
-        <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
-          data-font-id="${this.escapeHtml(font.id)}" title="${this.escapeHtml(font.fontFile)} (click to edit)">${this.escapeHtml(font.fontFile)}</span>
-        <span class="text-[9px] ${font.source ? 'text-emerald-600' : 'text-amber-600'}">${font.source ? 'Ready' : 'Reference only'}</span>
-        ${font.source ? `<button class="export-custom-font text-slate-400 hover:text-blue-500 transition-colors p-0.5"
-          data-font-id="${this.escapeHtml(font.id)}" title="Export printer install ZPL">
-          <span class="material-icons-round text-sm">download</span>
-        </button>` : ''}
-        <button class="remove-custom-font text-slate-400 hover:text-red-500 transition-colors p-0.5"
-          data-font-id="${this.escapeHtml(font.id)}" title="Remove">
-          <span class="material-icons-round text-sm">close</span>
-        </button>
+      <div class="bg-slate-50 rounded px-2 py-1.5 border border-slate-100 space-y-1.5">
+        <div class="flex items-center gap-2">
+          <span class="font-mono font-bold text-blue-600 w-6">${this.escapeHtml(font.id)}</span>
+          <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
+            data-font-id="${this.escapeHtml(font.id)}" title="${this.escapeHtml(font.fontFile)} (click to edit)">${this.escapeHtml(font.fontFile)}</span>
+          ${font.source ? `${exceedsApiPreview(font.source)
+            ? '<span class="text-[9px] text-amber-600" title="Over 2 MB: canvas preview only">Canvas only</span>'
+            : '<span class="text-[9px] text-emerald-600">Ready</span>'}
+          <button class="export-custom-font text-slate-400 hover:text-blue-500 transition-colors p-0.5"
+            data-font-id="${this.escapeHtml(font.id)}" title="Export printer install ZPL">
+            <span class="material-icons-round text-sm">download</span>
+          </button>` : ''}
+          <button class="remove-custom-font text-slate-400 hover:text-red-500 transition-colors p-0.5"
+            data-font-id="${this.escapeHtml(font.id)}" title="Remove">
+            <span class="material-icons-round text-sm">close</span>
+          </button>
+        </div>
+        ${font.source ? `<button class="replace-preview-font w-full text-left truncate rounded border border-slate-200 bg-white px-2 py-1.5 text-[15px] leading-tight text-slate-700 hover:border-blue-300 transition-colors"
+          data-font-id="${this.escapeHtml(font.id)}" title="${this.escapeHtml(font.source.fileName || 'Preview file')} (click to replace)"
+          style="font-family: '${customFontFamily(font.source)}', Arial, sans-serif">${SPECIMEN_TEXT}</button>`
+        : `<button class="attach-custom-font w-full flex items-center justify-center gap-1 py-1 rounded border border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors"
+          data-font-id="${this.escapeHtml(font.id)}" title="Attach a TTF so this font previews in its real face">
+          <span class="material-icons-round text-sm">add</span>
+          <span>Add preview file</span>
+        </button>`}
       </div>
-    `).join('');
+    `).join('') + hint;
+
+    this.loadSpecimenFaces(customFonts);
 
     // Attach click handlers for inline editing
     this.elements.list.querySelectorAll('.custom-font-file').forEach(span => {
@@ -148,6 +180,28 @@ export class CustomFontsManager {
     });
     this.elements.list.querySelectorAll('.export-custom-font').forEach(button => {
       button.addEventListener('click', (e) => this.callbacks.onExport?.(e.currentTarget.dataset.fontId));
+    });
+    // Attaching and replacing are the same operation: the picked TTF is merged
+    // in as the font's preview source, leaving its ^CW path untouched.
+    this.elements.list.querySelectorAll('.attach-custom-font, .replace-preview-font').forEach(button => {
+      button.addEventListener('click', (e) => this.callbacks.onAttach?.(e.currentTarget.dataset.fontId));
+    });
+  }
+
+  /**
+   * Custom faces are registered imperatively via document.fonts, so a specimen's
+   * font-family alone won't load anything. Fonts arriving from a ZPL import,
+   * template or share URL haven't been loaded unless an element uses them.
+   * @param {Array} customFonts - Array of custom fonts
+   */
+  loadSpecimenFaces(customFonts) {
+    const sources = customFonts
+      .map(font => font.source)
+      .filter(source => source?.sha256 && !this.specimenRequested.has(source.sha256));
+    if (sources.length === 0) return;
+    sources.forEach(source => this.specimenRequested.add(source.sha256));
+    Promise.all(sources.map(ensureCustomFontLoaded)).then(results => {
+      if (results.some(Boolean)) this.callbacks.onRender?.();
     });
   }
 

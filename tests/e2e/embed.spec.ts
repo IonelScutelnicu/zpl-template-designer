@@ -60,6 +60,31 @@ test.describe('Embed mode', () => {
         await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
     });
 
+    test('a host-supplied font is matched to the font the ZPL only names', async ({ page }) => {
+        const host = new EmbedHost(page);
+        await host.goto();
+
+        // The ZPL declares ^CWK,E:OCRA.TTF and nothing else; the host sends OCRA.TTF.
+        await host.loadFontZplBtn.click();
+        await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+
+        await host.frame.locator('#fs-icon-rail [data-fs-tab="font"]').click();
+        const fonts = host.frame.locator('#custom-fonts-list');
+        await expect(fonts).toContainText('E:OCRA.TTF');
+        await expect(fonts).toContainText('Ready');
+        // Matched without the user attaching anything: the label renders in the real face.
+        await expect(host.frame.locator('.replace-preview-font')).toHaveCSS('font-family', /zpl-custom-/);
+        await expect(host.frame.locator('#zpl-output-raw')).toHaveValue(/\^CWK,E:OCRA\.TTF/);
+
+        // A preview aid, not template content — the host gets its font back as
+        // the reference-only entry the ZPL declared.
+        await host.frame.locator('#embed-save-btn').click();
+        await host.expectStatus('saved');
+        const result = await host.getResultText();
+        expect(result).toContain('E:OCRA.TTF');
+        expect(result).not.toContain('"source"');
+    });
+
     test('host-supplied preview data reaches the Preview Data panel', async ({ page }) => {
         const host = new EmbedHost(page);
         await host.goto();

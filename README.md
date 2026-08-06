@@ -15,10 +15,10 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Undo/redo history** — full history panel with named entries
 - **Import/export** — import/export templates as JSON, plus experimental import from raw ZPL
 - **Shareable links** — compress the current template into a URL hash for quick sharing
-- **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK, two-way postMessage data flow, and host-controlled panel visibility; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
+- **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK, two-way postMessage data flow, host-controlled panel visibility, and host-supplied preview fonts matched to the fonts a template names; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
 - **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
 - **Placeholders** — mix literal text with `%name%` placeholders in any element's content (`Price: %price%`); exported ZPL keeps the placeholders for your templating system, while the canvas and Labelary preview render sample values from the Preview Data panel. Insert one from the **% Insert** button on the Content field, or type `%` and pick from autocomplete
-- **Custom fonts** — register custom ZPL fonts via `^CW` commands
+- **Custom fonts** — register custom ZPL fonts via `^CW` commands. Upload a TTF to embed it, or point at a printer-resident font and attach a preview file later — attaching only feeds the canvas and Labelary previews, the exported ZPL keeps just the `^CW` mapping. Up to 10 MB per font; over 2 MB the canvas still shows the real face but the font is too large for the Labelary preview
 - **Print settings** — orientation, mirror, media tracking (`^MN`, incl. continuous media with `^LL`), darkness, speed, home position, label top, and print quantity controls (`^PQ`)
 - **ZPL warnings** — Labelary API linter warnings with element-level attribution
 - **Onboarding tour** — built-in guided walkthrough for first-time users

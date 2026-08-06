@@ -13,7 +13,7 @@ import { ElementsListRenderer } from './ui/ElementsListRenderer.js';
 import { HistoryPanel } from './ui/HistoryPanel.js';
 import { PreviewDataPanel } from './ui/PreviewDataPanel.js';
 import { CustomFontsManager } from './ui/CustomFontsManager.js';
-import { MAX_CUSTOM_FONT_BYTES, buildFontDownloadPreamble, bytesToBase64, fontPreambleSignature, formatFontDownload, isTrueTypeFont, nextCustomFontId, normalizeCustomFontSources, sanitizePrinterFontPath, sha256Hex } from './utils/customFonts.js';
+import { MAX_CUSTOM_FONT_BYTES, buildFontDownloadPreamble, bytesToBase64, fontPreambleSignature, formatFontDownload, isTrueTypeFont, nextCustomFontId, normalizeCustomFontSources, normalizePrinterFontPath, sanitizePrinterFontPath, sha256Hex } from './utils/customFonts.js';
 import { ensureCustomFontLoaded } from './utils/fontLoader.js';
 import { PropertyListenersManager } from './ui/PropertyListenersManager.js';
 import { TooltipManager } from './ui/TooltipManager.js';
@@ -237,6 +237,9 @@ propertiesPanelRenderer = new PropertiesPanelRenderer(() => state.labelSettings,
 let historyPanelUI;
 let previewDataPanel;
 let customFontsManager;
+// Font ID the shared TTF picker is attaching a preview font to, or null when it
+// is being used to upload a brand new font.
+let attachFontTargetId = null;
 let propertyListenersManager;
 let fullscreen;
 
@@ -513,15 +516,22 @@ export function initApp() {
       onRemove: (fontId) => removeCustomFont(fontId),
       onUpdateFile: (fontId, newFile) => updateCustomFontFile(fontId, newFile),
       onExport: (fontId) => exportCustomFontInstall(fontId),
+      onAttach: (fontId) => { attachFontTargetId = fontId; customFontUpload.click(); },
       onRender: () => renderCustomFonts()
     }
   );
-  uploadCustomFontBtn.addEventListener('click', () => customFontUpload.click());
+  uploadCustomFontBtn.addEventListener('click', () => {
+    attachFontTargetId = null; // a cancelled attach must not capture the next upload
+    customFontUpload.click();
+  });
   customFontUpload.addEventListener('change', async () => {
     const file = customFontUpload.files?.[0];
+    const targetId = attachFontTargetId;
+    attachFontTargetId = null;
     customFontUpload.value = '';
     if (!file) return;
-    await uploadCustomFont(file);
+    if (targetId) await attachPreviewFont(targetId, file);
+    else await uploadCustomFont(file);
   });
 
   // Initialize property listeners manager
@@ -1241,15 +1251,9 @@ export function initApp() {
 
   // Font settings event listeners
   fontId.addEventListener("change", (e) => {
-    const newFontId = e.target.value || "0";
-    // The label defaults themselves have to land on the new font's allowed grid before
-    // the size controls re-render, or the dropdown would offer an off-grid value.
-    const snapped = snapRequestedToAllowed(newFontId, state.labelSettings.defaultFontHeight, state.labelSettings.defaultFontWidth);
-    const clamped = enforceFontMinSize(newFontId, snapped.height, snapped.width);
-    state.updateLabelSettings({ fontId: newFontId, defaultFontHeight: clamped.height, defaultFontWidth: clamped.width });
-    // Elements inheriting the label font (fontId === '') now resolve to the new
-    // default — re-snap their bitmap sizes to that font's allowed grid.
-    state.elements.forEach(el => { if (!el.fontId) normalizeElementFontSize(el, newFontId); });
+    // The sizes have to land on the new font's allowed grid before the size controls
+    // re-render, or the dropdown would offer an off-grid value.
+    applyLabelDefaultFont(e.target.value || "0");
     renderDefaultFontSizeControls();
     // Inheriting elements resolve their size controls through the label font, so the
     // properties panel has to be rebuilt for the input/dropdown swap to take effect.
@@ -1454,21 +1458,30 @@ export function initApp() {
   if (isEmbedMode()) {
     initEmbedBridge({
       state,
-      importTemplateJson: (json) => {
+      // Both imports normalize font sources before committing: the parser is
+      // synchronous and cannot hash, and an unhashed source has no FontFace.
+      importTemplateJson: async (json) => {
         const template = serializationService.importTemplate(json);
         if (!template) return false;
+        await normalizeCustomFontSources(template.labelSettings?.customFonts);
+        applyHostFontsToImport(template.labelSettings || {});
         importTemplate(template);
         return true;
       },
-      importZPL: (zpl) => {
+      importZPL: async (zpl) => {
         const dpmm = state.labelSettings.dpmm || 8;
         const labelHeightVal = state.labelSettings.height || 50;
         const result = zplParser.parse(zpl, { dpmm, labelHeight: labelHeightVal });
+        await normalizeCustomFontSources(result.labelSettings.customFonts);
+        applyHostFontsToImport(result.labelSettings);
         importTemplate({ elements: result.elements, labelSettings: result.labelSettings });
         return result.warnings;
       },
+      setHostFonts: (fonts) => setHostPreviewFonts(fonts),
       getResult: () => {
-        const template = JSON.parse(serializationService.exportTemplate(state.elements, state.labelSettings));
+        const template = JSON.parse(
+          serializationService.exportTemplate(state.elements, withoutHostFontSources(state.labelSettings))
+        );
         if (currentTemplateMetadata) template.metadata = currentTemplateMetadata;
         return { template, zpl: zplGenerator.generateZPL(state.elements, state.labelSettings) };
       },
@@ -2011,6 +2024,18 @@ function renderDefaultFontSizeControls() {
   `;
 }
 
+/**
+ * Points the label default at `newFontId`, keeping the sizes that resolve through it on
+ * that font's allowed grid — the label's own Height/Width, and every element inheriting
+ * it (fontId === ''). State only; callers do their own re-rendering.
+ */
+function applyLabelDefaultFont(newFontId) {
+  const snapped = snapRequestedToAllowed(newFontId, state.labelSettings.defaultFontHeight, state.labelSettings.defaultFontWidth);
+  const clamped = enforceFontMinSize(newFontId, snapped.height, snapped.width);
+  state.updateLabelSettings({ fontId: newFontId, defaultFontHeight: clamped.height, defaultFontWidth: clamped.width });
+  state.elements.forEach(el => { if (!el.fontId) normalizeElementFontSize(el, newFontId); });
+}
+
 function addCustomFont() {
   const id = newFontId.value;
   const file = newFontFile.value;
@@ -2030,7 +2055,14 @@ function addCustomFont() {
 function removeCustomFont(id) {
   const customFonts = customFontsManager.remove(id, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
+  // The pickers rebuild from customFonts, so they immediately read "Use label default" /
+  // "0 - Default" — but the references behind them would live on and keep emitting
+  // ^A<id>/^CF<id> with no ^CW mapping. Drop both so the output says what the panels show.
+  state.elements.forEach(el => { if (el.fontId === id) el.fontId = ''; });
+  applyLabelDefaultFont(state.labelSettings.fontId === id ? "0" : state.labelSettings.fontId);
   refreshCustomFontPickers();
+  fontId.value = state.labelSettings.fontId;
+  renderDefaultFontSizeControls();
   updateZPLOutput();
   renderCanvasPreview();
   scheduleHistoryCommit("custom-fonts", "Removed custom font", { kind: "settings" });
@@ -2060,44 +2092,160 @@ function updateCustomFontFile(fontId, newFontFile) {
   renderCustomFonts();
 }
 
-async function uploadCustomFont(file) {
+// Validates a picked TTF and turns it into a custom font source, or shows the
+// reason it can't be used and returns null.
+async function readCustomFontSource(file) {
   if (!/\.ttf$/i.test(file.name)) {
     customFontsManager.showError('Only TrueType (.ttf) fonts are supported');
-    return;
+    return null;
   }
   if (file.size <= 0 || file.size > MAX_CUSTOM_FONT_BYTES) {
-    customFontsManager.showError('Font must be between 1 byte and 2 MB');
-    return;
+    customFontsManager.showError('Font must be between 1 byte and 10 MB');
+    return null;
   }
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!isTrueTypeFont(bytes)) {
+      customFontsManager.showError('The selected file is not a valid TrueType font');
+      return null;
+    }
+    const source = {
+      fileName: file.name,
+      mimeType: 'font/ttf',
+      size: bytes.length,
+      sha256: await sha256Hex(bytes),
+      data: bytesToBase64(bytes),
+    };
+    // Browser preview support is best-effort. Zebra printers and browser font
+    // sanitizers do not accept exactly the same set of valid TrueType files.
+    await ensureCustomFontLoaded(source);
+    return source;
+  } catch {
+    customFontsManager.showError('The selected font could not be uploaded');
+    return null;
+  }
+}
+
+async function uploadCustomFont(file) {
+  const source = await readCustomFontSource(file);
+  if (!source) return;
   const id = nextCustomFontId(state.labelSettings.customFonts);
   if (!id) {
     customFontsManager.showError('All supported custom font IDs are already in use');
     return;
   }
-  let entry;
-  try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (!isTrueTypeFont(bytes)) {
-      customFontsManager.showError('The selected file is not a valid TrueType font');
-      return;
-    }
-    const hash = await sha256Hex(bytes);
-    const fontFile = sanitizePrinterFontPath(file.name, state.labelSettings.customFonts);
-    const source = { fileName: file.name, mimeType: 'font/ttf', size: bytes.length, sha256: hash, data: bytesToBase64(bytes) };
-    // Browser preview support is best-effort. Zebra printers and browser font
-    // sanitizers do not accept exactly the same set of valid TrueType files.
-    await ensureCustomFontLoaded(source);
-    entry = { id, fontFile, source };
-  } catch {
-    customFontsManager.showError('The selected font could not be uploaded');
-    return;
-  }
-  state.updateLabelSettings({ customFonts: [...state.labelSettings.customFonts, entry] });
+  const fontFile = sanitizePrinterFontPath(file.name, state.labelSettings.customFonts);
+  state.updateLabelSettings({ customFonts: [...state.labelSettings.customFonts, { id, fontFile, source }] });
   customFontsManager.hideError();
   refreshCustomFontPickers();
   updateZPLOutput();
   renderCanvasPreview();
   scheduleHistoryCommit('custom-fonts', `Uploaded ${file.name}`, { kind: 'settings' });
+}
+
+// A reference-only font names a font the printer already holds, so attaching a
+// TTF to it is a preview concern only: the declared ^CW path is kept as-is and
+// the bytes just feed the canvas and API previews.
+async function attachPreviewFont(fontId, file) {
+  const source = await readCustomFontSource(file);
+  if (!source) return;
+  const customFonts = state.labelSettings.customFonts.map(font =>
+    font.id === fontId ? { ...font, source } : font
+  );
+  state.updateLabelSettings({ customFonts });
+  customFontsManager.hideError();
+  refreshCustomFontPickers();
+  updateZPLOutput();
+  renderCanvasPreview();
+  scheduleHistoryCommit('custom-fonts', `Attached ${file.name} to font ${fontId}`, { kind: 'settings' });
+}
+
+// Fonts the Host supplied in Embed mode, keyed by the ^CW path stem they match
+// (E:NOTO.TTF ← NOTO.ttf). They act as preview files the user never had to
+// attach, and never travel back to the Host on save — see ADR 0014.
+const hostPreviewFonts = new Map();
+
+function printerPathStem(value) {
+  return normalizePrinterFontPath(value).replace(/^[A-Z]:/, '').replace(/\.TTF$/, '');
+}
+
+async function readHostFontSource(name, bytes) {
+  if (!bytes || bytes.length === 0 || bytes.length > MAX_CUSTOM_FONT_BYTES || !isTrueTypeFont(bytes)) {
+    return null;
+  }
+  const source = {
+    fileName: name,
+    mimeType: 'font/ttf',
+    size: bytes.length,
+    sha256: await sha256Hex(bytes),
+    data: bytesToBase64(bytes),
+    host: true,
+  };
+  await ensureCustomFontLoaded(source);
+  return source;
+}
+
+/**
+ * Register Host-supplied fonts and fill in any font on the current label that
+ * matches one. Returns the names that were rejected as unusable.
+ * @param {Array<{name: string, bytes: Uint8Array}>} fonts
+ */
+async function setHostPreviewFonts(fonts) {
+  const rejected = [];
+  for (const { name, bytes } of fonts) {
+    const source = await readHostFontSource(name, bytes);
+    if (source) hostPreviewFonts.set(printerPathStem(name), source);
+    else rejected.push(name);
+  }
+  matchHostFonts();
+  return rejected;
+}
+
+// A copy of customFonts with Host fonts attached, or null when nothing matched.
+// Entries are replaced rather than mutated: AppState.serialize() shares font
+// objects by reference with every history snapshot.
+function withHostFonts(customFonts) {
+  if (hostPreviewFonts.size === 0) return null;
+  let matched = false;
+  const next = customFonts.map(font => {
+    if (font.source) return font;
+    const source = hostPreviewFonts.get(printerPathStem(font.fontFile));
+    if (!source) return font;
+    matched = true;
+    return { ...font, source };
+  });
+  return matched ? next : null;
+}
+
+// Applied to a parsed template before it is committed, so the Host's fonts are
+// part of the imported state (and of its history entry) instead of an edit on top.
+function applyHostFontsToImport(labelSettings) {
+  const customFonts = withHostFonts(labelSettings.customFonts || []);
+  if (customFonts) labelSettings.customFonts = customFonts;
+}
+
+// For fonts that arrive after the content is already loaded.
+function matchHostFonts() {
+  const customFonts = withHostFonts(state.labelSettings.customFonts);
+  if (!customFonts) return;
+  state.updateLabelSettings({ customFonts });
+  refreshCustomFontPickers();
+  updateZPLOutput();
+  renderCanvasPreview();
+}
+
+// The Host already holds the files it sent, so echoing their bytes back in
+// every save payload would bloat it for nothing; those fonts go back out as the
+// reference-only entries the template declared.
+function withoutHostFontSources(labelSettings) {
+  const customFonts = labelSettings.customFonts || [];
+  if (!customFonts.some(font => font.source?.host)) return labelSettings;
+  return {
+    ...labelSettings,
+    customFonts: customFonts.map(font =>
+      font.source?.host ? { id: font.id, fontFile: font.fontFile } : font
+    ),
+  };
 }
 
 function exportCustomFontInstall(fontIdToExport) {

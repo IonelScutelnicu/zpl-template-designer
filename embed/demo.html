@@ -133,6 +133,7 @@
     <button id="load-template-btn">Load sample template</button>
     <button id="load-zpl-btn">Load sample ZPL</button>
     <button id="set-preview-data-btn" title="Define placeholders and their sample values from the host">Set preview data</button>
+    <button id="load-font-zpl-btn" title="Load ZPL naming a printer-resident font and send that font from the host">Load ZPL + host font</button>
     <button id="open-tab-btn">Open in new tab</button>
     <button id="host-save-btn" title="Ask the editor for its state via handle.save()">Save (host)</button>
     <span id="panels" title="Panel visibility is fixed when the iframe is created — toggling re-embeds the editor">
@@ -269,6 +270,17 @@
     });
     document.getElementById('load-zpl-btn').addEventListener('click', function () {
       handle.loadZPL(sampleZPL);
+    });
+    // The ZPL only names the font (^CWK,E:OCRA.TTF) — the printer resolves it,
+    // but a browser preview can't. Sending the file the host already owns makes
+    // the editor render the label in the real face, with no user action.
+    document.getElementById('load-font-zpl-btn').addEventListener('click', function () {
+      fetch('../src/fonts/OCRA.ttf')
+        .then(function (res) { return res.arrayBuffer(); })
+        .then(function (buffer) {
+          handle.setFonts([{ name: 'OCRA.TTF', data: buffer }]);
+          handle.loadZPL('^XA\n^CWK,E:OCRA.TTF\n^CI28\n^FO40,60^AKN,50,50^FDHandling 0123^FS\n^XZ');
+        });
     });
     // Placeholders the host owns. `lot` has no value yet — it still shows up in
     // the editor's Preview Data panel, ready for the user to fill in.

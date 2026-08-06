@@ -2,6 +2,22 @@ import path from 'node:path';
 import { test, expect } from '../fixtures';
 import { ElementsPanel, PreviewPanel, buildSquarePngBuffer } from '../page-objects';
 
+// A valid sfnt table directory (head + glyf) padded past the Labelary limit.
+// Real fonts that big are CJK families; the bytes only have to satisfy
+// isTrueTypeFont — browser preview support is best-effort either way.
+function buildOversizeTtf(size = 2.5 * 1024 * 1024): Buffer {
+  const buf = Buffer.alloc(size);
+  buf.writeUInt32BE(0x00010000, 0);
+  buf.writeUInt16BE(2, 4);
+  buf.write('head', 12, 'ascii');
+  buf.writeUInt32BE(64, 20);
+  buf.writeUInt32BE(54, 24);
+  buf.write('glyf', 28, 'ascii');
+  buf.writeUInt32BE(128, 36);
+  buf.writeUInt32BE(size - 128, 40);
+  return buf;
+}
+
 test.describe('Custom fonts', () => {
   test('recognizes TrueType data independently of browser preview support', async ({ page }) => {
     await page.goto('/?e2e=1');
@@ -253,6 +269,147 @@ test.describe('Custom fonts', () => {
     await expect(page.locator('#prop-font-id option[value="I"]')).toHaveCount(1);
     await page.locator('#prop-font-id').selectOption('I');
     await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^AIN,/);
+  });
+
+  test('attaches a preview font to a reference-only font without changing its ^CW path', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#new-font-id').fill('M');
+    await page.locator('#new-font-file').fill('E:PRESET.TTF');
+    await page.locator('#add-custom-font-btn').click();
+    await expect(page.locator('.attach-custom-font')).toContainText('Add preview file');
+
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('.attach-custom-font').click();
+    await (await chooser).setFiles(path.resolve('src/fonts/OCRA.ttf'));
+    await expect(page.locator('#custom-fonts-list')).toContainText('Ready');
+    // The printer-resident path is what the printer resolves; only the preview
+    // bytes were added.
+    await expect(page.locator('#custom-fonts-list')).toContainText('E:PRESET.TTF');
+    // The specimen renders in the attached face, not the fallback.
+    await expect(page.locator('.replace-preview-font')).toHaveCSS('font-family', /zpl-custom-/);
+
+    await page.locator('#font-id').selectOption('M', { force: true });
+    await page.locator('#font-id').dispatchEvent('change');
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+
+    const output = await page.locator('#zpl-output-raw').inputValue();
+    expect(output).toContain('^CWM,E:PRESET.TTF');
+    expect(output).not.toContain('~DY');
+
+    let requestBody = '';
+    await page.route('**/api.labelary.com/**', async route => {
+      requestBody = route.request().postData() || '';
+      await route.fulfill({ status: 200, contentType: 'image/png', body: buildSquarePngBuffer() });
+    });
+    const preview = new PreviewPanel(page);
+    await preview.switchToAPIMode();
+    await expect.poll(() => requestBody, { timeout: 10000 }).toContain('~DYE:PRESET,A,T,15896,,');
+  });
+
+  test('replaces an attached preview file from the specimen, keeping the ^CW path', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#new-font-id').fill('M');
+    await page.locator('#new-font-file').fill('E:PRESET.TTF');
+    await page.locator('#add-custom-font-btn').click();
+
+    const firstChooser = page.waitForEvent('filechooser');
+    await page.locator('.attach-custom-font').click();
+    await (await firstChooser).setFiles(path.resolve('src/fonts/OCRA.ttf'));
+    const specimen = page.locator('.replace-preview-font');
+    await expect(specimen).toHaveCSS('font-family', /zpl-custom-/);
+    const firstFace = await specimen.evaluate(el => getComputedStyle(el).fontFamily);
+
+    // Clicking the specimen re-opens the picker; the family is content-hashed,
+    // so a different face proves the preview bytes were swapped.
+    const secondChooser = page.waitForEvent('filechooser');
+    await specimen.click();
+    await (await secondChooser).setFiles(path.resolve('src/fonts/OCRB.ttf'));
+    await expect(specimen).not.toHaveCSS('font-family', firstFace);
+    await expect(page.locator('#custom-fonts-list')).toContainText('E:PRESET.TTF');
+
+    await page.locator('#font-id').selectOption('M', { force: true });
+    await page.locator('#font-id').dispatchEvent('change');
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+
+    const output = await page.locator('#zpl-output-raw').inputValue();
+    expect(output).toContain('^CWM,E:PRESET.TTF');
+    expect(output).not.toContain('~DY');
+  });
+
+  test('drops element overrides to the label default when their font is removed', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#new-font-id').fill('K');
+    await page.locator('#new-font-file').fill('E:PRESET.TTF');
+    await page.locator('#add-custom-font-btn').click();
+
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+    await page.locator('#prop-font-id').selectOption('K');
+    await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^AKN,/);
+
+    await page.locator('.remove-custom-font').click();
+
+    // The override can't survive its font: the panel already shows "Use label
+    // default", and the output has to agree instead of emitting an unmapped ^AK.
+    await expect(page.locator('#prop-font-id')).toHaveValue('');
+    const output = await page.locator('#zpl-output-raw').inputValue();
+    expect(output).toContain('^A0N,');
+    expect(output).not.toContain('^AK');
+    expect(output).not.toContain('^CWK');
+  });
+
+  test('resets the label default when the font it points at is removed', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#new-font-id').fill('K');
+    await page.locator('#new-font-file').fill('E:PRESET.TTF');
+    await page.locator('#add-custom-font-btn').click();
+
+    await page.locator('#font-id').selectOption('K', { force: true });
+    await page.locator('#font-id').dispatchEvent('change');
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+    expect(await page.locator('#zpl-output-raw').inputValue()).toContain('^CFK,');
+
+    await page.locator('.remove-custom-font').click();
+
+    await expect(page.locator('#font-id')).toHaveValue('0');
+    const output = await page.locator('#zpl-output-raw').inputValue();
+    expect(output).toContain('^CF0,');
+    expect(output).toContain('^A0N,');
+    expect(output).not.toContain('^CWK');
+  });
+
+  test('takes a font over the Labelary limit as canvas-only', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('#custom-font-upload').setInputFiles({
+      name: 'BIG.ttf', mimeType: 'font/ttf', buffer: buildOversizeTtf(),
+    });
+    // Accepted — 2 MB is the API preview threshold now, not the upload gate.
+    await expect(page.locator('#custom-fonts-list')).toContainText('Canvas only');
+    await expect(page.locator('#custom-fonts-list')).toContainText('too large for the Labelary preview');
+
+    await page.locator('#font-id').selectOption('I', { force: true });
+    await page.locator('#font-id').dispatchEvent('change');
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+    expect(await page.locator('#zpl-output-raw').inputValue()).toContain('^CWI,E:BIG.TTF');
+
+    let requestBody = '';
+    await page.route('**/api.labelary.com/**', async route => {
+      requestBody = route.request().postData() || '';
+      await route.fulfill({ status: 200, contentType: 'image/png', body: buildSquarePngBuffer() });
+    });
+    const preview = new PreviewPanel(page);
+    await preview.switchToAPIMode();
+    await expect.poll(() => requestBody, { timeout: 10000 }).toContain('^XA');
+    // Too big to travel: the API preview falls back to its own face.
+    expect(requestBody).not.toContain('~DY');
   });
 
   test('uploads a font, keeps production ZPL compact, and embeds it in API preview', async ({ page }) => {
