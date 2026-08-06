@@ -613,6 +613,19 @@ export function initApp() {
       renderPropertiesPanel();
       renderCanvasPreview();
     },
+    onElementEditContent: (element) => {
+      if (!state.selectedElement || state.selectedElement.id !== element.id) {
+        state.setSelectedElement(element);
+        updateElementsList();
+        renderPropertiesPanel();
+        renderCanvasPreview();
+      }
+      const contentInput = document.getElementById('prop-content');
+      if (contentInput) {
+        contentInput.focus();
+        contentInput.select();
+      }
+    },
     onElementDragging: (element) => {
       // Update canvas in real-time during drag
       renderCanvasPreview();
@@ -1203,7 +1216,7 @@ export function initApp() {
   });
 
   mediaDarkness.addEventListener("input", (e) => {
-    state.updateLabelSettings({ mediaDarkness: parseInt(e.target.value) || 25 });
+    state.updateLabelSettings({ mediaDarkness: parseInt(e.target.value) || 15 });
     updateZPLOutput();
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });

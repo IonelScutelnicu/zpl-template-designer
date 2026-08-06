@@ -74,11 +74,13 @@ export class InteractionHandler {
     // All handlers are bound once and kept on the instance so destroy() can
     // detach the exact same references.
     this._boundMouseDown = this.handleMouseDown.bind(this);
+    this._boundDoubleClick = this.handleDoubleClick.bind(this);
     this._boundMouseLeave = this.handleMouseLeave.bind(this);
     this._boundContextMenu = this.handleContextMenu.bind(this);
     this._boundKeyDown = this.handleKeyDown.bind(this);
     this._boundKeyUp = this.handleKeyUp.bind(this);
     this.canvas.addEventListener('mousedown', this._boundMouseDown);
+    this.canvas.addEventListener('dblclick', this._boundDoubleClick);
     this.canvas.addEventListener('mousemove', this._boundCanvasMove);
     this.canvas.addEventListener('mouseup', this._boundCanvasUp);
     this.canvas.addEventListener('mouseleave', this._boundMouseLeave);
@@ -410,6 +412,23 @@ export class InteractionHandler {
         window.addEventListener('mousemove', this._boundMarqueeMove);
         window.addEventListener('mouseup', this._boundMarqueeUp);
       }
+    }
+  }
+
+  /**
+   * Double-click on a text element jumps straight to editing its Content in the
+   * properties panel (the element is already selected by the preceding mousedown).
+   */
+  handleDoubleClick(e) {
+    if (e.button !== 0) return;
+
+    const coords = this.renderer.mouseToLabelCoords(e.clientX, e.clientY);
+    const element = this.getElementAtPosition(coords.x, coords.y);
+    if (!element) return;
+    if (element.type !== 'TEXT' && element.type !== 'TEXTBLOCK' && element.type !== 'FIELDBLOCK') return;
+
+    if (this.callbacks.onElementEditContent) {
+      this.callbacks.onElementEditContent(element);
     }
   }
 
@@ -1521,6 +1540,7 @@ export class InteractionHandler {
    */
   destroy() {
     this.canvas.removeEventListener('mousedown', this._boundMouseDown);
+    this.canvas.removeEventListener('dblclick', this._boundDoubleClick);
     this.canvas.removeEventListener('mousemove', this._boundCanvasMove);
     this.canvas.removeEventListener('mouseup', this._boundCanvasUp);
     this.canvas.removeEventListener('mouseleave', this._boundMouseLeave);
