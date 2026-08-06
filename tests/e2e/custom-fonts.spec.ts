@@ -496,6 +496,27 @@ test.describe('Custom fonts', () => {
     await expect(row.locator('span span').first()).toHaveCSS('font-family', /zpl-custom-/);
   });
 
+  test('renaming a font path refreshes both pickers', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const elements = new ElementsPanel(page);
+    await elements.addTextElement();
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#new-font-id').fill('M');
+    await page.locator('#new-font-file').fill('E:PRESET.TTF');
+    await page.locator('#add-custom-font-btn').click();
+
+    await page.locator('.custom-font-file').click();
+    await page.locator('#custom-fonts-list input[data-font-id="M"]').fill('E:RENAMED.TTF');
+    await page.keyboard.press('Enter');
+
+    // The rows carry the ^CW path, so both pickers have to be rebuilt — not just the list.
+    await expect(page.locator('#custom-fonts-list')).toContainText('E:RENAMED.TTF');
+    await expect(page.locator('.font-picker[data-select="font-id"] [data-font-id="M"]'))
+      .toContainText('M · RENAMED · Declared ^CW');
+    await expect(page.locator('.font-picker[data-select="prop-font-id"] [data-font-id="M"]'))
+      .toContainText('M · RENAMED · Declared ^CW');
+  });
+
   test('clears an element font override from the picker', async ({ page }) => {
     await page.goto('/?e2e=1');
     const elements = new ElementsPanel(page);

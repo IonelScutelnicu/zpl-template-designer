@@ -2119,10 +2119,12 @@ function refreshCustomFontPickers() {
 function updateCustomFontFile(fontId, newFontFile) {
   const customFonts = customFontsManager.updateFile(fontId, newFontFile, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
+  // Both pickers show the ^CW path on their specimen rows, so a renamed path has to
+  // rebuild them too — not just the custom font list.
+  refreshCustomFontPickers();
   updateZPLOutput();
   renderCanvasPreview();
   scheduleHistoryCommit("label-settings", "Updated custom font", { kind: "settings" });
-  renderCustomFonts();
 }
 
 // Validates a picked TTF and turns it into a custom font source, or shows the
