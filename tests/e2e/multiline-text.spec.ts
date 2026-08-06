@@ -108,6 +108,32 @@ test.describe('Multiline text', () => {
             // ^A never carried the break, so it comes back as the space it became.
             expect(r.text).toBe('Line1 Line2');
         });
+
+        test('^FB ignores physical source newlines beside explicit \\& breaks', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const [{ ZPLParser }, { FieldBlockElement }] = await Promise.all([
+                    import('/src/services/ZPLParser.js'),
+                    import('/src/elements/FieldBlockElement.js'),
+                ]);
+                const zpl = '^XA^FO15,360^A0N,18^FB208,7,5,C^FD%field_x%\\&\r\n'
+                    + '%field_a%\\&\n%field_b%\\&\r%field_c% - %field_d%^FS^XZ';
+                const parsed = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 80 }).elements[0];
+                const element = new FieldBlockElement(
+                    parsed.x, parsed.y, parsed.content, parsed.fontSize, parsed.fontWidth,
+                    parsed.blockWidth, parsed.maxLines, parsed.lineSpacing,
+                    parsed.justification, parsed.hangingIndent, parsed.fontId,
+                    parsed.reverse, parsed.orientation, parsed.fieldHex,
+                );
+
+                return { content: parsed.content, rendered: element.render() };
+            });
+
+            expect(result.content).toBe('%field_x%\n%field_a%\n%field_b%\n%field_c% - %field_d%');
+            expect(result.rendered).toContain(
+                '^FD%field_x%\\&%field_a%\\&%field_b%\\&%field_c% - %field_d%\\&^FS',
+            );
+            expect(result.rendered).not.toContain('\\&\\&');
+        });
     });
 
     test.describe('Preview Data', () => {

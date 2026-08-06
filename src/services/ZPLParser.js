@@ -969,8 +969,12 @@ export class ZPLParser {
     const justification = fbParts[3] || 'L';
     const hangingIndent = parseInt(fbParts[4]) || 0;
 
-    // Parse ^FD content - strip trailing \& for center-justified text blocks
+    // ^FB ignores physical line breaks in ^FD; only \& creates a field-block
+    // break. Discard source formatting before decoding the explicit escapes.
     let fdContent = this._decodeFieldDataToken(fdToken, fhToken);
+    fdContent = fdContent.replace(/\r\n?|\n/g, '');
+
+    // Strip trailing \& for center-justified text blocks.
     if (fdContent.endsWith(FB_LINE_BREAK)) {
       fdContent = fdContent.slice(0, -FB_LINE_BREAK.length);
     }
