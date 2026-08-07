@@ -821,6 +821,18 @@ export function initApp() {
         moveElementDown(index);
       }
     },
+    onSendToBack: (element) => {
+      const index = state.elements.findIndex(el => String(el.id) === String(element.id));
+      if (index > 0) {
+        moveElementToTop(index);
+      }
+    },
+    onSendToFront: (element) => {
+      const index = state.elements.findIndex(el => String(el.id) === String(element.id));
+      if (index >= 0 && index < state.elements.length - 1) {
+        moveElementToBottom(index);
+      }
+    },
     onCenterHorizontally: (element) => {
       runContextMenuAlignment('center-x', element, `Centered ${element.type} horizontally`);
     },
@@ -3079,6 +3091,20 @@ function moveElementUp(index) {
 function moveElementDown(index) {
   const previousPositions = captureElementListPositions();
   if (elementService.moveElement(index, 'down')) {
+    animateElementListReorder(previousPositions);
+  }
+}
+
+function moveElementToTop(index) {
+  const previousPositions = captureElementListPositions();
+  if (elementService.moveElement(index, 'top')) {
+    animateElementListReorder(previousPositions);
+  }
+}
+
+function moveElementToBottom(index) {
+  const previousPositions = captureElementListPositions();
+  if (elementService.moveElement(index, 'bottom')) {
     animateElementListReorder(previousPositions);
   }
 }

@@ -82,6 +82,8 @@ test.describe('Canvas Context Menu', () => {
         await expect(menuItem(page, 'duplicate')).toBeVisible();
         await expect(menuItem(page, 'move-up')).toBeVisible();
         await expect(menuItem(page, 'move-down')).toBeVisible();
+        await expect(menuItem(page, 'send-to-back')).toBeVisible();
+        await expect(menuItem(page, 'send-to-front')).toBeVisible();
         await expect(menuItem(page, 'center-horizontally')).toBeVisible();
         await expect(menuItem(page, 'center-vertically')).toBeVisible();
         await expect(menuItem(page, 'match-label-width')).toBeVisible();
@@ -323,6 +325,54 @@ test.describe('Canvas Context Menu', () => {
         const idsAfter = await elementsPanel.getElementIds();
         expect(idsAfter[0]).toBe(idsBefore[1]);
         expect(idsAfter[1]).toBe(idsBefore[0]);
+    });
+
+    async function addThreeSpacedElements(page: import('@playwright/test').Page) {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await setPosition(page, 50, 50);
+
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(1);
+        await setPosition(page, 200, 50);
+
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(2);
+        await setPosition(page, 350, 50);
+        await canvas.waitForReady();
+    }
+
+    test('should send last element to back via context menu', async ({ page }) => {
+        await addThreeSpacedElements(page);
+
+        const idsBefore = await elementsPanel.getElementIds();
+
+        // Right-click the last element (index 2) at position (350,50)
+        await canvas.rightClickAt(360, 60);
+        await expect(menuItem(page, 'send-to-front')).toBeDisabled();
+        await menuItem(page, 'send-to-back').click();
+
+        const idsAfter = await elementsPanel.getElementIds();
+        expect(idsAfter).toEqual([idsBefore[2], idsBefore[0], idsBefore[1]]);
+    });
+
+    test('should send first element to front via context menu and undo in one step', async ({ page }) => {
+        await addThreeSpacedElements(page);
+
+        const idsBefore = await elementsPanel.getElementIds();
+
+        // Right-click the first element (index 0) at position (50,50)
+        await canvas.rightClickAt(60, 60);
+        await expect(menuItem(page, 'send-to-back')).toBeDisabled();
+        await menuItem(page, 'send-to-front').click();
+
+        const idsAfter = await elementsPanel.getElementIds();
+        expect(idsAfter).toEqual([idsBefore[1], idsBefore[2], idsBefore[0]]);
+
+        await page.keyboard.press('Control+z');
+        await canvas.waitForReady();
+
+        expect(await elementsPanel.getElementIds()).toEqual(idsBefore);
     });
 
     // ============== CENTER ALIGNMENT ==============

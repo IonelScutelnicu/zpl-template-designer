@@ -369,7 +369,7 @@ export class ElementService {
   /**
    * Move an element up or down in the rendering order
    * @param {number} index - Current index of element
-   * @param {string} direction - 'up' or 'down'
+   * @param {string} direction - 'up', 'down', 'top' or 'bottom'
    * @returns {boolean} True if move was successful
    */
   moveElement(index, direction) {
@@ -386,6 +386,20 @@ export class ElementService {
 
       const newElements = [...elements];
       [newElements[index], newElements[index + 1]] = [newElements[index + 1], newElements[index]];
+      this.state.setElements(newElements);
+    } else if (direction === 'top') {
+      if (index <= 0 || index >= elements.length) return false;
+
+      const newElements = [...elements];
+      const [moved] = newElements.splice(index, 1);
+      newElements.unshift(moved);
+      this.state.setElements(newElements);
+    } else if (direction === 'bottom') {
+      if (index < 0 || index >= elements.length - 1) return false;
+
+      const newElements = [...elements];
+      const [moved] = newElements.splice(index, 1);
+      newElements.push(moved);
       this.state.setElements(newElements);
     } else {
       return false;

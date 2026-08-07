@@ -78,6 +78,8 @@ export class ContextMenu {
       this._addSeparator();
       this._addItem('arrow_upward', 'Move Up', null, () => this.callbacks.onMoveUp(targetElement), isLocked || index === 0);
       this._addItem('arrow_downward', 'Move Down', null, () => this.callbacks.onMoveDown(targetElement), isLocked || index === elements.length - 1);
+      this._addItem('vertical_align_top', 'Send to Back', null, () => this.callbacks.onSendToBack(targetElement), isLocked || index === 0);
+      this._addItem('vertical_align_bottom', 'Send to Front', null, () => this.callbacks.onSendToFront(targetElement), isLocked || index === elements.length - 1);
       this._addSeparator();
       this._addItem('align_horizontal_center', 'Center Horizontally', null, () => this.callbacks.onCenterHorizontally(targetElement), isLocked);
       this._addItem('align_vertical_center', 'Center Vertically', null, () => this.callbacks.onCenterVertically(targetElement), isLocked);
