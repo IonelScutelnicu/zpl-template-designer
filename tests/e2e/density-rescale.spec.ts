@@ -38,12 +38,12 @@ test.describe('Density rescale', () => {
         Object.assign(t('LINE'), { x: 6, y: 8, width: 50, thickness: 3 });
         Object.assign(t('CIRCLE'), { x: 4, y: 4, width: 30, height: 30, thickness: 2 });
         Object.assign(t('DIAGONALLINE'), { x: 2, y: 2, width: 24, height: 16, thickness: 3 });
-        Object.assign(t('TEXT'), { x: 5, y: 5, fontSize: 30, fontWidth: 20 });
-        Object.assign(t('TEXTBLOCK'), { x: 7, y: 9, fontSize: 28, fontWidth: 18, blockWidth: 100, blockHeight: 60 });
-        Object.assign(t('FIELDBLOCK'), { x: 3, y: 3, fontSize: 26, fontWidth: 16, blockWidth: 90, lineSpacing: 4, hangingIndent: 8 });
+        Object.assign(t('TEXT'), { x: 5, y: 5, fontId: '0', fontSize: 30, fontWidth: 20 });
+        Object.assign(t('TEXTBLOCK'), { x: 7, y: 9, fontId: '0', fontSize: 28, fontWidth: 18, blockWidth: 100, blockHeight: 60 });
+        Object.assign(t('FIELDBLOCK'), { x: 3, y: 3, fontId: '0', fontSize: 26, fontWidth: 16, blockWidth: 90, lineSpacing: 4, hangingIndent: 8 });
         Object.assign(t('BARCODE'), { x: 1, y: 1, width: 3, height: 50 });
         Object.assign(t('QRCODE'), { x: 0, y: 0, symbology: 'QR', magnification: 3 });
-        Object.assign(s.labelSettings, { defaultFontHeight: 20, defaultFontWidth: 10, homeX: 10, homeY: 6, labelTop: 4 });
+        Object.assign(s.labelSettings, { fontId: '0', defaultFontHeight: 20, defaultFontWidth: 10, homeX: 10, homeY: 6, labelTop: 4 });
       });
 
       const before = await page.evaluate(() => (window as unknown as { appState: any }).appState.getHistoryEntries().length);
@@ -148,6 +148,35 @@ test.describe('Density rescale', () => {
         };
       });
       expect(r).toEqual({ qr: 10, dm: 30, pdfW: 20, pdfH: 100 });
+    });
+  });
+
+  test.describe('Scale elements — bitmap font snapping', () => {
+    test('keeps the Font A default and inherited element sizes on their allowed grids', async ({ page }) => {
+      await elementsPanel.addTextElement();
+      await page.evaluate(() => {
+        const text = (window as unknown as { appState: any }).appState.elements.find((e: any) => e.type === 'TEXT');
+        Object.assign(text, { fontId: '', fontSize: 36, fontWidth: 20 });
+      });
+
+      await page.locator('#label-dpmm').selectOption('6'); // 8 -> 6 dpmm (x0.75)
+      await page.locator('#density-rescale-scale-btn').click();
+      await page.waitForTimeout(150);
+
+      const result = await page.evaluate(() => {
+        const state = (window as unknown as { appState: any }).appState;
+        const text = state.elements.find((e: any) => e.type === 'TEXT');
+        return {
+          defaultHeight: state.labelSettings.defaultFontHeight,
+          fontSize: text.fontSize,
+          fontWidth: text.fontWidth,
+        };
+      });
+      expect(result).toEqual({ defaultHeight: 18, fontSize: 27, fontWidth: 15 });
+
+      const zpl = await page.locator('#zpl-output-raw').inputValue();
+      expect(zpl).toContain('^CFA,18');
+      expect(zpl).toContain('^AAN,27,15');
     });
   });
 

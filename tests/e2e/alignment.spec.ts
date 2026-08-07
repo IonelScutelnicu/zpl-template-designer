@@ -293,8 +293,8 @@ test.describe('Alignment Features', () => {
 
             // Rotated: visual width = totalHeight (from maxLines × baseLineHeight)
             // So match-width adjusts maxLines to fill label width
-            // baseLineHeight = fontSize * LINE_HEIGHT_RATIO = 20 * 1.0 = 20; floor(799 / 20) = 39
-            const expectedLines = Math.floor(LABEL_WIDTH / 20);
+            // baseLineHeight = fontSize * LINE_HEIGHT_RATIO = 18 * 1.0 = 18; floor(799 / 18) = 44
+            const expectedLines = Math.floor(LABEL_WIDTH / 18);
             await propertiesPanel.verifyPropertyValue('prop-max-lines', expectedLines);
             await propertiesPanel.verifyPropertyValue('prop-x', 0);
         });

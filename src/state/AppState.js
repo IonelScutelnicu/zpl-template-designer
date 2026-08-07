@@ -1,7 +1,7 @@
 // Observable Application State Management
 // Centralizes all application state with event-driven updates
 
-import { HISTORY_LIMIT } from '../config/constants.js';
+import { HISTORY_LIMIT, DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 
 /**
  * Observable state store for the ZPL Template Creator
@@ -33,9 +33,9 @@ export class AppState {
       replicates: 0,           // ^PQ replicates of each serial number (0-99999999)
       printQuantityPlaceholder: '', // ^PQ quantity placeholder name (e.g. 'qty' → %qty%)
       previewData: {},         // Preview Data: placeholder name → sample value (canvas + preview only)
-      fontId: "0",             // ^CF default font identifier
+      fontId: DEFAULT_FONT_ID, // ^CF default font identifier
       customFonts: [],         // Array of {id, fontFile} for ^CW commands
-      defaultFontHeight: 20,   // ^CF default font height
+      defaultFontHeight: DEFAULT_FONT_HEIGHT, // ^CF default font height
       defaultFontWidth: 0,     // ^CF default font width (0 = omit from ZPL)
       homeX: 0,                // ^LH x position
       homeY: 0,                // ^LH y position
@@ -511,7 +511,7 @@ export class AppState {
     // Restore elements. Pass the restored label default so elements that inherit
     // the label font (fontId === '') snap their bitmap sizes to the right grid.
     if (data.elements) {
-      const labelFontId = data.labelSettings?.fontId;
+      const labelFontId = data.labelSettings?.fontId || this.labelSettings.fontId;
       this.elements = data.elements.map(el => createElementFromData(el, { keepId: true, labelFontId }));
       this.notify('elementsChanged', this.elements);
     }

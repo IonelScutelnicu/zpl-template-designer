@@ -269,8 +269,10 @@ test.describe('Multiline text', () => {
                         : new FieldBlockElement(20, 30, content, 30, 0, 360, 4);
 
                 const canvas = document.createElement('canvas');
+                // Scalable Font 0: counting ink bands needs lines that don't touch, and
+                // the bitmap fonts stack ^FB lines tightly enough to merge the bands.
                 new CanvasRenderer(canvas).renderCanvas([element], {
-                    width: 100, height: 76, dpmm: 8,
+                    width: 100, height: 76, dpmm: 8, fontId: '0',
                     defaultFontHeight: 30, defaultFontWidth: 0, previewData: {},
                 }, null);
 

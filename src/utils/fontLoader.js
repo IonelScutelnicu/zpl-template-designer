@@ -1,5 +1,6 @@
 import { resolveSymbology, getHriConfig } from './barcodeGeometry.js';
 import { customFontFamily, fontBytesFromSource, isValidFontHash } from './customFonts.js';
+import { DEFAULT_FONT_ID } from '../config/constants.js';
 
 const FONT_SOURCES = {
   A: { family: 'Bitstream Vera Sans Mono', src: 'src/fonts/VeraMono.ttf' },
@@ -79,7 +80,7 @@ function hriFontId(el) {
 
 // Call after a render pass; fires onLoaded() once when any custom fonts finish loading.
 export function prefetchFontsForElements(elements, labelSettings, onLoaded) {
-  const defaultFontId = labelSettings?.fontId || '0';
+  const defaultFontId = labelSettings?.fontId || DEFAULT_FONT_ID;
   const ids = new Set(elements.map(el => el.fontId || defaultFontId));
   for (const el of elements) {
     const id = hriFontId(el);

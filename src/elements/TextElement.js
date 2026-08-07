@@ -1,6 +1,7 @@
 import { ZPLElement } from './ZPLElement.js';
 import { renderFieldDataCommand, collapseLineBreaks } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
+import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 
 // TEXT Element Class
 export class TextElement extends ZPLElement {
@@ -39,11 +40,11 @@ export class TextElement extends ZPLElement {
         return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(collapseLineBreaks(content), '_', this.fieldHex)}^FS`;
     }
 
-    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+    render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0) {
         return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth);
     }
 
-    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0, previewData = {}) {
+    renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}) {
         return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth);
     }
 

@@ -7,6 +7,7 @@ import { LINE_HEIGHT_RATIO, clampNumber, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
 import { GRAPHIC_SYMBOL_INK_RATIOS } from './elements/GraphicSymbolElement.js';
+import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from './config/constants.js';
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -308,8 +309,8 @@ export class InteractionHandler {
           this.resizeStartWidth = bounds.width;
           this.resizeStartHeight = bounds.height;
         } else if (selectedElement.type === 'TEXT') {
-          const resolvedFontId = selectedElement.fontId || this.labelSettings?.fontId || '0';
-          this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 20;
+          const resolvedFontId = selectedElement.fontId || this.labelSettings?.fontId || DEFAULT_FONT_ID;
+          this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || DEFAULT_FONT_HEIGHT;
           this.resizeStartFontWidth = selectedElement.fontWidth
             || this.labelSettings?.defaultFontWidth
             || proportionalRequestedWidth(resolvedFontId, this.resizeStartHeight);
@@ -668,7 +669,7 @@ export class InteractionHandler {
         const dy = coords.y - this.resizeMouseStartY;
         const isRotated = this.dragElement.orientation === 'R' || this.dragElement.orientation === 'B';
         const fontSizeDelta = isRotated ? dx : dy;
-        const resolvedFontId = this.dragElement.fontId || this.labelSettings?.fontId || '0';
+        const resolvedFontId = this.dragElement.fontId || this.labelSettings?.fontId || DEFAULT_FONT_ID;
         const rawFontSize = Math.max(1, Math.round(this.resizeStartHeight + fontSizeDelta));
         // Scale fontWidth so the right edge of the selection box tracks the mouse 1:1.
         // measuredWidth = charPixels * fontWidth / fontSize, so fontWidth scales proportionally.

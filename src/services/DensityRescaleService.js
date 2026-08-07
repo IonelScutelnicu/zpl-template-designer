@@ -7,6 +7,8 @@
 
 import { BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 import { resampleBitmap } from '../utils/graphicField.js';
+import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
+import { enforceFontMinSize, snapRequestedToAllowed } from '../utils/zplFontSnap.js';
 
 const MIN_DIM = 1;
 
@@ -45,6 +47,13 @@ function scalePos(value, s) {
   return Math.round(value * s);
 }
 
+function scaleFontDimensions(fontId, height, width, s) {
+  const scaledHeight = height ? scaleDim(height, s) : 0;
+  const scaledWidth = width ? scaleDim(width, s) : 0;
+  const snapped = snapRequestedToAllowed(fontId, scaledHeight, scaledWidth);
+  return enforceFontMinSize(fontId, snapped.height, snapped.width);
+}
+
 // Graphic flavors (see GraphicFieldElement): editable graphics re-rasterize
 // from their source image (async, best quality); parsed graphics have only
 // the decoded 1-bpp bitmap, which gets nearest-neighbor resampled in place;
@@ -66,7 +75,7 @@ function isParsedGraphic(el) {
  * constructor. Used to decide whether a rescale would touch anything.
  */
 const FACTORY_LABEL_DEFAULTS = {
-  defaultFontHeight: 20,
+  defaultFontHeight: DEFAULT_FONT_HEIGHT,
   defaultFontWidth: 0,
   homeX: 0,
   homeY: 0,
@@ -125,6 +134,7 @@ export function analyzeRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
 export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
   const s = newDpmm / oldDpmm;
   const editableGraphicsToReencode = [];
+  const labelFontId = labelSettings.fontId || DEFAULT_FONT_ID;
 
   for (const el of elements) {
     el.x = scalePos(el.x || 0, s);
@@ -155,18 +165,21 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         el.thickness = scaleDim(el.thickness, s);
         break;
       case 'TEXT':
-        if (el.fontSize) el.fontSize = scaleDim(el.fontSize, s);
-        if (el.fontWidth) el.fontWidth = scaleDim(el.fontWidth, s);
+        ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
+          el.fontId || labelFontId, el.fontSize, el.fontWidth, s
+        ));
         break;
       case 'TEXTBLOCK':
-        if (el.fontSize) el.fontSize = scaleDim(el.fontSize, s);
-        if (el.fontWidth) el.fontWidth = scaleDim(el.fontWidth, s);
+        ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
+          el.fontId || labelFontId, el.fontSize, el.fontWidth, s
+        ));
         el.blockWidth = scaleDim(el.blockWidth, s);
         el.blockHeight = scaleDim(el.blockHeight, s);
         break;
       case 'FIELDBLOCK':
-        if (el.fontSize) el.fontSize = scaleDim(el.fontSize, s);
-        if (el.fontWidth) el.fontWidth = scaleDim(el.fontWidth, s);
+        ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
+          el.fontId || labelFontId, el.fontSize, el.fontWidth, s
+        ));
         el.blockWidth = scaleDim(el.blockWidth, s);
         if (el.lineSpacing) el.lineSpacing = Math.round(el.lineSpacing * s);
         if (el.hangingIndent) el.hangingIndent = Math.round(el.hangingIndent * s);
@@ -210,11 +223,17 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
   }
 
   const labelSettingsPatch = { dpmm: newDpmm };
+  const scaledDefaultFont = scaleFontDimensions(
+    labelFontId,
+    labelSettings.defaultFontHeight,
+    labelSettings.defaultFontWidth,
+    s
+  );
   if (labelSettings.defaultFontHeight) {
-    labelSettingsPatch.defaultFontHeight = scaleDim(labelSettings.defaultFontHeight, s);
+    labelSettingsPatch.defaultFontHeight = scaledDefaultFont.height;
   }
   if (labelSettings.defaultFontWidth) {
-    labelSettingsPatch.defaultFontWidth = scaleDim(labelSettings.defaultFontWidth, s);
+    labelSettingsPatch.defaultFontWidth = scaledDefaultFont.width;
   }
   if (labelSettings.homeX) labelSettingsPatch.homeX = scalePos(labelSettings.homeX, s);
   if (labelSettings.homeY) labelSettingsPatch.homeY = scalePos(labelSettings.homeY, s);

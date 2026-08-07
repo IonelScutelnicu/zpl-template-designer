@@ -358,7 +358,7 @@ test.describe('Custom fonts', () => {
     // default", and the output has to agree instead of emitting an unmapped ^AK.
     await expect(page.locator('#prop-font-id')).toHaveValue('');
     const output = await page.locator('#zpl-output-raw').inputValue();
-    expect(output).toContain('^A0N,');
+    expect(output).toContain('^AAN,');
     expect(output).not.toContain('^AK');
     expect(output).not.toContain('^CWK');
   });
@@ -378,10 +378,10 @@ test.describe('Custom fonts', () => {
 
     await page.locator('.remove-custom-font').click();
 
-    await expect(page.locator('#font-id')).toHaveValue('0');
+    await expect(page.locator('#font-id')).toHaveValue('A');
     const output = await page.locator('#zpl-output-raw').inputValue();
-    expect(output).toContain('^CF0,');
-    expect(output).toContain('^A0N,');
+    expect(output).toContain('^CFA,');
+    expect(output).toContain('^AAN,');
     expect(output).not.toContain('^CWK');
   });
 
@@ -545,7 +545,7 @@ test.describe('Custom fonts', () => {
     await expect(menu.locator('.font-picker-option').first()).toContainText('Use label default');
     await menu.locator('.font-picker-option').first().click();
     await expect(page.locator('#prop-font-id')).toHaveValue('');
-    await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^A0N,/);
+    await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^AAN,/);
   });
 
   // A template can come from anywhere the editor doesn't control — a share URL,

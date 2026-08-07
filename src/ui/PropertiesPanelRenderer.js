@@ -2,6 +2,7 @@
 // Generates HTML for the element properties editing panel
 
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
+import { DEFAULT_FONT_ID } from '../config/constants.js';
 import { fontSizeSelectHtml } from './fontSizeSelect.js';
 import { fontPickerHtml } from './FontPicker.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
@@ -645,7 +646,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
    * custom) they fall back to free numeric inputs.
    */
   renderFontSizeControls(element) {
-    const resolvedFontId = element.fontId || this.labelSettings?.fontId || '0';
+    const resolvedFontId = element.fontId || this.labelSettings?.fontId || DEFAULT_FONT_ID;
     const allowed = getBitmapFontAllowedSizes(resolvedFontId);
     if (!allowed) {
       return `

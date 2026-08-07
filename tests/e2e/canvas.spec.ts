@@ -434,10 +434,10 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             await elementsPanel.addTextElement();
             await page.waitForSelector('#properties-panel #prop-font-size');
 
-            await page.locator('#prop-font-size').fill('20');
-            await page.locator('#prop-font-size').dispatchEvent('change');
-            await page.locator('#prop-font-width').fill('20');
-            await page.locator('#prop-font-width').dispatchEvent('change');
+            // The element inherits the label default (bitmap Font A), so its size controls
+            // are dropdowns — 18/20 are the grid values closest to the old 20/20 seed.
+            await propertiesPanel.setProperty('prop-font-size', 18);
+            await propertiesPanel.setProperty('prop-font-width', 20);
 
             // Set text orientation to R
             await page.locator('#properties-panel [data-orientation="R"]').click();
@@ -484,10 +484,10 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             await elementsPanel.addTextElement();
             await page.waitForSelector('#properties-panel #prop-font-size');
 
-            await page.locator('#prop-font-size').fill('20');
-            await page.locator('#prop-font-size').dispatchEvent('change');
-            await page.locator('#prop-font-width').fill('20');
-            await page.locator('#prop-font-width').dispatchEvent('change');
+            // The element inherits the label default (bitmap Font A), so its size controls
+            // are dropdowns — 18/20 are the grid values closest to the old 20/20 seed.
+            await propertiesPanel.setProperty('prop-font-size', 18);
+            await propertiesPanel.setProperty('prop-font-width', 20);
 
             // Set text orientation to R
             await page.locator('#properties-panel [data-orientation="R"]').click();
@@ -516,7 +516,10 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
             });
 
             const dx = 0;
-            const dy = 30;
+            // Font A's width snaps to 5-dot magnification steps, and the drag scales
+            // fontWidth by how far the mouse moved relative to the measured run — 30 dots
+            // wasn't enough to cross a step, so nothing changed.
+            const dy = 60;
             await canvas.drag(
                 handlePos.x * cssScale,          handlePos.y * cssScale,
                 (handlePos.x + dx) * cssScale,   (handlePos.y + dy) * cssScale

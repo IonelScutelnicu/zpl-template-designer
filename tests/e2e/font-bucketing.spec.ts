@@ -449,7 +449,7 @@ test.describe('ZPL bitmap font bucketing', () => {
                 };
             });
             expect(r.withDefault).toEqual({ h: 36, w: 10 });
-            // No label default → resolves to scalable Font 0 → left unchanged.
+            // No label default passed → no font to snap against → left unchanged.
             expect(r.withoutDefault).toEqual({ h: 33, w: 11 });
         });
 
@@ -457,7 +457,13 @@ test.describe('ZPL bitmap font bucketing', () => {
             const elementsPanel = new ElementsPanel(page);
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
-            // Off-grid size while the default font is scalable (0): the size input is numeric.
+            // The label default is bitmap Font A, so point it at scalable Font 0 first —
+            // only then is the size control a numeric input that accepts an off-grid value.
+            await page.evaluate(() => {
+                const sel = document.getElementById('font-id') as HTMLSelectElement;
+                sel.value = '0';
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+            });
             await page.locator('#prop-font-size').fill('33');
             await page.locator('#prop-font-size').dispatchEvent('input');
             // Switch the label default font to A (bitmap). The selector lives in a
@@ -617,7 +623,7 @@ test.describe('ZPL bitmap font bucketing', () => {
 
         test('switching to Font A snaps the stored default height onto the grid', async ({ page }) => {
             await setLabelFont(page, 'A');
-            // Factory default 20 is off Font A's grid: round(20/9)=2 → 18.
+            // Font A is already the factory default, at magnification 2 of its 9-dot cell.
             await expect(page.locator('#default-font-height')).toHaveValue('18');
             await zplOutput.verifyZPLContains('^CFA,18');
         });
@@ -649,7 +655,10 @@ test.describe('ZPL bitmap font bucketing', () => {
 
         test('an inherited element gets size dropdowns without being re-selected', async ({ page }) => {
             await elementsPanel.selectElementByIndex(0);
-            // Element inherits the label font (fontId === ''), which is scalable Font 0.
+            // Element inherits the label font (fontId === ''). On scalable Font 0 its size
+            // control is a numeric input; switching the label to bitmap Font A must rebuild
+            // it as a dropdown without the element being re-selected.
+            await setLabelFont(page, '0');
             expect(await page.locator('#prop-font-size').evaluate((el) => el.tagName)).toBe('INPUT');
             await setLabelFont(page, 'A');
             expect(await page.locator('#prop-font-size').evaluate((el) => el.tagName)).toBe('SELECT');

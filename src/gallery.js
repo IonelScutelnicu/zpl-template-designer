@@ -9,6 +9,7 @@ import { escapeHtml, escapeAttr, formatDate } from './utils/dom-helpers.js';
 import * as driveAuth from './services/DriveAuth.js';
 import * as drive from './services/DriveFiles.js';
 import { isConfigured } from './config/drive-config.js';
+import { DEFAULT_FONT_ID } from './config/constants.js';
 import { navigate, getCurrentView } from './router.js';
 import { safeLocalStorageRemove } from './utils/storage.js';
 
@@ -379,7 +380,7 @@ function exportJson(t) {
 
 function generateZPLForTemplate(t) {
   var elements = (t.elements || [])
-    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true, labelFontId: (t.labelSettings || {}).fontId }); })
+    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true, labelFontId: (t.labelSettings || {}).fontId || DEFAULT_FONT_ID }); })
     .filter(function (el) { return el !== null; });
   return zplGenerator.generateZPL(elements, t.labelSettings || {});
 }

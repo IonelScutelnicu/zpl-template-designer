@@ -11,6 +11,15 @@ export const HISTORY_LIMIT = 100;
 export const BUILTIN_FONTS = ['0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 /**
+ * The font a label uses when nothing says otherwise — matches a printer's power-up
+ * ^CF (docs/ZPL.rst:4940: font A, height 9, width 5). DEFAULT_FONT_HEIGHT is
+ * magnification 2 of font A's 9-dot cell, so a new label's text stays readable while
+ * still sitting on the font's allowed grid.
+ */
+export const DEFAULT_FONT_ID = 'A';
+export const DEFAULT_FONT_HEIGHT = 18;
+
+/**
  * Sentinel character used to render Code 93's start/stop guard in the HRI line.
  * Labelary/Zebra draw an empty box at each end of the readable text (□CODE93□);
  * a private-use codepoint maps to the `box` charRule on font A so the renderer

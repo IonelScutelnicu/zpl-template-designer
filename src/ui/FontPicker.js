@@ -4,7 +4,7 @@
 // value so the existing change wiring keeps working; the popover dispatches to it
 // (same pattern as the Symbology picker in PropertiesPanelRenderer).
 
-import { BUILTIN_FONTS, ZPL_FONTS } from '../config/constants.js';
+import { BUILTIN_FONTS, ZPL_FONTS, DEFAULT_FONT_ID } from '../config/constants.js';
 import { customFontFamily, exceedsApiPreview } from '../utils/customFonts.js';
 import { escapeAttr, escapeHtml } from '../utils/dom-helpers.js';
 import { ensureCustomFontLoaded, ensureFontLoaded } from '../utils/fontLoader.js';
@@ -111,7 +111,7 @@ function inheritOptionHtml(labelFontId, selected) {
       ${badgeHtml('↓', selected)}
       <span class="flex-1 min-w-0">
         <span class="block truncate text-xs font-medium leading-tight text-slate-700">Use label default</span>
-        <span class="block truncate font-mono text-[10px] text-slate-400">inherits ${escapeHtml(labelFontId || '0')}</span>
+        <span class="block truncate font-mono text-[10px] text-slate-400">inherits ${escapeHtml(labelFontId || DEFAULT_FONT_ID)}</span>
       </span>
       <span class="material-icons-round shrink-0 text-lg text-blue-500 ${selected ? '' : 'invisible'}">check</span>
     </button>`;
@@ -134,11 +134,11 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
   const bitmapIds = BUILTIN_FONTS.filter(id => id !== '0');
 
   const inherit = override && !current;
-  const triggerInfo = inherit ? null : infoFor(current || '0');
+  const triggerInfo = inherit ? null : infoFor(current || DEFAULT_FONT_ID);
   const trigger = inherit
     ? `${badgeHtml('↓', false)}
        <span class="flex-1 min-w-0 truncate text-xs font-medium text-slate-700">Use label default</span>
-       <span class="shrink-0 font-mono text-[10px] text-slate-400">${escapeHtml(labelFontId || '0')}</span>`
+       <span class="shrink-0 font-mono text-[10px] text-slate-400">${escapeHtml(labelFontId || DEFAULT_FONT_ID)}</span>`
     : `${badgeHtml(triggerInfo.id, false)}
        <span class="flex-1 min-w-0 truncate text-xs font-medium text-slate-700">${escapeHtml(triggerInfo.id)} · ${triggerInfo.kind}</span>
        <span class="shrink-0 font-mono text-[10px] text-slate-400 truncate max-w-[6rem]">${escapeHtml(triggerInfo.metric)}</span>`;

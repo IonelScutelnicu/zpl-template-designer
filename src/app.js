@@ -1,7 +1,7 @@
 // Application imports
 import { CanvasRenderer } from './canvas-renderer.js';
 import { InteractionHandler } from './interaction-handler.js';
-import { BUILTIN_FONTS } from './config/constants.js';
+import { BUILTIN_FONTS, DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from './config/constants.js';
 import { AppState } from './state/AppState.js';
 import { ElementService } from './services/ElementService.js';
 import { AlignmentService } from './services/AlignmentService.js';
@@ -1287,7 +1287,7 @@ export function initApp() {
   const handleDefaultFontSize = (e) => {
     const parsed = parseInt(e.target.value);
     if (e.target.id === "default-font-height") {
-      state.updateLabelSettings({ defaultFontHeight: Number.isNaN(parsed) ? 20 : Math.max(1, parsed) });
+      state.updateLabelSettings({ defaultFontHeight: Number.isNaN(parsed) ? DEFAULT_FONT_HEIGHT : Math.max(1, parsed) });
     } else if (e.target.id === "default-font-width") {
       state.updateLabelSettings({ defaultFontWidth: Number.isNaN(parsed) ? 0 : Math.max(0, parsed) });
     } else {
@@ -2089,10 +2089,10 @@ function removeCustomFont(id) {
   const customFonts = customFontsManager.remove(id, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
   // The pickers rebuild from customFonts, so they immediately read "Use label default" /
-  // "0 - Default" — but the references behind them would live on and keep emitting
+  // the built-in default font — but the references behind them would live on and keep emitting
   // ^A<id>/^CF<id> with no ^CW mapping. Drop both so the output says what the panels show.
   state.elements.forEach(el => { if (el.fontId === id) el.fontId = ''; });
-  applyLabelDefaultFont(state.labelSettings.fontId === id ? "0" : state.labelSettings.fontId);
+  applyLabelDefaultFont(state.labelSettings.fontId === id ? DEFAULT_FONT_ID : state.labelSettings.fontId);
   refreshCustomFontPickers();
   fontId.value = state.labelSettings.fontId;
   renderDefaultFontSizeControls();
@@ -3710,7 +3710,7 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   // Recreate elements from template. Pass the label default so inherited bitmap
   // sizes snap to the right grid.
   const importedElements = template.elements
-    .map(elementData => createElementFromData(elementData, { keepId: false, labelFontId: template.labelSettings?.fontId }))
+    .map(elementData => createElementFromData(elementData, { keepId: false, labelFontId: state.labelSettings.fontId }))
     .filter(element => element !== null);
 
   // Set all imported elements at once

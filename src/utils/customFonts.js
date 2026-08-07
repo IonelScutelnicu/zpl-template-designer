@@ -1,4 +1,5 @@
 import { bytesToHex } from './graphicField.js';
+import { DEFAULT_FONT_ID } from '../config/constants.js';
 
 export const CUSTOM_FONT_IDS = ['I', 'K', 'M', 'O', 'W', 'X', 'Y', 'Z'];
 export const MAX_CUSTOM_FONT_BYTES = 10 * 1024 * 1024;
@@ -222,7 +223,7 @@ function apiPreviewFonts(elements, labelSettings) {
 }
 
 export function referencedCustomFonts(elements, labelSettings) {
-  const ids = new Set([labelSettings?.fontId || '0']);
+  const ids = new Set([labelSettings?.fontId || DEFAULT_FONT_ID]);
   for (const element of elements || []) if (element.fontId) ids.add(element.fontId);
   return (labelSettings?.customFonts || []).filter(font => ids.has(font.id));
 }

@@ -36,7 +36,9 @@ test.describe('Visual Regression Tests', () => {
             await page.locator('#prop-y').dispatchEvent('input');
             await page.locator('#prop-content').fill('Visual Test');
             await page.locator('#prop-content').dispatchEvent('input');
-            await page.locator('#prop-font-size').fill('30');
+            // Inherits the label default (bitmap Font A), so the size control is a
+            // dropdown; 27 is the grid value nearest the 30 this baseline was set at.
+            await page.locator('#prop-font-size').selectOption('27');
             await page.locator('#prop-font-size').dispatchEvent('input');
 
             await canvas.waitForReady();

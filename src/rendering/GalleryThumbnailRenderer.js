@@ -1,5 +1,6 @@
 import { CanvasRenderer } from '../canvas-renderer.js';
 import { SerializationService } from '../services/SerializationService.js';
+import { DEFAULT_FONT_ID } from '../config/constants.js';
 
 const serializationService = new SerializationService();
 
@@ -7,7 +8,7 @@ export function renderTemplateThumb(rawElements, labelSettings, maxSize) {
   maxSize = maxSize || 400;
 
   const elements = rawElements
-    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true }); })
+    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true, labelFontId: (labelSettings || {}).fontId || DEFAULT_FONT_ID }); })
     .filter(function (el) { return el !== null; });
 
   const offscreen = document.createElement('canvas');

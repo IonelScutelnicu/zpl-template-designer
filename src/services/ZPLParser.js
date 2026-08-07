@@ -7,6 +7,15 @@ import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapse
 import { placeholderName } from '../utils/placeholders.js';
 import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive, normalizePrinterFontPath, nextCustomFontId } from '../utils/customFonts.js';
+import { DEFAULT_FONT_ID } from '../config/constants.js';
+
+// ZPL with no ^CF is read the way a printer would read it: font A at magnification 1
+// (power-up ^CFA,9,5 — docs/ZPL.rst:4940-4944). This is deliberately *not*
+// DEFAULT_FONT_HEIGHT — that one is the friendlier height a new blank label starts at,
+// while this one has to match the firmware or imported labels render at the wrong size.
+// Width stays 0 (proportional), which is exactly 5 dots at magnification 1 and keeps the
+// parameter out of the re-emitted ^CF.
+const POWER_UP_FONT_HEIGHT = 9;
 
 /**
  * Known ZPL commands that the parser handles (won't generate warnings)
@@ -257,7 +266,7 @@ export class ZPLParser {
       warnings: [],
       currentGroup: null,
       barcodeDefaults: { width: 2, ratio: 2.0, height: 50 },
-      defaultFont: { id: '0', height: 20, width: 0 },
+      defaultFont: { id: DEFAULT_FONT_ID, height: POWER_UP_FONT_HEIGHT, width: 0 },
       customFonts: [],
       fontDownloads: new Map(),
       // ^CW may appear after the fields it applies to, so its font IDs are
@@ -843,8 +852,10 @@ export class ZPLParser {
    */
   _parseFontCommand(aToken) {
     const params = aToken.params;
-    // First char is fontId, second is orientation, then comma-separated height,width
-    const fontId = params.charAt(0) || '0';
+    // First char is fontId, second is orientation, then comma-separated height,width.
+    // A bare ^A names no font, so it keeps the '' inherit sentinel and follows the
+    // label default the way the printer's current ^CF would.
+    const fontId = params.charAt(0);
     const validOrientations = ['N', 'R', 'I', 'B'];
     let orientation = params.charAt(1);
     let rest;
@@ -1676,9 +1687,9 @@ export class ZPLParser {
       printSpeed: 4,
       slewSpeed: 4,
       backfeedSpeed: 4,
-      fontId: '0',
+      fontId: DEFAULT_FONT_ID,
       customFonts: [],
-      defaultFontHeight: 20,
+      defaultFontHeight: POWER_UP_FONT_HEIGHT,
       defaultFontWidth: 0,
       homeX: 0,
       homeY: 0,

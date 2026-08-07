@@ -4,6 +4,7 @@
 import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
 import { toPlaceholder, resolvePlaceholders } from '../utils/placeholders.js';
+import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 
 /**
  * Service for generating ZPL (Zebra Programming Language) output
@@ -23,8 +24,8 @@ export class ZPLGenerator {
     const header = this.buildHeader(labelSettings);
     const elementCommands = elements
       .map(element => element.render(
-        labelSettings.fontId,
-        labelSettings.defaultFontHeight || 20,
+        labelSettings.fontId || DEFAULT_FONT_ID,
+        labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT,
         labelSettings.defaultFontWidth ?? 0
       ))
       .join('\n');
@@ -49,8 +50,8 @@ export class ZPLGenerator {
     const elementCommands = elements
       .map(element => {
         let cmd = element.renderPreview(
-          labelSettings.fontId,
-          labelSettings.defaultFontHeight || 20,
+          labelSettings.fontId || DEFAULT_FONT_ID,
+          labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT,
           labelSettings.defaultFontWidth ?? 0,
           labelSettings.previewData
         );
@@ -91,9 +92,9 @@ export class ZPLGenerator {
       printSpeed = 4,
       slewSpeed = 4,
       backfeedSpeed = 4,
-      fontId = '0',
+      fontId = DEFAULT_FONT_ID,
       customFonts = [],
-      defaultFontHeight = 20,
+      defaultFontHeight = DEFAULT_FONT_HEIGHT,
       defaultFontWidth = 0
     } = labelSettings;
 
@@ -266,8 +267,8 @@ export class ZPLGenerator {
       }
 
       const cmd = element.renderPreview(
-        labelSettings.fontId,
-        labelSettings.defaultFontHeight || 20,
+        labelSettings.fontId || DEFAULT_FONT_ID,
+        labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT,
         labelSettings.defaultFontWidth ?? 0,
         labelSettings.previewData
       );
@@ -297,7 +298,7 @@ export class ZPLGenerator {
    * @param {number} defaultFontWidth - Default font width
    * @returns {string} ZPL commands for element
    */
-  generateElementZPL(element, fontId, preview = false, defaultFontHeight = 20, defaultFontWidth = 0) {
+  generateElementZPL(element, fontId, preview = false, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0) {
     return preview ?
       element.renderPreview(fontId, defaultFontHeight, defaultFontWidth) :
       element.render(fontId, defaultFontHeight, defaultFontWidth);

@@ -1,6 +1,7 @@
 import { ZPLElement } from './ZPLElement.js';
 import { renderFieldDataCommand, normalizeLineBreaks } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
+import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 
 // Text Block Element Class (^TB command)
 export class TextBlockElement extends ZPLElement {
@@ -30,11 +31,11 @@ export class TextBlockElement extends ZPLElement {
         return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(normalizeLineBreaks(content), '_', this.fieldHex)}^FS`;
     }
 
-    render(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0) {
+    render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0) {
         return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth);
     }
 
-    renderPreview(defaultFontId = '0', defaultFontHeight = 20, defaultFontWidth = 0, previewData = {}) {
+    renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}) {
         return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth);
     }
 

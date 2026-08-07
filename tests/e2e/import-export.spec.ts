@@ -372,6 +372,8 @@ test.describe('Import/Export - Template Persistence', () => {
             await propertiesPanel.verifyPropertyValue('prop-x', '150');
             await propertiesPanel.verifyPropertyValue('prop-y', '200');
             await propertiesPanel.verifyPropertyValue('prop-content', 'Property Test');
+            await propertiesPanel.verifyPropertyValue('prop-font-size', '36');
+            await zplOutput.verifyZPLContains('^AAN,36,35');
 
             fs.unlinkSync(tempPath);
         });

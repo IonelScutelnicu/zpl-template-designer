@@ -2,7 +2,7 @@
 // Single source of truth for the font-dim resolution shared by TextRenderer,
 // TextBlockRenderer, FieldBlockRenderer, and canvas-renderer's measureTextBounds.
 
-import { ZPL_FONTS } from '../config/constants.js';
+import { ZPL_FONTS, DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { customFontFamily, customFontLineHeightRatio } from './customFonts.js';
 import { snapBitmapFontSize } from './zplFontSnap.js';
 
@@ -25,7 +25,7 @@ import { snapBitmapFontSize } from './zplFontSnap.js';
  * }}
  */
 export function resolveFontMetrics(element, labelSettings, scale = 1) {
-  const fontId = element.fontId || labelSettings.fontId || '0';
+  const fontId = element.fontId || labelSettings.fontId || DEFAULT_FONT_ID;
   const custom = labelSettings.customFonts?.find(font => font.id === fontId && font.source);
   // baselineRatio: Zebra (and Labelary) place a downloaded TTF at em size = the ^A
   // height with the alphabetic baseline exactly 0.75×height below the field origin,
@@ -45,7 +45,7 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
     }
     : ZPL_FONTS[fontId] || ZPL_FONTS['default'];
 
-  const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || 20;
+  const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT;
   const explicitWidth = element.fontWidth || labelSettings.defaultFontWidth || 0;
   const hasExplicitWidth = explicitWidth > 0;
 

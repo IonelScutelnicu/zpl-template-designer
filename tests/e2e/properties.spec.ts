@@ -1,5 +1,15 @@
 import { test, expect } from '../fixtures';
+import type { Page } from '@playwright/test';
 import { ElementsPanel, PropertiesPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
+
+// The label default is font A, a bitmap font, so its size controls (and those of any
+// element inheriting it) are dropdowns of the allowed magnifications — there is no
+// field to type a negative into. Point the label default at scalable font 0 first when
+// a test needs the free numeric inputs that make clamping reachable.
+async function useScalableLabelFont(page: Page): Promise<void> {
+    await page.locator('#font-id').selectOption('0', { force: true });
+    await page.locator('#font-id').dispatchEvent('change');
+}
 
 test.describe('Properties Panel - Comprehensive Property Testing', () => {
     let elementsPanel: ElementsPanel;
@@ -37,8 +47,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update font height and reflect in ZPL output', async () => {
-            await propertiesPanel.setProperty('prop-font-size', 50);
-            await zplOutput.verifyZPLContains(',50');
+            await propertiesPanel.setProperty('prop-font-size', 45);
+            await zplOutput.verifyZPLContains(',45');
         });
 
         test('should update font width and reflect in ZPL output', async () => {
@@ -49,6 +59,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should clamp negative font height to 0', async ({ page }) => {
             await page.locator('details[data-fs-tab="font"] summary').click();
+            await useScalableLabelFont(page);
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -64,6 +75,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should clamp negative font width to 0', async ({ page }) => {
             await page.locator('details[data-fs-tab="font"] summary').click();
+            await useScalableLabelFont(page);
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -161,8 +173,8 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         test('should update font height and reflect in ZPL output', async () => {
-            await propertiesPanel.setProperty('prop-font-size', 40);
-            await zplOutput.verifyZPLContains(',40');
+            await propertiesPanel.setProperty('prop-font-size', 45);
+            await zplOutput.verifyZPLContains(',45');
         });
 
         test('should update font width and reflect in ZPL output', async () => {
@@ -173,6 +185,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should clamp negative font height to 0', async ({ page }) => {
             await page.locator('details[data-fs-tab="font"] summary').click();
+            await useScalableLabelFont(page);
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -188,6 +201,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should clamp negative font width to 0', async ({ page }) => {
             await page.locator('details[data-fs-tab="font"] summary').click();
+            await useScalableLabelFont(page);
             await page.locator('#default-font-height').fill('22');
             await page.locator('#default-font-height').dispatchEvent('input');
             await page.locator('#default-font-width').fill('11');
@@ -672,6 +686,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         test.beforeEach(async ({ page }) => {
             await elementsPanel.addTextElement();
             await page.locator('details summary:has-text("Default Font")').click();
+            await useScalableLabelFont(page);
         });
 
         test('should clamp negative default font height to 1', async ({ page }) => {

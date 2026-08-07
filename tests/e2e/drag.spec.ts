@@ -107,7 +107,9 @@ test.describe('Drag - Element Position', () => {
         await elementsPanel.selectElementByIndex(0);
         await setPosition(page, 100, 100);
 
-        const inside = 20;
+        // Font A at the default height is ~14 dots of cap ink, so the grab point has
+        // to sit well inside that box or the press lands on empty canvas.
+        const inside = 8;
         await dragAndWait(100 + inside, 100 + inside, 200, 150);
 
         await elementsPanel.selectElementByIndex(0);
@@ -156,6 +158,9 @@ test.describe('Drag - Element Position', () => {
         await canvas.waitForReady();
         await elementsPanel.addTextElement();
         await elementsPanel.selectElementByIndex(0);
+        // Pin the element to scalable Font 0: its proportional width tracks the height
+        // 1:1, which is what the collapse-to-default regression below is measured against.
+        await propertiesPanel.setSelectValue('prop-font-id', '0');
         await propertiesPanel.setFontHeight(100); // width left empty -> proportional
         await setPosition(page, 50, 50);
 
@@ -534,8 +539,8 @@ test.describe('Drag - Element Position', () => {
         await setPosition(page, 100, 100);
 
         // Default label width is 100mm * 8dpmm = 800 dots
-        // Drag element toward the right edge
-        const inside = 20;
+        // Drag element toward the right edge (grab inside Font A's ~14-dot ink box)
+        const inside = 8;
         await dragAndWait(100 + inside, 100 + inside, 750, 100);
 
         await elementsPanel.selectElementByIndex(0);

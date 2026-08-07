@@ -328,7 +328,8 @@ test.describe('Preview - Canvas and API Preview Modes', () => {
             const page = previewPanel.page;
             await page.locator('#prop-content').fill('Parity Test');
             await page.locator('#prop-content').dispatchEvent('change');
-            await page.locator('#prop-font-size').fill('40');
+            // Inherits the label default (bitmap Font A): the size control is a dropdown.
+            await page.locator('#prop-font-size').selectOption('36');
             await page.locator('#prop-font-size').dispatchEvent('change');
 
             // Get canvas screenshot

@@ -78,12 +78,13 @@ export function enforceFontMinSize(fontId, height, width) {
 /**
  * Snaps an element's stored fontSize/fontWidth in place to the allowed grid for its
  * resolved bitmap font. No-op for scalable fonts. `labelFontId` is the label default
- * used when the element has no explicit fontId.
+ * used when the element has no explicit fontId; an inheriting element whose caller
+ * didn't supply one is left alone rather than snapped against a guessed font.
  * @param {{fontId?:string, fontSize?:number, fontWidth?:number}} element
  * @param {string} [labelFontId]
  */
 export function normalizeElementFontSize(element, labelFontId) {
-  const fontId = element.fontId || labelFontId || '0';
+  const fontId = element.fontId || labelFontId;
   if (!ZPL_FONTS[fontId]?.bitmap) return;
   const snapped = snapRequestedToAllowed(fontId, element.fontSize || 0, element.fontWidth || 0);
   element.fontSize = snapped.height;
