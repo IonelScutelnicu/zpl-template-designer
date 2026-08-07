@@ -1,6 +1,11 @@
 import { test, expect } from '../fixtures';
 import { ElementsPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
+// A real-world 200×28 dot logo (25 bytes/row, 700 bytes) using Zebra's ACS
+// run-length compression: G-Y/g-z repeat counts and ',' row-fill terminators.
+const ACS_LOGO_PAYLOAD =
+    'FFI0FF001E0078C01E3007F001E3I0E003FF007800F001C77FC00FF001E0078C01E3007F801E3I0F003FF007801F801E673C0071001C0070801E30079800F3001F003790078039801E271C0071001C0070801E30078800F3001F002790078039C01E271C007I01C0070801E20078I0F3001F002780078039C01F273C007I01C0070800E20078I0FB001FI0780078079E01F27F8007I01C0070800E20078I0FB0017I0780078071E01F27EI07I01C0070800E20079I0BB0017800780078071E017A7EI07E001C0070800E2007BI0BF0013800780078070E013A7FI07E001C0070800E6007FI0BF0017800780078070E013E7780072001C0070800F60079I09F003F800780078070E013E738007I01C0070800F40078I09F00338007800780F0E013E738007I01C0070800F40078I09F0023C007800780F0E011E738007I01C0070800740078I08F0023C00780078070E011E738007I01C0070800740078I08F0021C00780078070E011E73C007I01C00708007C0078I08F0021C00780078070E010E73C007I01C00708007C0078I0870021C00780078071E010E71C007I01C00708007C0078I0870061C00780078071E010E71C007I01C00708007C0078I0870061E00780078071C010671C007I01C0070800780078800830041E00780078039C010671E0071001C0070800780078800830040E00780078039C010671E0071001C0078800380079800830040E007800780198010279E007F001C003FI038007F801810040F0078007801B80182F8E00FF001C001FI038007F8018I0E1F0078007800F0018,00FL01C,007L038,0038K03,001CK06,';
+
 test.describe('ZPL Output - Generation and Validation', () => {
     let elementsPanel: ElementsPanel;
     let zplOutput: ZPLOutput;
@@ -105,8 +110,8 @@ test.describe('ZPL Output - Generation and Validation', () => {
         test('should generate ^GFA command for uploaded Graphic Field element', async () => {
             await elementsPanel.addGraphicElement(buildSquarePngBuffer());
             const zpl = await zplOutput.getZPLCode();
-            // ^GFA format: ^GFA,totalBytes,totalBytes,bytesPerRow,<hex>
-            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+            // ^GFA format: ^GFA,totalBytes,totalBytes,bytesPerRow,<acs-hex>
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F,:!G-Yg-z]+\^FS/);
         });
     });
 
@@ -138,7 +143,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
             // Capture the unrotated baseline payload (the test fixture has a
             // black square in the upper-left, asymmetric across rotation).
             const beforeZpl = await zplOutput.getZPLCode();
-            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F,:!G-Yg-z]+)\^FS/);
             expect(beforeMatch).not.toBeNull();
             const baselinePayload = beforeMatch![1];
 
@@ -148,7 +153,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
                 (baseline) => {
                     const el = document.getElementById('zpl-output-raw') as HTMLTextAreaElement | null;
                     if (!el) return false;
-                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F,:!G-Yg-z]+)\^FS/);
                     return m !== null && m[1] !== baseline;
                 },
                 baselinePayload,
@@ -158,7 +163,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
             const zpl = await zplOutput.getZPLCode();
             // No ^FW emitted — real Zebra firmware ignores it for ^GF.
             expect(zpl).not.toContain('^FW');
-            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F,:!G-Yg-z]+\^FS/);
         });
 
         test('should not emit ^FW at default orientation N', async () => {
@@ -223,6 +228,117 @@ test.describe('ZPL Output - Generation and Validation', () => {
             const zpl = await zplOutput.getZPLCode();
             // Re-export must contain the verbatim opaque payload.
             expect(zpl).toContain(':Z64:somebase64stuff:1234');
+        });
+
+        test('should decode an ACS run-length ^GFA payload into an editable bitmap', async ({ page }) => {
+            const original = `^XA^FO50,22^GFA,700,700,25,${ACS_LOGO_PAYLOAD}^FS^XZ`;
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+            // Decodes cleanly: no warnings, imports on the first click.
+            await page.locator('#zpl-import-confirm-btn').click();
+
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            const el = await page.evaluate(() => {
+                const g = (window as unknown as { appState: any }).appState.elements.find((e: any) => e.type === 'GRAPHIC');
+                return {
+                    w: g.widthDots, h: g.heightDots, bpr: g.bytesPerRow,
+                    len: (g.bytes as Uint8Array).length,
+                    opaque: !!g.opaqueRaw, format: g.encodingFormat,
+                };
+            });
+            expect(el).toEqual({ w: 200, h: 28, bpr: 25, len: 700, opaque: false, format: 'A' });
+
+            // Re-export is ACS too, and re-parsing it yields the same bitmap.
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^FO50,22^GFA,700,700,25,');
+
+            const roundTrip = await page.evaluate(async ({ zpl, payload }) => {
+                const [{ ZPLParser }, { acsToBytes, bytesToHex }] = await Promise.all([
+                    import('/src/services/ZPLParser.js'),
+                    import('/src/utils/graphicField.js'),
+                ]);
+                const parsed = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 });
+                const g = parsed.elements.find((el) => el.type === 'GRAPHIC');
+                return {
+                    warnings: parsed.warnings.length,
+                    reparsed: bytesToHex(g.bytes),
+                    source: bytesToHex(acsToBytes(payload, 25, 700)),
+                };
+            }, { zpl, payload: ACS_LOGO_PAYLOAD });
+
+            expect(roundTrip.warnings).toBe(0);
+            expect(roundTrip.reparsed).toBe(roundTrip.source);
+        });
+
+        test('should expand the ACS repeat-previous-row token and re-emit it', async ({ page }) => {
+            // AB:CD: → rows AB, AB, CD, CD.
+            const original = '^XA^FO8,8^GFA,4,4,1,AB:CD:^FS^XZ';
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+            await page.locator('#zpl-import-confirm-btn').click();
+
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            const bytes = await page.evaluate(() => {
+                const g = (window as unknown as { appState: any }).appState.elements.find((e: any) => e.type === 'GRAPHIC');
+                return Array.from(g.bytes as Uint8Array);
+            });
+            expect(bytes).toEqual([0xab, 0xab, 0xcd, 0xcd]);
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^GFA,4,4,1,AB:CD:^FS');
+        });
+
+        test('should preserve a malformed run-length ^GF verbatim with a parser warning', async ({ page }) => {
+            // 'Z' is not a valid ACS count char (20 is 'g'), so this decodes as neither.
+            const original = '^XA^FO0,0^GFA,3,3,1,FFZ0FF^FS^XZ';
+
+            await page.locator('#zpl-more-btn').click();
+            await page.locator('#import-zpl-btn').click();
+            await page.locator('#zpl-import-input').fill(original);
+
+            // First click parses and shows warnings; second click confirms import.
+            await page.locator('#zpl-import-confirm-btn').click();
+            await expect(page.locator('#zpl-import-warnings')).toBeVisible();
+            await expect(page.locator('#zpl-import-warnings-list')).toContainText('ACS');
+            await page.locator('#zpl-import-confirm-btn').click();
+
+            await page.waitForFunction(() => {
+                return document.querySelectorAll('#elements-list .element-item').length > 0;
+            }, { timeout: 5000 });
+
+            expect(await zplOutput.getZPLCode()).toContain('^GFA,3,3,1,FFZ0FF');
+        });
+
+        test('should round-trip bitmaps through the ACS codec', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { acsToBytes, bytesToAcsHex, bytesToHex } = await import('/src/utils/graphicField.js');
+
+                const cases: Array<[string, Uint8Array, number]> = [
+                    ['all zero', new Uint8Array(700), 25],
+                    ['all ink', new Uint8Array(700).fill(0xff), 25],
+                    ['run over 419 chars', (() => { const a = new Uint8Array(1000); a.fill(0xaa, 10, 990); return a; })(), 500],
+                    ['repeated rows', Uint8Array.from({ length: 40 }, (_, i) => [0x0f, 0xf0, 0x0f, 0xf0][i % 4]), 4],
+                    ['noise', Uint8Array.from({ length: 256 }, (_, i) => (i * 37 + 11) & 0xff), 8],
+                    ['single byte', new Uint8Array([0xc3]), 1],
+                ];
+
+                return cases.map(([name, bytes, bpr]) => {
+                    const encoded = bytesToAcsHex(bytes, bpr);
+                    const decoded = acsToBytes(encoded, bpr, bytes.length);
+                    return { name, ok: !!decoded && bytesToHex(decoded) === bytesToHex(bytes) };
+                });
+            });
+            expect(result.filter((r) => !r.ok)).toEqual([]);
         });
     });
 

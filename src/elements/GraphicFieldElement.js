@@ -1,5 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
-import { bytesToHex, bytesToB64WithCrc, bitmapToImageData, rotateBitmap } from '../utils/graphicField.js';
+import { bytesToAcsHex, bytesToB64WithCrc, bitmapToImageData, rotateBitmap } from '../utils/graphicField.js';
 
 // Graphic Field Element (^GF / ^GFA)
 //
@@ -8,8 +8,8 @@ import { bytesToHex, bytesToB64WithCrc, bitmapToImageData, rotateBitmap } from '
 //   element re-rasterizes from the source when those change.
 // - "parsed":   no sourceDataUrl, only bytes (decoded from pasted ZPL).
 //   Editable=false. Width/threshold inputs disabled in the panel.
-// - "opaque":   unsupported encoding (B, C, ACS hex, undecodable Z64). Stores opaqueRaw
-//   verbatim and re-emits it on render(). bytes/imageData are absent.
+// - "opaque":   unsupported encoding (binary B/C, undecodable Z64 or hex). Stores
+//   opaqueRaw verbatim and re-emits it on render(). bytes/imageData are absent.
 export class GraphicFieldElement extends ZPLElement {
     constructor(x = 0, y = 0, options = {}) {
         super(x, y);
@@ -100,7 +100,7 @@ export class GraphicFieldElement extends ZPLElement {
         const fo = `^FO${this.x},${this.y}${reverseCmd}`;
         const payload = this.encodingFormat === 'B64'
             ? bytesToB64WithCrc(rotated.bytes)
-            : bytesToHex(rotated.bytes);
+            : bytesToAcsHex(rotated.bytes, rotated.bytesPerRow);
         return `${fo}^GFA,${total},${total},${rotated.bytesPerRow},${payload}^FS`;
     }
 

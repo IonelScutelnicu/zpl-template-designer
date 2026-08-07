@@ -1174,7 +1174,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
 
     const opaqueNotice = isOpaque ? `
       <div class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
-        This graphic uses an encoding the editor doesn't decode (Z64, ACS, or binary). It will be re-exported unchanged. Use Replace image to swap it for an editable one.
+        This graphic uses binary ^GF compression or data the editor can't decode. It will be re-exported unchanged. Use Replace image to swap it for an editable one.
       </div>
     ` : '';
 

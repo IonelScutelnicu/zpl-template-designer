@@ -505,7 +505,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
         test('should update orientation to I and change bitmap payload', async ({ page }) => {
             const beforeZpl = await zplOutput.getZPLCode();
-            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F,:!G-Yg-z]+)\^FS/);
             expect(beforeMatch).not.toBeNull();
             const baselinePayload = beforeMatch![1];
 
@@ -514,7 +514,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
                 (baseline) => {
                     const el = document.getElementById('zpl-output-raw') as HTMLTextAreaElement | null;
                     if (!el) return false;
-                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F,:!G-Yg-z]+)\^FS/);
                     return m !== null && m[1] !== baseline;
                 },
                 baselinePayload,
@@ -523,12 +523,12 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).not.toContain('^FW');
-            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F,:!G-Yg-z]+\^FS/);
         });
 
         test('should update orientation to B and change bitmap payload', async ({ page }) => {
             const beforeZpl = await zplOutput.getZPLCode();
-            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+            const beforeMatch = beforeZpl.match(/\^GFA,\d+,\d+,\d+,([0-9A-F,:!G-Yg-z]+)\^FS/);
             expect(beforeMatch).not.toBeNull();
             const baselinePayload = beforeMatch![1];
 
@@ -537,7 +537,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
                 (baseline) => {
                     const el = document.getElementById('zpl-output-raw') as HTMLTextAreaElement | null;
                     if (!el) return false;
-                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F]+)\^FS/);
+                    const m = el.value.match(/\^GFA,\d+,\d+,\d+,([0-9A-F,:!G-Yg-z]+)\^FS/);
                     return m !== null && m[1] !== baseline;
                 },
                 baselinePayload,
@@ -546,7 +546,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
 
             const zpl = await zplOutput.getZPLCode();
             expect(zpl).not.toContain('^FW');
-            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F]+\^FS/);
+            expect(zpl).toMatch(/\^FO\d+,\d+\^GFA,\d+,\d+,\d+,[0-9A-F,:!G-Yg-z]+\^FS/);
         });
     });
 

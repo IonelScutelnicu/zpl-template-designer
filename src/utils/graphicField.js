@@ -36,8 +36,8 @@ export function bytesToHex(bytes) {
 
 /**
  * Decode a plain ASCII-hex string into bytes. Whitespace and CR/LF are tolerated.
- * Returns null if the input contains non-hex characters (caller should treat
- * as opaque; we don't support ACS run-length encoding).
+ * Returns null if the input contains non-hex characters — run-length payloads
+ * go through acsToBytes() instead.
  * @param {string} hex
  * @returns {Uint8Array|null}
  */
@@ -50,6 +50,128 @@ export function hexToBytes(hex) {
     bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
   }
   return bytes;
+}
+
+// --- ACS (Alternative Compression Scheme) -----------------------------------
+//
+// Zebra's run-length compression for ^GFA payloads. It operates on the ASCII
+// *hex character* stream; a row is bytesPerRow*2 hex chars.
+//   G-Y      repeat count 1-19 for the next hex char
+//   g-z      repeat count 20-400 (step 20); combines with one G-Y (max 419)
+//   ,        fill the rest of the row with 0
+//   !        fill the rest of the row with F
+//   :        repeat the previous row
+// Lowercase a-f stay hex digits; only g-z are counts, so there's no ambiguity.
+
+const ACS_MAX_RUN = 419; // 'z' (400) + 'Y' (19)
+
+/** Repeat count for an ACS count char, or 0 if it isn't one. */
+function acsCount(ch) {
+  if (ch >= 'G' && ch <= 'Y') return ch.charCodeAt(0) - 70;
+  if (ch >= 'g' && ch <= 'z') return (ch.charCodeAt(0) - 102) * 20;
+  return 0;
+}
+
+/**
+ * Decode an ACS run-length hex payload into bytes. Whitespace is tolerated.
+ * Returns null when the payload contains anything the scheme doesn't define
+ * (caller should fall back to preserving the graphic as opaque).
+ * @param {string} payload
+ * @param {number} bytesPerRow
+ * @param {number} totalBytes  expected byte count from ^GF param b (0 = unknown)
+ * @returns {Uint8Array|null}
+ */
+export function acsToBytes(payload, bytesPerRow, totalBytes = 0) {
+  if (!(bytesPerRow > 0)) return null;
+  const rowHex = bytesPerRow * 2;
+  const cleaned = payload.replace(/\s+/g, '');
+  const rows = [];
+  let row = '';
+  let prev = null;
+  const flush = () => { prev = row.slice(0, rowHex); rows.push(prev); row = row.slice(rowHex); };
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (ch === ',' || ch === '!') {
+      row = row.padEnd(rowHex, ch === ',' ? '0' : 'F');
+      flush();
+      continue;
+    }
+    if (ch === ':') {
+      if (prev === null) return null;
+      row += prev.slice(row.length);
+      flush();
+      continue;
+    }
+    let n = 0;
+    while (i < cleaned.length && acsCount(cleaned[i]) > 0) n += acsCount(cleaned[i++]);
+    if (i >= cleaned.length) return null; // count with nothing to repeat
+    const digit = cleaned[i];
+    if (!/[0-9A-Fa-f]/.test(digit)) return null;
+    row += digit.repeat(n || 1);
+    while (row.length >= rowHex) flush();
+  }
+  if (row.length) { row = row.padEnd(rowHex, '0'); flush(); }
+  if (!rows.length) return null;
+
+  const bytes = hexToBytes(rows.join(''));
+  if (!bytes) return null;
+  return totalBytes > 0 && bytes.length > totalBytes ? bytes.subarray(0, totalBytes) : bytes;
+}
+
+/** Encode a repeat count (1..419) as its ACS count chars. */
+function acsRunPrefix(n) {
+  const twenties = Math.floor(n / 20);
+  const ones = n % 20;
+  return (twenties ? String.fromCharCode(102 + twenties) : '')
+    + (ones ? String.fromCharCode(70 + ones) : '');
+}
+
+/**
+ * Encode bytes as an ACS run-length hex payload. Runs never cross a row
+ * boundary, matching how the printer reads the stream back.
+ *
+ * Compressed forms are only emitted when they strictly save characters, so
+ * small or noisy bitmaps come out byte-identical to plain bytesToHex().
+ *
+ * @param {Uint8Array} bytes
+ * @param {number} bytesPerRow
+ * @returns {string}
+ */
+export function bytesToAcsHex(bytes, bytesPerRow) {
+  if (!(bytesPerRow > 0)) return bytesToHex(bytes);
+  const hex = bytesToHex(bytes);
+  const rowHex = bytesPerRow * 2;
+  let out = '';
+  let prev = null;
+
+  for (let start = 0; start < hex.length; start += rowHex) {
+    const row = hex.slice(start, start + rowHex);
+    if (row === prev) { out += ':'; continue; }
+    prev = row;
+    let encoded = '';
+    for (let i = 0; i < row.length;) {
+      const ch = row[i];
+      let run = 1;
+      while (i + run < row.length && row[i + run] === ch) run++;
+      // A uniform 0/F tail is cheaper as a fill terminator. Only on a
+      // full-width row — the fill expands to rowHex on decode, so using it
+      // on a short trailing row would invent bytes.
+      if ((ch === '0' || ch === 'F') && row.length === rowHex && i + run === row.length && run >= 2) {
+        encoded += ch === '0' ? ',' : '!';
+        break;
+      }
+      i += run;
+      if (run < 3) { encoded += ch.repeat(run); continue; }
+      while (run > 0) {
+        const chunk = Math.min(run, ACS_MAX_RUN);
+        encoded += acsRunPrefix(chunk) + ch;
+        run -= chunk;
+      }
+    }
+    out += encoded;
+  }
+  return out;
 }
 
 /**

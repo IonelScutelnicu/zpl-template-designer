@@ -1,7 +1,7 @@
 // ZPL Parser Service
 // Parses ZPL template strings into app element objects and label settings
 
-import { b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
+import { acsToBytes, b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapseLineBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { placeholderName } from '../utils/placeholders.js';
@@ -1540,13 +1540,13 @@ export class ZPLParser {
    *
    * Supported encodings:
    *   - 'A' compression with plain ASCII hex payload
+   *   - 'A' compression with ACS run-length hex (G-Y/g-z counts, ',' '!' ':')
    *   - ':B64:' inline base64 payload (with optional CRC suffix)
    *   - ':Z64:' zlib-deflated base64 payload (re-emitted as :B64: on export,
    *     since there is no synchronous deflate available in the browser)
-   * Anything else (raw binary 'B', compressed 'C', or ASCII-hex
-   * payloads containing ACS run-length characters) is preserved as opaque
-   * — the original ^FO/^GF/^FD/^FS bytes are stashed and re-emitted
-   * verbatim so the user doesn't lose them on round-trip.
+   * Anything else (raw binary 'B', compressed 'C', or a payload that fails to
+   * decode) is preserved as opaque — the original ^FO/^GF/^FD/^FS bytes are
+   * stashed and re-emitted verbatim so the user doesn't lose them on round-trip.
    */
   _parseGraphicField(group, gfToken, fdToken, hasReverse, state) {
     const params = (gfToken.params || '').split(',');
@@ -1575,25 +1575,25 @@ export class ZPLParser {
       reverse: hasReverse,
     });
 
+    const decodedData = (encodingFormat, bytes, crcWarning = false) => ({
+      type: 'GRAPHIC',
+      x: group.x,
+      y: group.y,
+      widthDots,
+      heightDots: (bytesPerRow > 0 ? Math.floor(bytes.length / bytesPerRow) : 0) || heightDots,
+      bytesPerRow,
+      encodingFormat,
+      bytes,
+      threshold: 128,
+      crcWarning,
+      reverse: hasReverse,
+    });
+
     if (compression === 'A') {
       const trimmed = payload.replace(/\s+/g, '');
-      // Plain hex only — anything outside [0-9A-F] (notably ACS run-length
-      // letters G–Z) is unsupported. Preserve verbatim.
       const bytes = hexToBytes(trimmed);
       if (bytes) {
-        const decodedHeight = bytesPerRow > 0 ? Math.floor(bytes.length / bytesPerRow) : 0;
-        return {
-          type: 'GRAPHIC',
-          x: group.x,
-          y: group.y,
-          widthDots,
-          heightDots: decodedHeight || heightDots,
-          bytesPerRow,
-          encodingFormat: 'A',
-          bytes,
-          threshold: 128,
-          reverse: hasReverse,
-        };
+        return decodedData('A', bytes);
       }
       if (payload.startsWith(':B64:')) {
         const decoded = b64WithCrcToBytes(payload);
@@ -1604,20 +1604,7 @@ export class ZPLParser {
               message: '^GF :B64: CRC mismatch — graphic decoded anyway, data may be corrupt',
             });
           }
-          const decodedHeight = bytesPerRow > 0 ? Math.floor(decoded.bytes.length / bytesPerRow) : 0;
-          return {
-            type: 'GRAPHIC',
-            x: group.x,
-            y: group.y,
-            widthDots,
-            heightDots: decodedHeight || heightDots,
-            bytesPerRow,
-            encodingFormat: 'B64',
-            bytes: decoded.bytes,
-            threshold: 128,
-            crcWarning: !decoded.crcOk,
-            reverse: hasReverse,
-          };
+          return decodedData('B64', decoded.bytes, !decoded.crcOk);
         }
       }
       if (payload.startsWith(':Z64:')) {
@@ -1629,26 +1616,20 @@ export class ZPLParser {
               message: '^GF :Z64: CRC mismatch — graphic decoded anyway, data may be corrupt',
             });
           }
-          const decodedHeight = bytesPerRow > 0 ? Math.floor(decoded.bytes.length / bytesPerRow) : 0;
-          return {
-            type: 'GRAPHIC',
-            x: group.x,
-            y: group.y,
-            widthDots,
-            heightDots: decodedHeight || heightDots,
-            bytesPerRow,
-            // No synchronous deflate in the browser — re-emit as :B64:.
-            encodingFormat: 'B64',
-            bytes: decoded.bytes,
-            threshold: 128,
-            crcWarning: !decoded.crcOk,
-            reverse: hasReverse,
-          };
+          // No synchronous deflate in the browser — re-emit as :B64:.
+          return decodedData('B64', decoded.bytes, !decoded.crcOk);
         }
+      }
+      // Last resort before giving up: ACS run-length hex. Tried after the
+      // :B64:/:Z64: prefixes so their leading ':' is never read as an ACS
+      // repeat-previous-row token.
+      const acsBytes = acsToBytes(trimmed, bytesPerRow, totalBytes);
+      if (acsBytes) {
+        return decodedData('A', acsBytes);
       }
       const reason = payload.startsWith(':Z64:')
         ? ':Z64: data could not be decoded'
-        : 'ACS run-length or non-hex characters not supported';
+        : 'payload is neither plain hex nor valid ACS run-length data';
       state.warnings.push({
         command: '^GF',
         message: `^GF graphic preserved as opaque — ${reason}`,
