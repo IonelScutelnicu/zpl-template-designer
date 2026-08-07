@@ -236,14 +236,14 @@ export class AlignmentService {
 
     switch (element.type) {
       case 'BOX':
-        element.width = labelSize.width;
+        element.width = clampNumber(labelSize.width, element.thickness, 32000);
         break;
 
       case 'LINE':
         if (element.orientation === 'H') {
-          element.width = labelSize.width;
+          element.width = clampNumber(labelSize.width, 1, 32000);
         } else {
-          element.thickness = labelSize.width;
+          element.thickness = clampNumber(labelSize.width, 1, 32000);
         }
         break;
 
@@ -309,14 +309,14 @@ export class AlignmentService {
 
     switch (element.type) {
       case 'BOX':
-        element.height = labelSize.height;
+        element.height = clampNumber(labelSize.height, element.thickness, 32000);
         break;
 
       case 'LINE':
         if (element.orientation === 'V') {
-          element.width = labelSize.height;
+          element.width = clampNumber(labelSize.height, 1, 32000);
         } else {
-          element.thickness = labelSize.height;
+          element.thickness = clampNumber(labelSize.height, 1, 32000);
         }
         break;
 

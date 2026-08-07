@@ -274,6 +274,11 @@ export class SerializationService {
       // hand-edited JSON file can't put a non-string back on the element and
       // break render().
       if (data.type === 'RAW' && key === 'text') continue;
+      // ^GB dimensions are clamped to the command's minimums in the BOX/LINE
+      // constructors (ADR 0017) — skip them so an out-of-range value from an
+      // imported label or a hand-edited template can't slip back in.
+      if ((data.type === 'BOX' || data.type === 'LINE')
+        && (key === 'width' || key === 'height' || key === 'thickness')) continue;
       element[key] = data[key];
     }
 

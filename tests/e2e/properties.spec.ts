@@ -358,6 +358,39 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
             await page.locator('[data-color="W"]').click();
             await zplOutput.verifyZPLContains(',W');
         });
+
+        // ^GB width/height accept "value of t to 32000" — a printer grows them up
+        // to the border thickness. See ADR 0017.
+        test('should grow height when thickness exceeds it', async () => {
+            // Default box is 100x50; a thickness of 100 raises the height to match
+            await propertiesPanel.setProperty('prop-thickness', 100);
+            await propertiesPanel.verifyPropertyValue('prop-height', 100);
+            await zplOutput.verifyZPLContains('^GB100,100,100,');
+        });
+
+        test('should clamp width up to the thickness', async () => {
+            await propertiesPanel.setProperty('prop-width', 0);
+            await propertiesPanel.verifyPropertyValue('prop-width', 3);
+            await zplOutput.verifyZPLContains('^GB3,');
+        });
+
+        test('should clamp thickness to min value of 1', async () => {
+            await propertiesPanel.setProperty('prop-thickness', 0);
+            await propertiesPanel.verifyPropertyValue('prop-thickness', 1);
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toMatch(/\^GB\d+,\d+,1,/);
+        });
+
+        test('should not rewrite the width field mid-type above the thickness', async ({ page }) => {
+            await propertiesPanel.setProperty('prop-thickness', 100);
+            // Typing 1500 passes through 1, 15 and 150 — all below the thickness.
+            // Normalising the visible text on input would strand the field at 100.
+            const widthInput = page.locator('#prop-width');
+            await widthInput.fill('');
+            await widthInput.pressSequentially('1500');
+            await expect(widthInput).toHaveValue('1500');
+            await zplOutput.verifyZPLContains('^GB1500,');
+        });
     });
 
     // ============== LINE ELEMENT PROPERTIES ==============

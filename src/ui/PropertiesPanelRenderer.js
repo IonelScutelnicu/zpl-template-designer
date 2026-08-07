@@ -804,8 +804,8 @@ ${escapeHtml(values[name] ?? "")}</textarea>
         <div class="grid grid-cols-2 gap-3">
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
-          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
-          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
+          ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: element.thickness, max: 32000 })}
+          ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: element.thickness, max: 32000 })}
           ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         </div>
       `, { elementType: element.type })}

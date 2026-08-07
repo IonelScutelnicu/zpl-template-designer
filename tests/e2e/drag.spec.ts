@@ -269,6 +269,70 @@ test.describe('Drag - Element Position', () => {
         expect(newHeight).toBeGreaterThan(height);
     });
 
+    // ^GB width/height can never fall below the border thickness, so a shrinking
+    // drag floors there instead of rewriting thickness. See ADR 0017.
+    test('should floor a shrinking BOX resize at its thickness', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await page.waitForSelector('#properties-panel #prop-width');
+        await setPosition(page, 80, 80);
+
+        await page.locator('#prop-thickness').fill('40');
+        await page.locator('#prop-thickness').dispatchEvent('input');
+        await canvas.waitForReady();
+
+        const x = parseInt(await propertiesPanel.getProperty('prop-x'));
+        const y = parseInt(await propertiesPanel.getProperty('prop-y'));
+        const width = parseInt(await propertiesPanel.getProperty('prop-width'));
+        const height = parseInt(await propertiesPanel.getProperty('prop-height'));
+
+        // Drag the bottom-right handle far inward, well past the thickness
+        await resizeAndWait(page, x + width, y + height, x + 5, y + 5);
+
+        await elementsPanel.selectElementByIndex(0);
+        expect(parseInt(await propertiesPanel.getProperty('prop-width'))).toBe(40);
+        expect(parseInt(await propertiesPanel.getProperty('prop-height'))).toBe(40);
+        expect(parseInt(await propertiesPanel.getProperty('prop-thickness'))).toBe(40);
+    });
+
+    test('should cap BOX and LINE resize dimensions at 32000', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { InteractionHandler } = await import('/src/interaction-handler.js');
+            const resize = (element: any) => {
+                const handler = Object.create(InteractionHandler.prototype);
+                Object.assign(handler, {
+                    renderer: {
+                        mouseToLabelCoords: () => ({ x: 100, y: 100 }),
+                        clearSmartGuides: () => {},
+                    },
+                    callbacks: { onElementDragging: () => {} },
+                    smartGuideService: null,
+                    labelSettings: {},
+                    isMarquee: false,
+                    isResizing: true,
+                    dragElement: element,
+                    resizeHandle: 'br',
+                    resizeStartX: 0,
+                    resizeStartY: 0,
+                    resizeStartWidth: 31990,
+                    resizeStartHeight: 31990,
+                    resizeMouseStartX: 0,
+                    resizeMouseStartY: 0,
+                });
+                handler.handleMouseMove({ clientX: 0, clientY: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false });
+                return element;
+            };
+
+            return {
+                box: resize({ type: 'BOX', x: 0, y: 0, width: 31990, height: 31990, thickness: 3 }),
+                line: resize({ type: 'LINE', x: 0, y: 0, width: 31990, thickness: 31990, orientation: 'H' }),
+            };
+        });
+
+        expect(result.box).toMatchObject({ width: 32000, height: 32000 });
+        expect(result.line).toMatchObject({ width: 32000, thickness: 32000 });
+    });
+
     test('should restore BOX position when Escape is pressed during drag', async ({ page }) => {
         await elementsPanel.addBoxElement();
         await elementsPanel.selectElementByIndex(0);

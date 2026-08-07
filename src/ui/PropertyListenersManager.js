@@ -10,6 +10,7 @@ import { PlaceholderAutocomplete } from './PlaceholderAutocomplete.js';
 import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
 import { autoGrowTextarea } from '../utils/dom-helpers.js';
 import { attachFontPicker, ensureSpecimenFaces } from './FontPicker.js';
+import { clampNumber } from '../utils/geometry.js';
 
 /**
  * Manages property panel event listeners
@@ -400,9 +401,48 @@ export class PropertyListenersManager {
    * Attach BOX element property listeners
    */
   attachBoxProperties(element, attach) {
-    attach("prop-width", "width", (v) => parseInt(v) || 100);
-    attach("prop-height", "height", (v) => parseInt(v) || 50);
-    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    const widthInput = document.getElementById('prop-width');
+    const heightInput = document.getElementById('prop-height');
+    const thicknessInput = document.getElementById('prop-thickness');
+
+    // ^GB width/height are 1..32000 but never below the border thickness, which
+    // a printer grows them up to. Clamp the stored value on every keystroke so
+    // the ZPL stays in range, but only normalise the visible text on blur —
+    // rewriting mid-type would make values whose leading digits are below the
+    // thickness (e.g. 1500 on a thickness-100 box) unreachable. See ADR 0004.
+    if (widthInput) {
+      widthInput.addEventListener('input', (e) => {
+        element.width = clampNumber(parseInt(e.target.value) || element.thickness, element.thickness, 32000);
+        this.callbacks.onPropertyChange(element);
+      });
+      widthInput.addEventListener('change', (e) => { e.target.value = element.width; });
+    }
+    if (heightInput) {
+      heightInput.addEventListener('input', (e) => {
+        element.height = clampNumber(parseInt(e.target.value) || element.thickness, element.thickness, 32000);
+        this.callbacks.onPropertyChange(element);
+      });
+      heightInput.addEventListener('change', (e) => { e.target.value = element.height; });
+    }
+
+    // Raising thickness past a side grows that side to match, mirroring the
+    // grown value into its input the way the Circle aspect lock does.
+    if (thicknessInput) {
+      thicknessInput.addEventListener('input', (e) => {
+        element.thickness = clampNumber(parseInt(e.target.value) || 1, 1, 32000);
+        if (element.width < element.thickness) {
+          element.width = element.thickness;
+          if (widthInput) widthInput.value = element.width;
+        }
+        if (element.height < element.thickness) {
+          element.height = element.thickness;
+          if (heightInput) heightInput.value = element.height;
+        }
+        this.callbacks.onPropertyChange(element);
+      });
+      thicknessInput.addEventListener('change', (e) => { e.target.value = element.thickness; });
+    }
+
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));
     this._attachReverseToggle(element);
@@ -511,8 +551,8 @@ export class PropertyListenersManager {
    * Attach LINE element property listeners
    */
   attachLineProperties(element, attach) {
-    attach("prop-width", "width", (v) => parseInt(v) || 100);
-    attach("prop-thickness", "thickness", (v) => parseInt(v) || 3);
+    attach("prop-width", "width", (v) => clampNumber(parseInt(v) || 1, 1, 32000));
+    attach("prop-thickness", "thickness", (v) => clampNumber(parseInt(v) || 1, 1, 32000));
     attach("prop-orientation", "orientation");
     this._attachColorToggle(element);
     attach("prop-rounding", "rounding", (v) => Math.max(0, Math.min(8, parseInt(v) || 0)));

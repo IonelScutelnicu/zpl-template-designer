@@ -686,6 +686,23 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(zpl).toContain('^GB300,150,3');
             expect(zpl).not.toContain('^A0N');
         });
+
+        // ^GB width/height are clamped up to the thickness on import, the way a
+        // printer does — the box prints as a solid t x t block. See ADR 0017.
+        test('should grow an over-thick imported box to its thickness', async () => {
+            await zplOutput.openZplFromContent('^XA^FO50,50^GB10,10,100,B^FS^XZ');
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^GB100,100,100,B');
+        });
+
+        test('should import a zero-width ^GB as a solid vertical bar', async () => {
+            // Zebra's own vertical-line example: w=0 is raised to the thickness
+            await zplOutput.openZplFromContent('^XA^FO50,50^GB0,203,20^FS^XZ');
+
+            const zpl = await zplOutput.getZPLCode();
+            expect(zpl).toContain('^GB20,203,20');
+        });
     });
 
     test.describe('ZPL import placeholders', () => {

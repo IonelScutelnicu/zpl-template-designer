@@ -750,6 +750,7 @@ export class InteractionHandler {
         // Enforce minimum size
         const minSize = 10; // Minimum size for interaction
         const minThickness = 1; // True minimum thickness for lines
+        const maxGraphicBoxSize = 32000;
 
         // For line thickness, allow going smaller than 10 (down to 1)
         const isLine = this.dragElement.type === 'LINE';
@@ -759,8 +760,12 @@ export class InteractionHandler {
         // Determine min limits for width/height based on type and orientation
         let minW = minSize;
         let minH = minSize;
+        let maxW = Infinity;
+        let maxH = Infinity;
 
         if (isLine) {
+          maxW = maxGraphicBoxSize;
+          maxH = maxGraphicBoxSize;
           if (isHorizontal) {
             minH = minThickness;
           } else {
@@ -769,6 +774,13 @@ export class InteractionHandler {
         } else if (isBarcode) {
           minW = 10;
           minH = 10;
+        } else if (this.dragElement.type === 'BOX') {
+          // ^GB width/height can never fall below the border thickness — floor
+          // the drag there rather than silently rewriting thickness. See ADR 0017.
+          minW = Math.max(minSize, this.dragElement.thickness);
+          minH = minW;
+          maxW = maxGraphicBoxSize;
+          maxH = maxGraphicBoxSize;
         }
 
         if (newWidth < minW) {
@@ -783,6 +795,18 @@ export class InteractionHandler {
           // Adjust position if resizing from top
           if (this.resizeHandle.includes('t') || this.resizeHandle === 't') {
             newY = this.resizeStartY + this.resizeStartHeight - minH;
+          }
+        }
+        if (newWidth > maxW) {
+          newWidth = maxW;
+          if (this.resizeHandle.includes('l')) {
+            newX = this.resizeStartX + this.resizeStartWidth - maxW;
+          }
+        }
+        if (newHeight > maxH) {
+          newHeight = maxH;
+          if (this.resizeHandle.includes('t')) {
+            newY = this.resizeStartY + this.resizeStartHeight - maxH;
           }
         }
 

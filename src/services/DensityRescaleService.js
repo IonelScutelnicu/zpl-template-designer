@@ -11,6 +11,7 @@ import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { enforceFontMinSize, snapRequestedToAllowed } from '../utils/zplFontSnap.js';
 
 const MIN_DIM = 1;
+const GB_DIM_BOUNDS = { min: 1, max: 32000 };
 
 // 1D barcode module width maps to ^BY, whose ZPL range is a hard 1..10 (the UI
 // uses the same bound). The 2D bounds come from BARCODE_2D_SIZE_BOUNDS so the
@@ -142,13 +143,13 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
 
     switch (el.type) {
       case 'BOX':
-        el.width = scaleDim(el.width, s);
-        el.height = scaleDim(el.height, s);
-        el.thickness = scaleDim(el.thickness, s);
+        el.thickness = scaleClamped(el.thickness, s, GB_DIM_BOUNDS);
+        el.width = Math.max(el.thickness, scaleClamped(el.width, s, GB_DIM_BOUNDS));
+        el.height = Math.max(el.thickness, scaleClamped(el.height, s, GB_DIM_BOUNDS));
         break;
       case 'LINE':
-        el.width = scaleDim(el.width, s);
-        el.thickness = scaleDim(el.thickness, s);
+        el.width = scaleClamped(el.width, s, GB_DIM_BOUNDS);
+        el.thickness = scaleClamped(el.thickness, s, GB_DIM_BOUNDS);
         break;
       case 'DIAGONALLINE':
         el.width = scaleDim(el.width, s);

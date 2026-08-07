@@ -1,12 +1,15 @@
 import { ZPLElement } from './ZPLElement.js';
+import { clampNumber } from '../utils/geometry.js';
 
 // Line Element Class
 export class LineElement extends ZPLElement {
     constructor(x = 0, y = 0, width = 100, thickness = 3, orientation = 'H', color = 'B', rounding = 0, reverse = false) {
         super(x, y);
         this.type = 'LINE';
-        this.width = width; // Acts as length
-        this.thickness = thickness;
+        // render() forces the ^GB thickness to min(w,h), so w >= t always holds;
+        // only the 1..32000 floor needs enforcing. See ADR 0017.
+        this.width = clampNumber(width, 1, 32000); // Acts as length
+        this.thickness = clampNumber(thickness, 1, 32000);
         this.orientation = orientation; // 'H' or 'V'
         this.color = color;
         this.rounding = Math.max(0, Math.min(8, rounding));

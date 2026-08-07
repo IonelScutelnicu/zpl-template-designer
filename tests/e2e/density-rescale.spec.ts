@@ -99,6 +99,20 @@ test.describe('Density rescale', () => {
       expect(zpl).toContain('^FO150,150'); // position x3
       expect(zpl).toContain('^GB300,150,9'); // box w,h,thickness x3
     });
+
+    test('clamps BOX and LINE dimensions to the ^GB maximum', async ({ page }) => {
+      const result = await page.evaluate(async () => {
+        const { applyRescale } = await import('/src/services/DensityRescaleService.js');
+        const box = { type: 'BOX', x: 0, y: 0, width: 20000, height: 15000, thickness: 12000 };
+        const line = { type: 'LINE', x: 0, y: 0, width: 20000, thickness: 16000 };
+
+        applyRescale({ elements: [box, line], labelSettings: {}, oldDpmm: 8, newDpmm: 24 });
+        return { box, line };
+      });
+
+      expect(result.box).toMatchObject({ width: 32000, height: 32000, thickness: 32000 });
+      expect(result.line).toMatchObject({ width: 32000, thickness: 32000 });
+    });
   });
 
   test.describe('Scale elements — barcode clamping', () => {

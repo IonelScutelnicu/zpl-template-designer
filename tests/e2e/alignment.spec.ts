@@ -255,6 +255,46 @@ test.describe('Alignment Features', () => {
             await propertiesPanel.verifyPropertyValue('prop-x', 0);
         });
 
+        test('should not match Box width below its thickness', async ({ page }) => {
+            await elementsPanel.addBoxElement();
+            await elementsPanel.selectElementByIndex(0);
+            await propertiesPanel.setProperty('prop-thickness', 1000);
+
+            await clickAlignment(page, 'match-width');
+
+            await propertiesPanel.verifyPropertyValue('prop-width', 1000);
+            await zplOutput.verifyZPLContains('^GB1000,1000,1000,');
+        });
+
+        // The label dimension inputs are only clamped in inches mode, so a mm
+        // label can exceed the ^GB 32000 ceiling. Driven at the service level:
+        // the UI flow needs a 5000mm/24dpmm label to get there.
+        test('should cap Line match-width and match-height at the ^GB maximum', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { AlignmentService } = await import('/src/services/AlignmentService.js');
+                const { getLabelSizeDots } = await import('/src/utils/geometry.js');
+                const labelSettings = { width: 5000, height: 5000, dpmm: 24 };
+                const size = getLabelSizeDots(labelSettings);
+                const service = new AlignmentService();
+                const horizontal = { type: 'LINE', x: 0, y: 0, width: 100, thickness: 3, orientation: 'H' };
+                const vertical = { type: 'LINE', x: 0, y: 0, width: 100, thickness: 3, orientation: 'V' };
+
+                service.matchWidth(horizontal, size, labelSettings);
+                service.matchWidth(vertical, size, labelSettings);
+                const afterWidth = { horizontal: { ...horizontal }, vertical: { ...vertical } };
+
+                service.matchHeight(horizontal, size, labelSettings);
+                service.matchHeight(vertical, size, labelSettings);
+                return { labelDots: size.width, afterWidth, afterHeight: { horizontal, vertical } };
+            });
+
+            expect(result.labelDots).toBeGreaterThan(32000);
+            expect(result.afterWidth.horizontal).toMatchObject({ width: 32000 });
+            expect(result.afterWidth.vertical).toMatchObject({ thickness: 32000 });
+            expect(result.afterHeight.horizontal).toMatchObject({ thickness: 32000 });
+            expect(result.afterHeight.vertical).toMatchObject({ width: 32000 });
+        });
+
         test('should expand horizontal Line width to match label width', async ({ page }) => {
             await elementsPanel.addLineElement();
             await elementsPanel.selectElementByIndex(0);
@@ -372,6 +412,17 @@ test.describe('Alignment Features', () => {
             // Box height should now be label height (400), y should be 0
             await propertiesPanel.verifyPropertyValue('prop-height', LABEL_HEIGHT);
             await propertiesPanel.verifyPropertyValue('prop-y', 0);
+        });
+
+        test('should not match Box height below its thickness', async ({ page }) => {
+            await elementsPanel.addBoxElement();
+            await elementsPanel.selectElementByIndex(0);
+            await propertiesPanel.setProperty('prop-thickness', 1000);
+
+            await clickAlignment(page, 'match-height');
+
+            await propertiesPanel.verifyPropertyValue('prop-height', 1000);
+            await zplOutput.verifyZPLContains('^GB1000,1000,1000,');
         });
 
         test('should expand Barcode height to match label height', async ({ page }) => {
