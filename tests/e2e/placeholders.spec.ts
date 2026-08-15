@@ -5,7 +5,7 @@ import { ZPLOutput } from '../page-objects/ZPLOutput';
 
 // Content is a template string that mixes literal text with %name% placeholders.
 // Production ZPL keeps the placeholders; the canvas and the Labelary preview resolve them
-// against the label's Preview Data. See docs/adr/0012.
+// against the label's Preview Data.
 const previewData = (page: any) =>
     page.evaluate(() => (window as any).appState.labelSettings.previewData);
 

@@ -12,6 +12,35 @@ import { resolvePlaceholders } from './placeholders.js';
 export const LINE_HEIGHT_RATIO = 1.0;
 
 /**
+ * Shared ^FB extents in dots, or pixels when scaled. `farEdgeBlockHeight`
+ * includes the trailing spacing slot about which Labelary rotates R/I blocks.
+ *
+ * @param {Object} element FIELDBLOCK element
+ * @param {Object} labelSettings Label settings, for the inherited font
+ * @param {number} [scale=1] Canvas pixels per dot; 1 for dot space
+ * @param {number} [lineCount] Laid-out lines; defaults to the declared count
+ * @returns {{blockWidth: number, blockHeight: number, farEdgeBlockHeight: number,
+ *           width: number, height: number}} orientation-resolved extents
+ */
+export function fieldBlockExtents(element, labelSettings, scale = 1, lineCount = 0) {
+  const maxLines = lineCount || element.maxLines || 1;
+  const lineSpacing = (element.lineSpacing || 0) * scale;
+  const fontMetrics = resolveFontMetrics(element, labelSettings || {}, 1);
+  const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO, scale);
+  const blockHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+  const farEdgeBlockHeight = blockHeight + lineSpacing;
+  const blockWidth = (element.blockWidth || 200) * scale;
+
+  const extents = { blockWidth, blockHeight, farEdgeBlockHeight };
+  switch (element.orientation) {
+    case 'R': return { ...extents, width: farEdgeBlockHeight, height: blockWidth };
+    case 'B': return { ...extents, width: blockHeight, height: blockWidth };
+    case 'I': return { ...extents, width: blockWidth, height: farEdgeBlockHeight };
+    default: return { ...extents, width: blockWidth, height: blockHeight };
+  }
+}
+
+/**
  * Clamp a number between min and max values
  * @param {number} value - Value to clamp
  * @param {number} min - Minimum value
@@ -64,22 +93,8 @@ export function getElementBoundsResolved(element, labelSettings) {
     return { x: element.x, y: element.y, width: blockW, height: blockH };
   }
   if (element.type === 'FIELDBLOCK') {
-    const maxLines = element.maxLines || 1;
-    const lineSpacing = element.lineSpacing || 0;
-    // Line spacing is only between lines, not after the last line
-    const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
-    const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
-    const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
-    const blockWidth = element.blockWidth || 200;
-    if (element.orientation === 'R' || element.orientation === 'B') {
-      return { x: element.x, y: element.y, width: totalHeight, height: blockWidth };
-    }
-    return {
-      x: element.x,
-      y: element.y,
-      width: blockWidth,
-      height: totalHeight
-    };
+    const { width, height } = fieldBlockExtents(element, labelSettings);
+    return { x: element.x, y: element.y, width, height };
   }
   if (element.type === 'TEXT') {
     const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
@@ -102,4 +117,3 @@ export function getElementBoundsResolved(element, labelSettings) {
   }
   return element.getBounds(labelSettings?.dpmm, labelSettings?.previewData);
 }
-

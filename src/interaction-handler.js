@@ -3,7 +3,7 @@
 
 import { getBarcodeGeometry, matrixModuleDots, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from './utils/barcodeGeometry.js';
 import { resolvePlaceholders } from './utils/placeholders.js';
-import { LINE_HEIGHT_RATIO, clampNumber, isSpatial } from './utils/geometry.js';
+import { LINE_HEIGHT_RATIO, clampNumber, fieldBlockExtents, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
 import { GRAPHIC_SYMBOL_INK_RATIOS } from './elements/GraphicSymbolElement.js';
@@ -325,11 +325,9 @@ export class InteractionHandler {
         } else {
           this.resizeStartWidth = selectedElement.type === 'BOX' ? selectedElement.width : selectedElement.blockWidth;
           if (selectedElement.type === 'FIELDBLOCK') {
-            const maxLines = selectedElement.maxLines || 1;
-            const lineSpacing = selectedElement.lineSpacing || 0;
-            // Line spacing is only between lines, not after the last line
-            const baseLineHeight = this.getFieldBlockLineHeight(selectedElement);
-            this.resizeStartHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+            // Unrotated block height: the drag maps to maxLines, which is what the
+            // lines occupy, not the rotation box.
+            this.resizeStartHeight = fieldBlockExtents(selectedElement, this.labelSettings).blockHeight;
           } else {
             this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
           }
@@ -776,7 +774,7 @@ export class InteractionHandler {
           minH = 10;
         } else if (this.dragElement.type === 'BOX') {
           // ^GB width/height can never fall below the border thickness — floor
-          // the drag there rather than silently rewriting thickness. See ADR 0017.
+          // the drag there rather than silently rewriting thickness.
           minW = Math.max(minSize, this.dragElement.thickness);
           minH = minW;
           maxW = maxGraphicBoxSize;
@@ -813,7 +811,7 @@ export class InteractionHandler {
         // GRAPHIC and CIRCLE: Shift only has an effect when aspect is currently
         // locked — it breaks the lock for this resize (CIRCLE → Ellipse). When
         // already unlocked, Shift is a no-op. A locked CIRCLE has a 1:1 start
-        // ratio, so the shared projection math keeps it circular. See ADR 0004.
+        // ratio, so the shared projection math keeps it circular.
         const supportsAspectLock = this.dragElement.type === 'GRAPHIC' || this.dragElement.type === 'CIRCLE';
         const isAspectLocked = this.dragElement.aspectLocked ?? true;
         const wantAspect = isAspectLocked && !e.shiftKey;
@@ -1449,16 +1447,8 @@ export class InteractionHandler {
       return { x: element.x, y: element.y, width: blockW, height: blockH };
     }
     if (element.type === 'FIELDBLOCK' && this.labelSettings) {
-      const maxLines = element.maxLines || 1;
-      const lineSpacing = element.lineSpacing || 0;
-      // Line spacing is only between lines, not after the last line
-      const baseLineHeight = this.getFieldBlockLineHeight(element);
-      const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
-      const blockW = element.blockWidth || 200;
-      if (element.orientation === 'R' || element.orientation === 'B') {
-        return { x: element.x, y: element.y, width: totalHeight, height: blockW };
-      }
-      return { x: element.x, y: element.y, width: blockW, height: totalHeight };
+      const { width, height } = fieldBlockExtents(element, this.labelSettings);
+      return { x: element.x, y: element.y, width, height };
     }
     return element.getBounds(this.labelSettings?.dpmm, this.labelSettings?.previewData);
   }

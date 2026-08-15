@@ -1,5 +1,6 @@
 import { ZPLElement } from './ZPLElement.js';
 import { clampNumber } from '../utils/geometry.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Line Element Class
 export class LineElement extends ZPLElement {
@@ -7,7 +8,7 @@ export class LineElement extends ZPLElement {
         super(x, y);
         this.type = 'LINE';
         // render() forces the ^GB thickness to min(w,h), so w >= t always holds;
-        // only the 1..32000 floor needs enforcing. See ADR 0017.
+        // only the 1..32000 floor needs enforcing.
         this.width = clampNumber(width, 1, 32000); // Acts as length
         this.thickness = clampNumber(thickness, 1, 32000);
         this.orientation = orientation; // 'H' or 'V'
@@ -29,7 +30,8 @@ export class LineElement extends ZPLElement {
         }
         const roundingPart = this.rounding > 0 ? `,${this.rounding}` : '';
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^GB${w},${h},${Math.min(w, h)},${this.color}${roundingPart}^FS`;
+        const pos = fieldOriginCommand(this);
+        return `${pos}${reverseCmd}^GB${w},${h},${Math.min(w, h)},${this.color}${roundingPart}^FS`;
     }
 
     renderPreview() {

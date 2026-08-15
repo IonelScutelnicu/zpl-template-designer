@@ -688,7 +688,7 @@ test.describe('Import/Export - Template Persistence', () => {
         });
 
         // ^GB width/height are clamped up to the thickness on import, the way a
-        // printer does — the box prints as a solid t x t block. See ADR 0017.
+        // printer does — the box prints as a solid t x t block.
         test('should grow an over-thick imported box to its thickness', async () => {
             await zplOutput.openZplFromContent('^XA^FO50,50^GB10,10,100,B^FS^XZ');
 

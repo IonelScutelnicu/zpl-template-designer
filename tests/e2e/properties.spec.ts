@@ -360,7 +360,7 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
 
         // ^GB width/height accept "value of t to 32000" — a printer grows them up
-        // to the border thickness. See ADR 0017.
+        // to the border thickness.
         test('should grow height when thickness exceeds it', async () => {
             // Default box is 100x50; a thickness of 100 raises the height to match
             await propertiesPanel.setProperty('prop-thickness', 100);

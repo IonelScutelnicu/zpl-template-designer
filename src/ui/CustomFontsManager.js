@@ -126,7 +126,7 @@ export class CustomFontsManager {
 
     const notes = [
       customFonts.some(font => !font.source)
-        && 'A font without a preview file renders on the canvas in a fallback face.',
+        && 'A font without a preview file renders on the canvas in the label default font — the same substitution the API preview makes.',
       customFonts.some(font => font.source && exceedsApiPreview(font.source))
         && 'Fonts over 2 MB are too large for the Labelary preview — the canvas uses the real face, the API preview falls back.',
     ].filter(Boolean);

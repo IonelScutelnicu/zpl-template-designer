@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures';
 import { Canvas, ElementsPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 
 /**
- * Coverage for the Circle/Ellipse aspect lock (ADR 0004).
+ * Coverage for the Circle/Ellipse aspect lock.
  *
  * A circular element is one type (CIRCLE) with an aspect lock:
  *   locked   → Circle,  exports ^GCdiameter,thickness,color (width == height)

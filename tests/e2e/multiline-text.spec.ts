@@ -7,7 +7,7 @@ import { Fullscreen } from '../page-objects/Fullscreen';
 // Each ZPL text command breaks lines its own way, verified against the Labelary
 // API: ^FB honours \& and discards raw line feeds, ^TB honours a real line feed
 // (_0A under ^FH) and prints \& literally, and ^A supports neither — it drops
-// everything after the break, so we collapse to a space. See docs/adr/0013.
+// everything after the break, so we collapse to a space.
 const TWO_LINES = 'Line1\nLine2';
 
 test.describe('Multiline text', () => {
@@ -345,6 +345,146 @@ test.describe('Multiline text', () => {
             });
 
             expect(lines).toEqual(['aaa', 'bbb', 'ccc', 'ddd']);
+        });
+
+        test('wrap metadata distinguishes soft wraps, forced splits, hard breaks, and field ends', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { wrapStyledText, wrapStyledTextDetailed } = await import('/src/utils/fontMetrics.js');
+                const ctx = document.createElement('canvas').getContext('2d')!;
+                ctx.font = '20px monospace';
+                const width = (ctx.measureText('number number').width + ctx.measureText('number number number').width) / 2;
+                const maxWidth = () => width;
+
+                return {
+                    softEnd: wrapStyledTextDetailed(ctx, 'number number number', {}, 20, 1, maxWidth),
+                    forcedEnd: wrapStyledTextDetailed(ctx, 'aaaaaaaaaaaa', {}, 20, 1,
+                        () => ctx.measureText('aaaa').width),
+                    hardEnd: wrapStyledTextDetailed(ctx, 'number number\nnumber', {}, 20, 1, maxWidth),
+                    stringOnly: wrapStyledText(ctx, 'number number number', {}, 20, 1, maxWidth),
+                };
+            });
+
+            expect(result.softEnd).toEqual([
+                { text: 'number number', termination: 'soft' },
+                { text: 'number', termination: 'end' },
+            ]);
+            expect(result.hardEnd).toEqual([
+                { text: 'number number', termination: 'hard' },
+                { text: 'number', termination: 'end' },
+            ]);
+            expect(result.forcedEnd).toEqual([
+                { text: 'aaaa', termination: 'forced' },
+                { text: 'aaaa', termination: 'forced' },
+                { text: 'aaaa', termination: 'end' },
+            ]);
+            expect(result.stringOnly).toEqual(['number number', 'number']);
+        });
+
+        test('centering applies the trailing-space bias only to soft wraps', async ({ page }) => {
+            const bounds = await page.evaluate(async () => {
+                const [{ CanvasRenderer }, { FieldBlockElement }] = await Promise.all([
+                    import('/src/canvas-renderer.js'),
+                    import('/src/elements/FieldBlockElement.js'),
+                ]);
+                await document.fonts.ready;
+
+                const render = (content: string, justification: string) => {
+                    const canvas = document.createElement('canvas');
+                    const element = new FieldBlockElement(
+                        21, 57, content, 18, 0, 237, 4, 0, justification, 9999, 'A', false, 'N',
+                    );
+                    new CanvasRenderer(canvas).renderCanvas([element], {
+                        width: 100, height: 25, dpmm: 8, fontId: 'A',
+                        defaultFontHeight: 18, defaultFontWidth: 0, previewData: {},
+                    }, null);
+
+                    const ctx = canvas.getContext('2d')!;
+                    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    let left = canvas.width;
+                    let right = 0;
+                    for (let y = 0; y < canvas.height; y++) {
+                        for (let x = 0; x < canvas.width; x++) {
+                            const i = (y * canvas.width + x) * 4;
+                            if (image.data[i] < 128 && image.data[i + 3] > 40) {
+                                left = Math.min(left, x);
+                                right = Math.max(right, x);
+                            }
+                        }
+                    }
+                    return { left, right };
+                };
+
+                return {
+                    centered: {
+                        soft: render('number number number\\&', 'C'),
+                        end: render('number number', 'C'),
+                        hard: render('number number\\&', 'C'),
+                    },
+                    left: {
+                        end: render('number number', 'L'),
+                        hard: render('number number\\&', 'L'),
+                    },
+                    right: {
+                        end: render('number number', 'R'),
+                        hard: render('number number\\&', 'R'),
+                    },
+                };
+            });
+
+            expect(bounds.centered.end).toEqual(bounds.centered.hard);
+            expect(bounds.centered.end.left - bounds.centered.soft.left).toBeGreaterThanOrEqual(2);
+            expect(bounds.left.hard).toEqual(bounds.left.end);
+            expect(bounds.right.hard).toEqual(bounds.right.end);
+        });
+
+        test('positive line spacing extends only the R and I far-edge pivots', async ({ page }) => {
+            const bounds = await page.evaluate(async () => {
+                const [{ CanvasRenderer }, { FieldBlockElement }] = await Promise.all([
+                    import('/src/canvas-renderer.js'),
+                    import('/src/elements/FieldBlockElement.js'),
+                ]);
+                await document.fonts.ready;
+
+                const render = (orientation: string, lineSpacing: number) => {
+                    const canvas = document.createElement('canvas');
+                    const element = new FieldBlockElement(
+                        100, 100, 'wrapped', 30, 30, 200, 1, lineSpacing,
+                        'L', 0, '0', false, orientation,
+                    );
+                    new CanvasRenderer(canvas).renderCanvas([element], {
+                        width: 100, height: 100, dpmm: 8, fontId: '0',
+                        defaultFontHeight: 30, defaultFontWidth: 30, previewData: {},
+                    }, null);
+
+                    const ctx = canvas.getContext('2d')!;
+                    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    let top = canvas.height, left = canvas.width, bottom = 0, right = 0;
+                    for (let y = 0; y < canvas.height; y++) {
+                        for (let x = 0; x < canvas.width; x++) {
+                            const i = (y * canvas.width + x) * 4;
+                            if (image.data[i] < 128 && image.data[i + 3] > 40) {
+                                top = Math.min(top, y);
+                                left = Math.min(left, x);
+                                bottom = Math.max(bottom, y);
+                                right = Math.max(right, x);
+                            }
+                        }
+                    }
+                    return { top, left, bottom, right };
+                };
+
+                return Object.fromEntries(['N', 'R', 'I', 'B'].map(orientation => [
+                    orientation,
+                    { zero: render(orientation, 0), spaced: render(orientation, 17) },
+                ]));
+            });
+
+            expect(bounds.R.spaced.left - bounds.R.zero.left).toBe(17);
+            expect(bounds.R.spaced.right - bounds.R.zero.right).toBe(17);
+            expect(bounds.I.spaced.top - bounds.I.zero.top).toBe(17);
+            expect(bounds.I.spaced.bottom - bounds.I.zero.bottom).toBe(17);
+            expect(bounds.N.spaced).toEqual(bounds.N.zero);
+            expect(bounds.B.spaced).toEqual(bounds.B.zero);
         });
     });
 });

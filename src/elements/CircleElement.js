@@ -1,4 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Circle/Ellipse Element Class
 export class CircleElement extends ZPLElement {
@@ -11,7 +12,7 @@ export class CircleElement extends ZPLElement {
         this.color = color;
         this.reverse = reverse; // ^FR (reverse print)
         // Aspect Lock: locked → Circle (^GC, width/height pinned 1:1);
-        // unlocked → Ellipse (^GE, independent dimensions). See ADR 0004.
+        // unlocked → Ellipse (^GE, independent dimensions).
         this.aspectLocked = aspectLocked;
     }
 
@@ -20,10 +21,12 @@ export class CircleElement extends ZPLElement {
         const reverseCmd = this.reverse ? '^FR' : '';
         if (this.aspectLocked) {
             // Circle: ^FOx,y^FR^GCdiameter,thickness,color^FS (width is authoritative)
-            return `^FO${this.x},${this.y}${reverseCmd}^GC${this.width},${this.thickness},${this.color}^FS`;
+            const pos = fieldOriginCommand(this);
+            return `${pos}${reverseCmd}^GC${this.width},${this.thickness},${this.color}^FS`;
         }
         // Ellipse: ^FOx,y^FR^GEwidth,height,thickness,color^FS
-        return `^FO${this.x},${this.y}${reverseCmd}^GE${this.width},${this.height},${this.thickness},${this.color}^FS`;
+        const pos = fieldOriginCommand(this);
+        return `${pos}${reverseCmd}^GE${this.width},${this.height},${this.thickness},${this.color}^FS`;
     }
 
     renderPreview() {

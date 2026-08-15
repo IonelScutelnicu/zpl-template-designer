@@ -3,7 +3,7 @@ import { PLACEHOLDER_SPLIT_RE, WHOLE_PLACEHOLDER_RE } from './placeholders.js';
 const DEFAULT_HEX_INDICATOR = '_';
 const HEX_RE = /^[0-9A-Fa-f]{2}$/;
 
-// Each ZPL text command breaks lines its own way (see ADR 0013): ^FB uses the
+// Each ZPL text command breaks lines its own way: ^FB uses the
 // \& escape and discards raw line feeds, ^TB uses a real line feed (so _0A via
 // ^FH) and prints \& literally, and ^A supports neither.
 export const FB_LINE_BREAK = '\\&';
@@ -100,10 +100,17 @@ export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
   return parts.join('');
 }
 
-export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false) {
+/**
+ * The field-data command plus its payload. `command` is the element's
+ * fieldDataCommand: ^FV for a field the printer clears after printing, ^FD —
+ * the default — for one it retains. The two are interchangeable on a single
+ * label and differ only across prints with ^MC map retention, so an imported
+ * ^FV has to be carried back out rather than inferred.
+ */
+export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false, command = 'FD') {
   const encoded = encodeFieldData(value, indicator);
   const fh = encoded.escaped || forceHex
     ? `^FH${encoded.indicator === DEFAULT_HEX_INDICATOR ? '' : encoded.indicator}`
     : '';
-  return `${fh}^FD${encoded.data}`;
+  return `${fh}^${command === 'FV' ? 'FV' : 'FD'}${encoded.data}`;
 }

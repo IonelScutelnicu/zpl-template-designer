@@ -76,6 +76,30 @@ test.describe('Barcode symbology', () => {
         await zplOutput.verifyZPLContains('^BXR,4,200');
     });
 
+    test('QR geometry uses Labelary mask selection for short numeric payloads', async ({ page }) => {
+        const masks = await page.evaluate(async () => {
+            const [{ getBarcodeGeometry }, { default: bwipjs }] = await Promise.all([
+                import('/src/utils/barcodeGeometry.js'),
+                import('/src/vendor/bwip-js.mjs'),
+            ]);
+
+            return Array.from({ length: 9 }, (_, index) => {
+                const text = '1'.repeat(index + 1);
+                const geom: any = getBarcodeGeometry({
+                    type: 'QRCODE', symbology: 'QR', content: text, errorCorrection: 'Q', magnification: 5,
+                } as any);
+                for (let mask = 1; mask <= 8; mask++) {
+                    const output: any = bwipjs.raw({ bcid: 'qrcode', text, eclevel: 'Q', mask })
+                        .find((entry: any) => entry?.pixs);
+                    if (output?.pixs.every((value: number, i: number) => value === geom.pixs[i])) return mask;
+                }
+                return 0;
+            });
+        });
+
+        expect(masks).toEqual([5, 3, 6, 4, 2, 6, 3, 7, 5]);
+    });
+
     test('2D barcode ZPL import preserves orientation by symbology', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
@@ -924,6 +948,30 @@ test.describe('Barcode symbology', () => {
                 expect(r.aboveOk, `printTextAbove ${r.sym}`).toBe(true);
             }
         });
+
+        test('an omitted orientation takes the ^FW in force at the command, not a later one', async ({ page }) => {
+            const orientations = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const parser = new ZPLParser();
+                const first = (zpl: string) => parser.parse('^XA' + zpl + '^XZ')
+                    .elements.find((e: any) => e.type === 'BARCODE')?.orientation;
+                return {
+                    // The printer resolves ^BC against the ^FW it has already seen.
+                    inherited: first('^FWR^FO10,10^BC,50,Y,N,N^FD1^FS'),
+                    // A ^FW after the ^BC governs later fields, never this one.
+                    notRetroactive: first('^FWR^FO10,10^BC,50,Y,N,N^FWN^FD1^FS'),
+                    // The field's own orientation always wins over the default.
+                    explicit: first('^FWR^FO10,10^BCI,50,Y,N,N^FD1^FS'),
+                    nextField: parser.parse('^XA^FWR^FO10,10^BC,50,Y^FWN^FD1^FS^FO10,99^BC,50,Y^FD2^FS^XZ')
+                        .elements.filter((e: any) => e.type === 'BARCODE').map((e: any) => e.orientation),
+                };
+            });
+
+            expect(orientations.inherited).toBe('R');
+            expect(orientations.notRetroactive).toBe('R');
+            expect(orientations.explicit).toBe('I');
+            expect(orientations.nextField).toEqual(['R', 'N']);
+        });
     });
 
     test('PDF417 emits ^BY module width before ^B7', async () => {
@@ -932,6 +980,46 @@ test.describe('Barcode symbology', () => {
         await propertiesPanel.setSelectValue('prop-symbology', 'PDF417');
         await zplOutput.verifyZPLContains('^BY');
         await zplOutput.verifyZPLContains('^B7N');
+    });
+
+    test('PDF417 rows change the geometry — the cache keys on them', async ({ page }) => {
+        // ^B7's r sizes the stack independently of the column count, so it has to
+        // be part of the geometry cache key. Without it these three share whichever
+        // rendered first and the Rows property silently does nothing on canvas.
+        const rows = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const base = {
+                type: 'QRCODE', symbology: 'PDF417', content: 'HELLO WORLD 123456',
+                moduleWidth: 2, rowHeight: 4, securityLevel: 0, columns: 2,
+            };
+            // Auto first, so a stale entry would pin every later request to it.
+            return [0, 12, 0, 12].map((r) => getBarcodeGeometry({ ...base, rows: r } as any).rows);
+        });
+
+        expect(rows[1]).toBe(12);
+        expect(rows[0]).toBeLessThan(12);
+        // ...and the cache still returns the right answer for a repeat of each.
+        expect(rows[2]).toBe(rows[0]);
+        expect(rows[3]).toBe(12);
+    });
+
+    test('an unreadable ^BY ratio leaves the current one alone', async ({ page }) => {
+        // ^BY parameters persist, and the doc has an out-of-range value ignored
+        // rather than reset to the 3.0 power-up default.
+        const ratios = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const parse = (zpl: string) => new ZPLParser()
+                .parse(zpl, { dpmm: 8, labelHeight: 50 }).elements.map((el: any) => el.ratio);
+            return {
+                // The second ^BY sets only the width; the 2.0 ratio must survive.
+                kept: parse('^XA^BY2,2^FO10,10^B3N,,50^FDA^FS^BY3,0^FO10,80^B3N,,50^FDB^FS^XZ'),
+                // Power-up default when nothing ever set one.
+                initial: parse('^XA^FO10,10^B3N,,50^FDA^FS^XZ'),
+            };
+        });
+
+        expect(ratios.kept).toEqual([2, 2]);
+        expect(ratios.initial).toEqual([3]);
     });
 
     // ============== AZTEC (^B0) ==============

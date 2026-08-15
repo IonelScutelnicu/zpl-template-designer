@@ -2,8 +2,7 @@
 // field by newDpmm/oldDpmm so the label's physical appearance is preserved
 // when the user changes Print Density.
 //
-// See docs/adr/0002-density-change-rescales-elements.md and CONTEXT.md
-// ("Density rescale") for the decision and edge cases.
+// See CONTEXT.md ("Density rescale") for the decision and edge cases.
 
 import { BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 import { resampleBitmap } from '../utils/graphicField.js';

@@ -7,7 +7,9 @@ import bwipjs from '../vendor/bwip-js.mjs';
 import { maxicodeGeometry, maxicodeSize, maxicodeScmText } from '../barcodes/maxicodeGeometry.js';
 import { getTlc39Geometry } from '../barcodes/tlc39Geometry.js';
 import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText, expandStackedDatabar } from '../barcodes/databarGeometry.js';
+import { code128RawText, encodeCode128, encodeCode128Auto, uccCaseDigits } from '../barcodes/code128Encoder.js';
 import { resolvePlaceholders } from './placeholders.js';
+import { qrMaskPenalty } from './qrMaskPenalty.js';
 
 export { maxicodeSize };
 export { DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM };
@@ -152,8 +154,17 @@ export const DEFAULT_PREVIEW_DATA = {
 // Mirror that here so the canvas (bwip-js) matches Labelary/printer output. (^BE doc)
 const FIXED_FD_LENGTH = { EAN13: 12, EAN8: 7, UPCA: 11, UPCE: 6 };
 
+// Code 39 (^B3), Code 93 (^BA) and LOGMARS (^BL) all encode the same 43-character
+// set. Zebra and Labelary don't reject data outside it: lowercase is folded to
+// uppercase and anything still unencodable is dropped (verified on Labelary —
+// ^FD{uid_barcode} renders pixel-identical to ^FDUIDBARCODE, bars and HRI both).
+const CODE39_DISALLOWED = /[^0-9A-Z\-. $/+%]/gu;
+
 export function normalizeBarcodeData(symbology, data) {
   let s = data || '';
+  if (symbology === 'CODE39' || symbology === 'CODE93' || symbology === 'LOGMARS') {
+    return s.toUpperCase().replace(CODE39_DISALLOWED, '');
+  }
   if (symbology === 'PLANET' || symbology === 'POSTNET') {
     // USPS postal codes (^B5/^BZ): Zebra/Labelary drop non-digit ^FD characters
     // entirely — no '0' substitution — and encode whatever digits remain, any
@@ -668,6 +679,20 @@ export function microPdf417Version(mode) {
 }
 
 /**
+ * Code 128 codewords for a ^BC field, honouring its m parameter: N follows the ^FD
+ * start code and invocation codes, A lets the encoder pick the subsets, D is A with a
+ * leading FNC1 (the parentheses of an AI stay in the readable line only), and U packs
+ * the UCC case digits into Subset C behind an FNC1.
+ */
+function code128Codewords(element, data) {
+  const mode = element.code128Mode;
+  if (mode === 'U') return encodeCode128Auto(uccCaseDigits(data).bars, true).codewords;
+  if (mode === 'D') return encodeCode128Auto(String(data ?? '').replace(/[()]/gu, ''), true).codewords;
+  if (mode === 'A') return encodeCode128Auto(data, false).codewords;
+  return encodeCode128(data, element.code128Subset).codewords;
+}
+
+/**
  * Build the bwip-js options object for an element's current symbology + data.
  * `data` is the element's Content with its placeholders already resolved.
  */
@@ -700,10 +725,9 @@ function buildBwipOptions(element, data) {
     opts.includetext = true;
   }
   if (symbology === 'LOGMARS') {
-    // ^BL is Code 39 for the US DoD: the mod-43 check digit is mandatory (always in the
-    // bars) and lowercase ^FD is converted to uppercase. Feed bwip the uppercased data
-    // with includecheck on so the canvas bar count matches Labelary.
-    opts.text = (data || '').toUpperCase();
+    // ^BL is Code 39 for the US DoD: the mod-43 check digit is mandatory (always in
+    // the bars). normalizeBarcodeData already folded the data to the Code 39 set;
+    // includecheck on keeps the canvas bar count matching Labelary.
     opts.includecheck = true;
   }
   if (symbology === 'MSI') {
@@ -746,15 +770,18 @@ function buildBwipOptions(element, data) {
     opts.includecheck = true;
   }
   if (symbology === 'CODE128') {
-    // Mirror the ZPL `^FD>:` prefix (BarcodeElement): force Code 128 Subset B so
-    // the canvas geometry matches Labelary, whose ^BC defaults to Subset B. Without
-    // this, bwip-js auto-selects the more compact Subset C for digit-only data,
-    // making the on-canvas barcode narrower than what actually prints.
-    opts.newencoder = true; // suppressc is only honoured by the new encoder path
-    opts.suppressc = true;
+    // Resolve the subset ourselves and hand bwip the finished codewords. ZPL's
+    // start code and in-data invocation codes decide the subset outright and
+    // Zebra never auto-switches, whereas bwip's own encoder does — so its
+    // heuristics have to be taken out of the loop entirely. See code128Encoder.
+    opts.text = code128RawText(code128Codewords(element, opts.text));
+    opts.raw = true;
+    opts.parse = true;
   }
   if (symbology === 'QR') {
     opts.eclevel = element.errorCorrection || 'Q';
+    const mask = qrAutoMask(opts);
+    if (mask) opts.mask = mask;
   } else if (symbology === 'AZTEC') {
     // Mirror the ^B0 'd' parameter (see QRCodeElement._render / ZPLParser._parseAztec):
     // 'rune' / 'compact' / 'full' select bwip's format; explicit layers size the
@@ -782,6 +809,10 @@ function buildBwipOptions(element, data) {
     }
   } else if (symbology === 'PDF417') {
     if (element.securityLevel != null) opts.eclevel = element.securityLevel;
+    if (element.rows > 0) opts.rows = element.rows;
+    // ^B7's t=Y is the truncated ("compact") variant: no right row indicator and a
+    // one-module stop bar, which bwip exposes as its own bcid.
+    if (element.truncate) opts.bcid = 'pdf417compact';
     if (element.columns > 0) {
       opts.columns = element.columns;
     } else {
@@ -814,6 +845,39 @@ function buildBwipOptions(element, data) {
 
 const geomCache = new Map();
 const CACHE_MAX = 256;
+
+// bwip uses 1-based mask values. Labelary selects the ISO/ZXing minimum-penalty
+// mask, while bwip's automatic scorer differs, so evaluate all eight once per
+// payload and error-correction level.
+const qrMaskCache = new Map();
+
+function qrAutoMask(opts) {
+  const key = `${opts.text}|${opts.eclevel ?? ''}`;
+  const cached = qrMaskCache.get(key);
+  if (cached) return cached;
+
+  let bestMask;
+  let bestPenalty = Infinity;
+  for (let mask = 1; mask <= 8; mask++) {
+    try {
+      const stack = bwipjs.raw({ ...opts, mask });
+      const output = stack.find((entry) => entry && entry.pixs) || stack[0];
+      if (!output?.pixs) return undefined;
+      const penalty = qrMaskPenalty(+output.pixx, output.pixs);
+      if (penalty < bestPenalty) {
+        bestPenalty = penalty;
+        bestMask = mask;
+      }
+    } catch {
+      // Preserve the existing encode-failure path, including its placeholder.
+      return undefined;
+    }
+  }
+
+  if (qrMaskCache.size >= CACHE_MAX) qrMaskCache.clear();
+  if (bestMask) qrMaskCache.set(key, bestMask);
+  return bestMask;
+}
 
 // Chosen Aztec auto-format ('compact'|'full'), keyed by `text|eclevel`. Probing a
 // compact encode runs on every buildBwipOptions call (before the geometry cache),
@@ -923,7 +987,10 @@ export function getBarcodeGeometry(element, previewData = {}) {
   const ratioKey = symbology === 'PLESSEY' ? effRatio
     : (symbology === 'PLANET' || symbology === 'POSTNET') ? (element.width || 2)
     : wnRatio;
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${opts.mode ?? ''}|${ratioKey}`;
+  // Every option that changes the symbol has to appear here. ^B7's r (opts.rows)
+  // is one of them: it sizes the stack independently of the column count, so
+  // without it two PDF417s differing only in rows share whichever rendered first.
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.rows || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${opts.mode ?? ''}|${ratioKey}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 
@@ -987,8 +1054,10 @@ export function getBarcodeGeometry(element, previewData = {}) {
           ? Array.from(o.sbs, (v) => (v === nativeWide ? wnRatio : v))
           : o.sbs;
       }
+      // Exclude bwip's trailing space: Labelary anchors and centres on ink width.
+      const inked = sbs.length - (sbs.length % 2 === 0 ? 1 : 0);
       let modules = 0;
-      for (let i = 0; i < sbs.length; i++) modules += sbs[i];
+      for (let i = 0; i < inked; i++) modules += sbs[i];
       // ean2/ean5 add-ons: bwip uniformly shrinks every bar (bhs≈0.77, bbs≈-0.07) to
       // reserve space above the bars for the digits. Zebra/Labelary instead treat
       // ^BS's h as the full bar height and place the HRI outside it (verified on

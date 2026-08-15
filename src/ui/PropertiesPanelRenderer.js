@@ -3,6 +3,7 @@
 
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
 import { DEFAULT_FONT_ID } from '../config/constants.js';
+import { supportsFieldTypeset } from '../utils/fieldAnchor.js';
 import { fontSizeSelectHtml } from './fontSizeSelect.js';
 import { fontPickerHtml } from './FontPicker.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
@@ -59,6 +60,34 @@ const SYMBOLOGY_THUMBS = {
  */
 export function hasEnvelopeCommand(text) {
   return /\^X[AZ]/i.test(text || '');
+}
+
+/** Container the anchor toggle lives in. Always present, so the toggle can be
+ *  swapped in and out on its own without rebuilding the panel around it. */
+export const ANCHOR_TOGGLE_HOST_ID = 'prop-anchor-toggle';
+
+/**
+ * ^FO/^FT emit-style toggle, or "" when ^FT is unavailable. Model x/y remains
+ * the visual top-left; PropertyListenersManager refreshes availability as
+ * anchor-dependent properties change.
+ */
+export function anchorToggleHtml(element, labelSettings) {
+  if (!supportsFieldTypeset(element.type, element, labelSettings)) return "";
+  const isFT = element.positionType === "FT";
+  const button = (value, label, active, tooltip) => `
+            <button type="button" data-position-type="${value}"
+              aria-label="${label}"
+              aria-pressed="${active}"
+              class="flex-1 px-3 py-1 text-xs rounded ${active ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:bg-slate-200"} transition-colors"
+              data-tooltip="${tooltip}">${label}</button>`;
+  return `
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-slate-700 mb-1">Anchor</label>
+          <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            ${button("FO", "^FO", !isFT, "Field Origin — the coordinate is the top-left corner")}
+            ${button("FT", "^FT", isFT, "Field Typeset — the coordinate is the baseline (text) or bottom edge")}
+          </div>
+        </div>`;
 }
 
 /**
@@ -450,6 +479,12 @@ export class PropertiesPanelRenderer {
         </div>`;
   }
 
+  /** The anchor toggle in its own host, so PropertyListenersManager can show or
+   *  hide it without rebuilding — and refocusing — the whole panel. */
+  renderAnchorToggle(element) {
+    return `<div id="${ANCHOR_TOGGLE_HOST_ID}">${anchorToggleHtml(element, this.labelSettings)}</div>`;
+  }
+
   /**
    * Render alignment controls section
    */
@@ -680,6 +715,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
           <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
@@ -744,6 +780,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
           ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 1000 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         ${this.renderOrientationButtons(element.orientation || "N")}
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
@@ -783,6 +820,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         ${orientationControls}
       `, { elementType: element.type })}
       ${this.renderSection("Content", `
@@ -808,6 +846,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: element.thickness, max: 32000 })}
           ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         </div>
+        ${this.renderAnchorToggle(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", `
         <div class="flex items-center justify-between">
@@ -844,6 +883,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("Length (Width)", "prop-width", element.width, "number", { min: 1, max: 32000 })}
           ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
           <select id="prop-orientation" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
@@ -888,6 +928,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 3, max: 32000 })}
           ${this.createInputGroup("Thickness", "prop-thickness", element.thickness, "number", { min: 1, max: 32000 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         ${this.renderDiagonalOrientationButtons(element.orientation)}
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", `
@@ -933,6 +974,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("Height", "prop-height", element.height, "number", { min: 1, max: 32000 })}
           ${this.createInputGroup("Width", "prop-width", element.width, "number", { min: 1, max: 32000 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         ${this.renderOrientationButtons(element.orientation || 'N')}
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
@@ -961,6 +1003,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-end mb-3">
           <div>
             <label class="block text-xs font-medium text-slate-700 mb-1">Width</label>
@@ -1015,6 +1058,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
           <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
@@ -1080,6 +1124,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
           ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
           ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
         </div>
+        ${this.renderAnchorToggle(element)}
         <div class="mb-3">
           <label class="block text-xs font-medium text-slate-700 mb-1">Orientation</label>
           <div class="flex gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
@@ -1228,6 +1273,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
         ${this.createInputGroup("X Position", "prop-x", element.x, "number", { min: 0 })}
         ${this.createInputGroup("Y Position", "prop-y", element.y, "number", { min: 0 })}
       </div>
+      ${this.renderAnchorToggle(element)}
       ${orientationRow}
     `;
 

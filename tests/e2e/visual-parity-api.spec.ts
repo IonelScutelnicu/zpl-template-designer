@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { ElementsPanel, Canvas, PreviewPanel, PropertiesPanel } from '../page-objects';
+import { ElementsPanel, Canvas, PreviewPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 import { compareImages, findContentBounds, getImageDimensions } from '../fixtures/image-comparison';
 
 /**
@@ -12,6 +12,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
     let canvas: Canvas;
     let previewPanel: PreviewPanel;
     let propertiesPanel: PropertiesPanel;
+    let zplOutput: ZPLOutput;
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
@@ -19,6 +20,7 @@ test.describe('Visual Parity - Canvas vs API', () => {
         canvas = new Canvas(page);
         previewPanel = new PreviewPanel(page);
         propertiesPanel = new PropertiesPanel(page);
+        zplOutput = new ZPLOutput(page);
         await canvas.waitForReady();
     });
 
@@ -253,6 +255,90 @@ test.describe('Visual Parity - Canvas vs API', () => {
         if (result.diffPercentage >= 0.005) console.log(`FieldBlock long word parity: ${result.diffPercentage.toFixed(2)}% difference`);
         expect(result.diffPercentage).toBeLessThan(50);
     });
+
+    test('should match API position for a rotated FieldBlock with line spacing', async () => {
+        await zplOutput.openZplFromContent(`^XA
+^FX{"labelMeta":{"w":102,"h":152,"dpmm":8}}
+^PW815
+^CFA,9
+^FO73,60^AIR,67,47^FB554,5,17,L,0^FH^FDwrapped^FS
+^XZ`);
+
+        await canvas.waitForReady();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
+        await previewPanel.switchToAPIMode();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+        const canvasBounds = findContentBounds(canvasImage);
+        const apiBounds = findContentBounds(apiImage);
+        const canvasDims = getImageDimensions(canvasImage);
+        const apiDims = getImageDimensions(apiImage);
+        const canvasLeftDots = canvasBounds.left * apiDims.width / canvasDims.width;
+        const canvasRightDots = canvasBounds.right * apiDims.width / canvasDims.width;
+        expect(Math.abs(canvasLeftDots - apiBounds.left)).toBeLessThanOrEqual(4);
+        expect(Math.abs(canvasRightDots - apiBounds.right)).toBeLessThanOrEqual(4);
+    });
+
+    test('should include the trailing-space advance when centering a wrapped FieldBlock line', async () => {
+        await zplOutput.openZplFromContent(`^XA
+^FX{"labelMeta":{"w":100,"h":25,"dpmm":8}}
+^PW799
+^CFA,9
+^FO21,57^AAN,18^FB237,4,0,C,9999^FDnumber number number\\&^FS
+^XZ`);
+
+        await canvas.waitForReady();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
+        await previewPanel.switchToAPIMode();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+        const canvasBounds = findContentBounds(canvasImage);
+        const apiBounds = findContentBounds(apiImage);
+        const canvasDims = getImageDimensions(canvasImage);
+        const apiDims = getImageDimensions(apiImage);
+        const canvasLeftDots = canvasBounds.left * apiDims.width / canvasDims.width;
+        const canvasRightDots = canvasBounds.right * apiDims.width / canvasDims.width;
+        expect(Math.abs(canvasLeftDots - apiBounds.left)).toBeLessThanOrEqual(2);
+        expect(Math.abs(canvasRightDots - apiBounds.right)).toBeLessThanOrEqual(2);
+    });
+
+    for (const regression of [
+        {
+            name: 'one-line bitmap field',
+            command: '^FO25,12^ADN,18^FB381,1,0,C,9999^FDnumber\\&^FS',
+        },
+        {
+            name: 'wider fallback-font field',
+            command: '^FO30,120^AKN,24^FB376,2,0,C,9999^FH^FDnumber number number\\&^FS',
+        },
+        {
+            name: 'forced character-wrapped field',
+            command: '^FO139,60^AIN,24^FB269,4,0,C,0^FDaaaaaaaaaaaaaaaaaaa\\&^FS',
+        },
+    ]) {
+        test(`should keep an imported explicit end break centered for a ${regression.name}`, async () => {
+            await zplOutput.openZplFromContent(`^XA
+^FX{"labelMeta":{"w":51,"h":25,"dpmm":8}}
+${regression.command}
+^XZ`);
+
+            await canvas.waitForReady();
+            const canvasImage = await canvas.takeFullResolutionScreenshot();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+            const canvasBounds = findContentBounds(canvasImage);
+            const apiBounds = findContentBounds(apiImage);
+            const canvasDims = getImageDimensions(canvasImage);
+            const apiDims = getImageDimensions(apiImage);
+            const canvasCenterDots = (canvasBounds.left + canvasBounds.right) / 2 * apiDims.width / canvasDims.width;
+            const apiCenterDots = (apiBounds.left + apiBounds.right) / 2;
+            expect(Math.abs(canvasCenterDots - apiCenterDots)).toBeLessThanOrEqual(2);
+        });
+    }
 
     // Each 2D symbology must place its symbol at the same spot and size as the
     // Labelary render (the canvas geometry comes from bwip-js; this confirms our

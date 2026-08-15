@@ -9,10 +9,25 @@ import {
   normalizeUpcEanExt,
   plesseyCheckDigits,
 } from '../utils/barcodeGeometry.js';
+import { code128AutoText, encodeCode128, uccCaseDigits } from './code128Encoder.js';
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 
 function fieldData(element, value) {
-  return renderFieldDataCommand(value, '_', element.fieldHex);
+  return renderFieldDataCommand(value, '_', element.fieldHex, element.fieldDataCommand);
+}
+
+// ^FD invocation prefix that selects the Code 128 start subset the field was
+// imported with (>9 = A, >: = B, >; = C). Subset B is the editor's default.
+const CODE128_START_CHAR = { A: '>9', B: '>:', C: '>;' };
+
+function code128StartPrefix(element) {
+  return CODE128_START_CHAR[element.code128Subset] || CODE128_START_CHAR.B;
+}
+
+/** The ^BC m param in force: 'N', or one of the self-encoding modes 'U' / 'A' / 'D'. */
+function code128Mode(element) {
+  const mode = element.code128Mode;
+  return mode === 'U' || mode === 'A' || mode === 'D' ? mode : 'N';
 }
 
 function commonParams(element) {
@@ -30,12 +45,26 @@ class BarcodeSymbology {
   }
 
   renderZpl(element, content) {
-    const { f, o, g } = commonParams(element);
-    return `^BC${o},${element.height},${f}${g}${fieldData(element, `>:${content}`)}`;
+    const { f, o, g, gVal } = commonParams(element);
+    const mode = code128Mode(element);
+    // A mode encodes the data itself, so the field carries no start-subset prefix and
+    // the command has to spell out g and e to reach the m parameter.
+    if (mode !== 'N') {
+      return `^BC${o},${element.height},${f},${gVal},N,${mode}${fieldData(element, content)}`;
+    }
+    return `^BC${o},${element.height},${f}${g}${fieldData(element, `${code128StartPrefix(element)}${content}`)}`;
   }
 
   displayText(element, data = '') {
-    return data;
+    const mode = code128Mode(element);
+    // U prints every digit the field held plus the check digit, even the ones past the
+    // 19 the bars carry; A and D print the data as written, parentheses included.
+    if (mode === 'U') return uccCaseDigits(data).text;
+    if (mode !== 'N') return code128AutoText(data);
+    // Invocation codes steer the encoder and never reach the readable line, and
+    // characters the active subset cannot carry are not printed at all — both of
+    // which only the encoder knows, so the HRI comes from the same pass.
+    return encodeCode128(data, element.code128Subset).text;
   }
 
   forcesHri() {
@@ -73,7 +102,9 @@ class Code39Symbology extends CheckDigitBarcodeSymbology {
   }
 
   displayText(element, data = '') {
-    return `*${data}${element.checkDigit ? code39CheckChar(data) : ''}*`;
+    // The HRI shows what the bars encode, so it reads the same Code 39-folded data.
+    const s = normalizeBarcodeData('CODE39', data);
+    return `*${s}${element.checkDigit ? code39CheckChar(s) : ''}*`;
   }
 }
 
@@ -185,7 +216,7 @@ class LogmarsSymbology extends BarcodeSymbology {
   }
 
   displayText(element, data = '') {
-    const up = data.toUpperCase();
+    const up = normalizeBarcodeData('LOGMARS', data);
     return `${up}${code39CheckChar(up)}`;
   }
 }
@@ -200,8 +231,9 @@ class Code93Symbology extends CheckDigitBarcodeSymbology {
   }
 
   displayText(element, data = '') {
-    const checks = element.checkDigit ? code93CheckChars(data) : '';
-    return `${CODE93_GUARD_CHAR}${data}${checks}${CODE93_GUARD_CHAR}`;
+    const s = normalizeBarcodeData('CODE93', data);
+    const checks = element.checkDigit ? code93CheckChars(s) : '';
+    return `${CODE93_GUARD_CHAR}${s}${checks}${CODE93_GUARD_CHAR}`;
   }
 }
 

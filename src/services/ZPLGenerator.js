@@ -23,11 +23,12 @@ export class ZPLGenerator {
 
     const header = this.buildHeader(labelSettings);
     const elementCommands = elements
-      .map(element => element.render(
+      .map(element => this.restoreLabelHome(element.render(
         labelSettings.fontId || DEFAULT_FONT_ID,
         labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT,
-        labelSettings.defaultFontWidth ?? 0
-      ))
+        labelSettings.defaultFontWidth ?? 0,
+        labelSettings.customFonts || []
+      ), element, labelSettings))
       .join('\n');
 
     const footer = this.buildFooter(labelSettings, false);
@@ -53,7 +54,8 @@ export class ZPLGenerator {
           labelSettings.fontId || DEFAULT_FONT_ID,
           labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT,
           labelSettings.defaultFontWidth ?? 0,
-          labelSettings.previewData
+          labelSettings.previewData,
+          labelSettings.customFonts || []
         );
 
         // Optional: Add debug highlighting for selected text elements
@@ -64,12 +66,26 @@ export class ZPLGenerator {
         //   cmd = highlightBox + '\n' + cmd;
         // }
 
-        return cmd;
+        return this.restoreLabelHome(cmd, element, labelSettings);
       })
       .join('\n');
 
     const footer = this.buildFooter(labelSettings, true);
     return `${header}${elementCommands}\n${footer}^XZ`;
+  }
+
+  /**
+   * Restore the label home after a RAW element's persistent ^LH, preventing it
+   * from shifting later elements twice.
+   *
+   * @param {string} command - The element's rendered ZPL
+   * @param {Object} element - The element it came from
+   * @param {Object} labelSettings - Label configuration
+   * @returns {string} The command, with the home restored behind it if needed
+   */
+  restoreLabelHome(command, element, labelSettings) {
+    if (element.type !== 'RAW' || !/\^LH/i.test(command)) return command;
+    return `${command}^LH${labelSettings.homeX || 0},${labelSettings.homeY || 0}`;
   }
 
   /**
@@ -266,12 +282,15 @@ export class ZPLGenerator {
         currentByteOffset += encoder.encode(sep).length;
       }
 
-      const cmd = element.renderPreview(
+      // Restored before the byte count, not after: the appended ^LH is part of
+      // this element's span, so leaving it out would shift every later entry.
+      const cmd = this.restoreLabelHome(element.renderPreview(
         labelSettings.fontId || DEFAULT_FONT_ID,
         labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT,
         labelSettings.defaultFontWidth ?? 0,
-        labelSettings.previewData
-      );
+        labelSettings.previewData,
+        labelSettings.customFonts || []
+      ), element, labelSettings);
 
       const cmdBytes = encoder.encode(cmd).length;
       byteMap.push({
@@ -287,21 +306,6 @@ export class ZPLGenerator {
     currentZpl += '\n^XZ';
 
     return { zpl: currentZpl, byteMap };
-  }
-
-  /**
-   * Generate ZPL for a single element (utility method)
-   * @param {Object} element - Element to render
-   * @param {string} fontId - Default font ID
-   * @param {boolean} preview - Use preview rendering
-   * @param {number} defaultFontHeight - Default font height
-   * @param {number} defaultFontWidth - Default font width
-   * @returns {string} ZPL commands for element
-   */
-  generateElementZPL(element, fontId, preview = false, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0) {
-    return preview ?
-      element.renderPreview(fontId, defaultFontHeight, defaultFontWidth) :
-      element.render(fontId, defaultFontHeight, defaultFontWidth);
   }
 
   /**

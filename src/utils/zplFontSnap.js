@@ -57,6 +57,20 @@ export function proportionalRequestedWidth(fontId, reqHeight) {
 }
 
 /**
+ * Requested height for a height-omitted ^A (e.g. ^AAN,,20) at a given requested
+ * width, in stored dot space — the mirror of proportionalRequestedWidth. Scalable
+ * fonts track width 1:1; bitmap fonts use magStep × the width's magnification.
+ * @param {string} fontId
+ * @param {number} reqWidth - requested width in dots
+ * @returns {number} proportional requested height in dots
+ */
+export function proportionalRequestedHeight(fontId, reqWidth) {
+  const b = ZPL_FONTS[fontId]?.bitmap;
+  if (!b) return reqWidth;
+  return b.magStep * magnification(reqWidth, b.magWidthStep, b.maxMag);
+}
+
+/**
  * Clamp explicit (positive) height/width up to the font's configured minimum
  * (minHeight/minWidth, in dots). A value of 0 — the inherit/proportional sentinel —
  * is preserved. Fonts without a configured minimum pass through unchanged.

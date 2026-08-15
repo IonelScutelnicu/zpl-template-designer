@@ -82,7 +82,7 @@ export class FullscreenController {
     let on = false;
     try { on = localStorage.getItem('fullscreen') === '1'; } catch (_) { }
     // ?fullscreen=1|0 wins over the stored preference for this load; hosts
-    // pick the launch layout through it (see docs/EMBEDDING.md).
+    // pick the launch layout through it.
     const forced = new URLSearchParams(window.location.search).get('fullscreen');
     if (forced === '1') on = true;
     else if (forced === '0') on = false;

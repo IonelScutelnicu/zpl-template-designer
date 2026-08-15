@@ -1,4 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Diagonal Line Element Class
 export class DiagonalLineElement extends ZPLElement {
@@ -17,7 +18,8 @@ export class DiagonalLineElement extends ZPLElement {
         // ZPL format: ^FOx,y^FR^GDwidth,height,thickness,color,orientation^FS
         // ^FR - Reverse print (optional)
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^GD${this.width},${this.height},${this.thickness},${this.color},${this.orientation}^FS`;
+        const pos = fieldOriginCommand(this);
+        return `${pos}${reverseCmd}^GD${this.width},${this.height},${this.thickness},${this.color},${this.orientation}^FS`;
     }
 
     renderPreview() {

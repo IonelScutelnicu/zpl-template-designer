@@ -1,5 +1,6 @@
 import { ZPLElement } from './ZPLElement.js';
 import { bytesToAcsHex, bytesToB64WithCrc, bitmapToImageData, rotateBitmap } from '../utils/graphicField.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Graphic Field Element (^GF / ^GFA)
 //
@@ -87,7 +88,9 @@ export class GraphicFieldElement extends ZPLElement {
             // it via the toggle; then re-inject if reverse is enabled.
             const stripped = this.opaqueRaw.replace(/\^FR/g, '');
             const reverseCmd = this.reverse ? '^FR' : '';
-            return stripped.replace(/^\^FO\d+,\d+/, `^FO${this.x},${this.y}${reverseCmd}`);
+            // The stashed span may open with either command.
+            const pos = fieldOriginCommand(this);
+            return stripped.replace(/^\^F[OT]\d+,\d+(?:,\d+)?/, `${pos}${reverseCmd}`);
         }
         if (!this.bytes || !this.bytesPerRow || !this.heightDots) {
             return '';
@@ -97,7 +100,7 @@ export class GraphicFieldElement extends ZPLElement {
         const rotated = rotateBitmap(this.bytes, this.widthDots, this.heightDots, this.bytesPerRow, this.orientation);
         const total = rotated.bytesPerRow * rotated.heightDots;
         const reverseCmd = this.reverse ? '^FR' : '';
-        const fo = `^FO${this.x},${this.y}${reverseCmd}`;
+        const fo = `${fieldOriginCommand(this)}${reverseCmd}`;
         const payload = this.encodingFormat === 'B64'
             ? bytesToB64WithCrc(rotated.bytes)
             : bytesToAcsHex(rotated.bytes, rotated.bytesPerRow);

@@ -1,5 +1,6 @@
 import { ZPLElement } from './ZPLElement.js';
 import { clampNumber } from '../utils/geometry.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Box Element Class
 export class BoxElement extends ZPLElement {
@@ -10,7 +11,7 @@ export class BoxElement extends ZPLElement {
         // 32000. A printer clamps w/h up to t, so a box smaller than its border
         // prints as a solid t x t block. Normalise here — the only chokepoint
         // both ElementService and SerializationService pass through — so state,
-        // canvas and API preview always agree. See ADR 0017.
+        // canvas and API preview always agree.
         this.thickness = clampNumber(thickness, 1, 32000);
         this.width = clampNumber(width, this.thickness, 32000);
         this.height = clampNumber(height, this.thickness, 32000);
@@ -23,10 +24,11 @@ export class BoxElement extends ZPLElement {
         // ZPL format: ^FOx,y^FR^GBwidth,height,thickness,color,rounding^FS
         // ^FR - Reverse print (optional)
         const reverseCmd = this.reverse ? '^FR' : '';
+        const pos = fieldOriginCommand(this);
         if (this.rounding > 0) {
-            return `^FO${this.x},${this.y}${reverseCmd}^GB${this.width},${this.height},${this.thickness},${this.color},${this.rounding}^FS`;
+            return `${pos}${reverseCmd}^GB${this.width},${this.height},${this.thickness},${this.color},${this.rounding}^FS`;
         } else {
-            return `^FO${this.x},${this.y}${reverseCmd}^GB${this.width},${this.height},${this.thickness},${this.color}^FS`;
+            return `${pos}${reverseCmd}^GB${this.width},${this.height},${this.thickness},${this.color}^FS`;
         }
     }
 

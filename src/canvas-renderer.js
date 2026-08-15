@@ -1,8 +1,8 @@
 // Canvas Renderer for ZPL Template Creator
 // Orchestrates rendering of all element types on HTML5 Canvas
 
-import { LINE_HEIGHT_RATIO, isSpatial } from './utils/geometry.js';
-import { resolveFontLineHeight, resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
+import { fieldBlockExtents, isSpatial } from './utils/geometry.js';
+import { resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
 import { resolvePlaceholders } from './utils/placeholders.js';
 import { collapseLineBreaks } from './utils/zplFieldData.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
@@ -392,23 +392,14 @@ export class CanvasRenderer {
       width = w;
       height = h;
     } else if (element.type === 'FIELDBLOCK' && labelSettings) {
-      const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
-      const maxLines = element.maxLines || 1;
-      const lineSpacing = element.lineSpacing || 0;
-      // Line spacing is only between lines, not after the last line
-      const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
-      const totalHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+      // fieldBlockExtents resolves the orientation, including the trailing
+      // line-spacing slot an R/I rotation pivots from — the box FieldBlockRenderer
+      // actually draws.
+      const extents = fieldBlockExtents(element, labelSettings, this.scale);
       x = (element.x + this.homeX) * this.scale;
       y = (element.y + this.homeY + this.labelTop) * this.scale;
-      let blockW = (element.blockWidth || 200) * this.scale;
-      let blockH = totalHeight * this.scale;
-      if (element.orientation === 'R' || element.orientation === 'B') {
-        width = blockH;
-        height = blockW;
-      } else {
-        width = blockW;
-        height = blockH;
-      }
+      width = extents.width;
+      height = extents.height;
     } else {
       // Preview Data matters here: a barcode's width comes from the encoded
       // string, so measuring the raw Content would size the box to the

@@ -28,7 +28,7 @@ export class TextRenderer {
 
     const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
     const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
-    // ^A collapses line breaks to spaces (ADR 0013) — match it so a multiline
+    // ^A collapses line breaks to spaces — match it so a multiline
     // Preview Data value looks the same on the canvas as in the Preview.
     const raw = collapseLineBreaks(resolvePlaceholders(element.content, labelSettings?.previewData));
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
@@ -44,8 +44,10 @@ export class TextRenderer {
     // Measure text width at unscaled size, then apply horizontal scale
     const metrics = ctx.measureText(text);
     const textWidth = measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
-    // Bitmap fonts: the visible block is the rendered cap-ink height (snappedHeight).
-    const textHeight = isBitmap ? snappedHeight * scale : fontSize;
+    // Rotation/reverse box height, in dot space: the rendered cap-ink height for
+    // bitmap fonts, the em for Font 0 (fontSize also carries its heightScale
+    // stretch, which must not move the pivot).
+    const textHeight = snappedHeight * scale;
     // Bitmap fonts draw from an alphabetic baseline at the cap height, so glyph
     // ink hangs `descent` px below the rotation box. N/B place that descent on a
     // harmless edge, but R/I pivot on textHeight (cap-ink only) and would shove

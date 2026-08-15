@@ -13,7 +13,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Smart guides** — hold `Ctrl` while dragging or resizing to snap to label edges, centers, and nearby elements
 - **Canvas context menu** — right-click for copy, paste, duplicate, reorder, align, lock, and delete actions
 - **Undo/redo history** — full history panel with named entries
-- **Import/export** — import/export templates as JSON, plus experimental import from raw ZPL
+- **Import/export** — import/export templates as JSON, plus import from raw ZPL
 - **Shareable links** — compress the current template into a URL hash for quick sharing
 - **Embeddable** — integrate the editor into other web apps as an iframe or new tab with a tiny SDK, two-way postMessage data flow, host-controlled panel visibility, and host-supplied preview fonts matched to the fonts a template names; see [docs/EMBEDDING.md](docs/EMBEDDING.md)
 - **Google Drive integration** — connect a Drive folder, open private templates, and save changes back
@@ -64,7 +64,7 @@ Symbology (Code 128 `^BC`, Code 39 `^B3`, EAN-13 `^BE`, UPC-A `^BU`), position (
 ### 2D Barcode
 Symbology (QR Code `^BQ`, Data Matrix `^BX`, PDF417 `^B7`, Aztec `^B0`), position (X, Y), content, reverse print; plus per-symbology settings — QR: magnification, model, error correction (H/Q/M/L); Data Matrix: module size, quality (ECC); PDF417: module width, row height, security level, columns; Aztec: magnification, symbol type (auto/full/compact/rune), error control %, layers.
 
-On-canvas previews for all symbologies are rendered from the real encoded symbol via bwip-js (see `docs/adr/0005`); Labelary remains the authoritative preview.
+On-canvas previews for all symbologies are rendered from the real encoded symbol via bwip-js; Labelary remains the authoritative preview.
 
 ### Box
 Position (X, Y), width, height, thickness, color (B/W), corner rounding (0–8), reverse print.
@@ -184,7 +184,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/elements/GraphicFieldElement.js` — Image/graphic field element (`^GF`/`^GFA`)
 - `src/elements/DiagonalLineElement.js` — Diagonal line element (`^GD`)
 - `src/elements/GraphicSymbolElement.js` — Graphic symbol element (`^GS`)
-- `src/elements/RawElement.js` — Raw ZPL passthrough for unsupported commands (see ADR 0011)
+- `src/elements/RawElement.js` — Raw ZPL passthrough for unsupported commands
 
 ### State Management
 - `src/state/AppState.js` — Centralized observable state store
@@ -198,12 +198,12 @@ The application uses a modular architecture for maintainability and testability:
 - `src/services/AlignmentService.js` — Element alignment calculations
 - `src/services/SerializationService.js` — JSON serialization/deserialization
 - `src/services/ZPLGenerator.js` — ZPL code generation
-- `src/services/ZPLParser.js` — Experimental import from raw ZPL into editable app state
+- `src/services/ZPLParser.js` — Import from raw ZPL into editable app state
 - `src/services/TemplateManager.js` — JSON import/export file operations
 - `src/services/UrlShareService.js` — Shareable URL generation and decoding
 - `src/services/SmartGuideService.js` — Alignment guide detection and snapping
 - `src/services/DriveTemplateService.js` — Drive-backed create/load/update/trash operations
-- `src/services/EmbedBridge.js` — Embed-mode postMessage protocol with host applications (ADR 0009)
+- `src/services/EmbedBridge.js` — Embed-mode postMessage protocol with host applications
 
 ### UI Components
 - `src/ui/PropertiesPanelRenderer.js` — Property form rendering for all element types

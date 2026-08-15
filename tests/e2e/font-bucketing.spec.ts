@@ -418,6 +418,68 @@ test.describe('ZPL bitmap font bucketing', () => {
             expect(parsed.b).toEqual({ fontSize: 11, fontWidth: 7 });
             expect(parsed.a).toEqual({ fontSize: 18, fontWidth: 5 });
         });
+
+        // ^AxN,,w omits the height: the width must stay in the width slot, and the
+        // height falls back the way the printer falls back. Measured against
+        // Labelary at 8 dpmm — before any ^CF height it follows the width's
+        // magnification (^AAN,,20 ≡ ^AAN,36,20, ^AAN,,40 ≡ ^AAN,72,40); once a ^CF
+        // carries one it is that height (^CFA,9 → ≡ ^AAN,9,20; ^CFA,45 → ≡ ^AAN,45,20).
+        test('a height-omitted ^A keeps the width in place and derives the height', async ({ page }) => {
+            const parsed = await page.evaluate(async () => {
+                const mod = await import('/src/services/ZPLParser.js');
+                const ParserClass = (mod as any).ZPLParser || (mod as any).default;
+                const parser = new ParserClass();
+                const opts = { dpmm: 8, labelHeight: 50 };
+                const read = (zpl: string) => {
+                    const el = parser.parse(zpl, opts).elements[0];
+                    return { fontSize: el.fontSize, fontWidth: el.fontWidth };
+                };
+                return {
+                    // Font A (magStep 9, magWidthStep 5): width 20 → mag 4 → height 36
+                    a: read('^XA^FO10,10^AAN,,20^FDX^FS^XZ'),
+                    // Font B (magStep 11, magWidthStep 7): width 21 → mag 3 → height 33
+                    b: read('^XA^FO10,10^ABN,,21^FDX^FS^XZ'),
+                    // Scalable font 0 tracks the width 1:1
+                    scalable: read('^XA^FO10,10^A0N,,20^FDX^FS^XZ'),
+                    // ^A1 names no font, so the width magnifies on the grid of the
+                    // font the printer substitutes — the ^CF font, A here.
+                    unknown: read('^XA^FO10,10^A1N,,20^FDX^FS^XZ'),
+                    // A ^CF height is in force, so the height is that height: the
+                    // inherit sentinel, re-emitted as ^AAN,45,20.
+                    underCf: read('^XA^CFA,45^FO10,10^AAN,,20^FDX^FS^XZ'),
+                    // A ^CF that names only a font sets no height and stays in the
+                    // width-magnification case.
+                    underCfNoHeight: read('^XA^CFA^FO10,10^AAN,,20^FDX^FS^XZ'),
+                };
+            });
+            expect(parsed.a).toEqual({ fontSize: 36, fontWidth: 20 });
+            expect(parsed.b).toEqual({ fontSize: 33, fontWidth: 21 });
+            expect(parsed.scalable).toEqual({ fontSize: 20, fontWidth: 20 });
+            expect(parsed.unknown).toEqual({ fontSize: 36, fontWidth: 20 });
+            expect(parsed.underCf).toEqual({ fontSize: 0, fontWidth: 20 });
+            expect(parsed.underCfNoHeight).toEqual({ fontSize: 36, fontWidth: 20 });
+        });
+
+        test('ignores whitespace between ^A orientation and the first delimiter', async ({ page }) => {
+            const parsed = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const zpl = [
+                    '^XA',
+                    '^FO50,50^A@N ,40^FB528,1,0,L^FDtest\\&^FS',
+                    '^FO50,150^A@N,40^FB528,1,0,L^FDtest\\&^FS',
+                    '^XZ',
+                ].join('\n');
+                return new ZPLParser().parse(zpl).elements.map((el: any) => ({
+                    fontSize: el.fontSize,
+                    fontWidth: el.fontWidth,
+                }));
+            });
+
+            expect(parsed).toEqual([
+                { fontSize: 40, fontWidth: 0 },
+                { fontSize: 40, fontWidth: 0 },
+            ]);
+        });
     });
 
     // ============== Inherited label default font ==============
@@ -427,6 +489,33 @@ test.describe('ZPL bitmap font bucketing', () => {
     test.describe('Inherited label default font', () => {
         test.beforeEach(async ({ page }) => {
             await page.goto('/?e2e=1');
+        });
+
+        test('a ^CF written inside a field group still sets the default', async ({ page }) => {
+            // ^CF is modal: the printer applies it where it reads it, including
+            // between a field's ^FO and its ^FD. The parser used to accumulate it
+            // with the field's own commands and never apply it, so the field fell
+            // back to the power-up font. (^FD swallows everything through its ^FS,
+            // so a ^CF inside a group is always read before the field's data.)
+            const r = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const parser = new ZPLParser();
+                const sizes = (zpl: string) => parser.parse(zpl, { dpmm: 8, labelHeight: 50 })
+                    .elements.map((e: any) => e.fontSize);
+                return {
+                    outside: sizes('^XA^CF0,25^FO55,60^FDx^FS^XZ'),
+                    inside: sizes('^XA^FO55,60^CF0,25^FDx^FS^XZ'),
+                    // Each field keeps the ^CF in force where it appeared; the last
+                    // one becomes the label default, so only the earlier field needs
+                    // an explicit size written back in.
+                    twoInside: sizes('^XA^FO10,10^CF0,60^FDbig^FS^FO10,120^CF0,20^FDsmall^FS^XZ'),
+                };
+            });
+            // 0 is the inherit sentinel — it resolves to the label default, which
+            // both forms set to 25.
+            expect(r.outside).toEqual([0]);
+            expect(r.inside).toEqual([0]);
+            expect(r.twoInside).toEqual([60, 0]);
         });
 
         test('createElementFromData snaps an inherited element to the passed label default', async ({ page }) => {

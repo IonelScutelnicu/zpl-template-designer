@@ -1,5 +1,5 @@
 import { resolveSymbology, getHriConfig } from './barcodeGeometry.js';
-import { customFontFamily, fontBytesFromSource, isValidFontHash } from './customFonts.js';
+import { customFontFamily, fontBytesFromSource, isValidFontHash, resolveRenderFontId } from './customFonts.js';
 import { DEFAULT_FONT_ID } from '../config/constants.js';
 
 const FONT_SOURCES = {
@@ -81,7 +81,10 @@ function hriFontId(el) {
 // Call after a render pass; fires onLoaded() once when any custom fonts finish loading.
 export function prefetchFontsForElements(elements, labelSettings, onLoaded) {
   const defaultFontId = labelSettings?.fontId || DEFAULT_FONT_ID;
-  const ids = new Set(elements.map(el => el.fontId || defaultFontId));
+  // The substituted id is the one that gets drawn, so it is the one that needs a
+  // face loaded — otherwise a declared-only font renders in the OS fallback.
+  const ids = new Set(elements.map(el => resolveRenderFontId(
+    el.fontId || defaultFontId, labelSettings?.customFonts, labelSettings?.fontId)));
   for (const el of elements) {
     const id = hriFontId(el);
     if (id) ids.add(id);

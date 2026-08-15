@@ -3,6 +3,7 @@ import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
 import { renderFieldDataCommand, encodeFieldBlockBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Field Block Element Class
 export class FieldBlockElement extends ZPLElement {
@@ -23,7 +24,7 @@ export class FieldBlockElement extends ZPLElement {
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
-    _render(rawContent, defaultFontId, defaultFontHeight, defaultFontWidth) {
+    _render(rawContent, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts = []) {
         // ZPL format: ^FOx,y^A{fontId}N,height[,width]^FBa,b,c,d,e^FDtext^FS
         // ^FO - Field Origin (position)
         // ^A{fontId}N - Font specification (fontId = font identifier, N = normal orientation)
@@ -45,15 +46,16 @@ export class FieldBlockElement extends ZPLElement {
         const fontSize = this.fontSize || defaultFontHeight;
         const fontWidth = this.fontWidth || defaultFontWidth;
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(content, '_', this.fieldHex)}^FS`;
+        const pos = fieldOriginCommand(this, { fontId: defaultFontId, defaultFontHeight, defaultFontWidth, customFonts });
+        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^FB${this.blockWidth},${this.maxLines},${this.lineSpacing},${this.justification},${this.hangingIndent}${renderFieldDataCommand(content, '_', this.fieldHex, this.fieldDataCommand)}^FS`;
     }
 
-    render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0) {
-        return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth);
+    render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, customFonts = []) {
+        return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
-    renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}) {
-        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth);
+    renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}, customFonts = []) {
+        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
     getDisplayName() {

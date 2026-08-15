@@ -1,5 +1,5 @@
 import { bytesToHex } from './graphicField.js';
-import { DEFAULT_FONT_ID } from '../config/constants.js';
+import { DEFAULT_FONT_ID, ZPL_FONTS } from '../config/constants.js';
 
 export const CUSTOM_FONT_IDS = ['I', 'K', 'M', 'O', 'W', 'X', 'Y', 'Z'];
 export const MAX_CUSTOM_FONT_BYTES = 10 * 1024 * 1024;
@@ -88,6 +88,29 @@ export function customFontLineHeightRatio(source) {
     lineHeightRatios.set(key, ratio);
   }
   return ratio;
+}
+
+// A declared ^CW font without a preview source renders through the ^CF font,
+// falling back to A. This affects canvas rendering only, not emitted ^A sizing.
+function isDeclaredOnly(fontId, customFonts) {
+  const declared = customFonts?.find(font => font.id === fontId);
+  return !!declared && !declared.source;
+}
+
+// Unknown IDs (^A1, ^A9, ^AZ) use the same fallback, including its height when
+// ^A omits one. Without a ^CW list, callers opt out of this classification.
+export function isUnknownFontId(fontId, customFonts) {
+  return !!customFonts && !ZPL_FONTS[fontId] && !customFonts.some(font => font.id === fontId);
+}
+
+function hasNoFace(fontId, customFonts) {
+  return isDeclaredOnly(fontId, customFonts) || isUnknownFontId(fontId, customFonts);
+}
+
+export function resolveRenderFontId(fontId, customFonts, labelFontId) {
+  if (!hasNoFace(fontId, customFonts)) return fontId;
+  const fallback = labelFontId || DEFAULT_FONT_ID;
+  return hasNoFace(fallback, customFonts) ? DEFAULT_FONT_ID : fallback;
 }
 
 export function normalizePrinterFontPath(value) {

@@ -2,6 +2,7 @@ import { ZPLElement } from './ZPLElement.js';
 import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
 //   CODE128 -> ^BC,  CODE39 -> ^B3,  CODE93 -> ^BA,  CODE11 -> ^B1,  CODABAR -> ^BK,
@@ -9,7 +10,7 @@ import { resolvePlaceholders } from '../utils/placeholders.js';
 //   MSI -> ^BM,  PLESSEY -> ^BP,  PLANET -> ^B5,  POSTNET -> ^BZ,  EAN13 -> ^BE,
 //   EAN8 -> ^B8,  UPCA -> ^BU,  UPCE -> ^B9,  UPCEANEXT -> ^BS (2/5-digit add-on)
 export class BarcodeElement extends ZPLElement {
-    constructor(x = 0, y = 0, content = '', height = 50, width = 2, ratio = 2.0, showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A', msiCheckMode = 'B', msiCheckInText = false) {
+    constructor(x = 0, y = 0, content = '', height = 50, width = 2, ratio = 2.0, showText = true, reverse = false, symbology = 'CODE128', checkDigit = false, orientation = 'N', printTextAbove = false, fieldHex = false, startChar = 'A', stopChar = 'A', msiCheckMode = 'B', msiCheckInText = false, code128Subset = 'B', code128Mode = 'N') {
         super(x, y);
         this.type = 'BARCODE';
         this.symbology = symbology;
@@ -27,11 +28,19 @@ export class BarcodeElement extends ZPLElement {
         this.stopChar = stopChar; // Codabar stop character (^BK l param: A–D)
         this.msiCheckMode = msiCheckMode; // MSI check-digit mode (^BM e param: A/B/C/D)
         this.msiCheckInText = msiCheckInText; // MSI insert check digit into HRI (^BM e2 param)
+        // Code 128 start subset, from the ^FD invocation prefix (>9 = A, >: = B, >; = C).
+        this.code128Subset = code128Subset;
+        // ^BC m param: N (none, the start subset above applies) or one of the modes that
+        // encode the data themselves — U (UCC Case), A (automatic), D (UCC/EAN).
+        this.code128Mode = code128Mode;
     }
 
-    _render(content) {
+    _render(content, previewData) {
         const reverseCmd = this.reverse ? '^FR' : '';
-        const pos = `^FO${this.x},${this.y}${reverseCmd}`;
+        // The anchor needs the encoded module run, so it is measured from the
+        // same data the symbol will carry — preview and export each anchor
+        // their own, exactly as the printer would.
+        const pos = `${fieldOriginCommand(this, undefined, { previewData })}${reverseCmd}`;
         const by = `^BY${this.width},${this.ratio}`;
         return `${pos}${by}${getBarcodeSymbology(this.symbology).renderZpl(this, content)}^FS`;
     }
@@ -42,7 +51,7 @@ export class BarcodeElement extends ZPLElement {
 
     renderPreview(defaultFontId, defaultFontHeight, defaultFontWidth, previewData = {}) {
         // Placeholders resolve to their Preview Data values for the Labelary preview
-        return this._render(resolvePlaceholders(this.content, previewData));
+        return this._render(resolvePlaceholders(this.content, previewData), previewData);
     }
 
     getDisplayName() {

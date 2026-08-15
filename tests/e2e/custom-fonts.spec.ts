@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { test, expect } from '../fixtures';
-import { ElementsPanel, PreviewPanel, buildSquarePngBuffer } from '../page-objects';
+import { ElementsPanel, PreviewPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
 // A valid sfnt table directory (head + glyf) padded past the Labelary limit.
 // Real fonts that big are CJK families; the bytes only have to satisfy
@@ -238,7 +238,8 @@ test.describe('Custom fonts', () => {
       return {
         ocra: pitches('I'),
         vera: pitches('K'),
-        // No payload — the font falls back to the built-in default config.
+        // No payload — the font renders as the ^CF font (0), so it steps by
+        // Font 0's pitches, not by a generic fallback config.
         missing: pitches('M'),
         ratioIsCached: customFontLineHeightRatio(labelSettings.customFonts[0].source)
           === customFontLineHeightRatio(labelSettings.customFonts[0].source),
@@ -250,7 +251,8 @@ test.describe('Custom fonts', () => {
     expect(result.vera.textBlock).toBeCloseTo(46.5625, 2);
     expect(result.ocra.fieldBlock).toBe(40);
     expect(result.vera.fieldBlock).toBe(40);
-    expect(result.missing).toEqual({ textBlock: 40, fieldBlock: 40 });
+    // Font 0's ^TB ratio is 1.25; ^FB still steps one font height.
+    expect(result.missing).toEqual({ textBlock: 50, fieldBlock: 40 });
     expect(result.ratioIsCached).toBe(true);
   });
 
@@ -546,6 +548,139 @@ test.describe('Custom fonts', () => {
     await menu.locator('.font-picker-option').first().click();
     await expect(page.locator('#prop-font-id')).toHaveValue('');
     await expect(page.locator('#zpl-output-raw')).toHaveValue(/\^AAN,/);
+  });
+
+  // A declared-only ^CW font renders in the face the printer substitutes: the ^CF
+  // font, or A when that is unresolvable too. Measured against Labelary at 8 dpmm
+  // with ^FDHHHHHHHH — ^CFA/^CF0/^CFE each move the substituted face, ^CFI lands
+  // on A, and the element's own ^A height always wins.
+  test('renders a declared-only font in the substituted face, not a generic fallback', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const result = await page.evaluate(async () => {
+      const { resolveFontMetrics } = await import('/src/utils/fontMetrics.js');
+      const declared = [{ id: 'I', fontFile: 'R:TT0003M_.TTF' }];
+      const element = { fontId: 'I', fontSize: 35, fontWidth: 0 };
+      const shape = (m: any) => ({
+        isBitmap: m.isBitmap,
+        snappedHeight: m.snappedHeight,
+        snappedWidth: m.snappedWidth,
+        family: m.fontConfig.family,
+      });
+      return {
+        // ^CFA,90: font A at magnification round(35/9)=4 → cap 7*4, advance 6*4.
+        underA: shape(resolveFontMetrics(element, {
+          fontId: 'A', defaultFontHeight: 90, customFonts: declared,
+        }, 1)),
+        // ^CFE,90: font E at magnification round(35/28)=1 → cap 20, advance 20.
+        underE: shape(resolveFontMetrics(element, {
+          fontId: 'E', defaultFontHeight: 90, customFonts: declared,
+        }, 1)),
+        // ^CFI,90 — the label default is declared-only too, so A.
+        underSelf: shape(resolveFontMetrics(element, {
+          fontId: 'I', defaultFontHeight: 90, customFonts: declared,
+        }, 1)),
+        // No ^A on the field: the substitute is drawn at the inherited height 90,
+        // which is A at magnification 10 → cap 70.
+        inherited: shape(resolveFontMetrics({ fontId: '', fontSize: 0, fontWidth: 0 }, {
+          fontId: 'I', defaultFontHeight: 90, customFonts: declared,
+        }, 1)),
+        // ^FT math passes no customFonts on purpose, so the substitution must not
+        // reach it — the printer holds a scalable TTF there (fieldAnchor.js).
+        withoutCustomFonts: shape(resolveFontMetrics(element, {
+          fontId: 'A', defaultFontHeight: 90,
+        }, 1)),
+      };
+    });
+
+    expect(result.underA).toMatchObject({ isBitmap: true, snappedHeight: 28, snappedWidth: 24 });
+    expect(result.underA.family).toMatch(/Vera Sans Mono/);
+    expect(result.underE).toMatchObject({ isBitmap: true, snappedHeight: 20, snappedWidth: 20 });
+    expect(result.underSelf).toMatchObject({ isBitmap: true, snappedHeight: 28, snappedWidth: 24 });
+    expect(result.inherited).toMatchObject({ isBitmap: true, snappedHeight: 70, snappedWidth: 60 });
+    expect(result.withoutCustomFonts).toMatchObject({ isBitmap: false, snappedHeight: 35 });
+  });
+
+  // An id no font answers to (^A1, ^A9, ^AZ) hits the same wall: the printer's font
+  // table has no entry, so it substitutes the ^CF font. Measured against Labelary at
+  // 8 dpmm — under ^CF0 an ^A1 field is pixel-identical to ^A0, under ^CFE to ^AE.
+  test('renders an unknown font id in the substituted face', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const result = await page.evaluate(async () => {
+      const { resolveFontMetrics } = await import('/src/utils/fontMetrics.js');
+      const element = { fontId: '1', fontSize: 20, fontWidth: 0 };
+      const shape = (m: any) => ({ isBitmap: m.isBitmap, snappedHeight: m.snappedHeight });
+      return {
+        // ^CFA,9: font A at magnification round(20/9)=2 → cap 7*2.
+        underA: shape(resolveFontMetrics(element, { fontId: 'A', defaultFontHeight: 9, customFonts: [] }, 1)),
+        // ^CF0: the scalable model, no bitmap snap.
+        under0: shape(resolveFontMetrics(element, { fontId: '0', defaultFontHeight: 9, customFonts: [] }, 1)),
+        // ^CFE,28: font E at magnification round(20/28)=1 → cap 20.
+        underE: shape(resolveFontMetrics(element, { fontId: 'E', defaultFontHeight: 28, customFonts: [] }, 1)),
+        // No ^CW list to check the id against, so the caller gets no substitution
+        // — the ^FT path relies on that.
+        withoutCustomFonts: shape(resolveFontMetrics(element, { fontId: 'A', defaultFontHeight: 9 }, 1)),
+      };
+    });
+
+    expect(result.underA).toEqual({ isBitmap: true, snappedHeight: 14 });
+    expect(result.under0).toEqual({ isBitmap: false, snappedHeight: 20 });
+    expect(result.underE).toEqual({ isBitmap: true, snappedHeight: 20 });
+    expect(result.withoutCustomFonts).toEqual({ isBitmap: false, snappedHeight: 20 });
+  });
+
+  test('leaves an embedded font on its own face', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    const result = await page.evaluate(async () => {
+      const { resolveFontMetrics } = await import('/src/utils/fontMetrics.js');
+      const metrics = resolveFontMetrics({ fontId: 'I', fontSize: 35, fontWidth: 0 }, {
+        fontId: 'A',
+        defaultFontHeight: 90,
+        customFonts: [{
+          id: 'I',
+          fontFile: 'R:TT0003M_.TTF',
+          source: { data: 'AAEAAA==', sha256: 'a'.repeat(64) },
+        }],
+      }, 1);
+      return {
+        isBitmap: metrics.isBitmap,
+        snappedHeight: metrics.snappedHeight,
+        family: metrics.fontConfig.family,
+      };
+    });
+
+    // Embedded fonts keep the downloaded-TTF model: em sizing, no bitmap snap.
+    expect(result).toMatchObject({ isBitmap: false, snappedHeight: 35 });
+    expect(result.family).toMatch(/zpl-custom-a{64}/);
+  });
+
+  // The substitution is a drawing decision, never an emit decision: the printer
+  // really does hold R:TT0003M_.TTF, so 35 must not snap to the substitute's
+  // magnification grid (font A would push it to 36).
+  test('emits a declared-only font unchanged through a round-trip', async ({ page }) => {
+    const zplOutput = new ZPLOutput(page);
+    await page.goto('/?e2e=1');
+    await zplOutput.openMoreActions();
+    await page.locator('#import-zpl-btn').click();
+    await expect(page.locator('#zpl-import-modal')).toBeVisible();
+    await page.locator('#zpl-import-input').fill([
+      '^XA',
+      '^CWI,R:TT0003M_.TTF',
+      '^CFA,90',
+      '^FO5,30^AIN,35^FB634,1,0,C,9999^FD{department}\\&^FS',
+      '^XZ',
+    ].join('\n'));
+    await page.locator('#zpl-import-input').dispatchEvent('input');
+    await page.locator('#zpl-import-confirm-btn').click();
+    const warnings = page.locator('#zpl-import-warnings');
+    if (await warnings.isVisible().catch(() => false)) {
+      await page.locator('#zpl-import-confirm-btn').click();
+    }
+    await expect(page.locator('#elements-list .element-item')).toHaveCount(1);
+
+    const output = await page.locator('#zpl-output-raw').inputValue();
+    expect(output).toContain('^CWI,R:TT0003M_.TTF');
+    expect(output).toContain('^CFA,90');
+    expect(output).toContain('^FO5,30^AIN,35^FB634,1,0,C,9999');
   });
 
   // A template can come from anywhere the editor doesn't control — a share URL,

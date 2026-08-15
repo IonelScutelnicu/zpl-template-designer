@@ -109,6 +109,19 @@ test.describe('RAW passthrough element', () => {
             expect(elements).toEqual([{ type: 'RAW', text: '^FO10,10^BY2^B6N,50^FDabc^FS' }]);
         });
 
+        test('a preserved field carries the ^FW orientation governing it', async ({ page }) => {
+            // ^FW is modal and consumed (every modelled element re-emits its own
+            // orientation), so a preserved field has to carry its copy or the
+            // omitted ^BC orientation silently reverts to normal on re-export.
+            const { elements } = await parse(page, '^XA^FWR^FO10,10^CVY^BC,50,Y,N,N^FD123456^FS^XZ');
+            expect(elements).toEqual([{ type: 'RAW', text: '^FWR^FO10,10^CVY^BC,50,Y,N,N^FD123456^FS' }]);
+        });
+
+        test('a capture with no orientation-taking command is not given ^FW', async ({ page }) => {
+            const { elements } = await parse(page, '^XA^FWR^FO10,10^RFW,H^FDz^FS^XZ');
+            expect(elements).toEqual([{ type: 'RAW', text: '^FO10,10^RFW,H^FDz^FS' }]);
+        });
+
         test('a non-barcode capture is not polluted with ^BY', async ({ page }) => {
             const group = await parse(page, '^XA^BY4,3,90^FO10,10^RFW,H^FDz^FS^XZ');
             expect(group.elements).toEqual([{ type: 'RAW', text: '^FO10,10^RFW,H^FDz^FS' }]);

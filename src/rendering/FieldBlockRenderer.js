@@ -1,8 +1,8 @@
 // Field Block Renderer
 // Renders FIELDBLOCK elements on canvas with word wrapping and justification
 
-import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
-import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
+import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText, wrapStyledTextDetailed } from '../utils/fontMetrics.js';
+import { LINE_HEIGHT_RATIO, fieldBlockExtents } from '../utils/geometry.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { decodeFieldBlockBreaks } from '../utils/zplFieldData.js';
@@ -47,7 +47,7 @@ export class FieldBlockRenderer {
     const hangingIndentPx = (element.hangingIndent || 0) * scale;
 
     // Wrap with hard-break; ^FB indents lines 2+ by the hanging indent.
-    const lines = wrapStyledText(ctx, text, fontConfig, fontSize, scaleX,
+    const lines = wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX,
       i => (i === 0 ? blockWidth : Math.max(0, blockWidth - hangingIndentPx)));
 
     // Draw lines (respect maxLines)
@@ -56,7 +56,10 @@ export class FieldBlockRenderer {
     const lineSpacing = (element.lineSpacing || 0) * scale;
     const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO, scale);
     const lineHeight = baseLineHeight + lineSpacing;
-    const blockHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
+    // Shared with the bounds, the selection box and the hit test so they cannot
+    // drift from what is drawn here — see fieldBlockExtents for farEdge.
+    const extents = fieldBlockExtents(element, labelSettings, scale, maxLines);
+    const { farEdgeBlockHeight } = extents;
 
     const orientation = element.orientation || 'N';
 
@@ -68,7 +71,9 @@ export class FieldBlockRenderer {
       targetCtx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
       targetCtx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
 
-      lines.forEach((line, i) => {
+      const trailingSpaceWidth = measureStyledText(targetCtx, ' ', fontConfig, fontSize, scaleX);
+
+      lines.forEach(({ text: line, termination }, i) => {
         const measuredWidth = measureStyledText(targetCtx, line, fontConfig, fontSize, scaleX);
         // Clamp overflow lines to the last line's Y position (ZPL ^FB spec behavior)
         const clampedIndex = Math.min(i, maxLines - 1);
@@ -104,7 +109,11 @@ export class FieldBlockRenderer {
 
         let lineX = lineStartX;
         if (element.justification === 'C') {
-          lineX = lineStartX + (lineBlockWidth - measuredWidth) / 2;
+          // Centered fields are emitted with a final \& marker, so an in-memory
+          // end line is hard-terminated in the API preview. Only a soft wrap
+          // retains Labelary's extra trailing-space advance.
+          const alignmentWidth = measuredWidth + (termination === 'soft' ? trailingSpaceWidth : 0);
+          lineX = lineStartX + (lineBlockWidth - alignmentWidth) / 2;
         } else if (element.justification === 'R') {
           lineX = lineStartX + lineBlockWidth - measuredWidth;
         }
@@ -117,20 +126,18 @@ export class FieldBlockRenderer {
       });
     };
 
-    // Screen-space bounding box (swapped for R/B orientations)
-    let bboxW = blockWidth, bboxH = blockHeight;
-    if (orientation === 'R' || orientation === 'B') {
-      bboxW = blockHeight;
-      bboxH = blockWidth;
-    }
+    // Screen-space bounding box, orientation resolved by the same helper the
+    // selection box and hit test read.
+    const bboxW = extents.width;
+    const bboxH = extents.height;
 
     // Helper to apply rotation transform on a context
     const applyRotation = (targetCtx, originX, originY) => {
       if (orientation === 'R') {
-        targetCtx.translate(originX + blockHeight, originY);
+        targetCtx.translate(originX + farEdgeBlockHeight, originY);
         targetCtx.rotate(Math.PI / 2);
       } else if (orientation === 'I') {
-        targetCtx.translate(originX + blockWidth, originY + blockHeight);
+        targetCtx.translate(originX + blockWidth, originY + farEdgeBlockHeight);
         targetCtx.rotate(Math.PI);
       } else if (orientation === 'B') {
         targetCtx.translate(originX, originY + blockWidth);

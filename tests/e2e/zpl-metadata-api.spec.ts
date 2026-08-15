@@ -122,18 +122,20 @@ test.describe('ZPL label metadata (^FX) export/import', () => {
         expect(result.humanDpmm).toBe(8);
     });
 
-    test('^FX comment body is inert — embedded commands do not execute', async ({ page }) => {
+    test('^FX comment ends at the next command, which still executes', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
-            // The comment body contains a ^PW999 that must NOT rewrite the width.
+            // A ^FX comment runs only to the next ^ or ~, so the ^PW999 sharing its
+            // line is a live command — verified against Labelary, which clips the
+            // label to the second width.
             const zpl =
                 '^XA\n^PW808\n^FXnote ^PW999^FS\n^FO10,10^A0N,30,30^FDx^FS\n^XZ';
             const r = new (ZPLParser as any)().parse(zpl, { dpmm: 8, labelHeight: 50 });
             return { width: r.labelSettings.width, warnings: r.warnings.length };
         });
 
-        // ^PW808 @ 8dpmm -> 101mm; the commented-out ^PW999 (would be 125mm) is ignored.
-        expect(result.width).toBe(Math.round(808 / 8));
+        // The later ^PW999 @ 8dpmm wins: 125mm, not the 101mm of ^PW808.
+        expect(result.width).toBe(Math.round(999 / 8));
         expect(result.warnings).toBe(0);
     });
 

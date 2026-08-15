@@ -51,7 +51,7 @@ function describeFont(id, customFont) {
       metric: stem,
       meta: `${id} · ${stem} · ${embedded ? 'Embedded TTF' : 'Declared ^CW'}`,
       chip: !embedded
-        ? { text: 'No preview', title: 'No preview file — renders in a fallback face' }
+        ? { text: 'No preview', title: 'No preview file — renders in the label default font, as the API preview does' }
         : exceedsApiPreview(customFont.source)
           ? { text: 'Canvas only', title: 'Over 2 MB: the canvas uses the real face, the API preview falls back' }
           : null,

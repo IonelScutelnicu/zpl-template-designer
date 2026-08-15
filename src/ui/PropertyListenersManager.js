@@ -5,7 +5,7 @@ import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
-import { hasEnvelopeCommand } from './PropertiesPanelRenderer.js';
+import { hasEnvelopeCommand, anchorToggleHtml, ANCHOR_TOGGLE_HOST_ID } from './PropertiesPanelRenderer.js';
 import { PlaceholderAutocomplete } from './PlaceholderAutocomplete.js';
 import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
 import { autoGrowTextarea } from '../utils/dom-helpers.js';
@@ -17,7 +17,25 @@ import { clampNumber } from '../utils/geometry.js';
  */
 export class PropertyListenersManager {
   constructor(callbacks) {
-    this.callbacks = callbacks;
+    this.callbacks = { ...callbacks };
+    const onPropertyChange = callbacks.onPropertyChange || (() => {});
+    this.callbacks.onPropertyChange = (element) => {
+      onPropertyChange(element);
+      this._refreshAnchorToggle(element);
+    };
+  }
+
+  /**
+   * Refresh anchor-toggle availability without rebuilding the panel and
+   * interrupting the focused input. The DOM changes only on show/hide.
+   */
+  _refreshAnchorToggle(element) {
+    const host = document.getElementById(ANCHOR_TOGGLE_HOST_ID);
+    if (!host) return;
+    const html = anchorToggleHtml(element, this.callbacks.getLabelSettings?.());
+    if (!!html === (host.childElementCount > 0)) return;
+    host.innerHTML = html;
+    if (html) this._attachAnchorButtons(element);
   }
 
   /**
@@ -58,6 +76,7 @@ export class PropertyListenersManager {
     // Common position properties
     attach("prop-x", "x", (v) => parseInt(v) || 0);
     attach("prop-y", "y", (v) => parseInt(v) || 0);
+    this._attachAnchorButtons(element);
 
     // Element-specific properties
     switch (element.type) {
@@ -299,6 +318,50 @@ export class PropertyListenersManager {
   }
 
   /**
+   * Wire the ^FO/^FT emit-style toggle; model geometry stays unchanged.
+   */
+  _attachAnchorButtons(element) {
+    // Scoped to the toggle's own host, as the orientation buttons beside it are:
+    // a document-wide query would also pick up any other panel mounted at once.
+    const host = document.getElementById(ANCHOR_TOGGLE_HOST_ID);
+    const buttons = host ? host.querySelectorAll('[data-position-type]') : [];
+    const setActive = (value) => {
+      buttons.forEach((button) => {
+        const isActive = button.getAttribute('data-position-type') === value;
+        button.setAttribute('aria-pressed', String(isActive));
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-blue-600', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:bg-slate-200', !isActive);
+      });
+    };
+    setActive(element.positionType === 'FT' ? 'FT' : 'FO');
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const value = button.getAttribute('data-position-type');
+        if (!value) return;
+        // Store only the non-default, so untouched elements and older saves
+        // stay byte-identical.
+        if (value === 'FT') {
+          element.positionType = 'FT';
+          // An explicit left value makes this field independent of a preserved
+          // ^FW...,1 command that may precede it in imported ZPL.
+          if (!element.fieldJustify) element.fieldJustify = 'L';
+        } else {
+          delete element.positionType;
+          // ^FO writes no z, so a left justify is dead weight on the element and
+          // in the saved template. 'R' stays: it is the non-default the user (or
+          // the source ZPL) actually chose.
+          if (element.fieldJustify === 'L') delete element.fieldJustify;
+        }
+        setActive(value);
+        this.callbacks.onPropertyChange(element);
+      });
+    });
+  }
+
+  /**
    * Wire the N/R/I/B orientation icon buttons to element.orientation. Scoped to
    * the mounted element panel via [data-orientation][data-tooltip] (only one
    * panel is shown at a time). Shared by TEXT and BARCODE.
@@ -409,7 +472,7 @@ export class PropertyListenersManager {
     // a printer grows them up to. Clamp the stored value on every keystroke so
     // the ZPL stays in range, but only normalise the visible text on blur —
     // rewriting mid-type would make values whose leading digits are below the
-    // thickness (e.g. 1500 on a thickness-100 box) unreachable. See ADR 0004.
+    // thickness (e.g. 1500 on a thickness-100 box) unreachable.
     if (widthInput) {
       widthInput.addEventListener('input', (e) => {
         element.width = clampNumber(parseInt(e.target.value) || element.thickness, element.thickness, 32000);
@@ -458,11 +521,11 @@ export class PropertyListenersManager {
     // ^GE/^GC dimensions are 3–4095 dots, thickness 2–4095. Clamp the stored
     // value on every keystroke so the ZPL stays in range, but only normalise
     // the visible text on blur — rewriting mid-type would make values whose
-    // leading digit is below the minimum (e.g. 1500 → 3) unreachable. See ADR 0004.
+    // leading digit is below the minimum (e.g. 1500 → 3) unreachable.
     const clampDim = (v) => Math.min(4095, Math.max(3, parseInt(v) || 3));
 
     // Width is authoritative: while locked, editing width mirrors to height
-    // (1:1 Circle / ^GC). See ADR 0004.
+    // (1:1 Circle / ^GC).
     if (widthInput) {
       widthInput.addEventListener('input', (e) => {
         const v = clampDim(e.target.value);
@@ -502,7 +565,7 @@ export class PropertyListenersManager {
   /**
    * Aspect Lock toggle for circular elements. Locked → Circle (^GC, 1:1);
    * unlocked → Ellipse (^GE). Mirrors the GRAPHIC lock UI but snaps to a fixed
-   * 1:1 ratio rather than a source bitmap's natural ratio. See ADR 0004.
+   * 1:1 ratio rather than a source bitmap's natural ratio.
    */
   _attachCircleAspectLock(element) {
     const lockBtn = document.getElementById('prop-circle-aspect-lock');

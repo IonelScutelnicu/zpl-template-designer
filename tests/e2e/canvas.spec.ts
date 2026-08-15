@@ -706,6 +706,60 @@ test.describe('Canvas - Drag, Resize, and Interactions', () => {
     });
 
     // ============== VISUAL REGRESSION ==============
+    test.describe('Field block selection bounds', () => {
+        // FieldBlockRenderer rotates an R/I block about an edge that reserves one
+        // trailing line-spacing slot (Labelary does the same), so the selection
+        // box and the hit test have to include it or they sit short of the ink.
+        // All of it now comes from one helper — fieldBlockExtents.
+        const measure = async (page: any, orientation: string, lineSpacing: number) =>
+            await page.evaluate(async ([orientation, lineSpacing]: [string, number]) => {
+                const [{ ElementService }, { fieldBlockExtents }] = await Promise.all([
+                    import('/src/services/ElementService.js'),
+                    import('/src/utils/geometry.js'),
+                ]);
+                const state = (window as any).appState;
+                state.setElements([]);
+                new ElementService(state).createElement('FIELDBLOCK', {
+                    x: 20, y: 20, content: 'one two three four', maxLines: 3,
+                });
+                const element = state.elements[0];
+                element.orientation = orientation;
+                element.lineSpacing = lineSpacing;
+                const extents = fieldBlockExtents(element, state.labelSettings);
+                return {
+                    selection: (window as any).interactionHandler.getSelectionBounds(element),
+                    renderer: { width: extents.width, height: extents.height },
+                    blockHeight: extents.blockHeight,
+                    farEdge: extents.farEdgeBlockHeight,
+                };
+            }, [orientation, lineSpacing]);
+
+        for (const orientation of ['N', 'R', 'I', 'B']) {
+            test(`the ${orientation} selection box matches the drawn block`, async ({ page }) => {
+                const spaced = await measure(page, orientation, 12);
+                expect(spaced.selection.width).toBe(spaced.renderer.width);
+                expect(spaced.selection.height).toBe(spaced.renderer.height);
+            });
+        }
+
+        test('R and I carry the trailing line-spacing slot, N and B do not', async ({ page }) => {
+            const spacing = 12;
+            const [n, r, i, b] = await Promise.all(
+                ['N', 'R', 'I', 'B'].map((o) => measure(page, o, spacing)));
+
+            // Guards the test: with no spacing there is nothing to carry.
+            const flat = await measure(page, 'R', 0);
+            expect(flat.farEdge).toBe(flat.blockHeight);
+            expect(r.farEdge).toBe(r.blockHeight + spacing);
+
+            expect(n.selection.height).toBe(n.blockHeight);
+            expect(r.selection.width).toBe(r.farEdge);
+            expect(i.selection.height).toBe(i.farEdge);
+            // B pivots off the near edge, so it keeps the plain block height.
+            expect(b.selection.width).toBe(b.blockHeight);
+        });
+    });
+
     test.describe('Visual Regression', () => {
         test('should render Text element consistently', async () => {
             await elementsPanel.addTextElement();

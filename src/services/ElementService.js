@@ -74,7 +74,9 @@ export class ElementService {
           props.startChar || 'A',
           props.stopChar || 'A',
           props.msiCheckMode || 'B',
-          props.msiCheckInText || false
+          props.msiCheckInText || false,
+          props.code128Subset || 'B',
+          props.code128Mode || 'N'
         );
         break;
       }

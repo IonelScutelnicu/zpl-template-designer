@@ -1,4 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 import { getBarcodeGeometry, normalizeAztecRune } from '../utils/barcodeGeometry.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
@@ -31,6 +32,8 @@ export class QRCodeElement extends ZPLElement {
         this.rowHeight = opts.rowHeight || 4;      // row height in dots
         this.securityLevel = opts.securityLevel ?? 5; // 0-8 (0 = error-detection only is valid)
         this.columns = opts.columns || 0;          // 0 = auto
+        this.rows = opts.rows || 0;                // 0 = as many as the data needs
+        this.truncate = opts.truncate || false;    // ^B7 t: drop the right row indicator
         // Micro-PDF417 (^BF). Mode 0-33 selects a fixed rows×columns variant; reuses
         // moduleWidth (^BY) and rowHeight above for sizing.
         this.microPdfMode = opts.microPdfMode || 0;
@@ -83,9 +86,11 @@ export class QRCodeElement extends ZPLElement {
         }
     }
 
-    _render(content) {
+    _render(content, previewData) {
         const reverseCmd = this.reverse ? '^FR' : '';
-        const pos = `^FO${this.x},${this.y}${reverseCmd}`;
+        // The anchor needs the encoded module count, measured from the same
+        // data the symbol will carry.
+        const pos = `${fieldOriginCommand(this, undefined, { previewData })}${reverseCmd}`;
         return `${pos}${getQRCodeSymbology(this.symbology).render(this, content)}^FS`;
     }
 
@@ -95,7 +100,7 @@ export class QRCodeElement extends ZPLElement {
 
     renderPreview(defaultFontId, defaultFontHeight, defaultFontWidth, previewData = {}) {
         // Placeholders resolve to their Preview Data values for the Labelary preview
-        return this._render(resolvePlaceholders(this.content, previewData));
+        return this._render(resolvePlaceholders(this.content, previewData), previewData);
     }
 
     getDisplayName() {

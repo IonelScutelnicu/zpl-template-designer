@@ -4,7 +4,6 @@
 //   { source, version, type, payload }
 // host→editor: init, loadTemplate, loadZPL, setPreviewData, setFonts, requestSave
 // editor→host: ready, save, cancel, change, error
-// Full reference in docs/EMBEDDING.md.
 
 import { isValidPlaceholderName } from '../utils/placeholders.js';
 import { fontBytesFromSource } from '../utils/customFonts.js';

@@ -2,6 +2,7 @@ import { ZPLElement } from './ZPLElement.js';
 import { renderFieldDataCommand, normalizeLineBreaks } from '../utils/zplFieldData.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // Text Block Element Class (^TB command)
 export class TextBlockElement extends ZPLElement {
@@ -19,7 +20,7 @@ export class TextBlockElement extends ZPLElement {
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
     }
 
-    _render(content, defaultFontId, defaultFontHeight, defaultFontWidth) {
+    _render(content, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts = []) {
         // ZPL format: ^FOx,y[^FR]^A{fontId}{o},{h}[,{w}]^TB{o},{blockW},{blockH}^FDtext^FS
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
@@ -28,15 +29,16 @@ export class TextBlockElement extends ZPLElement {
         const fontWidthParam = fontWidth > 0 ? `,${fontWidth}` : '';
         // ^TB breaks on a real line feed, which renderFieldDataCommand escapes as
         // _0A under ^FH. Normalizing first keeps a pasted CRLF from emitting _0D.
-        return `^FO${this.x},${this.y}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(normalizeLineBreaks(content), '_', this.fieldHex)}^FS`;
+        const pos = fieldOriginCommand(this, { fontId: defaultFontId, defaultFontHeight, defaultFontWidth, customFonts });
+        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(normalizeLineBreaks(content), '_', this.fieldHex, this.fieldDataCommand)}^FS`;
     }
 
-    render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0) {
-        return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth);
+    render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, customFonts = []) {
+        return this._render(this.content, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
-    renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}) {
-        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth);
+    renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}, customFonts = []) {
+        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
     getDisplayName() {

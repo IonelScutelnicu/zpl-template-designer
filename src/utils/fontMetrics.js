@@ -3,7 +3,7 @@
 // TextBlockRenderer, FieldBlockRenderer, and canvas-renderer's measureTextBounds.
 
 import { ZPL_FONTS, DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
-import { customFontFamily, customFontLineHeightRatio } from './customFonts.js';
+import { customFontFamily, customFontLineHeightRatio, resolveRenderFontId } from './customFonts.js';
 import { snapBitmapFontSize } from './zplFontSnap.js';
 
 /**
@@ -26,7 +26,12 @@ import { snapBitmapFontSize } from './zplFontSnap.js';
  */
 export function resolveFontMetrics(element, labelSettings, scale = 1) {
   const fontId = element.fontId || labelSettings.fontId || DEFAULT_FONT_ID;
-  const custom = labelSettings.customFonts?.find(font => font.id === fontId && font.source);
+  // A declared-only ^CW font has no face to draw with, so it renders as whatever
+  // the printer substitutes (resolveRenderFontId). Everything below then treats
+  // that substitute as the font — including snapBitmapFontSize, which needs an id
+  // that actually carries a bitmap config.
+  const renderFontId = resolveRenderFontId(fontId, labelSettings.customFonts, labelSettings.fontId);
+  const custom = labelSettings.customFonts?.find(font => font.id === renderFontId && font.source);
   // baselineRatio: Zebra (and Labelary) place a downloaded TTF at em size = the ^A
   // height with the alphabetic baseline exactly 0.75×height below the field origin,
   // regardless of the font's own ascent metrics (verified against Labelary with
@@ -43,14 +48,14 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
       baselineRatio: 0.75,
       textBlockLineHeightRatio: customFontLineHeightRatio(custom.source) || 1,
     }
-    : ZPL_FONTS[fontId] || ZPL_FONTS['default'];
+    : ZPL_FONTS[renderFontId] || ZPL_FONTS['default'];
 
   const rawFontSize = element.fontSize || labelSettings.defaultFontHeight || DEFAULT_FONT_HEIGHT;
   const explicitWidth = element.fontWidth || labelSettings.defaultFontWidth || 0;
   const hasExplicitWidth = explicitWidth > 0;
 
   if (fontConfig.bitmap) {
-    const snapped = snapBitmapFontSize(fontId, rawFontSize, hasExplicitWidth ? explicitWidth : 0);
+    const snapped = snapBitmapFontSize(renderFontId, rawFontSize, hasExplicitWidth ? explicitWidth : 0);
     const capRatio = fontConfig.capRatio || 1;
     const advanceRatio = fontConfig.advanceRatio || 1;
     return {
@@ -68,13 +73,19 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
 
   // Scalable Font 0 / default — proportional model.
   const rawFontWidth = hasExplicitWidth ? explicitWidth : rawFontSize * (fontConfig.aspectRatio || 1);
-  const fontSize = rawFontSize * scale;
+  const em = rawFontSize * scale;
   const fontWidth = rawFontWidth * scale;
-  const scaleX = !hasExplicitWidth
+  // heightScale draws the glyphs taller than the em and squeezes the render
+  // frame back by the same factor, so nothing horizontal moves: every advance
+  // (measureText and charRules alike) is computed at the taller fontSize and
+  // then multiplied by a scaleX that is smaller by exactly that factor.
+  const heightScale = fontConfig.heightScale || 1;
+  const fontSize = em * heightScale;
+  const scaleX = (!hasExplicitWidth
     ? 1
     : fontConfig.monospace
-      ? fontWidth / (fontSize * (fontConfig.aspectRatio || 1))
-      : fontWidth / fontSize;
+      ? fontWidth / (em * (fontConfig.aspectRatio || 1))
+      : fontWidth / em) / heightScale;
 
   return {
     fontId,
@@ -121,6 +132,65 @@ export function resolveBaselinePlacement(metrics, scale = 1) {
     return { baseline: 'alphabetic', fillY: fontSize * fontConfig.baselineRatio, nudge: 0 };
   }
   return { baseline: 'top', fillY: 0, nudge: fontSize * (-0.05 + (fontConfig.yOffset || 0)) };
+}
+
+/**
+ * Labelary-calibrated ^FO-to-baseline offset in dots. Bitmap fonts add cell
+ * padding to snappedHeight; scalable/downloaded fonts use floor(0.75 * height).
+ * This differs from resolveBaselinePlacement().fillY, which is a canvas draw
+ * parameter tied to ctx.textBaseline.
+ *
+ * @param {Object} metrics Result from resolveFontMetrics
+ * @returns {number} baseline offset in dots
+ */
+export function resolveBaselineOffset(metrics) {
+  const { fontConfig, snappedHeight, isBitmap } = metrics;
+  if (isBitmap) {
+    const b = fontConfig.bitmap || {};
+    const capPad = b.capPad || 0;
+    if (!capPad || !b.capStep) return snappedHeight;
+    const magnification = Math.max(1, Math.round(snappedHeight / b.capStep));
+    return snappedHeight + capPad * magnification;
+  }
+  return Math.floor(BASELINE_RATIO * snappedHeight);
+}
+
+/** Alphabetic baseline as a fraction of the ^A height, for scalable and
+ *  downloaded fonts. Labelary-verified across heights 20/30/50/80. */
+const BASELINE_RATIO = 0.75;
+
+let advanceCanvas = null;
+
+/**
+ * Canvas-measured advance in label dots for I/B and right-justified ^FT anchors.
+ * Import, export, and rendering share the same measurement. Returns null when
+ * no DOM is available; callers must not substitute a guess.
+ */
+export function measureTextAdvanceDots(element, labelSettings, content) {
+  if (typeof document === 'undefined') return null;
+  const fontId = element.fontId || labelSettings?.fontId || DEFAULT_FONT_ID;
+  const hasCustomSource = labelSettings?.customFonts?.some(font => font.id === fontId && font.source);
+  // An unknown ID is a printer/custom font. Measuring it with the generic
+  // fallback would produce a plausible but incorrect ^FT coordinate.
+  if (!ZPL_FONTS[fontId] && !hasCustomSource) return null;
+  if (!advanceCanvas) advanceCanvas = document.createElement('canvas');
+  const ctx = advanceCanvas.getContext('2d');
+  if (!ctx) return null;
+
+  const metrics = resolveFontMetrics(element, labelSettings || {}, 1);
+  const { fontConfig, fontSize, scaleX } = metrics;
+  // Same case folding the renderer applies before measuring.
+  const text = fontConfig.uppercase
+    ? String(content).toUpperCase()
+    : fontConfig.filterLowercase
+      ? String(content).replace(/[a-z]/g, ' ')
+      : String(content);
+
+  ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
+  ctx.letterSpacing = `${(fontConfig.letterSpacing || 0) * fontSize}px`;
+  ctx.wordSpacing = `${(fontConfig.wordSpacing || 0) * fontSize}px`;
+  const width = measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
+  return Number.isFinite(width) ? width : null;
 }
 
 /**
@@ -199,25 +269,31 @@ const CHAR_RULE_HANDLERS = {
     };
   },
   // Real glyph in a custom cell. `advanceRatio` sets the cell width (pitch);
-  // `widthRatio` horizontally scales the glyph itself (<1 condenses it, >1 widens).
-  // The glyph is drawn centered in the cell. advanceRatio defaults to the scaled
-  // glyph width when omitted. Used to match Zebra's wider digit pitch and to
-  // narrow the glyph shape.
+  // `widthRatio` horizontally scales the glyph itself (<1 condenses it, >1 widens)
+  // and `heightRatio` vertically scales it about its baseline (<1 shortens it, >1
+  // heightens), leaving the advance untouched. `xRatio`/`yRatio` nudge the ink
+  // right/down without changing the cell or advance. The glyph is drawn centered in
+  // the cell. advanceRatio defaults to the scaled glyph width when omitted. Used to
+  // match Zebra's wider digit pitch and to narrow the glyph shape.
   glyph(rule, fontSize, ctx, ch) {
     const squeeze = rule.widthRatio ?? 1;
+    const stretch = rule.heightRatio ?? 1;
     const drawnWidth = ctx.measureText(ch).width * squeeze;
     const advance = rule.advanceRatio != null ? rule.advanceRatio * fontSize : drawnWidth;
+    const xOffset = (rule.xRatio ?? 0) * fontSize;
+    const yOffset = (rule.yRatio ?? 0) * fontSize;
     return {
       advance,
       draw: (c, x, y) => {
-        const left = x + (advance - drawnWidth) / 2;
-        if (squeeze === 1) {
-          c.fillText(ch, left, y);
+        const left = x + (advance - drawnWidth) / 2 + xOffset;
+        const baseline = y + yOffset;
+        if (squeeze === 1 && stretch === 1) {
+          c.fillText(ch, left, baseline);
           return;
         }
         c.save();
-        c.translate(left, y);
-        c.scale(squeeze, 1);
+        c.translate(left, baseline);
+        c.scale(squeeze, stretch);
         c.fillText(ch, 0, 0);
         c.restore();
       },
@@ -273,7 +349,7 @@ export function measureStyledText(ctx, text, fontConfig, fontSize, scaleX) {
 /**
  * Wrap text into lines that fit a per-line max width, soft-breaking on spaces and
  * hard-breaking words longer than the line. A newline in the text is an explicit
- * break (both ^FB and ^TB honor one, see ADR 0013); consecutive newlines produce
+ * break (both ^FB and ^TB honor one); consecutive newlines produce
  * blank lines, matching the printer. All width measurement goes through
  * measureStyledText so wrapping and hard-breaking honor the same per-character
  * render rules the renderer draws with. ctx.font (and any letter/word spacing)
@@ -286,9 +362,10 @@ export function measureStyledText(ctx, text, fontConfig, fontSize, scaleX) {
  * @param {number} scaleX
  * @param {(lineIndex: number) => number} lineMaxWidth  Max width (post-scaleX) for
  *        the line at the given index; lets callers vary it (e.g. hanging indent).
- * @returns {string[]} The wrapped lines.
+ * @returns {Array<{text: string, termination: 'soft'|'forced'|'hard'|'end'}>} The wrapped
+ *          lines and how each line ended.
  */
-export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth) {
+export function wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth) {
   const measure = (s) => measureStyledText(ctx, s, fontConfig, fontSize, scaleX);
 
   // Hard-break a word that exceeds maxWidth into character-level chunks.
@@ -315,9 +392,12 @@ export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxW
 
   // lineMaxWidth is indexed on the running total, so a hanging indent still
   // applies to every line after the first — including lines after a break.
-  for (const segment of source.split('\n')) {
+  const segments = source.split('\n');
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+    const segment = segments[segmentIndex];
+    const segmentTermination = segmentIndex < segments.length - 1 ? 'hard' : 'end';
     if (segment === '') {
-      lines.push('');
+      lines.push({ text: '', termination: segmentTermination });
       continue;
     }
 
@@ -326,7 +406,7 @@ export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxW
     segment.split(' ').forEach(word => {
       const testLine = currentLine + (currentLine ? ' ' : '') + word;
       if (measure(testLine) > lineMaxWidth(lines.length) && currentLine) {
-        lines.push(currentLine);
+        lines.push({ text: currentLine, termination: 'soft' });
         currentLine = word;
       } else {
         currentLine = testLine;
@@ -337,16 +417,24 @@ export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxW
       if (measure(currentLine) > maxWidth) {
         const chunks = breakWord(currentLine, maxWidth);
         for (let i = 0; i < chunks.length - 1; i++) {
-          lines.push(chunks[i]);
+          lines.push({ text: chunks[i], termination: 'forced' });
         }
         currentLine = chunks[chunks.length - 1] || '';
       }
     });
 
-    if (currentLine) lines.push(currentLine);
+    if (currentLine) lines.push({ text: currentLine, termination: segmentTermination });
   }
 
   return lines;
+}
+
+/**
+ * String-only wrapper retained for callers that do not need line-break provenance.
+ */
+export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth) {
+  return wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth)
+    .map(line => line.text);
 }
 
 /**
@@ -410,6 +498,10 @@ export function resolveFontLineHeight(metrics, fallbackRatio, scale = 1, ratioKe
     ?? (ratioKey !== 'lineHeightRatio' ? positiveNumber(fontConfig.lineHeightRatio) : null)
     ?? fallbackRatio;
 
-  const base = baseKey === 'fontSize' ? metrics.fontSize : metrics.snappedHeight * scale;
+  // fontSize carries the heightScale stretch, which is a glyph-ink adjustment —
+  // line pitch follows the em, so divide it back out.
+  const base = baseKey === 'fontSize'
+    ? metrics.fontSize / (fontConfig.heightScale || 1)
+    : metrics.snappedHeight * scale;
   return base * ratio;
 }

@@ -1,13 +1,35 @@
 // Barcode drawing helpers
 // Draw bwip-js geometry (from utils/barcodeGeometry.js) onto a canvas context as
-// crisp filled rectangles — no drawImage, so image smoothing stays irrelevant
-// (see ADR 0001). Shared by BarcodeRenderer (1D) and QRCodeRenderer (2D).
+// crisp filled rectangles — no drawImage, so image smoothing stays irrelevant.
+// Shared by BarcodeRenderer (1D) and QRCodeRenderer (2D).
 
 import { resolveFontMetrics, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
 
-// Tiny overlap so adjacent modules don't leave hairline seams at fractional
-// device pixels when zoomed.
-const SEAM = 0.4;
+// Snap a rectangle through the context's current orthogonal transform so every
+// barcode edge lands on a backing-store pixel. Canvas antialiases fractional
+// fillRect edges even when image smoothing is disabled.
+function createPixelAlignedRectFiller(ctx) {
+  const m = ctx.getTransform();
+  const xScale = Math.abs(m.a) > Math.abs(m.b) ? m.a : m.b;
+  const xOffset = Math.abs(m.a) > Math.abs(m.b) ? m.e : m.f;
+  const yScale = Math.abs(m.c) > Math.abs(m.d) ? m.c : m.d;
+  const yOffset = Math.abs(m.c) > Math.abs(m.d) ? m.e : m.f;
+  const snap = (value, scale, offset) => (Math.round(value * scale + offset) - offset) / scale;
+
+  return (x, y, width, height) => {
+    const left = snap(x, xScale, xOffset);
+    const top = snap(y, yScale, yOffset);
+    let right = snap(x + width, xScale, xOffset);
+    let bottom = snap(y + height, yScale, yOffset);
+    if (right === left) right += 1 / Math.abs(xScale);
+    if (bottom === top) bottom += 1 / Math.abs(yScale);
+    ctx.fillRect(left, top, right - left, bottom - top);
+  };
+}
+
+// Tiny overlap keeps adjacent 2D modules joined at fractional zoom. Linear bars
+// use pixel-aligned rectangles instead, so an overlap would soften their edges.
+const MATRIX_SEAM = 0.4;
 
 /**
  * Draw a 1D symbol from its space/bar sequence (starts with a bar).
@@ -18,6 +40,7 @@ const SEAM = 0.4;
 export function drawLinear(ctx, geom, { x, y, moduleW, height, color, guardBottomY }) {
   ctx.save();
   ctx.fillStyle = color;
+  const fillBar = createPixelAlignedRectFiller(ctx);
   let cx = x;
   let isBar = true;
   let barIndex = 0;
@@ -31,7 +54,7 @@ export function drawLinear(ctx, geom, { x, y, moduleW, height, color, guardBotto
       const barBottom = (guardBottomY != null && barBottomOffset < 0)
         ? guardBottomY
         : barY + barHeightRatio * height;
-      ctx.fillRect(barX, barY, w + SEAM, barBottom - barY);
+      fillBar(barX, barY, w, barBottom - barY);
       barIndex += 1;
     }
     cx += w;
@@ -217,7 +240,7 @@ export function drawMatrix(ctx, geom, { x, y, moduleW, moduleH, color }) {
     const off = r * cols;
     const py = y + r * moduleH;
     for (let c = 0; c < cols; c++) {
-      if (pixs[off + c]) ctx.fillRect(x + c * moduleW, py, moduleW + SEAM, moduleH + SEAM);
+      if (pixs[off + c]) ctx.fillRect(x + c * moduleW, py, moduleW + MATRIX_SEAM, moduleH + MATRIX_SEAM);
     }
   }
   ctx.restore();

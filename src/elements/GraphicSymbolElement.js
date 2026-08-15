@@ -59,7 +59,7 @@ export class GraphicSymbolElement extends ZPLElement {
     render() {
         // ZPL format: ^FOx,y^FR^GSorientation,height,width^FDsymbol^FS
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^GS${this.orientation},${this.height},${this.width}^FD${this.symbol}^FS`;
+        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^GS${this.orientation},${this.height},${this.width}^${this.fieldDataCommand === 'FV' ? 'FV' : 'FD'}${this.symbol}^FS`;
     }
 
     renderPreview() {

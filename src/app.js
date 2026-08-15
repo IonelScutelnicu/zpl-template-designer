@@ -2209,7 +2209,7 @@ async function attachPreviewFont(fontId, file) {
 
 // Fonts the Host supplied in Embed mode, keyed by the ^CW path stem they match
 // (E:NOTO.TTF ← NOTO.ttf). They act as preview files the user never had to
-// attach, and never travel back to the Host on save — see ADR 0014.
+// attach, and never travel back to the Host on save.
 const hostPreviewFonts = new Map();
 
 function printerPathStem(value) {
@@ -2957,8 +2957,8 @@ const ZPL_DOC_MAP = {
   GRAPHICSYMBOL: { command: '^GS', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gs.html' },
 };
 
-// A locked Circle exports ^GC; an unlocked Ellipse exports ^GE (see ADR 0004),
-// so the doc link follows the aspect lock.
+// A locked Circle exports ^GC; an unlocked Ellipse exports ^GE, so the doc link
+// follows the aspect lock.
 const ZPL_GC_DOC = { command: '^GC', url: 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-gc.html' };
 
 const ZPL_DOC_BASE = 'https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/';
@@ -3170,7 +3170,7 @@ function updateZPLOutput() {
 // Cache for API preview — in-memory LRU keyed by the full Labelary request
 // signature (dpmm + label size + ZPL). `currentPreviewUrl` tracks the object URL
 // currently painted, so the previous frame can stay visible while a new render is
-// in flight. Cached object URLs are revoked only on eviction (see ADR 0003).
+// in flight. Cached object URLs are revoked only on eviction.
 const PREVIEW_CACHE_MAX = 30;
 const previewCache = new Map();
 let currentPreviewUrl = null;
@@ -3179,7 +3179,7 @@ let pendingPreviewFetches = 0;
 
 // The rendering island only appears if a render is genuinely slow. Below this
 // threshold we show nothing and keep the previous preview on screen, swapping
-// crisply when the new one lands (see ADR 0006).
+// crisply when the new one lands.
 const RENDERING_INDICATOR_DELAY_MS = 500;
 let renderingIslandTimer = null;
 

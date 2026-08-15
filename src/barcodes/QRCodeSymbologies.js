@@ -9,7 +9,7 @@ export const DATABAR_TYPE_NUM = { omni: 1, truncated: 2, stacked: 3, stackedomni
 export const DATABAR_TYPE_BY_NUM = { 1: 'omni', 2: 'truncated', 3: 'stacked', 4: 'stackedomni', 5: 'limited', 6: 'expanded' };
 
 function fieldData(value, element) {
-  return renderFieldDataCommand(value, '_', element.fieldHex);
+  return renderFieldDataCommand(value, '_', element.fieldHex, element.fieldDataCommand);
 }
 
 function intParam(value, fallback) {
@@ -21,9 +21,11 @@ function orientationParam(element) {
   return ['N', 'R', 'I', 'B'].includes(element.orientation) ? element.orientation : 'N';
 }
 
-function parseOrientation(value) {
-  const orientation = (value || 'N').trim().toUpperCase();
-  return ['N', 'R', 'I', 'B'].includes(orientation) ? orientation : 'N';
+// `fallback` is the ^FW default the parser stamped on the token when the command
+// was read — see ZPLParser.tokenFwOrientation.
+function parseOrientation(value, fallback) {
+  const orientation = (value || '').trim().toUpperCase();
+  return ['N', 'R', 'I', 'B'].includes(orientation) ? orientation : (fallback || 'N');
 }
 
 function fieldPayload(parser, fdToken, fhToken) {
@@ -144,8 +146,11 @@ class StackedRowsSymbology extends QRSymbology {
 
 class PDF417Symbology extends StackedRowsSymbology {
   render(element, content) {
-    const cols = element.columns > 0 ? `,${element.columns}` : '';
-    return `^BY${element.moduleWidth}^B7${orientationParam(element)},${element.rowHeight},${element.securityLevel}${cols}${fieldData(content, element)}`;
+    // ^B7o,h,s,c,r,t — trailing slots only appear once something later needs them.
+    const tail = element.truncate ? `,${element.columns || ''},${element.rows || ''},Y`
+      : element.rows > 0 ? `,${element.columns || ''},${element.rows}`
+        : element.columns > 0 ? `,${element.columns}` : '';
+    return `^BY${element.moduleWidth}^B7${orientationParam(element)},${element.rowHeight},${element.securityLevel}${tail}${fieldData(content, element)}`;
   }
 
   renderSettings(panel, element, bounds) {
@@ -219,7 +224,7 @@ class CodablockSymbology extends StackedRowsSymbology {
       x: group.x,
       y: group.y,
       ...fieldPayload(parser, fdToken, fhToken),
-      orientation: parseOrientation(parts[0]),
+      orientation: parseOrientation(parts[0], token.fwOrientation),
       moduleWidth: intParam(byParts[0], 2),
       rowHeight: intParam(parts[1], 4),
       codablockMode: ['A', 'E', 'F'].includes(rawMode) ? rawMode : 'F',
@@ -359,7 +364,7 @@ class GS1DataBarSymbology extends QRSymbology {
       x: group.x,
       y: group.y,
       ...fieldPayload(parser, fdToken, fhToken),
-      orientation: parseOrientation(parts[0]),
+      orientation: parseOrientation(parts[0], token.fwOrientation),
       databarType: DATABAR_TYPE_BY_NUM[parseInt(parts[1], 10)] || 'omni',
       magnification: intParam(parts[2], 5),
       rowHeight: intParam(parts[4], 40),
@@ -436,7 +441,7 @@ class TLC39Symbology extends QRSymbology {
       x: group.x,
       y: group.y,
       ...fieldPayload(parser, fdToken, fhToken),
-      orientation: parseOrientation(parts[0]),
+      orientation: parseOrientation(parts[0], token.fwOrientation),
       moduleWidth: w1,
       rowHeight: h1,
       tlc39Code39Width: w1,

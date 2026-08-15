@@ -270,7 +270,7 @@ test.describe('Drag - Element Position', () => {
     });
 
     // ^GB width/height can never fall below the border thickness, so a shrinking
-    // drag floors there instead of rewriting thickness. See ADR 0017.
+    // drag floors there instead of rewriting thickness.
     test('should floor a shrinking BOX resize at its thickness', async ({ page }) => {
         await elementsPanel.addBoxElement();
         await elementsPanel.selectElementByIndex(0);
