@@ -92,6 +92,7 @@ html.dark .hover\:bg-blue-700:hover,
 html.dark .hover\:bg-indigo-700:hover { background-color: var(--d-accent-hover); }
 
 html.dark .bg-amber-50 { background-color: rgba(252, 211, 77, 0.10); }
+html.dark .bg-amber-50\/60 { background-color: rgba(252, 211, 77, 0.08); }
 html.dark .bg-amber-100 { background-color: rgba(252, 211, 77, 0.16); }
 html.dark .bg-amber-200 { background-color: rgba(252, 211, 77, 0.24); }
 html.dark .bg-amber-500 { background-color: #fbbf24; }
@@ -135,7 +136,8 @@ html.dark .hover\:text-blue-700:hover { color: #dfe2e7; }
 
 html.dark .text-amber-500 { color: #fbbf24; }
 html.dark .text-amber-600,
-html.dark .text-amber-700 { color: #fcd34d; }
+html.dark .text-amber-700,
+html.dark .text-amber-700\/80 { color: #fcd34d; }
 html.dark .text-amber-800,
 html.dark .text-amber-900 { color: #fde68a; }
 html.dark .hover\:text-amber-600:hover,
