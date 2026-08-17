@@ -5,7 +5,7 @@
    401 after a silent token refresh.
    ============================================================ */
 
-import { ensureValidToken, silentRefresh, getToken, signIn } from './DriveAuth.js';
+import { ensureValidToken, silentRefresh, signIn } from './DriveAuth.js';
 
 const DRIVE_BASE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
@@ -107,29 +107,6 @@ export async function updateFile(fileId, name, jsonContent) {
   return res.json();
 }
 
-export async function createFolder(name, parentId) {
-  const body = {
-    name,
-    mimeType: 'application/vnd.google-apps.folder',
-  };
-  if (parentId) body.parents = [parentId];
-  const res = await driveFetch(`${DRIVE_BASE}/files?fields=id,name`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return res.json();
-}
-
-export async function findFolderByName(name, { inRoot = false } = {}) {
-  let q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  if (inRoot) q += ` and 'root' in parents`;
-  const params = new URLSearchParams({ q, fields: 'files(id,name)', pageSize: '10' });
-  const res = await driveFetch(`${DRIVE_BASE}/files?${params}`);
-  const json = await res.json();
-  return (json.files && json.files[0]) || null;
-}
-
 export async function trashFile(fileId) {
   const res = await driveFetch(
     `${DRIVE_BASE}/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
@@ -144,8 +121,4 @@ export async function trashFile(fileId) {
 
 function ensureJsonExt(name) {
   return /\.json$/i.test(name) ? name : `${name}.json`;
-}
-
-export function driveViewUrl(fileId) {
-  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
 }

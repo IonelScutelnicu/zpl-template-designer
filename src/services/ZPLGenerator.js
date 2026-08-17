@@ -1,9 +1,7 @@
 // ZPL Generator Service
 // Handles generation of ZPL command strings from elements and label settings
 
-import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
-import { resolveFontLineHeight, resolveFontMetrics } from '../utils/fontMetrics.js';
-import { toPlaceholder, resolvePlaceholders } from '../utils/placeholders.js';
+import { toPlaceholder } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 
 /**
@@ -39,10 +37,9 @@ export class ZPLGenerator {
    * Generate ZPL for preview/visualization (may include debug info)
    * @param {Array} elements - Array of elements to render
    * @param {Object} labelSettings - Label configuration
-   * @param {Object} selectedElement - Currently selected element (for debug highlighting)
    * @returns {string} Complete ZPL string for preview
    */
-  generatePreviewZPL(elements, labelSettings, selectedElement = null) {
+  generatePreviewZPL(elements, labelSettings) {
     if (!elements || elements.length === 0) {
       return '';
     }
@@ -57,14 +54,6 @@ export class ZPLGenerator {
           labelSettings.previewData,
           labelSettings.customFonts || []
         );
-
-        // Optional: Add debug highlighting for selected text elements
-        // (Currently commented out in original code)
-        // if (selectedElement && String(element.id) === String(selectedElement.id) &&
-        //     (element.type === 'TEXT' || element.type === 'FIELDBLOCK')) {
-        //   const highlightBox = this.generateHighlightBox(element, labelSettings);
-        //   cmd = highlightBox + '\n' + cmd;
-        // }
 
         return this.restoreLabelHome(cmd, element, labelSettings);
       })
@@ -218,52 +207,13 @@ export class ZPLGenerator {
   }
 
   /**
-   * Generate a highlight box for debugging (optional feature)
-   * @param {Object} element - Element to highlight
-   * @param {Object} labelSettings - Label settings for default values
-   * @returns {string} ZPL box command
-   */
-  generateHighlightBox(element, labelSettings) {
-    let boxWidth, boxHeight;
-
-    if (element.type === 'FIELDBLOCK') {
-      boxWidth = element.blockWidth || 200;
-      const maxLines = element.maxLines || 1;
-      const lineSpacing = element.lineSpacing || 0;
-      // Line spacing is only between lines, not after the last line
-      const fontMetrics = resolveFontMetrics(element, labelSettings, 1);
-      const baseLineHeight = resolveFontLineHeight(fontMetrics, LINE_HEIGHT_RATIO);
-      boxHeight = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1);
-    } else if (element.type === 'TEXT') {
-      const text = resolvePlaceholders(element.content, labelSettings.previewData);
-      const fontWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
-      boxWidth = Math.max(text.length * fontWidth * 0.6, 50);
-      boxHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
-    } else {
-      // For other element types, use element bounds
-      boxWidth = element.width || 100;
-      boxHeight = element.height || 50;
-    }
-
-    const padding = 5;
-    const x = Math.max(0, element.x - padding);
-    const y = Math.max(0, element.y - padding);
-    const w = boxWidth + padding * 2;
-    const h = boxHeight + padding * 2;
-
-    // ^GB: Graphic Box command (x,y position via ^FO, then width,height,thickness,color)
-    return `^FO${x},${y}^GB${w},${h},1,B^FS`;
-  }
-
-  /**
    * Generate ZPL for preview with a byte offset map for each element.
    * Used for mapping Labelary API warnings back to elements.
    * @param {Array} elements - Array of elements to render
    * @param {Object} labelSettings - Label configuration
-   * @param {Object} selectedElement - Currently selected element
    * @returns {{ zpl: string, byteMap: Array<{elementId: string|number, startByte: number, endByte: number}> }}
    */
-  generatePreviewZPLWithMap(elements, labelSettings, selectedElement = null) {
+  generatePreviewZPLWithMap(elements, labelSettings) {
     if (!elements || elements.length === 0) {
       return { zpl: '', byteMap: [] };
     }
@@ -306,63 +256,5 @@ export class ZPLGenerator {
     currentZpl += '\n^XZ';
 
     return { zpl: currentZpl, byteMap };
-  }
-
-  /**
-   * Validate ZPL string structure
-   * @param {string} zpl - ZPL string to validate
-   * @returns {Object} Validation result { valid: boolean, errors: string[] }
-   */
-  validateZPL(zpl) {
-    const errors = [];
-
-    if (!zpl || typeof zpl !== 'string') {
-      errors.push('ZPL must be a non-empty string');
-      return { valid: false, errors };
-    }
-
-    // Check for required start command
-    if (!zpl.includes('^XA')) {
-      errors.push('Missing ZPL start command (^XA)');
-    }
-
-    // Check for required end command
-    if (!zpl.includes('^XZ')) {
-      errors.push('Missing ZPL end command (^XZ)');
-    }
-
-    // Check command order
-    const xaIndex = zpl.indexOf('^XA');
-    const xzIndex = zpl.lastIndexOf('^XZ');
-    if (xaIndex !== -1 && xzIndex !== -1 && xaIndex > xzIndex) {
-      errors.push('ZPL start (^XA) must come before end (^XZ)');
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Calculate label dimensions in dots
-   * @param {Object} labelSettings - Label configuration
-   * @returns {Object} Dimensions { width: number, height: number }
-   */
-  getLabelDimensionsDots(labelSettings) {
-    const actualDpi = Math.floor(labelSettings.dpmm * 25.4);
-    return {
-      width: Math.floor((labelSettings.width / 25.4) * actualDpi),
-      height: Math.floor((labelSettings.height / 25.4) * actualDpi)
-    };
-  }
-
-  /**
-   * Estimate ZPL size in bytes (useful for printer memory checks)
-   * @param {string} zpl - ZPL string
-   * @returns {number} Size in bytes
-   */
-  estimateZPLSize(zpl) {
-    return new Blob([zpl]).size;
   }
 }

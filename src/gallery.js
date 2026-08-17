@@ -390,7 +390,7 @@ async function writeToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch (e) {
+    } catch {
       // Fall through to textarea fallback.
     }
   }
@@ -402,7 +402,7 @@ async function writeToClipboard(text) {
   document.body.appendChild(ta);
   ta.select();
   var ok = false;
-  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
   document.body.removeChild(ta);
   return ok;
 }
@@ -891,7 +891,7 @@ function triggerImportJson() {
     reader.onload = async function () {
       try {
         JSON.parse(reader.result); // validate JSON
-      } catch (e) {
+      } catch {
         toast('Couldn\'t parse JSON file.', 'error');
         return;
       }
@@ -947,7 +947,6 @@ function renderHeaderChip() {
   }
 
   var profile = s.profile || {};
-  var folder = s.folder || { name: 'Drive' };
   var initial = (profile.name || '?').charAt(0).toUpperCase();
   var avatarHtml = profile.picture
     ? '<span class="drive-avatar"><img src="' + escapeAttr(profile.picture) + '" alt=""></span>'

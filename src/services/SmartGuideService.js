@@ -49,7 +49,7 @@ export class SmartGuideService {
     let bestDistY = SNAP_THRESHOLD + 1;
 
     // Check X-axis alignment
-    for (const [dragEdgeName, dragEdgeVal] of Object.entries(dragEdgesX)) {
+    for (const dragEdgeVal of Object.values(dragEdgesX)) {
       for (const ref of refEdges.x) {
         const dist = Math.abs(dragEdgeVal - ref.position);
         if (dist <= SNAP_THRESHOLD && dist < bestDistX) {
@@ -68,7 +68,7 @@ export class SmartGuideService {
     }
 
     // Check Y-axis alignment
-    for (const [dragEdgeName, dragEdgeVal] of Object.entries(dragEdgesY)) {
+    for (const dragEdgeVal of Object.values(dragEdgesY)) {
       for (const ref of refEdges.y) {
         const dist = Math.abs(dragEdgeVal - ref.position);
         if (dist <= SNAP_THRESHOLD && dist < bestDistY) {

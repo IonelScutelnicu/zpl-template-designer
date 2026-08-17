@@ -74,20 +74,6 @@ export class AppState {
   }
 
   /**
-   * Unsubscribe from state change events
-   * @param {string} event - Event name
-   * @param {Function} callback - Callback function to remove
-   */
-  unsubscribe(event, callback) {
-    if (!this.listeners.has(event)) return;
-    const callbacks = this.listeners.get(event);
-    const index = callbacks.indexOf(callback);
-    if (index > -1) {
-      callbacks.splice(index, 1);
-    }
-  }
-
-  /**
    * Notify all subscribers of an event
    * @param {string} event - Event name
    * @param {*} data - Data to pass to callbacks
@@ -125,15 +111,6 @@ export class AppState {
   removeElement(id) {
     const idStr = String(id);
     this.elements = this.elements.filter(el => String(el.id) !== idStr);
-    this.notify('elementsChanged', this.elements);
-  }
-
-  /**
-   * Update elements array (for reordering)
-   * @param {Array} elements - New elements array
-   */
-  updateElements(elements) {
-    this.elements = elements;
     this.notify('elementsChanged', this.elements);
   }
 
@@ -271,15 +248,6 @@ export class AppState {
     this.notify('labelSettingsChanged', this.labelSettings);
   }
 
-  /**
-   * Replace entire label settings object
-   * @param {Object} settings - New settings object
-   */
-  setLabelSettings(settings) {
-    this.labelSettings = settings;
-    this.notify('labelSettingsChanged', this.labelSettings);
-  }
-
   // ===== History Management =====
 
   /**
@@ -296,15 +264,6 @@ export class AppState {
    */
   getHistoryIndex() {
     return this.history.index;
-  }
-
-  /**
-   * Set history entries
-   * @param {Array} entries - History entries array
-   */
-  setHistoryEntries(entries) {
-    this.history.entries = entries;
-    this.notify('historyChanged', { entries: this.history.entries, index: this.history.index });
   }
 
   /**
@@ -461,16 +420,6 @@ export class AppState {
     const idStr = String(id);
     this.warnings = this.warnings.filter(w => w.elementId === null || String(w.elementId) !== idStr);
     this.notify('warningsChanged', this.warnings);
-  }
-
-  /**
-   * Get warnings for a specific element
-   * @param {string|number} elementId - Element ID
-   * @returns {Array} Warnings for the element
-   */
-  getWarningsForElement(elementId) {
-    const idStr = String(elementId);
-    return this.warnings.filter(w => w.elementId !== null && String(w.elementId) === idStr);
   }
 
   // ===== Complete State Serialization =====

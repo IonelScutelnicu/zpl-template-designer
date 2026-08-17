@@ -54,7 +54,7 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
   const post = (type, payload, targetOrigin) => {
     try {
       hostWindow.postMessage({ source: SOURCE_EDITOR, version: PROTOCOL_VERSION, type, payload }, targetOrigin);
-    } catch (_) { }
+    } catch { }
   };
 
   // Handing the payload to the host is this editor's save — there is no ack in

@@ -80,7 +80,7 @@ export class FullscreenController {
     // The `is-fullscreen` class stays on #view-editor while the user browses
     // templates; returning to the editor lands in the same layout they left.
     let on = false;
-    try { on = localStorage.getItem('fullscreen') === '1'; } catch (_) { }
+    try { on = localStorage.getItem('fullscreen') === '1'; } catch { }
     // ?fullscreen=1|0 wins over the stored preference for this load; hosts
     // pick the launch layout through it.
     const forced = new URLSearchParams(window.location.search).get('fullscreen');
@@ -146,7 +146,7 @@ export class FullscreenController {
     // Reset to the default tab (Q5: `+`) on every entry, panel expanded.
     this.viewEditor.classList.remove('fs-rail-collapsed');
     this.setActiveTab('add');
-    try { localStorage.setItem('fullscreen', '1'); } catch (_) { }
+    try { localStorage.setItem('fullscreen', '1'); } catch { }
     // Apply the class — transitions kick in
     this.viewEditor.classList.add('is-fullscreen');
   }
@@ -179,7 +179,7 @@ export class FullscreenController {
       this._zoomParent = null;
       this._zoomSibling = null;
     }
-    try { localStorage.removeItem('fullscreen'); } catch (_) { }
+    try { localStorage.removeItem('fullscreen'); } catch { }
     this.viewEditor.classList.remove('is-fullscreen');
     this.viewEditor.classList.remove('zpl-collapsed');
     this.viewEditor.classList.remove('fs-rail-collapsed');

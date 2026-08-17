@@ -52,15 +52,42 @@ export function placeholderNames(text) {
   return names;
 }
 
+// A placeholder with no value resolves to its bare name, so it stays legible on
+// the canvas and still encodes in a barcode.
+function placeholderValue(values, name) {
+  const value = values?.[name];
+  return value === undefined || value === null || value === '' ? name : String(value);
+}
+
 /**
- * Substitute Preview Data values into a Content string. A placeholder with no
- * value resolves to its bare name, so it stays legible on the canvas
- * and still encodes in a barcode. %% collapses to a single %.
+ * Substitute Preview Data values into a Content string, yielding the literal
+ * text the label shows: %% collapses to a single %.
  */
 export function resolvePlaceholders(text, values = {}) {
-  return String(text ?? '').replace(SCAN_RE, (match, name) => {
-    if (!name) return '%';
-    const value = values?.[name];
-    return value === undefined || value === null || value === '' ? name : String(value);
-  });
+  return String(text ?? '').replace(SCAN_RE, (match, name) => (
+    name ? placeholderValue(values, name) : '%'
+  ));
+}
+
+/**
+ * Substitute Preview Data values into a Content string, leaving the result in
+ * Content grammar for a ZPL render: %% stays escaped, and a value's own % is
+ * escaped so it reads as a literal. The %%-to-% collapse then happens exactly
+ * once, in encodeFieldData — resolving to literal text first would collapse it
+ * twice and print Content "%%%%" as one percent instead of two.
+ */
+export function substitutePlaceholders(text, values = {}) {
+  return String(text ?? '').replace(SCAN_RE, (match, name) => (
+    name ? placeholderValue(values, name).replace(/%/g, '%%') : match
+  ));
+}
+
+/**
+ * The characters a Content string's field data actually carries: %% collapses to
+ * one %, and a %name% placeholder stands for itself, because that is what the
+ * emitter writes. Measuring anything else double-counts an escaped percent —
+ * substituting the placeholder as well would measure data the ZPL does not hold.
+ */
+export function emittedContent(text) {
+  return String(text ?? '').replace(SCAN_RE, (match, name) => (name ? match : '%'));
 }

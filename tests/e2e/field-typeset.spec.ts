@@ -389,6 +389,36 @@ test.describe('^FT field typeset — text', () => {
         expect(by['^FT300,400^A0B,30,30^FDWidget^FS'].x).toBe(278);
     });
 
+    test('measures an escaped %% as the one percent the field data carries', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { TextElement } = await import('/src/elements/TextElement.js');
+            const mk = (content: string, extra: any) =>
+                Object.assign(new TextElement(100, 100, content, 30), { positionType: 'FT' }, extra);
+            const row = (extra: any) => ({
+                // Content "%" and "%%" both emit ^FD% — one glyph — so they must
+                // anchor alike; "%%%%" emits two and must anchor like any pair.
+                onePercent: mk('%', extra).render('A', 30, 0, []),
+                escapedPercent: mk('%%', extra).render('A', 30, 0, []),
+                twoEscaped: mk('%%%%', extra).render('A', 30, 0, []),
+                twoGlyphs: mk('AB', extra).render('A', 30, 0, []),
+                preview: mk('%%%%', extra).renderPreview('A', 30, 0, {}, []),
+            });
+            return { inverted: row({ orientation: 'I' }), rightJustified: row({ fieldJustify: 'R' }) };
+        });
+
+        for (const [name, out] of Object.entries(r)) {
+            const anchor = (zpl: string) => zpl.slice(0, zpl.indexOf('^A'));
+            expect(anchor(out.escapedPercent), `${name} escaped percent`).toBe(anchor(out.onePercent));
+            expect(anchor(out.twoEscaped), `${name} two escaped percents`).toBe(anchor(out.twoGlyphs));
+            expect(out.preview, `${name} preview`).toBe(out.twoEscaped);
+            // The pair has to differ from the single glyph, or the equalities
+            // above would hold for a measurement that ignored the content.
+            expect(anchor(out.twoEscaped), `${name} pair vs single`).not.toBe(anchor(out.onePercent));
+        }
+        expect(r.inverted.onePercent).toContain('^AAI,30^FD%^FS');
+        expect(r.inverted.twoEscaped).toContain('^AAI,30^FD%%^FS');
+    });
+
     test('measures width-dependent custom-font anchors only with the real font source', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const { TextElement } = await import('/src/elements/TextElement.js');

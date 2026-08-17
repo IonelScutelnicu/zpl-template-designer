@@ -38,21 +38,6 @@ export const CODE11_GUARD_START_CHAR = '\uE001';
 export const CODE11_GUARD_STOP_CHAR = '\uE002';
 
 /**
- * Font ID to descriptive label mapping (matches label-level dropdown)
- */
-export const FONT_LABELS = {
-  '0': '0 - Default',
-  'A': 'A - 9×5',
-  'B': 'B - 11×7',
-  'C': 'C - 18×10',
-  'D': 'D - 18×10',
-  'E': 'E - 28×15',
-  'F': 'F - 26×13',
-  'G': 'G - 60×40',
-  'H': 'H - 21×13'
-};
-
-/**
  * ZPL font mapping.
  */
 export const ZPL_FONTS = {
@@ -206,17 +191,24 @@ export const ZPL_FONTS = {
       'b': { type: 'glyph', xRatio: -0.04 },
       'R': { type: 'glyph', xRatio: -0.04 },
       'r': { type: 'glyph', xRatio: -0.09 },
-      '}': { type: 'glyph', xRatio: -0.09 },
+      '{': { type: 'glyph', xRatio: 0.02 },
+      '}': { type: 'glyph', xRatio: -0.08 },
       'k': { type: 'glyph', xRatio: -0.09 },
       'c': { type: 'glyph', xRatio: -0.09 },
       'F': { type: 'glyph', xRatio: -0.04 },
+      'f': { type: 'glyph', xRatio: 0.02 },
       'E': { type: 'glyph', xRatio: -0.04 },
       'K': { type: 'glyph', xRatio: -0.04 },
       'P': { type: 'glyph', xRatio: -0.04 },
-      'p': { type: 'glyph', xRatio: -0.02 },
+      'p': { type: 'glyph', xRatio: -0.03 },
+      'm': { type: 'glyph', xRatio: -0.02 },
+      'n': { type: 'glyph', xRatio: -0.02 },
       'L': { type: 'glyph', xRatio: -0.02 },
       'u': { type: 'glyph', xRatio: -0.02 },
-      'j': { type: 'glyph', xRatio: -0.04 },
+      'v': { type: 'glyph', xRatio: -0.02 },
+      'i': { type: 'glyph', xRatio: -0.02 },
+      'h': { type: 'glyph', xRatio: -0.02 },
+      'j': { type: 'glyph', xRatio: -0.05 },
       'y': { type: 'glyph', xRatio: 0.02 },
       't': { type: 'glyph', xRatio: 0.04 },
       'Z': { type: 'glyph', xRatio: -0.04 },
@@ -227,6 +219,14 @@ export const ZPL_FONTS = {
       ':': { type: 'glyph', xRatio: -0.1 },
       ';': { type: 'glyph', xRatio: -0.14 },
       '[': { type: 'glyph', xRatio: -0.04 },
+      '!': { type: 'glyph', xRatio: -0.02 },
+      '(': { type: 'glyph', xRatio: -0.03 },
+      '`': { type: 'glyph', xRatio: 0.08 },
+      '|': { type: 'glyph', xRatio: -0.02 },
+      '?': { type: 'glyph', xRatio: -0.02 },
+      '"': { type: 'glyph', xRatio: -0.02 },
+      '$': { type: 'glyph', xRatio: -0.02 },
+      '#': { type: 'glyph', xRatio: 0.01 },
       '\'': { type: 'glyph', xRatio: -0.06 },
     },
   },

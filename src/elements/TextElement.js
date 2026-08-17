@@ -1,6 +1,6 @@
 import { ZPLElement } from './ZPLElement.js';
 import { renderFieldDataCommand, collapseLineBreaks } from '../utils/zplFieldData.js';
-import { resolvePlaceholders } from '../utils/placeholders.js';
+import { resolvePlaceholders, substitutePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
@@ -25,10 +25,6 @@ export class TextElement extends ZPLElement {
         return Math.max(resolvePlaceholders(this.content).length * (this.fontWidth || 30) * 0.6, 50);
     }
 
-    getEstimatedHeight() {
-        return (this.fontSize || 30) + 10;
-    }
-
     _render(content, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts = []) {
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
@@ -48,7 +44,7 @@ export class TextElement extends ZPLElement {
     }
 
     renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}, customFonts = []) {
-        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
+        return this._render(substitutePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
     getDisplayName() {

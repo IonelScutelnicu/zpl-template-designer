@@ -2,7 +2,7 @@ import { ZPLElement } from './ZPLElement.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 import { getBarcodeGeometry, normalizeAztecRune } from '../utils/barcodeGeometry.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
-import { resolvePlaceholders } from '../utils/placeholders.js';
+import { substitutePlaceholders } from '../utils/placeholders.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
 //   QR -> ^BQ,  DATAMATRIX -> ^BX,  PDF417 -> ^B7,  MICROPDF417 -> ^BF,  AZTEC -> ^B0,
@@ -100,7 +100,7 @@ export class QRCodeElement extends ZPLElement {
 
     renderPreview(defaultFontId, defaultFontHeight, defaultFontWidth, previewData = {}) {
         // Placeholders resolve to their Preview Data values for the Labelary preview
-        return this._render(resolvePlaceholders(this.content, previewData), previewData);
+        return this._render(substitutePlaceholders(this.content, previewData), previewData);
     }
 
     getDisplayName() {

@@ -7,22 +7,6 @@ import * as driveAuth from './DriveAuth.js';
 import * as drive from './DriveFiles.js';
 
 export class DriveTemplateService {
-  isConnected() {
-    return driveAuth.isConnected();
-  }
-
-  isConfigured() {
-    return driveAuth.getState().configured;
-  }
-
-  getFolder() {
-    return driveAuth.getFolder();
-  }
-
-  getProfile() {
-    return driveAuth.getProfile();
-  }
-
   /**
    * Load a Drive template by file ID. Used when the editor opens with
    * `?drive=<id>` and no sessionStorage payload (e.g. user refreshed).
@@ -48,13 +32,5 @@ export class DriveTemplateService {
    */
   async update({ fileId, name, json }) {
     return drive.updateFile(fileId, name, json);
-  }
-
-  async trash(fileId) {
-    return drive.trashFile(fileId);
-  }
-
-  viewUrl(fileId) {
-    return drive.driveViewUrl(fileId);
   }
 }

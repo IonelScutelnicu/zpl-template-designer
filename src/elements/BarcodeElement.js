@@ -1,7 +1,7 @@
 import { ZPLElement } from './ZPLElement.js';
 import { getBarcodeGeometry, linearFallbackModules } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
-import { resolvePlaceholders } from '../utils/placeholders.js';
+import { resolvePlaceholders, substitutePlaceholders } from '../utils/placeholders.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
 // 1D Barcode element. The `symbology` selects the ZPL command:
@@ -51,7 +51,7 @@ export class BarcodeElement extends ZPLElement {
 
     renderPreview(defaultFontId, defaultFontHeight, defaultFontWidth, previewData = {}) {
         // Placeholders resolve to their Preview Data values for the Labelary preview
-        return this._render(resolvePlaceholders(this.content, previewData), previewData);
+        return this._render(substitutePlaceholders(this.content, previewData), previewData);
     }
 
     getDisplayName() {

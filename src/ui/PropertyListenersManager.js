@@ -99,7 +99,7 @@ export class PropertyListenersManager {
         this.attachDiagonalLineProperties(element, attach);
         break;
       case "CIRCLE":
-        this.attachCircleProperties(element, attach);
+        this.attachCircleProperties(element);
         break;
       case "FIELDBLOCK":
         this.attachFieldBlockProperties(element, attach);
@@ -514,7 +514,7 @@ export class PropertyListenersManager {
   /**
    * Attach CIRCLE element property listeners
    */
-  attachCircleProperties(element, attach) {
+  attachCircleProperties(element) {
     const widthInput = document.getElementById('prop-width');
     const heightInput = document.getElementById('prop-height');
 

@@ -1,7 +1,7 @@
 import { resolveFontMetrics, resolveBaselineOffset, measureTextAdvanceDots } from './fontMetrics.js';
 import { getBarcodeGeometry, linearFallbackModules, matrixModuleDots } from './barcodeGeometry.js';
 import { DEFAULT_FONT_HEIGHT } from '../config/constants.js';
-import { placeholderNames, resolvePlaceholders } from './placeholders.js';
+import { emittedContent, placeholderNames, resolvePlaceholders } from './placeholders.js';
 
 // ^FO uses a field's top-left; ^FT uses a family-specific baseline or edge.
 // Model x/y always remains the visual top-left, with positionType affecting only
@@ -96,11 +96,13 @@ export function supportsFieldTypeset(type, element, defaults, measureInput) {
 /** Advance width in dots for the content the emitter will actually write, or
  *  null when it cannot be measured. Falls back to the element's own content,
  *  which is what import sees and what render() emits; renderPreview passes the
- *  placeholder-resolved string, so preview and export each anchor their own
- *  data — which is exactly what the printer does. */
+ *  placeholder-substituted string, so preview and export each anchor their own
+ *  data — which is exactly what the printer does. Measured through
+ *  emittedContent because the field data carries the escape resolved: an
+ *  unaccounted %% would count two glyphs where one prints. */
 function advanceWidthFor(element, defaults, measureInput) {
   const content = measureInput?.content;
-  const text = content !== undefined && content !== null ? content : (element?.content ?? '');
+  const text = emittedContent(content !== undefined && content !== null ? content : (element?.content ?? ''));
   return measureTextAdvanceDots(element, {
     fontId: defaults?.fontId,
     defaultFontHeight: defaults?.defaultFontHeight,

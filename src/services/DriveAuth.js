@@ -80,7 +80,9 @@ function persistToken(token, expiresIn) {
 
 function clearAll() {
   // Keep folderId/folderName so the last chosen folder is remembered across sessions.
-  const { folderId, folderName, ...sessionKeys } = STORAGE_KEYS;
+  const sessionKeys = { ...STORAGE_KEYS };
+  delete sessionKeys.folderId;
+  delete sessionKeys.folderName;
   Object.values(sessionKeys).forEach(safeLocalStorageRemove);
 }
 

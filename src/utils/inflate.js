@@ -232,16 +232,6 @@ function inflateBlocks(r) {
 }
 
 /**
- * Inflate a raw DEFLATE stream (RFC 1951).
- * @param {Uint8Array} data
- * @param {number} [start] byte offset to start at
- * @returns {Uint8Array}
- */
-export function inflateRaw(data, start = 0) {
-  return inflateBlocks(new BitReader(data, start));
-}
-
-/**
  * Inflate a zlib stream (RFC 1950: 2-byte header + DEFLATE + Adler-32).
  * Returns null on any structural error (bad header, preset dictionary,
  * corrupt DEFLATE data, or Adler-32 mismatch).

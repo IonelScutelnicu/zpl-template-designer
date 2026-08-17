@@ -1,3 +1,3 @@
 export function safeLocalStorageRemove(key) {
-  try { localStorage.removeItem(key); } catch (_) { }
+  try { localStorage.removeItem(key); } catch { }
 }

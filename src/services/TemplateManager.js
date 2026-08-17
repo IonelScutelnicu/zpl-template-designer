@@ -72,21 +72,4 @@ export class TemplateManager {
     event.target.value = '';
   }
 
-  /**
-   * Import template from JSON string
-   * @param {string} jsonString - JSON string to parse
-   * @returns {Object|null} Parsed template or null if invalid
-   */
-  importFromString(jsonString) {
-    return this.serializationService.importTemplate(jsonString);
-  }
-
-  /**
-   * Validate template structure
-   * @param {Object} template - Template to validate
-   * @returns {Object} Validation result { valid: boolean, errors: string[] }
-   */
-  validateTemplate(template) {
-    return this.serializationService.validateTemplate(template);
-  }
 }

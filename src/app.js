@@ -78,7 +78,7 @@ function rehydrateFromHandoff() {
   let galleryTemplateJson = null;
   try {
     galleryTemplateJson = sessionStorage.getItem('gallery_template');
-  } catch (_) { }
+  } catch { }
   if (galleryTemplateJson) {
     sessionStorage.removeItem('gallery_template');
     try {
@@ -141,7 +141,7 @@ function restoreLocalDraft() {
   if (urlShareService.getTemplateFromUrl()) return;
   try {
     if (sessionStorage.getItem('gallery_template')) return;
-  } catch (_) { }
+  } catch { }
 
   const template = serializationService.importTemplate(json);
   if (!template) {
@@ -399,7 +399,6 @@ const warningsPanel = document.getElementById("warnings-panel");
 const warningsList = document.getElementById("warnings-list");
 const warningsCount = document.getElementById("warnings-count");
 const warningsDismissBtn = document.getElementById("warnings-dismiss-btn");
-const togglePreviewModeBtn = null; // Deprecated
 const modeCanvasBtn = document.getElementById("mode-canvas-btn");
 const modeOverlayBtn = document.getElementById("mode-overlay-btn");
 const modeApiBtn = document.getElementById("mode-api-btn");
@@ -673,7 +672,7 @@ export function initApp() {
         reencodeGraphicElement(element, { widthDots: element.widthDots, heightDots: element.heightDots });
       }
     },
-    onElementMoved: (element) => {
+    onElementMoved: () => {
       // Keyboard nudge - update everything
       updateZPLOutput();
       renderCanvasPreview();
@@ -2408,18 +2407,6 @@ function setSaving(saving) {
   updateSaveStatusUI();
 }
 
-function formatRelativeTime(date) {
-  if (!date) return '';
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 5) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return date.toLocaleDateString();
-}
-
 function updateSaveStatusUI() {
   const dot = document.getElementById('editor-doc-dot');
   if (!dot) return;
@@ -2921,10 +2908,6 @@ function serializeElement(element) {
   return serializationService.serializeElement(element);
 }
 
-function serializeElementWithId(element) {
-  return serializationService.serializeElementWithId(element);
-}
-
 function createElementFromData(data, options = {}) {
   return serializationService.createElementFromData(data, options);
 }
@@ -3263,7 +3246,7 @@ async function updatePreview() {
   }
 
   // Generate preview ZPL with byte map for warning resolution
-  const generated = zplGenerator.generatePreviewZPLWithMap(state.elements, state.labelSettings, state.selectedElement);
+  const generated = zplGenerator.generatePreviewZPLWithMap(state.elements, state.labelSettings);
   const fontPreamble = buildFontDownloadPreamble(state.elements, state.labelSettings);
   const prefix = fontPreamble ? `${fontPreamble}\n` : '';
   const previewZpl = prefix + generated.zpl;
@@ -3407,7 +3390,7 @@ async function copyTextToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch (error) {
+    } catch {
       // Fall back to execCommand copy below.
     }
   }
@@ -3428,7 +3411,7 @@ function fallbackCopyZPL(text) {
   ta.select();
   ta.setSelectionRange(0, text.length); // For mobile devices
   let ok = false;
-  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
   document.body.removeChild(ta);
   return ok;
 }

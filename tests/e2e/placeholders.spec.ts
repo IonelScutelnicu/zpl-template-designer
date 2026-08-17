@@ -128,6 +128,28 @@ test.describe('Content placeholders and Preview Data', () => {
             await zplOutput.verifyZPLContains('^FDPrice: %price%^FS');
         });
 
+        test('an escaped %% collapses once, not twice, in the preview ZPL', async ({ page }) => {
+            await elementsPanel.addTextElement();
+            await elementsPanel.selectElementByIndex(0);
+            // Content "50%%%% off %promo%" prints two literal percents, and a value
+            // carrying its own percent stays literal too.
+            await propertiesPanel.setProperty('prop-content', '50%%%% off %promo%');
+
+            await page.locator('details[data-fs-tab="preview-data"] summary').click();
+            const value = page.locator('#preview-data-panel [data-placeholder="promo"]');
+            await value.fill('10% more');
+            await value.dispatchEvent('input');
+
+            const previewZpl = await page.evaluate(async () => {
+                const { ZPLGenerator } = await import('/src/services/ZPLGenerator.js');
+                const state = (window as any).appState;
+                return new ZPLGenerator().generatePreviewZPL(state.elements, state.labelSettings);
+            });
+
+            expect(previewZpl).toContain('^FD50%% off 10% more^FS');
+            await zplOutput.verifyZPLContains('^FD50%% off %promo%^FS');
+        });
+
         test('an unset placeholder previews as its bare name', async ({ page }) => {
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);

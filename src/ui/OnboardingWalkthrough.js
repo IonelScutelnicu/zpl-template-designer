@@ -90,7 +90,7 @@ export class OnboardingWalkthrough {
   }
 
   init() {
-    try { if (localStorage.getItem(STORAGE_KEY)) return; } catch (_) { return; }
+    try { if (localStorage.getItem(STORAGE_KEY)) return; } catch { return; }
     setTimeout(() => this.start(), 400);
   }
 
@@ -323,12 +323,12 @@ export class OnboardingWalkthrough {
   }
 
   _skip() {
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch (_) { }
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { }
     this._cleanup(true);
   }
 
   _finish() {
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch (_) { }
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { }
     this._cleanup(true);
   }
 

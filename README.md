@@ -202,7 +202,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/services/TemplateManager.js` — JSON import/export file operations
 - `src/services/UrlShareService.js` — Shareable URL generation and decoding
 - `src/services/SmartGuideService.js` — Alignment guide detection and snapping
-- `src/services/DriveTemplateService.js` — Drive-backed create/load/update/trash operations
+- `src/services/DriveTemplateService.js` — Drive-backed create/load/update operations
 - `src/services/EmbedBridge.js` — Embed-mode postMessage protocol with host applications
 
 ### UI Components
@@ -275,8 +275,6 @@ npm run test:debug
 
 - All specs are `*.spec.ts` under `tests/e2e/` and run in parallel.
 - The `*-api.spec.ts` naming (e.g. `preview-api.spec.ts`) is a historical convention from tests that hit the Labelary API; they no longer run in a separate project.
-
-> `npm run test:core` and `npm run test:api` are stale scripts in `package.json` that reference Playwright projects which no longer exist — they fail with "Project not found". Run `npx playwright test` directly instead.
 
 ## Tech Stack
 

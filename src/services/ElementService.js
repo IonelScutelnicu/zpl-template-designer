@@ -460,21 +460,4 @@ export class ElementService {
     return element;
   }
 
-  /**
-   * Get element by ID
-   * @param {string|number} id - Element ID
-   * @returns {Object|null} Element or null if not found
-   */
-  getElementById(id) {
-    const idStr = String(id);
-    return this.state.elements.find(el => String(el.id) === idStr) || null;
-  }
-
-  /**
-   * Get all elements
-   * @returns {Array} Array of elements
-   */
-  getAllElements() {
-    return this.state.elements;
-  }
 }

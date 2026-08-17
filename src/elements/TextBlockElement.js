@@ -1,6 +1,6 @@
 import { ZPLElement } from './ZPLElement.js';
 import { renderFieldDataCommand, normalizeLineBreaks } from '../utils/zplFieldData.js';
-import { resolvePlaceholders } from '../utils/placeholders.js';
+import { substitutePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 
@@ -38,7 +38,7 @@ export class TextBlockElement extends ZPLElement {
     }
 
     renderPreview(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, previewData = {}, customFonts = []) {
-        return this._render(resolvePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
+        return this._render(substitutePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
     getDisplayName() {

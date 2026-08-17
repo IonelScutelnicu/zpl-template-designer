@@ -6,7 +6,7 @@ import { snapRequestedToAllowed, enforceFontMinSize, proportionalRequestedHeight
 import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapseLineBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { placeholderName } from '../utils/placeholders.js';
 import { emittedOriginOffset, normalizeFoJustifyImport, normalizeFtImport, typesetCursorAdvance } from '../utils/fieldAnchor.js';
-import { DATABAR_TYPE_BY_NUM, getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
+import { getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive, isUnknownFontId, normalizePrinterFontPath, nextCustomFontId, resolveRenderFontId } from '../utils/customFonts.js';
 import { DEFAULT_FONT_ID } from '../config/constants.js';
 

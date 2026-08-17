@@ -1,7 +1,7 @@
 // Interaction Handler for Canvas
 // Handles mouse clicks, drag-to-move, and keyboard events
 
-import { getBarcodeGeometry, matrixModuleDots, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from './utils/barcodeGeometry.js';
+import { getBarcodeGeometry, linearFallbackModules, BARCODE_2D_SIZE_BOUNDS } from './utils/barcodeGeometry.js';
 import { resolvePlaceholders } from './utils/placeholders.js';
 import { LINE_HEIGHT_RATIO, clampNumber, fieldBlockExtents, isSpatial } from './utils/geometry.js';
 import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.js';
@@ -1056,7 +1056,7 @@ export class InteractionHandler {
     this.hasNotifiedDragStart = false;
   }
 
-  handleMouseLeave(e) {
+  handleMouseLeave() {
     // A marquee keeps tracking past the canvas edge (window-level listeners),
     // so leaving the canvas must NOT cancel it. Same for an element drag or
     // resize — those are tracked at window level until release.

@@ -48,8 +48,6 @@ export class ElementsListRenderer {
       : "border-slate-200 hover:border-blue-300 hover:shadow-sm bg-white";
 
     const isFirst = index === 0;
-    const isLast = index === element.length - 1; // Note: This will always be false in the map context
-
     const hasWarnings = warnings.some(w => w.elementId !== null && String(w.elementId) === String(element.id));
     const warningIcon = hasWarnings
       ? '<span class="material-icons-round text-amber-500 text-xs" title="Has ZPL warnings">warning</span>'

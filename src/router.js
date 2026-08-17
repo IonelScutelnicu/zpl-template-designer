@@ -73,7 +73,7 @@ async function ensureInitialized(view) {
     const mod = await import('./app.js');
     mod.initApp();
     document.fonts.load('bold 1px "Roboto Condensed"').then(() => {
-      try { mod.renderCanvasPreview(); } catch (_) {}
+      try { mod.renderCanvasPreview(); } catch {}
     }).catch(() => {});
   } else {
     const mod = await import('./gallery.js');

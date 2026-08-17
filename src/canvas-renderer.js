@@ -33,7 +33,6 @@ export class CanvasRenderer {
     this.offsetX = 0;
     this.offsetY = 0;
     this.transparentBackground = false;
-    this.showGrid = false; // Hide grid to match API preview look
     this.smartGuides = []; // Active smart guide lines during drag
     this.marqueeRect = null; // Active marquee rectangle during drag-select (label-dot coords)
 
@@ -111,11 +110,6 @@ export class CanvasRenderer {
       this.ctx.fillRect(0, 0, labelWidthDots, labelHeightDots);
     }
 
-    // Draw grid if enabled
-    if (this.showGrid) {
-      this.drawGrid(labelWidthDots, labelHeightDots, dpmm);
-    }
-
     if (!this.transparentBackground) {
       // Draw offset zones with horizontal stripe pattern
       this.drawOffsetZones(labelWidthDots, labelHeightDots);
@@ -164,67 +158,6 @@ export class CanvasRenderer {
     }
 
     prefetchFontsForElements(elements, labelSettings, () => this.renderCanvas(elements, labelSettings, selectedList));
-  }
-
-  /**
-   * Draw grid overlay
-   */
-  drawGrid(labelWidthDots, labelHeightDots, dpmm) {
-    const gridSpacing = 5 * dpmm; // 5mm grid spacing
-    const majorGridSpacing = 10 * dpmm; // 10mm major grid lines
-
-    this.ctx.save();
-
-    // Chrome (grid, guides, selection) is constant on-screen: because
-    // applyViewport forces CSS size = canvas internal size, raw lineWidth
-    // values are already in screen pixels regardless of zoom. Only
-    // coordinates (positions) are multiplied by this.scale.
-
-    // Minor grid lines (5mm)
-    this.ctx.strokeStyle = '#e2e8f0';
-    this.ctx.lineWidth = 0.5;
-
-    // Vertical lines
-    for (let x = gridSpacing; x < labelWidthDots; x += gridSpacing) {
-      const scaledX = x * this.scale;
-      this.ctx.beginPath();
-      this.ctx.moveTo(scaledX, 0);
-      this.ctx.lineTo(scaledX, labelHeightDots * this.scale);
-      this.ctx.stroke();
-    }
-
-    // Horizontal lines
-    for (let y = gridSpacing; y < labelHeightDots; y += gridSpacing) {
-      const scaledY = y * this.scale;
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, scaledY);
-      this.ctx.lineTo(labelWidthDots * this.scale, scaledY);
-      this.ctx.stroke();
-    }
-
-    // Major grid lines (10mm)
-    this.ctx.strokeStyle = '#cbd5e1';
-    this.ctx.lineWidth = 1;
-
-    // Vertical major lines
-    for (let x = majorGridSpacing; x < labelWidthDots; x += majorGridSpacing) {
-      const scaledX = x * this.scale;
-      this.ctx.beginPath();
-      this.ctx.moveTo(scaledX, 0);
-      this.ctx.lineTo(scaledX, labelHeightDots * this.scale);
-      this.ctx.stroke();
-    }
-
-    // Horizontal major lines
-    for (let y = majorGridSpacing; y < labelHeightDots; y += majorGridSpacing) {
-      const scaledY = y * this.scale;
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, scaledY);
-      this.ctx.lineTo(labelWidthDots * this.scale, scaledY);
-      this.ctx.stroke();
-    }
-
-    this.ctx.restore();
   }
 
   /**
@@ -552,13 +485,6 @@ export class CanvasRenderer {
   }
 
   /**
-   * Toggle grid visibility
-   */
-  toggleGrid() {
-    this.showGrid = !this.showGrid;
-  }
-
-  /**
    * Set active smart guides (called by interaction handler during drag)
    * @param {Array} guides - Array of {axis: 'x'|'y', position: number, type: string}
    */
@@ -579,13 +505,6 @@ export class CanvasRenderer {
    */
   setMarquee(rect) {
     this.marqueeRect = rect;
-  }
-
-  /**
-   * Clear the active marquee rectangle (called on drag-select end).
-   */
-  clearMarquee() {
-    this.marqueeRect = null;
   }
 
   /**
