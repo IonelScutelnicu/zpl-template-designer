@@ -3888,10 +3888,13 @@ function wireDriveEditorBindings() {
     openExportGalleryModal('update');
   });
 
-  // Ctrl/Cmd+S → Save to Drive (suppress browser save-page default).
+  // Ctrl/Cmd+S → Save to Drive (suppress browser save-page default). In embed
+  // mode the Drive entry points are hidden, so the shortcut only swallows the
+  // browser default instead of warning about a connection the host can't make.
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();
+      if (isEmbedMode()) return;
       saveToDrive();
     }
   });
