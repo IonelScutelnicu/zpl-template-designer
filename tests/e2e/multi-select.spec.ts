@@ -157,6 +157,162 @@ test.describe('Multi-select', () => {
         expect(await canvas.getSelectionCount()).toBe(2);
     });
 
+    // ===== Marquee from the workspace (outside the canvas) =====
+
+    test('marquee started in the workspace selects touched elements and skips locked ones', async ({ page }) => {
+        await addBoxAt(page, 50, 50);    // box 0
+        await addBoxAt(page, 300, 50);   // box 1
+        await addBoxAt(page, 50, 200);   // box 2 (will be locked)
+        await setLocked(page, 2, true);
+
+        // Press in the grey area above-left of the label, drag over all three boxes.
+        await canvas.marqueeDragFromWorkspace(5, 5, 460, 300);
+        await canvas.waitForReady();
+
+        expect(await canvas.getSelectionCount()).toBe(2);
+    });
+
+    test('shift+marquee from the workspace adds to the existing selection', async ({ page }) => {
+        await addBoxAt(page, 50, 50);    // box 0 → center (100,75)
+        await addBoxAt(page, 500, 200);  // box 1
+
+        await canvas.clickAtLabelCoords(550, 225); // box 1's centre
+        expect(await canvas.getSelectionCount()).toBe(1);
+
+        // Additive marquee from the workspace over the first box keeps the second.
+        await canvas.marqueeDragFromWorkspace(5, 5, 150, 120, true);
+        await canvas.waitForReady();
+        expect(await canvas.getSelectionCount()).toBe(2);
+    });
+
+    test('the marquee band spans the workspace and is hidden on release', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+
+        const canvasBox = await canvas.getBoundingBox();
+        if (!canvasBox) throw new Error('no canvas');
+        const workspaceBox = await page.locator('#preview-container').boundingBox();
+        if (!workspaceBox) throw new Error('no workspace');
+
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+
+        await page.mouse.move(workspaceBox.x + 5, workspaceBox.y + 5);
+        await page.mouse.down();
+        await page.mouse.move(canvasBox.x + 200, canvasBox.y + 150, { steps: 10 });
+
+        // The band is drawn in screen space: it starts where the press happened,
+        // left of and above the canvas, rather than being clipped to the label.
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(true);
+        const band = await canvas.getMarqueeOverlayBox();
+        if (!band) throw new Error('no band');
+        expect(Math.abs(band.x - (workspaceBox.x + 5))).toBeLessThanOrEqual(1);
+        expect(Math.abs(band.y - (workspaceBox.y + 5))).toBeLessThanOrEqual(1);
+        expect(band.x).toBeLessThan(canvasBox.x);
+        expect(Math.abs(band.x + band.width - (canvasBox.x + 200))).toBeLessThanOrEqual(1);
+
+        await page.mouse.up();
+        await canvas.waitForReady();
+
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+        expect(await canvas.getSelectionCount()).toBe(1);
+    });
+
+    test('Escape cancels a workspace marquee and hides the band', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+
+        const canvasBox = await canvas.getBoundingBox();
+        if (!canvasBox) throw new Error('no canvas');
+        const workspaceBox = await page.locator('#preview-container').boundingBox();
+        if (!workspaceBox) throw new Error('no workspace');
+
+        await page.mouse.move(workspaceBox.x + 5, workspaceBox.y + 5);
+        await page.mouse.down();
+        await page.mouse.move(canvasBox.x + 200, canvasBox.y + 150, { steps: 5 });
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(true);
+
+        await page.keyboard.press('Escape');
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+        expect(await page.evaluate(() =>
+            (window as unknown as { interactionHandler: { isMarquee: boolean } }).interactionHandler.isMarquee)).toBe(false);
+
+        await page.mouse.up(); // release after the cancel changes nothing
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+    });
+
+    test('a plain click in the workspace clears the selection', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+        await canvas.clickAtLabelCoords(100, 75);
+        expect(await canvas.getSelectionCount()).toBe(1);
+
+        const workspaceBox = await page.locator('#preview-container').boundingBox();
+        if (!workspaceBox) throw new Error('no workspace');
+        await page.mouse.click(workspaceBox.x + 5, workspaceBox.y + 5);
+        await canvas.waitForReady();
+
+        expect(await canvas.getSelectionCount()).toBe(0);
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+    });
+
+    test('space+drag in the workspace pans instead of starting a marquee', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+        await canvas.clickAtLabelCoords(100, 75);
+        expect(await canvas.getSelectionCount()).toBe(1);
+
+        const before = await canvas.getBoundingBox();
+        const workspaceBox = await page.locator('#preview-container').boundingBox();
+        if (!before || !workspaceBox) throw new Error('no geometry');
+
+        await page.keyboard.down('Space');
+        await page.mouse.move(workspaceBox.x + 5, workspaceBox.y + 5);
+        await page.mouse.down();
+        await page.mouse.move(workspaceBox.x + 60, workspaceBox.y + 40, { steps: 5 });
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+        await page.mouse.up();
+        await page.keyboard.up('Space');
+
+        // The label moved with the pan and the selection is untouched.
+        const after = await canvas.getBoundingBox();
+        if (!after) throw new Error('no canvas');
+        expect(after.x - before.x).toBeCloseTo(55, 0);
+        expect(after.y - before.y).toBeCloseTo(35, 0);
+        expect(await canvas.getSelectionCount()).toBe(1);
+    });
+
+    test('pressing a floating control in the workspace does not start a marquee', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+        await canvas.clickAtLabelCoords(100, 75);
+
+        // The zoom island sits inside the workspace; it must stay clickable.
+        await page.locator('#zoom-level-btn').click();
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+        await expect(page.locator('#zoom-presets-menu')).toBeVisible();
+        expect(await canvas.getSelectionCount()).toBe(1);
+    });
+
+    test('a workspace drag does not start a marquee in api preview mode', async ({ page }) => {
+        await addBoxAt(page, 50, 50);
+        await addBoxAt(page, 300, 50); // adding selects it → selection of 1
+
+        const canvasBox = await canvas.getBoundingBox();
+        if (!canvasBox) throw new Error('no canvas');
+
+        // The canvas is hidden in api mode, so there is nothing to select on.
+        await page.locator('#mode-api-btn').click();
+        await expect(page.locator('#label-canvas')).toBeHidden();
+
+        const workspaceBox = await page.locator('#preview-container').boundingBox();
+        if (!workspaceBox) throw new Error('no workspace');
+        await page.mouse.move(workspaceBox.x + 5, workspaceBox.y + 5);
+        await page.mouse.down();
+        await page.mouse.move(canvasBox.x + 400, canvasBox.y + 300, { steps: 5 });
+        expect(await canvas.isMarqueeOverlayVisible()).toBe(false);
+        await page.mouse.up();
+
+        // A marquee that had started would have cleared the selection on press.
+        expect(await canvas.getSelectionCount()).toBe(1);
+        expect(await page.evaluate(() =>
+            (window as unknown as { interactionHandler: { isMarquee: boolean } }).interactionHandler.isMarquee)).toBe(false);
+    });
+
     test('group drag moves all selected elements together as one undo entry', async ({ page }) => {
         // Use default-position boxes so the pre-move state is itself a history
         // checkpoint (manual evaluate-positioning would not record history, so a

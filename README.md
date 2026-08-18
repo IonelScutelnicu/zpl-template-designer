@@ -9,7 +9,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Editor + template gallery** — switch between the visual editor and a curated templates gallery
 - **Three preview modes** — Edit canvas, Overlay mode on top of Labelary output, and Labelary Preview mode
 - **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge, and layer cycling
-- **Multi-select** — Shift+Click, marquee drag (touch-select), or `Ctrl+A`; move/delete/duplicate the set, and align or distribute selected elements relative to each other
+- **Multi-select** — Shift+Click, marquee drag (touch-select, startable on the canvas or the workspace around it), or `Ctrl+A`; move/delete/duplicate the set, and align or distribute selected elements relative to each other
 - **Smart guides** — hold `Ctrl` while dragging or resizing to snap to label edges, centers, and nearby elements
 - **Canvas context menu** — right-click for copy, paste, duplicate, reorder, align, lock, and delete actions
 - **Undo/redo history** — full history panel with named entries
@@ -139,8 +139,8 @@ Most actions operate on the current selection, which may be one or several eleme
 |---|---|
 | Select element | Click element |
 | Add / remove from selection | `Shift` + Click |
-| Marquee select | Drag on empty canvas |
-| Extend marquee selection | `Shift` + Drag on empty canvas |
+| Marquee select | Drag on empty canvas or the workspace around it |
+| Extend marquee selection | `Shift` + Drag on empty canvas or the workspace |
 | Select all | `Ctrl` + `A` |
 | Deselect | Click empty area |
 | Cycle elements (forward / back) | `Tab` / `Shift` + `Tab` |

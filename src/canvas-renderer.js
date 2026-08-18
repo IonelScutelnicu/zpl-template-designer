@@ -34,7 +34,6 @@ export class CanvasRenderer {
     this.offsetY = 0;
     this.transparentBackground = false;
     this.smartGuides = []; // Active smart guide lines during drag
-    this.marqueeRect = null; // Active marquee rectangle during drag-select (label-dot coords)
 
     // Initialize specialized renderers
     this.renderers = {
@@ -135,11 +134,6 @@ export class CanvasRenderer {
     elements.forEach(element => {
       this.drawElement(element, labelSettings);
     });
-
-    // Draw the marquee selection rectangle (if active) above elements.
-    if (this.marqueeRect) {
-      this.drawMarquee(this.marqueeRect);
-    }
 
     // Draw smart guide lines on top of elements in the same transformed space
     // so guides align with offsets/orientation/mirror.
@@ -497,34 +491,6 @@ export class CanvasRenderer {
    */
   clearSmartGuides() {
     this.smartGuides = [];
-  }
-
-  /**
-   * Set the active marquee rectangle (called by interaction handler during drag-select).
-   * @param {{x:number,y:number,width:number,height:number}|null} rect - In element-relative label dots
-   */
-  setMarquee(rect) {
-    this.marqueeRect = rect;
-  }
-
-  /**
-   * Draw the marquee selection rectangle. Coordinates are element-relative label
-   * dots (same space as drawSelectionIndicator), so offsets/zoom apply identically.
-   */
-  drawMarquee(rect) {
-    const x = (rect.x + this.homeX) * this.scale;
-    const y = (rect.y + this.homeY + this.labelTop) * this.scale;
-    const w = rect.width * this.scale;
-    const h = rect.height * this.scale;
-
-    this.ctx.save();
-    this.ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
-    this.ctx.fillRect(x, y, w, h);
-    this.ctx.strokeStyle = '#3B82F6';
-    this.ctx.lineWidth = 1;
-    this.ctx.setLineDash([4, 3]);
-    this.ctx.strokeRect(x + 0.5, y + 0.5, w, h);
-    this.ctx.restore();
   }
 
   /**

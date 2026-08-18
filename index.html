@@ -2069,7 +2069,7 @@
                   </div>
                   <div
                     class="p-6 flex-grow flex flex-col items-center justify-center bg-slate-50 relative min-h-[450px] overflow-hidden"
-                    id="preview-container" data-mode="canvas">
+                    id="preview-container" data-mode="canvas" data-marquee-surface>
 
                     <!-- Floating fullscreen toggle (top-right of the canvas, normal view only). -->
                     <button id="fullscreen-toggle-btn" data-tooltip="Enter fullscreen"
@@ -2699,6 +2699,12 @@
 
   <!-- Toast host -->
   <div id="toast-host" class="fixed bottom-6 right-6 z-50 flex flex-col-reverse gap-2 pointer-events-none"></div>
+
+  <!-- Marquee rubber-band — drawn in screen space so it isn't clipped by the preview card.
+       Colors are inline (not blue-500 utilities) so the band matches the canvas selection
+       indicators in both themes; the dark sheet remaps the blue utilities to grey. -->
+  <div id="marquee-overlay" class="hidden fixed z-40 pointer-events-none"
+    style="border: 1px dashed #3B82F6; background: rgba(59, 130, 246, 0.12);"></div>
 
   <script type="module" src="src/main.js"></script>
 </body>

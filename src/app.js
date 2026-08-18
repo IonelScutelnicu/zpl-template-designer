@@ -409,6 +409,7 @@ const labelCanvas = document.getElementById("label-canvas");
 const apiPreviewContainer = document.getElementById("api-preview-container");
 const previewContainer = document.getElementById("preview-container");
 const previewViewport = document.getElementById("preview-viewport");
+const marqueeOverlay = document.getElementById("marquee-overlay");
 const zoomControls = document.getElementById("zoom-controls");
 const zoomLevelBtn = document.getElementById("zoom-level-btn");
 const zoomLevelLabel = document.getElementById("zoom-level-label");
@@ -717,15 +718,14 @@ export function initApp() {
       renderCanvasPreview();
     },
     getSelectedElements: () => state.getSelectedElements(),
-    onMarqueeUpdate: (rect) => {
-      canvasRenderer.setMarquee(rect);
-      renderCanvasPreview();
+    onMarqueeUpdate: (clientRect) => {
+      setMarqueeOverlay(clientRect);
     },
-    onMarqueeSelect: (elements, rect) => {
+    onMarqueeSelect: (elements, clientRect) => {
       // Live update during marquee drag: selection + canvas only (panels are
       // refreshed once on release via onSelectionChanged).
       state.setSelection(elements);
-      canvasRenderer.setMarquee(rect);
+      setMarqueeOverlay(clientRect);
       renderCanvasPreview();
     },
     onElementsDragging: () => {
@@ -1818,6 +1818,23 @@ function beginPan(e) {
   panStartPanX = panX;
   panStartPanY = panY;
   previewContainer.style.cursor = 'grabbing';
+}
+
+/**
+ * Show/hide the marquee band. The overlay is fixed-position, so the client-px
+ * rect from the interaction handler applies directly — the band stays visible
+ * over the workspace and past the preview card, which clips its own children.
+ */
+function setMarqueeOverlay(clientRect) {
+  if (!clientRect) {
+    marqueeOverlay.classList.add('hidden');
+    return;
+  }
+  marqueeOverlay.style.left = `${clientRect.x}px`;
+  marqueeOverlay.style.top = `${clientRect.y}px`;
+  marqueeOverlay.style.width = `${clientRect.width}px`;
+  marqueeOverlay.style.height = `${clientRect.height}px`;
+  marqueeOverlay.classList.remove('hidden');
 }
 
 const OVERLAY_PREVIEW_DEBOUNCE_MS = 400;

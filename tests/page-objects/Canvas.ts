@@ -257,6 +257,36 @@ export class Canvas {
         if (additive) await this.page.keyboard.up('Shift');
     }
 
+    /**
+     * Drag a marquee that STARTS in the workspace (the area around the label,
+     * outside the canvas) and ends at a label coordinate. The start point is the
+     * preview container's origin plus a small offset, which is always outside
+     * the canvas box (the container pads the label by 24px at minimum).
+     */
+    async marqueeDragFromWorkspace(offsetX: number, offsetY: number, toX: number, toY: number, additive = false): Promise<void> {
+        const canvasBox = await this.getBoundingBox();
+        if (!canvasBox) throw new Error('Canvas not found');
+        const workspaceBox = await this.page.locator('#preview-container').boundingBox();
+        if (!workspaceBox) throw new Error('Preview container not found');
+        const scale = await this.getScale();
+        if (additive) await this.page.keyboard.down('Shift');
+        await this.page.mouse.move(workspaceBox.x + offsetX, workspaceBox.y + offsetY);
+        await this.page.mouse.down();
+        await this.page.mouse.move(canvasBox.x + toX * scale, canvasBox.y + toY * scale, { steps: 10 });
+        await this.page.mouse.up();
+        if (additive) await this.page.keyboard.up('Shift');
+    }
+
+    /** Whether the marquee rubber-band overlay is currently shown. */
+    async isMarqueeOverlayVisible(): Promise<boolean> {
+        return await this.page.locator('#marquee-overlay').isVisible();
+    }
+
+    /** Bounding box of the marquee rubber-band overlay (null when hidden). */
+    async getMarqueeOverlayBox(): Promise<{ x: number; y: number; width: number; height: number } | null> {
+        return await this.page.locator('#marquee-overlay').boundingBox();
+    }
+
     /** Select all elements via Ctrl+A. */
     async selectAll(): Promise<void> {
         await this.page.keyboard.press('Control+a');

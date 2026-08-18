@@ -46,6 +46,7 @@ export class InteractionHandler {
     this.pendingCollapseElement = null; // member of a multi-selection clicked without dragging
     this.isMarquee = false;         // drag-select rectangle in progress
     this.marqueeStart = null;       // {x, y} in label dots
+    this.marqueeStartClient = null; // {x, y} in client px — drives the screen-space band
     this.marqueeAdditive = false;   // Shift held → add to existing selection
     this.marqueeBase = [];          // selection that existed when an additive marquee began
     this.marqueeSelection = null;   // latest hits computed during the marquee drag
@@ -80,6 +81,7 @@ export class InteractionHandler {
     this._boundContextMenu = this.handleContextMenu.bind(this);
     this._boundKeyDown = this.handleKeyDown.bind(this);
     this._boundKeyUp = this.handleKeyUp.bind(this);
+    this._boundSurfaceMouseDown = this.handleSurfaceMouseDown.bind(this);
     this.canvas.addEventListener('mousedown', this._boundMouseDown);
     this.canvas.addEventListener('dblclick', this._boundDoubleClick);
     this.canvas.addEventListener('mousemove', this._boundCanvasMove);
@@ -88,6 +90,13 @@ export class InteractionHandler {
     this.canvas.addEventListener('contextmenu', this._boundContextMenu);
     this.canvas.addEventListener('touchstart', this._boundTouchStart, { passive: false });
     this.canvas.style.touchAction = 'none';
+
+    // Blank areas around the label (the workspace) start a marquee too, so a
+    // drag-select doesn't need empty canvas to begin on.
+    this.marqueeSurfaces = [...document.querySelectorAll('[data-marquee-surface]')];
+    for (const surface of this.marqueeSurfaces) {
+      surface.addEventListener('mousedown', this._boundSurfaceMouseDown);
+    }
 
     // Keyboard events (needs to be on document for arrow keys)
     document.addEventListener('keydown', this._boundKeyDown);
@@ -391,27 +400,57 @@ export class InteractionHandler {
         this.dragGroup = null;
       }
     } else {
-      // Empty canvas → start a marquee drag-select. Shift adds to the current
-      // selection; without Shift we deselect (a plain empty click clears).
-      this.isMarquee = true;
-      this.marqueeStart = { x: coords.x, y: coords.y };
-      this.marqueeSelection = null;
-      this.marqueeAdditive = e.shiftKey;
-      this.marqueeBase = e.shiftKey && this.callbacks.getSelectedElements
-        ? this.callbacks.getSelectedElements()
-        : [];
-      if (!e.shiftKey) {
-        this.callbacks.onElementSelected(null);
-      }
-      // Track the marquee at the window level so it survives the pointer leaving
-      // the canvas and finalizes on release wherever that happens. A touch
-      // marquee is tracked by the touch listeners instead — mouse listeners
-      // would let stray mouse events move or finalize it mid-gesture.
-      if (!e.isTouch) {
-        window.addEventListener('mousemove', this._boundMarqueeMove);
-        window.addEventListener('mouseup', this._boundMarqueeUp);
-      }
+      // Empty canvas → start a marquee drag-select.
+      this.startMarquee(coords, e);
     }
+  }
+
+  /**
+   * Begin a marquee drag-select at the given label coordinates. Shift adds to
+   * the current selection; without Shift we deselect (a plain empty click
+   * clears). Shared by the canvas and the workspace surfaces.
+   */
+  startMarquee(coords, e) {
+    this.isMarquee = true;
+    this.marqueeStart = { x: coords.x, y: coords.y };
+    this.marqueeStartClient = { x: e.clientX, y: e.clientY };
+    this.marqueeSelection = null;
+    this.marqueeAdditive = e.shiftKey;
+    this.marqueeBase = e.shiftKey && this.callbacks.getSelectedElements
+      ? this.callbacks.getSelectedElements()
+      : [];
+    if (!e.shiftKey) {
+      this.callbacks.onElementSelected(null);
+    }
+    // Track the marquee at the window level so it survives the pointer leaving
+    // the canvas and finalizes on release wherever that happens. A touch
+    // marquee is tracked by the touch listeners instead — mouse listeners
+    // would let stray mouse events move or finalize it mid-gesture.
+    if (!e.isTouch) {
+      window.addEventListener('mousemove', this._boundMarqueeMove);
+      window.addEventListener('mouseup', this._boundMarqueeUp);
+    }
+  }
+
+  /**
+   * Start a marquee from a blank workspace surface (the area around the label).
+   * Element hit-testing is deliberately skipped: nothing is drawn out here, so a
+   * press must never grab an element whose bounds hang off the label.
+   */
+  handleSurfaceMouseDown(e) {
+    // Left button only; middle/right stay with pan and the native menu.
+    if (e.button !== 0) return;
+    // Only the bare surface starts a marquee — the canvas, the floating zoom
+    // island, the Fullscreen toggle and the error card all bubble through here.
+    if (e.target !== e.currentTarget) return;
+    // An interaction in progress owns the state machine.
+    if (this._activeTouchId !== null || this._pointerTracking) return;
+    if (this.isDragging || this.isResizing || this.isMarquee) return;
+    // The canvas is hidden in api preview mode — there is nothing to select on.
+    if (this.canvas.classList.contains('hidden')) return;
+
+    e.preventDefault(); // suppress the native text-selection drag
+    this.startMarquee(this.renderer.mouseToLabelCoords(e.clientX, e.clientY), e);
   }
 
   /**
@@ -447,9 +486,12 @@ export class InteractionHandler {
       selection = [...byId.values()];
     }
     this.marqueeSelection = selection;
-    // Lightweight live update: set the rect + selection and redraw the canvas
+    // Lightweight live update: set the band + selection and redraw the canvas
     // only (panels are refreshed once on release to avoid per-frame DOM churn).
-    if (this.callbacks.onMarqueeSelect) this.callbacks.onMarqueeSelect(selection, rect);
+    // The band is reported in client px so it can be drawn in screen space,
+    // where the workspace and anything past the card edge are reachable.
+    const clientRect = this.normalizeRect(this.marqueeStartClient, { x: e.clientX, y: e.clientY });
+    if (this.callbacks.onMarqueeSelect) this.callbacks.onMarqueeSelect(selection, clientRect);
   }
 
   /**
@@ -476,6 +518,7 @@ export class InteractionHandler {
     }
 
     this.marqueeStart = null;
+    this.marqueeStartClient = null;
     this.marqueeBase = [];
     this.marqueeSelection = null;
     this.dragElement = null;
@@ -1562,6 +1605,9 @@ export class InteractionHandler {
     this.canvas.removeEventListener('contextmenu', this._boundContextMenu);
     this.canvas.removeEventListener('touchstart', this._boundTouchStart);
     this.canvas.style.touchAction = '';
+    for (const surface of this.marqueeSurfaces || []) {
+      surface.removeEventListener('mousedown', this._boundSurfaceMouseDown);
+    }
     document.removeEventListener('keydown', this._boundKeyDown);
     document.removeEventListener('keyup', this._boundKeyUp);
     window.removeEventListener('mousemove', this._boundMarqueeMove);
