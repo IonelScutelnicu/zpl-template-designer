@@ -18,6 +18,28 @@ import { GraphicFieldRenderer } from './rendering/GraphicFieldRenderer.js';
 import { GraphicSymbolRenderer } from './rendering/GraphicSymbolRenderer.js';
 import { prefetchFontsForElements } from './utils/fontLoader.js';
 
+/**
+ * Undo a canvas view rotation on a screen-space vector, returning the
+ * equivalent vector in unrotated (label) space.
+ *
+ * CSS `rotate(θ)` in a y-down space maps an unrotated offset (u, v) to
+ * (u·cosθ − v·sinθ, u·sinθ + v·cosθ). For the four quarter-turns the inverse
+ * is an exact integer swap, so no trig and no float drift.
+ *
+ * @param {number} dx - Screen-space x delta
+ * @param {number} dy - Screen-space y delta
+ * @param {number} deg - View rotation in degrees (0 | 90 | 180 | 270)
+ * @returns {{x: number, y: number}} Vector in unrotated label space
+ */
+export function unrotateViewVector(dx, dy, deg) {
+  switch (deg) {
+    case 90: return { x: dy, y: -dx };
+    case 180: return { x: -dx, y: -dy };
+    case 270: return { x: -dy, y: dx };
+    default: return { x: dx, y: dy };
+  }
+}
+
 export class CanvasRenderer {
   constructor(canvasOrId) {
     this.canvas = typeof canvasOrId === 'string'
@@ -34,6 +56,10 @@ export class CanvasRenderer {
     this.offsetY = 0;
     this.transparentBackground = false;
     this.smartGuides = []; // Active smart guide lines during drag
+    // View-only canvas rotation (0/90/180/270). Applied in CSS on the preview
+    // stage, never to the canvas bitmap — it exists here only so pointer and
+    // keyboard input can be mapped back out of screen space.
+    this.viewRotation = 0;
 
     // Initialize specialized renderers
     this.renderers = {
@@ -57,6 +83,16 @@ export class CanvasRenderer {
 
   setZoom(zoom) {
     this.zoom = Math.max(0.01, Number(zoom) || 1);
+  }
+
+  /**
+   * Set the view-only canvas rotation used to map input out of screen space.
+   * Drawing is unaffected — the rotation itself is applied in CSS.
+   * @param {number} deg - 0, 90, 180 or 270
+   */
+  setViewRotation(deg) {
+    const normalized = ((Math.round(Number(deg) || 0) % 360) + 360) % 360;
+    this.viewRotation = normalized % 90 === 0 ? normalized : 0;
   }
 
   /**
@@ -443,24 +479,32 @@ export class CanvasRenderer {
    */
   mouseToLabelCoords(mouseX, mouseY) {
     const rect = this.canvas.getBoundingClientRect();
+    const rot = this.viewRotation || 0;
+    const swapped = rot === 90 || rot === 270;
 
-    // Get mouse position relative to displayed canvas
-    const canvasX = mouseX - rect.left;
-    const canvasY = mouseY - rect.top;
+    // Under a view rotation the bounding rect is the *axis-aligned box* of the
+    // rotated canvas, so its corners are useless — work from its centre, which
+    // the rotation leaves fixed.
+    const dx = mouseX - (rect.left + rect.width / 2);
+    const dy = mouseY - (rect.top + rect.height / 2);
 
-    // Convert from CSS pixels to canvas-pixel coordinates
-    const cssScaleX = rect.width / this.canvas.width;
-    const cssScaleY = rect.height / this.canvas.height;
-    const pxX = canvasX / cssScaleX;
-    const pxY = canvasY / cssScaleY;
+    // Convert from CSS pixels to canvas-pixel coordinates. The rect's axes swap
+    // with the rotation; the ratio is 1 by construction (see applyViewport).
+    const cssScale = (swapped ? rect.height : rect.width) / this.canvas.width || 1;
+
+    // Undo the view rotation, then re-origin at the canvas top-left.
+    const v = unrotateViewVector(dx, dy, rot);
+    const pxX = v.x / cssScale + this.canvas.width / 2;
+    const pxY = v.y / cssScale + this.canvas.height / 2;
 
     // Convert canvas-pixels to label-dots through the current zoom factor.
     const z = this.scale || 1;
     let dotX = pxX / z;
     let dotY = pxY / z;
 
-    // If orientation is inverted, transform the coordinates
-    // The canvas is flipped 180°, so we need to invert the click position
+    // If orientation is inverted, transform the coordinates. This runs after
+    // the un-rotation above: the view rotation wraps an already-flipped canvas,
+    // so screen -> label undoes the rotation first, then the flip.
     if (this.printOrientation === 'I') {
       dotX = this.labelWidthDots - dotX;
       dotY = this.labelHeightDots - dotY;

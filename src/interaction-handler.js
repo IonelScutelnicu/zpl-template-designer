@@ -8,6 +8,11 @@ import { resolveFontLineHeight, resolveFontMetrics } from './utils/fontMetrics.j
 import { snapRequestedToAllowed, proportionalRequestedWidth } from './utils/zplFontSnap.js';
 import { GRAPHIC_SYMBOL_INK_RATIOS } from './elements/GraphicSymbolElement.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from './config/constants.js';
+import { unrotateViewVector } from './canvas-renderer.js';
+
+// Resize handles in visual order, clockwise from the top-left corner. Used to
+// map a handle onto the one that sits where it *appears* under a rotated view.
+const HANDLE_RING = ['tl', 't', 'tr', 'r', 'br', 'b', 'bl', 'l'];
 
 export class InteractionHandler {
   constructor(canvasRenderer, elements, labelSettings, callbacks) {
@@ -1310,33 +1315,23 @@ export class InteractionHandler {
 
     const moveAmount = e.shiftKey ? 10 : 1;
 
-    // Reverse arrow directions under inverted/mirror so visual movement matches.
-    const isInverted = this.labelSettings.printOrientation === 'I';
-    const isMirrored = this.labelSettings.printMirror === 'Y';
-    let effectiveKey = e.key;
-    if (isInverted) {
-      switch (e.key) {
-        case 'ArrowLeft': effectiveKey = 'ArrowRight'; break;
-        case 'ArrowRight': effectiveKey = 'ArrowLeft'; break;
-        case 'ArrowUp': effectiveKey = 'ArrowDown'; break;
-        case 'ArrowDown': effectiveKey = 'ArrowUp'; break;
-      }
-    }
-    if (isMirrored) {
-      switch (effectiveKey) {
-        case 'ArrowLeft': effectiveKey = 'ArrowRight'; break;
-        case 'ArrowRight': effectiveKey = 'ArrowLeft'; break;
-      }
-    }
-
+    // The arrow key names a *screen* direction, so map it into label space the
+    // same way a pointer position is mapped: undo the view rotation first (it
+    // wraps an already-flipped canvas), then undo the inverted/mirror flips.
     let dx = 0, dy = 0;
-    switch (effectiveKey) {
+    switch (e.key) {
       case 'ArrowLeft': dx = -moveAmount; break;
       case 'ArrowRight': dx = moveAmount; break;
       case 'ArrowUp': dy = -moveAmount; break;
       case 'ArrowDown': dy = moveAmount; break;
       default: return;
     }
+
+    ({ x: dx, y: dy } = unrotateViewVector(dx, dy, this.renderer.viewRotation || 0));
+
+    // Reverse directions under inverted/mirror so visual movement matches.
+    if (this.labelSettings.printOrientation === 'I') { dx = -dx; dy = -dy; }
+    if (this.labelSettings.printMirror === 'Y') { dx = -dx; }
 
     // Clamp the delta so every element's origin stays on the label: content
     // may hang past the edges (clipped, like a real printer), but ^FO
@@ -1573,6 +1568,14 @@ export class InteractionHandler {
    */
   getCursorForHandle(handle) {
     const isMirrored = this.labelSettings.printMirror === 'Y';
+    // Hit-testing is exact dot-space, so the user grabbed the handle they saw —
+    // only the arrow glyph needs rotating. Step around the ring by two slots
+    // per quarter-turn to reach the handle that sits in that screen position.
+    const rot = this.renderer.viewRotation || 0;
+    if (rot) {
+      const i = HANDLE_RING.indexOf(handle);
+      if (i !== -1) handle = HANDLE_RING[(i + (rot / 90) * 2) % HANDLE_RING.length];
+    }
     const cursorMap = {
       'tl': isMirrored ? 'nesw-resize' : 'nwse-resize',
       'tr': isMirrored ? 'nwse-resize' : 'nesw-resize',

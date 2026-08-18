@@ -409,6 +409,7 @@ const labelCanvas = document.getElementById("label-canvas");
 const apiPreviewContainer = document.getElementById("api-preview-container");
 const previewContainer = document.getElementById("preview-container");
 const previewViewport = document.getElementById("preview-viewport");
+const previewStage = document.getElementById("preview-stage");
 const marqueeOverlay = document.getElementById("marquee-overlay");
 const zoomControls = document.getElementById("zoom-controls");
 const zoomLevelBtn = document.getElementById("zoom-level-btn");
@@ -416,6 +417,8 @@ const zoomLevelLabel = document.getElementById("zoom-level-label");
 const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const zoomPresetsMenu = document.getElementById("zoom-presets-menu");
+const rotateViewBtn = document.getElementById("rotate-view-btn");
+const viewRotationLabel = document.getElementById("view-rotation-label");
 
 // Canvas and interaction state
 let canvasRenderer = null;
@@ -440,6 +443,13 @@ let zoom = 1;
 let panX = 0;
 let panY = 0;
 let isAtFit = true;
+// Canvas rotation: a view-only quarter-turn of the preview stage, so a label
+// whose content reads sideways can be worked on upright. Deliberately kept out
+// of AppState.labelSettings — serialize() copies that wholesale into every
+// history entry and export, so living here is what guarantees rotation never
+// reaches the ZPL, templates, undo, share links, or the Drive dirty flag.
+// Distinct from Print Orientation (^PO), which does affect output.
+let viewRotation = 0; // 0 | 90 | 180 | 270, clockwise-positive
 let isSpacePressed = false;
 let isPanning = false;
 let panStartClientX = 0;
@@ -1560,6 +1570,7 @@ export function renderCanvasPreview() {
     if (fit > 0) zoom = fit >= 1 ? 1 : fit;
   }
   canvasRenderer.setZoom(zoom);
+  canvasRenderer.setViewRotation(viewRotation);
   canvasRenderer.setTransparentBackground(previewMode === 'overlay');
   canvasRenderer.renderCanvas(state.elements, state.labelSettings, state.getSelectedElements());
   applyViewport();
@@ -1589,7 +1600,10 @@ function computeFitZoom() {
   const padding = 48;
   const availW = Math.max(1, previewContainer.clientWidth - padding);
   const availH = Math.max(1, previewContainer.clientHeight - padding);
-  return Math.min(availW / w, availH / h);
+  // At 90°/270° the label occupies its transpose on screen, so fit against the
+  // swapped dimensions — #preview-container clips its children.
+  const rotated = isViewRotationSwapped();
+  return Math.min(availW / (rotated ? h : w), availH / (rotated ? w : h));
 }
 
 function applyViewport() {
@@ -1598,10 +1612,21 @@ function applyViewport() {
   const pxW = Math.max(1, Math.round(w * zoom));
   const pxH = Math.max(1, Math.round(h * zoom));
 
-  previewViewport.style.width = `${pxW}px`;
-  previewViewport.style.height = `${pxH}px`;
+  // The viewport box is the label's *on-screen* footprint (transposed at
+  // 90°/270°); the stage keeps the label's own dimensions and carries the
+  // rotation. Since the footprint is the transpose of the stage box, the
+  // rotated stage fills the viewport exactly and both share a centre.
+  const rotated = isViewRotationSwapped();
+  previewViewport.style.width = `${rotated ? pxH : pxW}px`;
+  previewViewport.style.height = `${rotated ? pxW : pxH}px`;
   previewViewport.style.transform =
     `translate(-50%, -50%) translate(${Math.round(panX)}px, ${Math.round(panY)}px)`;
+
+  if (previewStage) {
+    previewStage.style.width = `${pxW}px`;
+    previewStage.style.height = `${pxH}px`;
+    previewStage.style.transform = `translate(-50%, -50%) rotate(${viewRotation}deg)`;
+  }
 
   // The canvas's internal width/height is set by the renderer; force the CSS
   // size to match (so rect.width === canvas.width and `cssScaleX === 1`).
@@ -1679,6 +1704,44 @@ function setZoomPreset(preset, { fromUser = true } = {}) {
   setZoomAt(z, undefined, undefined, { fromUser });
 }
 
+// True when the view rotation transposes the label's on-screen footprint.
+function isViewRotationSwapped() {
+  return viewRotation === 90 || viewRotation === 270;
+}
+
+/**
+ * Rotate the canvas view by a quarter-turn. View-only: the ZPL output, label
+ * settings, and history are untouched. Zoom and pan are preserved as-is; when
+ * the view is at Fit, renderCanvasPreview() recomputes a centered fit for the
+ * new footprint.
+ * @param {number} deg - Absolute angle; normalized into 0/90/180/270.
+ */
+function setViewRotation(deg) {
+  const next = ((Math.round(deg) % 360) + 360) % 360;
+  if (next % 90 !== 0) return;
+  viewRotation = next;
+  updateViewRotationLabel();
+  renderCanvasPreview();
+}
+
+function updateViewRotationLabel() {
+  // Upright is the common case, so the button is icon-only at 0° and grows a
+  // degree readout only once the view is turned — which also calls out a
+  // rotated canvas so it is never mistaken for Print Orientation (^PO).
+  const active = viewRotation !== 0;
+
+  if (viewRotationLabel) {
+    viewRotationLabel.textContent = active ? `${viewRotation}°` : '';
+    viewRotationLabel.classList.toggle('hidden', !active);
+  }
+
+  if (rotateViewBtn) {
+    rotateViewBtn.className =
+      `h-7 min-w-[28px] px-1.5 inline-flex items-center justify-center gap-1 rounded-full transition-colors ${active ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-600 hover:bg-slate-100'}`;
+    rotateViewBtn.setAttribute('aria-label', `Canvas rotation: ${viewRotation} degrees`);
+  }
+}
+
 function stepZoom(direction, anchorClientX, anchorClientY) {
   const ladder = ZOOM_PRESETS;
   // Find next preset strictly above (or below) current zoom.
@@ -1704,10 +1767,14 @@ function toggleZoomPresetsMenu(force) {
 function wireViewportListeners() {
   if (!previewContainer) return;
 
+  updateViewRotationLabel();
+
   // Pill: buttons + preset dropdown.
   if (zoomInBtn) zoomInBtn.addEventListener('click', (e) => { e.stopPropagation(); stepZoom(+1); });
   if (zoomOutBtn) zoomOutBtn.addEventListener('click', (e) => { e.stopPropagation(); stepZoom(-1); });
   if (zoomLevelBtn) zoomLevelBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleZoomPresetsMenu(); });
+  // One button, one job: step to the next quarter-turn and wrap at 360.
+  if (rotateViewBtn) rotateViewBtn.addEventListener('click', (e) => { e.stopPropagation(); setViewRotation(viewRotation + 90); });
   if (zoomPresetsMenu) {
     zoomPresetsMenu.addEventListener('click', (e) => {
       const btn = e.target.closest('.zoom-preset');
@@ -2691,9 +2758,43 @@ function cancelGroupTransformSession() {
 // Group align / distribute / delete — each a single history entry.
 // ============================================================
 
+// Screen edges in clockwise order, for mapping a clicked direction onto the
+// label edge that currently faces that way.
+const VIEW_ALIGN_EDGE_RING = ['left', 'top', 'right', 'bottom'];
+
+// Action pairs that trade places when the view rotation transposes the axes.
+const VIEW_ALIGN_AXIS_SWAP = {
+  'center-x': 'center-y', 'center-y': 'center-x',
+  'center-h': 'middle', 'middle': 'center-h',
+  'match-width': 'match-height', 'match-height': 'match-width',
+  'horizontal': 'vertical', 'vertical': 'horizontal',
+  'width': 'height', 'height': 'width'
+};
+
+/**
+ * Translate an alignment action from the direction the user sees into the label
+ * axis it currently corresponds to, so "align left" always pins to the edge on
+ * the left of the screen. AlignmentService stays purely label-relative.
+ *
+ * Identity at 0°, which keeps existing behaviour byte-for-byte.
+ * @param {string} action - Edge ('left'/'top'/…), axis ('center-x', 'width', …)
+ * @returns {string} The equivalent label-space action
+ */
+function viewToLabelAlignAction(action) {
+  if (!viewRotation) return action;
+  const edge = VIEW_ALIGN_EDGE_RING.indexOf(action);
+  if (edge !== -1) {
+    const shift = (4 - viewRotation / 90) % 4;
+    return VIEW_ALIGN_EDGE_RING[(edge + shift) % VIEW_ALIGN_EDGE_RING.length];
+  }
+  // A half-turn keeps each axis on its own screen axis; quarter-turns swap them.
+  if (!isViewRotationSwapped()) return action;
+  return VIEW_ALIGN_AXIS_SWAP[action] || action;
+}
+
 function runGroupAlignment(action) {
   const elements = state.getSelectedElements();
-  if (!alignmentService.alignElements(action, elements, state.labelSettings, canvasRenderer)) return;
+  if (!alignmentService.alignElements(viewToLabelAlignAction(action), elements, state.labelSettings, canvasRenderer)) return;
   updateZPLOutput();
   updateElementsList();
   renderCanvasPreview();
@@ -2704,7 +2805,7 @@ function runGroupAlignment(action) {
 
 function runGroupDistribute(axis) {
   const elements = state.getSelectedElements();
-  if (!alignmentService.distributeElements(axis, elements, state.labelSettings, canvasRenderer)) return;
+  if (!alignmentService.distributeElements(viewToLabelAlignAction(axis), elements, state.labelSettings, canvasRenderer)) return;
   updateZPLOutput();
   updateElementsList();
   renderCanvasPreview();
@@ -2720,7 +2821,7 @@ const LABEL_ALIGN_NAMES = {
 
 function runGroupAlignToLabel(action) {
   const elements = state.getSelectedElements();
-  if (!alignmentService.alignElementsToLabel(action, elements, state.labelSettings, canvasRenderer)) return;
+  if (!alignmentService.alignElementsToLabel(viewToLabelAlignAction(action), elements, state.labelSettings, canvasRenderer)) return;
   updateZPLOutput();
   updateElementsList();
   renderCanvasPreview();
@@ -2731,7 +2832,7 @@ function runGroupAlignToLabel(action) {
 
 function runGroupMatchSize(dimension) {
   const elements = state.getSelectedElements();
-  if (!alignmentService.matchSizeToLargest(dimension, elements, state.labelSettings, canvasRenderer)) return;
+  if (!alignmentService.matchSizeToLargest(viewToLabelAlignAction(dimension), elements, state.labelSettings, canvasRenderer)) return;
   updateZPLOutput();
   updateElementsList();
   renderCanvasPreview();
@@ -3150,7 +3251,7 @@ function animateElementListReorder(previousPositions) {
 
 // Alignment operations (delegated to AlignmentService)
 function applyAlignmentAction(action, element) {
-  alignmentService.applyAlignment(action, element, state.labelSettings, canvasRenderer);
+  alignmentService.applyAlignment(viewToLabelAlignAction(action), element, state.labelSettings, canvasRenderer);
 }
 
 function attachPropertyListeners(element) {
@@ -3710,6 +3811,8 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   isAtFit = true;
   panX = 0;
   panY = 0;
+  viewRotation = 0;
+  updateViewRotationLabel();
 
   // Clear the painted Labelary preview so the old template doesn't flash in
   // overlay mode. The cache keeps its entries (keyed by request signature); the

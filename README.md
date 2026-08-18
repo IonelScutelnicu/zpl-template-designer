@@ -10,6 +10,7 @@ A visual, browser-based editor for creating Zebra Programming Language (ZPL) lab
 - **Three preview modes** — Edit canvas, Overlay mode on top of Labelary output, and Labelary Preview mode
 - **Canvas interactions** — click to select, drag to move, handle-based resize, arrow-key nudge, and layer cycling
 - **Multi-select** — Shift+Click, marquee drag (touch-select, startable on the canvas or the workspace around it), or `Ctrl+A`; move/delete/duplicate the set, and align or distribute selected elements relative to each other
+- **Canvas rotation** — rotate the editing view in 90° steps from the floating zoom pill, so a label whose content reads sideways can be edited upright. Purely visual: clicks, drags, arrow keys, resize cursors, and align/distribute all follow what you see, while the generated ZPL, saved template, and share link are untouched
 - **Smart guides** — hold `Ctrl` while dragging or resizing to snap to label edges, centers, and nearby elements
 - **Canvas context menu** — right-click for copy, paste, duplicate, reorder, align, lock, and delete actions
 - **Undo/redo history** — full history panel with named entries

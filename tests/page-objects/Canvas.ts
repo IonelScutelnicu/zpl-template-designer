@@ -213,17 +213,61 @@ export class Canvas {
         });
     }
 
+    /** The current view-only canvas rotation (0/90/180/270). */
+    async getViewRotation(): Promise<number> {
+        return await this.page.evaluate(() => {
+            // @ts-ignore - canvasRenderer is global
+            return window.canvasRenderer ? (window.canvasRenderer.viewRotation || 0) : 0;
+        });
+    }
+
+    /**
+     * Convert label coordinates (dots) to viewport client pixels — the exact
+     * inverse of CanvasRenderer.mouseToLabelCoords, including the canvas view
+     * rotation. Under a rotated view the canvas bounding rect is the
+     * axis-aligned box of the rotated canvas, so this works from its centre
+     * (which the rotation leaves fixed) rather than from its corner.
+     *
+     * At 0 degrees it reduces to rect.left + labelX * zoom * cssScale, which is
+     * what the unrotated helpers always used.
+     */
+    private async labelToClient(labelX: number, labelY: number): Promise<{ x: number; y: number }> {
+        await this.resetScroll();
+        return await this.canvas.evaluate((el, { lx, ly }) => {
+            const canvas = el as HTMLCanvasElement;
+            const renderer = (window as unknown as {
+                canvasRenderer?: { scale: number; viewRotation?: number };
+            }).canvasRenderer;
+            const zoom = renderer?.scale || 1;
+            const rot = renderer?.viewRotation || 0;
+            const swapped = rot === 90 || rot === 270;
+            const rect = canvas.getBoundingClientRect();
+            const cssScale = (swapped ? rect.height : rect.width) / canvas.width || 1;
+            const u = (lx * zoom - canvas.width / 2) * cssScale;
+            const v = (ly * zoom - canvas.height / 2) * cssScale;
+            // CSS rotate(t), y-down: (u,v) -> (u cos t - v sin t, u sin t + v cos t)
+            const d = rot === 90 ? [-v, u] : rot === 180 ? [-u, -v] : rot === 270 ? [v, -u] : [u, v];
+            return { x: rect.left + rect.width / 2 + d[0], y: rect.top + rect.height / 2 + d[1] };
+        }, { lx: labelX, ly: labelY });
+    }
+
+    /**
+     * Label coordinates (dots) as an offset inside the canvas bounding box, for
+     * Playwright's position option (which is bounding-box relative).
+     */
+    private async labelToBoxPosition(labelX: number, labelY: number): Promise<{ x: number; y: number }> {
+        const box = await this.getBoundingBox();
+        if (!box) throw new Error('Canvas not found');
+        const client = await this.labelToClient(labelX, labelY);
+        return { x: client.x - box.x, y: client.y - box.y };
+    }
+
     /**
      * Click at a specific position using label coordinates (dots)
-     * Handles scaling automatically
+     * Handles scaling and canvas rotation automatically
      */
     async clickAtLabelCoords(labelX: number, labelY: number): Promise<void> {
-        const scale = await this.getScale();
-        // Convert label coords (dots) to canvas pixels
-        // Add a small offset (1px) to ensure we're inside if on border
-        const pixelX = labelX * scale;
-        const pixelY = labelY * scale;
-        await this.clickAt(pixelX, pixelY);
+        await this.canvas.click({ position: await this.labelToBoxPosition(labelX, labelY) });
     }
 
     /**
@@ -237,8 +281,7 @@ export class Canvas {
 
     /** Shift+Click at label coordinates (toggles selection membership). */
     async shiftClickAtLabelCoords(labelX: number, labelY: number): Promise<void> {
-        const scale = await this.getScale();
-        await this.canvas.click({ position: { x: labelX * scale, y: labelY * scale }, modifiers: ['Shift'] });
+        await this.canvas.click({ position: await this.labelToBoxPosition(labelX, labelY), modifiers: ['Shift'] });
     }
 
     /**
@@ -246,13 +289,12 @@ export class Canvas {
      * additive=true to hold Shift and add to the existing selection.
      */
     async marqueeDrag(fromX: number, fromY: number, toX: number, toY: number, additive = false): Promise<void> {
-        const box = await this.getBoundingBox();
-        if (!box) throw new Error('Canvas not found');
-        const scale = await this.getScale();
+        const from = await this.labelToClient(fromX, fromY);
+        const to = await this.labelToClient(toX, toY);
         if (additive) await this.page.keyboard.down('Shift');
-        await this.page.mouse.move(box.x + fromX * scale, box.y + fromY * scale);
+        await this.page.mouse.move(from.x, from.y);
         await this.page.mouse.down();
-        await this.page.mouse.move(box.x + toX * scale, box.y + toY * scale, { steps: 10 });
+        await this.page.mouse.move(to.x, to.y, { steps: 10 });
         await this.page.mouse.up();
         if (additive) await this.page.keyboard.up('Shift');
     }
@@ -264,15 +306,13 @@ export class Canvas {
      * the canvas box (the container pads the label by 24px at minimum).
      */
     async marqueeDragFromWorkspace(offsetX: number, offsetY: number, toX: number, toY: number, additive = false): Promise<void> {
-        const canvasBox = await this.getBoundingBox();
-        if (!canvasBox) throw new Error('Canvas not found');
         const workspaceBox = await this.page.locator('#preview-container').boundingBox();
         if (!workspaceBox) throw new Error('Preview container not found');
-        const scale = await this.getScale();
+        const to = await this.labelToClient(toX, toY);
         if (additive) await this.page.keyboard.down('Shift');
         await this.page.mouse.move(workspaceBox.x + offsetX, workspaceBox.y + offsetY);
         await this.page.mouse.down();
-        await this.page.mouse.move(canvasBox.x + toX * scale, canvasBox.y + toY * scale, { steps: 10 });
+        await this.page.mouse.move(to.x, to.y, { steps: 10 });
         await this.page.mouse.up();
         if (additive) await this.page.keyboard.up('Shift');
     }
@@ -326,12 +366,20 @@ export class Canvas {
     ): Promise<void> {
         await this.canvas.evaluate((el, events) => {
             const canvas = el as HTMLCanvasElement;
-            const renderer = (window as unknown as { canvasRenderer?: { scale: number } }).canvasRenderer;
+            const renderer = (window as unknown as {
+                canvasRenderer?: { scale: number; viewRotation?: number };
+            }).canvasRenderer;
             const zoom = renderer?.scale || 1;
+            const rot = renderer?.viewRotation || 0;
+            const swapped = rot === 90 || rot === 270;
             for (const { type, labelX, labelY } of events) {
                 const rect = canvas.getBoundingClientRect();
-                const clientX = rect.left + labelX * zoom * (rect.width / canvas.width);
-                const clientY = rect.top + labelY * zoom * (rect.height / canvas.height);
+                const cssScale = (swapped ? rect.height : rect.width) / canvas.width || 1;
+                const u = (labelX * zoom - canvas.width / 2) * cssScale;
+                const v = (labelY * zoom - canvas.height / 2) * cssScale;
+                const d = rot === 90 ? [-v, u] : rot === 180 ? [-u, -v] : rot === 270 ? [v, -u] : [u, v];
+                const clientX = rect.left + rect.width / 2 + d[0];
+                const clientY = rect.top + rect.height / 2 + d[1];
                 const touch = { identifier: 1, target: canvas, clientX, clientY };
                 const ended = type === 'touchend' || type === 'touchcancel';
                 const event = new Event(type, { bubbles: true, cancelable: true });
@@ -380,11 +428,11 @@ export class Canvas {
      * Drag using label coordinates
      */
     async dragLabelCoords(fromX: number, fromY: number, toLabelX: number, toLabelY: number): Promise<void> {
-        const scale = await this.getScale();
-        const startPixelX = fromX * scale;
-        const startPixelY = fromY * scale;
-        const endPixelX = toLabelX * scale;
-        const endPixelY = toLabelY * scale;
-        await this.drag(startPixelX, startPixelY, endPixelX, endPixelY);
+        const from = await this.labelToClient(fromX, fromY);
+        const to = await this.labelToClient(toLabelX, toLabelY);
+        await this.page.mouse.move(from.x, from.y);
+        await this.page.mouse.down();
+        await this.page.mouse.move(to.x, to.y, { steps: 10 });
+        await this.page.mouse.up();
     }
 }

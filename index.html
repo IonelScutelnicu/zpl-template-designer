@@ -2102,17 +2102,24 @@
                       </div>
                     </div>
 
-                    <!-- Zoom/pan viewport — centered, transformed for pan -->
+                    <!-- Zoom/pan viewport — centered, transformed for pan. Sized to the
+                         rotated footprint of the stage (dimensions swap at 90°/270°). -->
                     <div id="preview-viewport" class="absolute top-1/2 left-1/2 z-10"
                       style="transform: translate(-50%, -50%);">
-                      <div id="preview-backing"
-                        class="hidden absolute top-0 left-0 z-0 border border-slate-200 bg-white box-border w-full h-full">
+                      <!-- Canvas-rotation stage — carries the view-only quarter-turn so the
+                           canvas, Labelary image, and backing rotate together and stay
+                           aligned. Purely visual: never affects ZPL output. -->
+                      <div id="preview-stage" class="absolute top-1/2 left-1/2"
+                        style="transform: translate(-50%, -50%);">
+                        <div id="preview-backing"
+                          class="hidden absolute top-0 left-0 z-0 border border-slate-200 bg-white box-border w-full h-full">
+                        </div>
+                        <img id="preview-image"
+                          class="hidden absolute top-0 left-0 shadow-lg border border-slate-200 bg-white z-10"
+                          style="image-rendering: pixelated; image-rendering: crisp-edges;" alt="Label preview" />
+                        <canvas id="label-canvas" width="799" height="399"
+                          class="shadow-lg border border-slate-200 bg-white cursor-default block relative z-20"></canvas>
                       </div>
-                      <img id="preview-image"
-                        class="hidden absolute top-0 left-0 shadow-lg border border-slate-200 bg-white z-10"
-                        style="image-rendering: pixelated; image-rendering: crisp-edges;" alt="Label preview" />
-                      <canvas id="label-canvas" width="799" height="399"
-                        class="shadow-lg border border-slate-200 bg-white cursor-default block relative z-20"></canvas>
                     </div>
 
                     <!-- Error card — top-level overlay so it stacks above the viewport/backing -->
@@ -2145,9 +2152,17 @@
                       </div>
                     </div>
 
-                    <!-- Floating zoom controls (bottom-right) -->
+                    <!-- Floating view controls: canvas rotation + zoom (bottom-right) -->
                     <div id="zoom-controls"
                       class="absolute bottom-3 right-3 z-30 flex items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-full shadow-md px-1 py-1 text-xs select-none">
+                      <button id="rotate-view-btn" aria-label="Canvas rotation: 0 degrees"
+                        class="h-7 min-w-[28px] px-1.5 inline-flex items-center justify-center gap-1 rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
+                        data-tooltip="Rotate canvas view">
+                        <span class="material-icons-round text-[16px]" aria-hidden="true">rotate_right</span>
+                        <span id="view-rotation-label" aria-live="polite"
+                          class="hidden font-medium tabular-nums"></span>
+                      </button>
+                      <div class="w-px h-4 bg-slate-200 mx-0.5" aria-hidden="true"></div>
                       <button id="zoom-out-btn"
                         class="w-7 h-7 inline-flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
                         data-tooltip="Zoom out (Ctrl+-)">
@@ -2168,26 +2183,14 @@
                           </button>
                           <div class="border-t border-slate-100 my-1"></div>
                           <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                            data-zoom="0.1">10%</button>
-                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                            data-zoom="0.25">25%</button>
-                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
                             data-zoom="0.5">50%</button>
-                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                            data-zoom="0.75">75%</button>
                           <button
                             class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center justify-between"
                             data-zoom="1">
                             <span>100%</span><span class="text-slate-400 text-[10px]">Ctrl+1</span>
                           </button>
                           <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                            data-zoom="1.5">150%</button>
-                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
                             data-zoom="2">200%</button>
-                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                            data-zoom="4">400%</button>
-                          <button class="zoom-preset w-full text-left px-3 py-1.5 hover:bg-slate-50"
-                            data-zoom="8">800%</button>
                         </div>
                       </div>
                       <button id="zoom-in-btn"
