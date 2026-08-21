@@ -1,6 +1,6 @@
 // Density rescale — scales every dot-valued element and label-setting
 // field by newDpmm/oldDpmm so the label's physical appearance is preserved
-// when the user changes Print Density.
+// when the user changes DPI - Print Density.
 //
 // See CONTEXT.md ("Density rescale") for the decision and edge cases.
 

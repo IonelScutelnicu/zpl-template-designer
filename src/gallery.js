@@ -491,7 +491,7 @@ function buildFilters() {
   return '<div class="group"><h4>Source</h4>' + sourceOpts + '</div>' +
     '<div class="group"><h4>Use case</h4>' + useCaseOpts + '</div>' +
     '<div class="group"><h4>Tags</h4>' + tagOpts + '</div>' +
-    '<div class="group"><h4>Print density</h4>' + dpiOpts + '</div>' +
+    '<div class="group"><h4>DPI - Print Density</h4>' + dpiOpts + '</div>' +
     '<div class="group"><h4>Label width</h4>' + widthOpts + '</div>' +
     '<button class="reset" id="reset-btn">Reset all filters</button>';
 }

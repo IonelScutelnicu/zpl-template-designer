@@ -1407,22 +1407,24 @@
         <button type="button" class="fs-icon-btn" data-fs-tab="add" data-tooltip="Add element" aria-label="Add element">
           <span class="material-icons-outlined">add_box</span>
         </button>
-        <button type="button" class="fs-icon-btn" data-fs-tab="layers" data-tooltip="Layers" aria-label="Layers">
+        <button type="button" class="fs-icon-btn" data-fs-tab="layers" data-tooltip="Layers (Advanced)"
+          aria-label="Layers (Advanced)">
           <span class="material-icons-outlined">layers</span>
         </button>
         <button type="button" class="fs-icon-btn" data-fs-tab="label-setup" data-tooltip="Label Setup"
           aria-label="Label Setup">
           <span class="material-icons-outlined">description</span>
         </button>
-        <button type="button" class="fs-icon-btn" data-fs-tab="print-config" data-tooltip="Print Configuration"
-          aria-label="Print Configuration">
+        <button type="button" class="fs-icon-btn" data-fs-tab="print-config"
+          data-tooltip="Printer Configuration (Advanced)" aria-label="Printer Configuration (Advanced)">
           <span class="material-icons-outlined">print</span>
         </button>
-        <button type="button" class="fs-icon-btn" data-fs-tab="offsets" data-tooltip="Offsets" aria-label="Offsets">
+        <button type="button" class="fs-icon-btn" data-fs-tab="offsets" data-tooltip="Offset (Advanced)"
+          aria-label="Offset (Advanced)">
           <span class="material-icons-outlined">tune</span>
         </button>
-        <button type="button" class="fs-icon-btn" data-fs-tab="font" data-tooltip="Default Font"
-          aria-label="Default Font">
+        <button type="button" class="fs-icon-btn" data-fs-tab="font" data-tooltip="Font Settings"
+          aria-label="Font Settings">
           <span class="material-icons-outlined">text_fields</span>
         </button>
         <button type="button" class="fs-icon-btn" data-fs-tab="preview-data" data-tooltip="Preview Data"
@@ -1535,7 +1537,7 @@
               </div>
 
               <!-- Elements List -->
-              <h2 class="fs-section-title" data-fs-tab="layers">Layers
+              <h2 class="fs-section-title" data-fs-tab="layers">Layers (Advanced)
                 <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
                   aria-label="Collapse panel">
                   <span class="material-icons-round text-base">chevron_left</span>
@@ -1596,7 +1598,7 @@
                     </div>
                   </div>
                   <div>
-                    <label class="block font-medium text-slate-700 mb-1">Print Density</label>
+                    <label class="block font-medium text-slate-700 mb-1">DPI - Print Density</label>
                     <select id="label-dpmm"
                       class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white bg-white">
                       <option value="6">6 dpmm (152 dpi)</option>
@@ -1607,7 +1609,7 @@
                   </div>
                   <div class="pt-3 border-t border-slate-100">
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      Media Tracking
+                      Label Media Tracking (Optional)
                       <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-mn.html"
                         target="_blank" class="text-blue-500 hover:underline">^MN</a>
                     </label>
@@ -1668,7 +1670,7 @@
                   </div>
                   <div class="pt-3 border-t border-slate-100">
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      Media Type
+                      Label Type
                       <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-mt.html"
                         target="_blank" class="text-blue-500 hover:underline">^MT</a>
                     </label>
@@ -1729,7 +1731,7 @@
                 </div>
               </details>
 
-              <h2 class="fs-section-title" data-fs-tab="print-config">Print Configuration
+              <h2 class="fs-section-title" data-fs-tab="print-config">Printer Configuration (Advanced)
                 <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
                   aria-label="Collapse panel">
                   <span class="material-icons-round text-base">chevron_left</span>
@@ -1739,7 +1741,7 @@
               <details class="group border-b border-slate-100" data-fs-tab="print-config">
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                  <span>Print Configuration</span>
+                  <span>Printer Configuration (Advanced)</span>
                   <span class="transition group-open:rotate-180">
                     <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
                       stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
@@ -1873,7 +1875,7 @@
                 <div id="preview-data-panel" class="p-4 text-slate-500 text-xs space-y-3"></div>
               </details>
 
-              <h2 class="fs-section-title" data-fs-tab="offsets">Offsets
+              <h2 class="fs-section-title" data-fs-tab="offsets">Offset (Advanced)
                 <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
                   aria-label="Collapse panel">
                   <span class="material-icons-round text-base">chevron_left</span>
@@ -1883,7 +1885,7 @@
               <details class="group border-b border-slate-100" data-fs-tab="offsets">
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                  <span>Offsets</span>
+                  <span>Offset (Advanced)</span>
                   <span class="transition group-open:rotate-180">
                     <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
                       stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
@@ -1920,7 +1922,7 @@
                 </div>
               </details>
 
-              <h2 class="fs-section-title" data-fs-tab="font">Default Font
+              <h2 class="fs-section-title" data-fs-tab="font">Font Settings
                 <button type="button" class="fs-chevron-btn" data-fs-section-collapse data-tooltip="Collapse panel"
                   aria-label="Collapse panel">
                   <span class="material-icons-round text-base">chevron_left</span>
@@ -1930,7 +1932,7 @@
               <details class="group" data-fs-tab="font">
                 <summary
                   class="flex justify-between items-center font-medium cursor-pointer list-none px-4 py-2.5 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors text-sm">
-                  <span>Default Font</span>
+                  <span>Font Settings</span>
                   <span class="transition group-open:rotate-180">
                     <svg fill="none" height="16" shape-rendering="geometricPrecision" stroke="currentColor"
                       stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="16">
@@ -1941,7 +1943,7 @@
                 <div class="p-4 text-slate-500 text-xs space-y-3">
                   <div>
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      ID <a
+                      Default Font <a
                         href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-cf.html"
                         target="_blank" class="text-blue-500 hover:underline">^CF</a>
                     </label>

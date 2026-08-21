@@ -474,7 +474,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
             // Ensure at least one element exists so ZPL is generated
             await elementsPanel.addTextElement();
 
-            // Expand Print Configuration section which is closed by default
+            // Expand Printer Configuration section which is closed by default
             await page.locator('details[data-fs-tab="print-config"] summary').click();
         });
 
@@ -606,7 +606,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
     test.describe('Media Tracking', () => {
         test.beforeEach(async ({ page }) => {
             await elementsPanel.addTextElement();
-            // Expand Print Configuration section which is closed by default
+            // Expand Printer Configuration section which is closed by default
             await page.locator('details[data-fs-tab="print-config"] summary').click();
         });
 

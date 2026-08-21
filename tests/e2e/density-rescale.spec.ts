@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures';
 import { ElementsPanel, ZPLOutput, buildSquarePngBuffer } from '../page-objects';
 
-// Density rescale (Print Density change) — see
+// Density rescale (DPI - Print Density change) — see
 // src/services/DensityRescaleService.js. The dialog appears when the user
 // changes dpmm with content on the label; "Scale elements" multiplies every
 // dot-valued field by newDpmm/oldDpmm as a single history entry.

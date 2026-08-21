@@ -674,7 +674,7 @@ test.describe('ZPL bitmap font bucketing', () => {
     });
 
     // ============== Label default font size controls ==============
-    // The Default Font panel drives ^CF, so its Height/Width must be constrained to the
+    // The Font Settings panel drives ^CF, so its Height/Width must be constrained to the
     // allowed grid exactly like the per-element controls are.
     test.describe('Label default font size controls', () => {
         let elementsPanel: ElementsPanel;
@@ -684,9 +684,9 @@ test.describe('ZPL bitmap font bucketing', () => {
             await page.goto('/?e2e=1');
             elementsPanel = new ElementsPanel(page);
             zplOutput = new ZPLOutput(page);
-            // An empty label emits no ZPL, and the Default Font section starts collapsed.
+            // An empty label emits no ZPL, and the Font Settings section starts collapsed.
             await elementsPanel.addTextElement();
-            await page.locator('details summary:has-text("Default Font")').click();
+            await page.locator('#settings-card details summary:has-text("Font Settings")').click();
         });
 
         async function setLabelFont(page: import('@playwright/test').Page, id: string): Promise<void> {

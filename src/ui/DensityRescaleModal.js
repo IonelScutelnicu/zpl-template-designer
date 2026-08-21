@@ -1,5 +1,5 @@
 // DensityRescaleModal
-// Three-option dialog shown when the user manually changes Print Density
+// Three-option dialog shown when the user manually changes DPI - Print Density
 // with content on the label. Resolves to one of: 'scale' | 'keep' | 'cancel'.
 // Light-dismiss (click backdrop) and Escape both resolve to 'cancel'.
 

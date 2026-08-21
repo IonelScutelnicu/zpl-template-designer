@@ -714,11 +714,11 @@ test.describe('Properties Panel - Comprehensive Property Testing', () => {
         });
     });
 
-    // ============== LABEL SETTINGS - DEFAULT FONT ==============
-    test.describe('Label Settings - Default Font', () => {
+    // ============== LABEL SETTINGS - FONT SETTINGS ==============
+    test.describe('Label Settings - Font Settings', () => {
         test.beforeEach(async ({ page }) => {
             await elementsPanel.addTextElement();
-            await page.locator('details summary:has-text("Default Font")').click();
+            await page.locator('#settings-card details summary:has-text("Font Settings")').click();
             await useScalableLabelFont(page);
         });
 
