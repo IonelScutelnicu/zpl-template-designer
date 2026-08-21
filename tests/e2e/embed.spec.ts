@@ -282,7 +282,7 @@ test.describe('Embed mode', () => {
             (window as any).ZplDesigner.embed({
                 container,
                 url: new URL('..', window.location.href).href,
-                hideElements: { barcode: true, qrcode: true },
+                hideElements: { barcode: true, qrcode: true, raw: true },
                 template: {
                     elements: [{ type: 'BARCODE', x: 20, y: 20, data: '12345' }],
                     labelSettings: { width: 100, height: 50, dpmm: 8 },
@@ -291,10 +291,11 @@ test.describe('Embed mode', () => {
         });
 
         await expect(page.locator('#elements-container iframe'))
-            .toHaveAttribute('src', /hideElements=barcode%2Cqrcode/);
+            .toHaveAttribute('src', /hideElements=barcode%2Cqrcode%2Craw/);
         const frame = page.frameLocator('#elements-container iframe');
         await expect(frame.locator('#add-barcode-btn')).toBeHidden();
         await expect(frame.locator('#add-qrcode-btn')).toBeHidden();
+        await expect(frame.locator('#add-raw-btn')).toBeHidden();
         await expect(frame.locator('#add-text-btn')).toBeVisible();
         // Only the palette is trimmed — the host's barcode still loaded.
         await expect(frame.locator('#elements-list .element-item')).toHaveCount(1);
