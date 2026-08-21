@@ -431,6 +431,28 @@ test.describe('Embed mode', () => {
         await expect(page.locator('#fullscreen-exit-btn')).toBeHidden();
     });
 
+    for (const fullscreen of ['0', '1']) {
+        test(`?embed=1&hidePanels=previewMode pins the editor to Edit mode (fullscreen=${fullscreen})`, async ({ page }) => {
+            await page.goto(`/?embed=1&hidePanels=previewMode&fullscreen=${fullscreen}`);
+            await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);
+            // The whole switcher goes, wrapper included — in fullscreen that
+            // wrapper is the floating pill, which would otherwise stay behind.
+            await expect(page.locator('#preview-mode-switch')).toBeHidden();
+            // The mode it boots into is the mode it stays in, canvas editing untouched.
+            await expect(page.locator('#preview-container')).toHaveAttribute('data-mode', 'canvas');
+            await expect(page.locator('#label-canvas')).toBeVisible();
+            // Undo/redo/History stay in the last grid column: with the switcher
+            // gone they generate no box for auto-placement to skip over.
+            const gap = await page.evaluate(() => {
+                const header = document.querySelector('#preview-card > .border-b')!.getBoundingClientRect();
+                const controls = document.getElementById('header-controls')!.getBoundingClientRect();
+                return { toRightEdge: header.right - controls.right, inRightHalf: controls.left > header.left + header.width / 2 };
+            });
+            expect(gap.toRightEdge).toBeLessThan(32);
+            expect(gap.inRightHalf).toBe(true);
+        });
+    }
+
     test('?embed=1&view=gallery still lands on the editor', async ({ page }) => {
         await page.goto('/?embed=1&view=gallery');
         await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);

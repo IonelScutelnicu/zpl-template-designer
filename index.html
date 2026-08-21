@@ -1207,18 +1207,28 @@
       bottom: calc(1.5rem + var(--embed-bar-h));
     }
 
+    /* The Live Preview header is a 1fr/auto/1fr grid filled by auto-placement.
+       A hidden Mode Switcher generates no grid box, so the right-hand controls
+       would slide up into the centre column — pin them to the last one. */
+    #preview-card>.border-b>#header-controls {
+      grid-column: 3;
+    }
+
     /* Panels the host hid (?embed=1&hidePanels=zplOutput,warnings,header).
        Presentation only — the panels keep updating, so preview refresh and
        the header Template menu's Copy ZPL / Share stay live. !important
        because the fullscreen rules for #zpl-card are more specific.
        `fullscreenToggle` takes both the enter and the exit button, so the
-       layout the host launched with is the one the user stays in. */
+       layout the host launched with is the one the user stays in, and
+       `previewMode` takes the Edit/Overlay/Preview switch, pinning the editor
+       to the mode it boots into — Edit. */
     html.embed.hide-panel-zplOutput #zpl-card,
     html.embed.hide-panel-warnings #warnings-panel,
     html.embed.hide-panel-header header,
     html.embed.hide-panel-actions #embed-actions,
     html.embed.hide-panel-fullscreenToggle #fullscreen-toggle-btn,
-    html.embed.hide-panel-fullscreenToggle #fullscreen-exit-btn {
+    html.embed.hide-panel-fullscreenToggle #fullscreen-exit-btn,
+    html.embed.hide-panel-previewMode #preview-mode-switch {
       display: none !important;
     }
   </style>
@@ -2009,10 +2019,13 @@
                   <div
                     class="border-b border-slate-100 bg-slate-50 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                     <h2 class="font-semibold text-slate-700 text-sm">Live Preview</h2>
-                    <div class="flex flex-col items-center gap-1.5">
+                    <!-- Mode Switcher. The id is on the outer wrapper because that
+                         is the element fullscreen floats as a pill — hiding the
+                         button group alone would leave the empty pill behind. -->
+                    <div id="preview-mode-switch" class="flex flex-col items-center gap-1.5">
                       <div class="flex items-center gap-4">
-                        <!-- Mode Switcher -->
-                        <div class="flex gap-1 p-1 bg-slate-200/60 rounded-lg" role="group" aria-label="Preview mode">
+                        <div class="flex gap-1 p-1 bg-slate-200/60 rounded-lg" role="group"
+                          aria-label="Preview mode">
                           <button id="mode-canvas-btn" aria-pressed="true"
                             data-tooltip="Edit mode — drag &amp; resize on canvas"
                             class="px-3 py-1 text-xs font-semibold rounded-md bg-white text-slate-700 shadow-sm transition focus:outline-none">
