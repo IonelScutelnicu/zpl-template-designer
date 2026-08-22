@@ -1221,14 +1221,16 @@
        `fullscreenToggle` takes both the enter and the exit button, so the
        layout the host launched with is the one the user stays in, and
        `previewMode` takes the Edit/Overlay/Preview switch, pinning the editor
-       to the mode it boots into — Edit. */
+       to the mode it boots into — Edit. `docLinks` takes every link out to
+       Zebra's ZPL command reference, wherever in the UI it sits. */
     html.embed.hide-panel-zplOutput #zpl-card,
     html.embed.hide-panel-warnings #warnings-panel,
     html.embed.hide-panel-header header,
     html.embed.hide-panel-actions #embed-actions,
     html.embed.hide-panel-fullscreenToggle #fullscreen-toggle-btn,
     html.embed.hide-panel-fullscreenToggle #fullscreen-exit-btn,
-    html.embed.hide-panel-previewMode #preview-mode-switch {
+    html.embed.hide-panel-previewMode #preview-mode-switch,
+    html.embed.hide-panel-docLinks a[href*="docs.zebra.com"] {
       display: none !important;
     }
   </style>

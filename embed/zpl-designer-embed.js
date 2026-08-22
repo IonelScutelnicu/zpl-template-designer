@@ -14,9 +14,10 @@
   // opts.hidePanels / opts.hideElements are maps of key -> hidden, so a host
   // can keep every key it cares about listed and flip one to false.
   // hidePanels keys: zplOutput, warnings, header, actions, fullscreenToggle,
-  // previewMode (fullscreenToggle hides both the enter and the exit button,
-  // pinning the layout the host launched with; previewMode hides the
-  // Edit/Overlay/Preview switch, pinning the editor to Edit).
+  // previewMode, docLinks (fullscreenToggle hides both the enter and the exit
+  // button, pinning the layout the host launched with; previewMode hides the
+  // Edit/Overlay/Preview switch, pinning the editor to Edit; docLinks hides
+  // every link out to Zebra's ZPL command reference).
   function hiddenKeys(map) {
     var out = [];
     for (var key in map) {

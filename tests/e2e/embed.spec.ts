@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { test as base, expect, Page } from '@playwright/test';
-import { EmbedHost } from '../page-objects';
+import { ElementsPanel, EmbedHost } from '../page-objects';
 import { setupLabelaryCacheInterceptor } from '../fixtures/labelary-cache';
 
 // The shared fixture's goto override waits for the app's viewReady marker,
@@ -453,6 +453,50 @@ test.describe('Embed mode', () => {
             expect(gap.inRightHalf).toBe(true);
         });
     }
+
+    // Every doc link is an anchor into docs.zebra.com, so one rule takes all
+    // four surfaces they live on. They stay in the DOM — hence :visible.
+    const docLinks = (page: Page) => page.locator('a[href*="docs.zebra.com"]:visible');
+
+    test('?embed=1&hidePanels=docLinks drops every ZPL command reference link', async ({ page }) => {
+        await page.goto('/?embed=1&hidePanels=docLinks&fullscreen=0');
+        await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);
+        const elementsPanel = new ElementsPanel(page);
+        await elementsPanel.addTextElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await expect(docLinks(page)).toHaveCount(0);
+        // #zpl-doc-link is the one the app un-hides itself on selection, so it
+        // is what would come back if the rule ever lost !important.
+        await expect(page.locator('#zpl-doc-link')).toBeHidden();
+
+        // Only the links go: every surface that carried one still works.
+        await expect(page.locator('#settings-card')).toBeVisible();
+        await expect(page.locator('#zpl-card')).toBeVisible();
+        await expect(page.locator('#properties-card')).toBeVisible();
+        await expect(page.getByText('Label Media Tracking (Optional)')).toBeVisible();
+        await expect(page.locator('[data-media-tracking="Y"]')).toBeVisible();
+        await expect(page.locator('[data-reverse="N"]')).toBeVisible();
+        await expect(page.locator('#prop-field-hex')).toBeAttached();
+    });
+
+    test('?embed=1 alone keeps the ZPL command reference links', async ({ page }) => {
+        await page.goto('/?embed=1&fullscreen=0');
+        await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);
+        const elementsPanel = new ElementsPanel(page);
+        await elementsPanel.addTextElement();
+        await elementsPanel.selectElementByIndex(0);
+
+        await expect(page.locator('#zpl-doc-link')).toBeVisible();
+        await expect(page.locator('#zpl-doc-link')).toHaveText('^A docs');
+        expect(await docLinks(page).count()).toBeGreaterThan(1);
+    });
+
+    test('hidePanels=docLinks without embed=1 is inert', async ({ page }) => {
+        await page.goto('/?hidePanels=docLinks&fullscreen=0');
+        await page.waitForFunction(() => document.documentElement.dataset.viewReady !== undefined);
+        expect(await docLinks(page).count()).toBeGreaterThan(0);
+    });
 
     test('?embed=1&view=gallery still lands on the editor', async ({ page }) => {
         await page.goto('/?embed=1&view=gallery');
