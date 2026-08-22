@@ -67,10 +67,10 @@ export const ZPL_FONTS = {
     // handler. The '-' rule draws a calibrated bar because the system font's hyphen
     // is too narrow/short vs Zebra's CG Triumvirate Bold Condensed dash.
     charRules: {
-      '-': { type: 'bar', padRatio: 0.16, lineRatio: 0.58, heightRatio: 0.10, yRatio: 0.40 },
-      '—': { type: 'bar', padRatio: 0.16, lineRatio: 0.58, heightRatio: 0.10, yRatio: 0.40 },
       // Real glyph. advanceRatio = cell pitch (match Zebra's digit spacing);
       // widthRatio < 1 condenses the glyph itself. Centered in the cell.
+      '-': { type: 'glyph', advanceRatio: 0.903, widthRatio: 2.42, yRatio: 0.03, xRatio: 0 },
+      '_': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.32, heightRatio: 0.5, yRatio: 0.57, xRatio: 0 },
       '0': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
       '1': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
       '2': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
@@ -161,7 +161,6 @@ export const ZPL_FONTS = {
       '{': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
       '}': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
       '|': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
-      '_': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
     }
   },
   'A': {
