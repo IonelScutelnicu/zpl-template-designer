@@ -208,25 +208,96 @@ test.describe('^FT field typeset — graphics', () => {
         expect(r.foJustified).toMatchObject({ x: 0, y: 300, fieldJustify: 'R' });
     });
 
-    test('keeps the conversion warning for families that are not anchored yet', async ({ page }) => {
+    test('bottom-aligns over-thick ^GB fields using their effective printer size', async ({ page }) => {
+        const rows = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { SerializationService } = await import('/src/services/SerializationService.js');
+            const parser = new ZPLParser();
+            const serializer = new SerializationService();
+            const sources = [
+                '^FT50,350^GB200,50,100^FS',
+                '^FT50,500^GB100,100,1^FS',
+                '^FT200,500^GB100,100,25^FS',
+                '^FT350,500^GB100,100,50^FS',
+                '^FT500,500^GB100,100,100^FS',
+                '^FT650,500^GB100,100,120^FS',
+                '^FT50,650^GB100,100,1,B,1^FS',
+                '^FT650,650^GB100,100,120,B,1^FS',
+            ];
+
+            return sources.map((source) => {
+                const data: any = parser.parse(`^XA${source}^XZ`).elements[0];
+                const element: any = serializer.createElementFromData(data);
+                return {
+                    source,
+                    y: element.y,
+                    height: element.getBounds().height,
+                    positionType: element.positionType,
+                    output: element.render(),
+                };
+            });
+        });
+
+        for (const row of rows) {
+            const anchorY = Number(row.source.match(/\^FT\d+,(\d+)/)?.[1]);
+            expect(row.y + row.height, row.source).toBe(anchorY);
+            expect(row.positionType, row.source).toBe('FT');
+            expect(row.output, row.source).toContain(`^FT${row.source.match(/\^FT(\d+),/)?.[1]},${anchorY}`);
+        }
+
+        expect(rows[0]).toMatchObject({ y: 250, height: 100 });
+        expect(rows[5]).toMatchObject({ y: 380, height: 120 });
+        expect(rows[7]).toMatchObject({ y: 530, height: 120 });
+    });
+
+    test('anchors ^GS on its quantized typeset cell for every rotation and justification', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { SerializationService } = await import('/src/services/SerializationService.js');
             const parser = new ZPLParser();
-            // ^GS is excluded from ^FT on purpose: its bounds are
-            // anchor-independent, so a flip would move the print silently.
-            const res = parser.parse('^XA^FT100,200^GSN,40,40^FDA^FS^XZ');
+            const serializer = new SerializationService();
+            const parse = (body: string) => {
+                const result = parser.parse(`^XA${body}^XZ`);
+                const data = result.elements[0];
+                return {
+                    x: data?.x,
+                    y: data?.y,
+                    positionType: data?.positionType,
+                    fieldJustify: data?.fieldJustify,
+                    zpl: serializer.createElementFromData(data)?.render(),
+                    warnings: result.warnings.map((w: any) => w.command),
+                };
+            };
             return {
-                type: res.elements[0]?.type,
-                y: res.elements[0]?.y,
-                positionType: res.elements[0]?.positionType,
-                warnings: res.warnings.map((w: any) => w.command),
+                n: parse('^FT100,200^GSN,40,40^FDA^FS'),
+                r: parse('^FT100,200^GSR,40,40^FDA^FS'),
+                i: parse('^FT100,200^GSI,40,40^FDA^FS'),
+                b: parse('^FT100,200^GSB,40,40^FDA^FS'),
+                nr: parse('^FT100,200,1^GSN,40,40^FDA^FS'),
+                rr: parse('^FT100,200,1^GSR,40,40^FDA^FS'),
+                ir: parse('^FT100,200,1^GSI,40,40^FDA^FS'),
+                br: parse('^FT100,200,1^GSB,40,40^FDA^FS'),
+                clipped: parse('^FT50,20^GSN,100,100^FDA^FS'),
             };
         });
 
-        expect(r.type).toBe('GRAPHICSYMBOL');
-        expect(r.y).toBe(200);
-        expect(r.positionType).toBeUndefined();
-        expect(r.warnings).toContain('^FT');
+        // 40 dots quantizes to k=2: drop=48, left advance=51, right extent=52.
+        expect(r.n).toMatchObject({ x: 100, y: 152, positionType: 'FT' });
+        expect(r.r).toMatchObject({ x: 100, y: 200, positionType: 'FT' });
+        expect(r.i).toMatchObject({ x: 49, y: 200, positionType: 'FT' });
+        expect(r.b).toMatchObject({ x: 52, y: 149, positionType: 'FT' });
+        expect(r.nr).toMatchObject({ x: 48, y: 152, fieldJustify: 'R' });
+        expect(r.rr).toMatchObject({ x: 100, y: 148, fieldJustify: 'R' });
+        expect(r.ir).toMatchObject({ x: 100, y: 200, fieldJustify: 'R' });
+        expect(r.br).toMatchObject({ x: 52, y: 200, fieldJustify: 'R' });
+        expect(r.clipped).toMatchObject({ x: 50, y: -76, positionType: 'FT' });
+
+        for (const row of Object.values(r)) {
+            expect(row.warnings).not.toContain('^FT');
+            expect(row.zpl).toContain('^FT');
+        }
+        expect(r.n.zpl).toContain('^FT100,200^GSN,40,40');
+        expect(r.clipped.zpl).toContain('^FT50,20^GSN,100,100');
     });
 });
 
@@ -838,11 +909,14 @@ test.describe('^FT field typeset — properties panel', () => {
         expect(await zplOut()).toContain('^FO');
     });
 
-    test('hides the toggle for types whose ^FT anchor is not modelled', async ({ page }) => {
+    test('offers the toggle for graphic symbols', async ({ page }) => {
         await page.goto('/?e2e=1');
         const panel = new ElementsPanel(page);
         await panel.addGraphicSymbolElement();
-        await expect(page.locator('[data-position-type]')).toHaveCount(0);
+        await expect(page.locator('[data-position-type="FT"]')).toBeVisible();
+        await page.locator('[data-position-type="FT"]').click();
+        const zpl = await page.evaluate(() => (window as any).appState.elements[0].render());
+        expect(zpl).toContain('^FT');
     });
 
     test('hides and restores the toggle without losing the ^FT choice', async ({ page }) => {

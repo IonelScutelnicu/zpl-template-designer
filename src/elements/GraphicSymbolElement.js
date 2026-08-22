@@ -1,4 +1,16 @@
 import { ZPLElement } from './ZPLElement.js';
+import { fieldOriginCommand } from '../utils/fieldAnchor.js';
+import {
+    graphicSymbolEffectiveSize,
+    graphicSymbolCellWidth,
+    graphicSymbolCellHeight,
+} from '../utils/graphicSymbolGeometry.js';
+
+export {
+    graphicSymbolEffectiveSize,
+    graphicSymbolCellWidth,
+    graphicSymbolCellHeight,
+} from '../utils/graphicSymbolGeometry.js';
 
 // Graphic Symbol Element Class (^GS)
 // Prints one of five special symbols selected via ^FD: A ® | B © | C ™ | D UL mark | E CSA mark
@@ -19,32 +31,6 @@ export const GRAPHIC_SYMBOL_INK_RATIOS = {
     E: { w: 0.880, h: 0.960 },
 };
 
-// The printer renders ^GS h/w quantized to a font magnification k of the
-// 24-dot base cell: k = round(dots/24) with ties up, clamped to 1..10, per
-// axis (both axes divide by 24 — the cell HEIGHT — not the 26-dot cell
-// width). Effective box is 25k dots. Swept against Labelary at every step
-// boundary: 26→25, 36→50, 76→75, 84→100, 90(w)→100, 228→250, 600→250.
-function graphicSymbolSteps(dots) {
-    return Math.min(Math.max(Math.round(dots / 24), 1), 10);
-}
-
-export function graphicSymbolEffectiveSize(dots) {
-    return 25 * graphicSymbolSteps(dots);
-}
-
-// R/I/B rotate the glyph around the font's character cell, not the ^GS
-// command box. Measured from Labelary I/R renders at effective sizes
-// 50/150/250 (identical for all five symbols): with k quantization steps,
-// the cell is (26k − 2) wide × (24k − 1) tall — slightly wider and shorter
-// than the 25k command box.
-export function graphicSymbolCellWidth(dots) {
-    return 26 * graphicSymbolSteps(dots) - 2;
-}
-
-export function graphicSymbolCellHeight(dots) {
-    return 24 * graphicSymbolSteps(dots) - 1;
-}
-
 export class GraphicSymbolElement extends ZPLElement {
     constructor(x = 0, y = 0, symbol = 'A', height = 100, width = 100, orientation = 'N', reverse = false) {
         super(x, y);
@@ -57,9 +43,10 @@ export class GraphicSymbolElement extends ZPLElement {
     }
 
     render() {
-        // ZPL format: ^FOx,y^FR^GSorientation,height,width^FDsymbol^FS
+        // ZPL format: ^FO/^FTx,y^FR^GSorientation,height,width^FDsymbol^FS
         const reverseCmd = this.reverse ? '^FR' : '';
-        return `^FO${Math.round(this.x)},${Math.round(this.y)}${reverseCmd}^GS${this.orientation},${this.height},${this.width}^${this.fieldDataCommand === 'FV' ? 'FV' : 'FD'}${this.symbol}^FS`;
+        const pos = fieldOriginCommand(this);
+        return `${pos}${reverseCmd}^GS${this.orientation},${this.height},${this.width}^${this.fieldDataCommand === 'FV' ? 'FV' : 'FD'}${this.symbol}^FS`;
     }
 
     renderPreview() {

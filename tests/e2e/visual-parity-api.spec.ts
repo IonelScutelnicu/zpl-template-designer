@@ -1,6 +1,47 @@
 import { test, expect } from '../fixtures';
 import { ElementsPanel, Canvas, PreviewPanel, PropertiesPanel, ZPLOutput } from '../page-objects';
 import { compareImages, findContentBounds, getImageDimensions } from '../fixtures/image-comparison';
+import { PNG } from 'pngjs';
+
+async function pasteZPL(page: any, zplOutput: ZPLOutput, zpl: string, elementCount: number): Promise<void> {
+    await zplOutput.openMoreActions();
+    await page.locator('#import-zpl-btn').click();
+    await page.locator('#zpl-import-input').fill(zpl);
+    await page.locator('#zpl-import-input').dispatchEvent('input');
+    await page.locator('#zpl-import-confirm-btn').click();
+    const warnings = page.locator('#zpl-import-warnings');
+    if (await warnings.isVisible().catch(() => false)) {
+        await page.locator('#zpl-import-confirm-btn').click();
+    }
+    await expect(page.locator('#elements-list .element-item')).toHaveCount(elementCount, { timeout: 5000 });
+}
+
+function stripBounds(image: Buffer, topDots: number, bottomDots: number, labelWidthDots: number, labelHeightDots: number) {
+    const png = PNG.sync.read(image);
+    const startY = Math.max(0, Math.floor(topDots * png.height / labelHeightDots));
+    const endY = Math.min(png.height, Math.ceil(bottomDots * png.height / labelHeightDots));
+    let left = png.width;
+    let top = png.height;
+    let right = -1;
+    let bottom = -1;
+    for (let y = startY; y < endY; y++) {
+        for (let x = 0; x < png.width; x++) {
+            const i = (y * png.width + x) * 4;
+            if (png.data[i] <= 128 && png.data[i + 1] <= 128 && png.data[i + 2] <= 128) {
+                left = Math.min(left, x);
+                top = Math.min(top, y);
+                right = Math.max(right, x);
+                bottom = Math.max(bottom, y);
+            }
+        }
+    }
+    return {
+        left: left * labelWidthDots / png.width,
+        top: top * labelHeightDots / png.height,
+        right: right * labelWidthDots / png.width,
+        bottom: bottom * labelHeightDots / png.height,
+    };
+}
 
 /**
  * Visual Parity Tests - Canvas vs API Preview
@@ -419,6 +460,38 @@ ${regression.command}
     // real assertion. 'C' (™) is sparse ink that doesn't fill the command box,
     // so it only checks position.
     const GS_SYMBOLS = ['A', 'B', 'C', 'D', 'E'] as const;
+
+    test('should align bare-^FT graphic symbols after ^FO text like the API', async ({ page }) => {
+        const zpl = [
+            '^XA',
+            '^FX{"labelMeta":{"w":54,"h":86,"dpmm":8}}',
+            '^CF0,48',
+            '^FO10,20^FDA^FS^FT^GSN^FDA^FS',
+            '^FO10,80^FDB^FS^FT^GSN^FDB^FS',
+            '^FO10,140^FDC^FS^FT^GSN^FDC^FS',
+            '^FO10,200^FDD^FS^FT^GSN^FDD^FS',
+            '^FO10,260^FDE^FS^FT^GSN^FDE^FS',
+            '^XZ',
+        ].join('\n');
+        await pasteZPL(page, zplOutput, zpl, 10);
+
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
+        await previewPanel.switchToAPIMode();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+        const widthDots = 54 * 8;
+        const heightDots = 86 * 8;
+        for (let row = 0; row < 5; row++) {
+            const top = row * 60;
+            const canvasRow = stripBounds(canvasImage, top, top + 60, widthDots, heightDots);
+            const apiRow = stripBounds(apiImage, top, top + 60, widthDots, heightDots);
+            expect(Math.abs(canvasRow.top - apiRow.top), `row ${row} top`).toBeLessThan(3);
+            expect(Math.abs(canvasRow.left - apiRow.left), `row ${row} left`).toBeLessThan(3);
+            expect(Math.abs(canvasRow.bottom - apiRow.bottom), `row ${row} bottom`).toBeLessThan(10);
+            expect(Math.abs(canvasRow.right - apiRow.right), `row ${row} right`).toBeLessThan(10);
+        }
+    });
 
     for (const symbol of GS_SYMBOLS) {
         test(`should have matching ^GS symbol ${symbol} bounding box between canvas and API`, async ({ page }) => {

@@ -738,7 +738,7 @@ export class ZPLParser {
         state.elements.push(element);
         if (group.isFT && !anchored && !state.ftWarningAdded) {
           // Only what the anchor module can't invert is still converted:
-          // ^GS, 2D symbologies, rotated ^FB/^TB blocks, and
+          // unsupported 2D symbologies, rotated ^FB/^TB blocks, and
           // right-justified text. Everything else round-trips as ^FT.
           state.warnings.push({
             command: '^FT',
@@ -764,7 +764,7 @@ export class ZPLParser {
       // No customFonts: during the synchronous parse a
       // ~DY face measures through the browser fallback, which reads as success.
     }, group.isFT);
-    // Nothing the printer anchors (a ^FX comment's leftovers, a ^GS): it would not have
+    // Nothing the printer anchors (for example a ^FX comment's leftovers): it would not have
     // moved its cursor either, so leaving it alone is the accurate answer, not a gap.
     if (!advance) return;
     if (!advance.measured) {

@@ -9,7 +9,7 @@ import { test, expect } from '../fixtures';
 const FONT = '^A0N,30,20';
 
 type Parsed = {
-    elements: Array<{ type: string; x: number; y: number; content?: string }>;
+    elements: Array<{ type: string; x: number; y: number; content?: string; positionType?: string; symbol?: string }>;
     warnings: Array<{ command: string; message: string }>;
     home: { x: number; y: number };
 };
@@ -19,7 +19,14 @@ async function parse(page: import('@playwright/test').Page, zpl: string): Promis
         const { ZPLParser } = await import('/src/services/ZPLParser.js');
         const result = new ZPLParser().parse(source, { dpmm: 8, labelHeight: 152 });
         return {
-            elements: result.elements.map((e: any) => ({ type: e.type, x: e.x, y: e.y, content: e.content })),
+            elements: result.elements.map((e: any) => ({
+                type: e.type,
+                x: e.x,
+                y: e.y,
+                content: e.content,
+                positionType: e.positionType,
+                symbol: e.symbol,
+            })),
             warnings: result.warnings.map((w: any) => ({ command: w.command, message: w.message })),
             // _flattenLabelHome folds one ^LH out of every coordinate, so a home-relative
             // assertion has to add it back to reach what the printer sees.
@@ -125,6 +132,64 @@ test.describe('^FT typeset cursor', () => {
         // chained field lands back on the same top edge.
         expect(elements[1].y).toBe(600);
         expect(elements[1].x).toBe(200 + await advanceOf(page, 'AAA', 30, 20));
+    });
+
+    test('places bare-^FT graphic symbols from the preceding ^FO text cursor', async ({ page }) => {
+        const letters = ['A', 'B', 'C', 'D', 'E'];
+        const origins = [20, 80, 140, 200, 260];
+        const body = letters.flatMap((letter, i) => [
+            `^FO10,${origins[i]}^FD${letter}^FS`,
+            `^FT^GSN^FD${letter}^FS`,
+        ]).join('');
+        const source = `^XA^CF0,48${body}^XZ`;
+        const { elements, warnings } = await parse(page, source);
+
+        expect(elements).toHaveLength(10);
+        for (let i = 0; i < letters.length; i++) {
+            const text = elements[i * 2];
+            const symbol = elements[i * 2 + 1];
+            expect(text).toMatchObject({ type: 'TEXT', x: 10, y: origins[i] });
+            expect(symbol).toMatchObject({
+                type: 'GRAPHICSYMBOL',
+                x: 10 + await advanceOf(page, letters[i], 48, 0),
+                y: origins[i] - 12,
+                symbol: letters[i],
+                positionType: 'FT',
+            });
+        }
+        expect(warnings.filter(w => /typeset anchor is not modelled/.test(w.message))).toHaveLength(0);
+
+        const roundTrip = await page.evaluate(async (zpl) => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { ZPLGenerator } = await import('/src/services/ZPLGenerator.js');
+            const { SerializationService } = await import('/src/services/SerializationService.js');
+            const parser = new ZPLParser();
+            const serializer = new SerializationService();
+            const first = parser.parse(zpl);
+            const generated = new ZPLGenerator().generateZPL(
+                first.elements.map((data: any) => serializer.createElementFromData(data)),
+                first.labelSettings
+            );
+            const second = parser.parse(generated);
+            const geometry = (result: any) => result.elements.map((e: any) => ({
+                type: e.type, x: e.x, y: e.y, positionType: e.positionType,
+            }));
+            return { generated, before: geometry(first), after: geometry(second) };
+        }, source);
+        expect(roundTrip.generated).not.toContain('^FT^GS');
+        expect(roundTrip.generated.match(/\^FT\d+,\d+\^GS/g)).toHaveLength(5);
+        expect(roundTrip.after).toEqual(roundTrip.before);
+    });
+
+    test('advances a following bare ^FT after a graphic symbol', async ({ page }) => {
+        const { elements } = await parse(
+            page,
+            '^XA^FT100,200^GSN,48,48^FDA^FS^FT^A0N,48,48^FDZ^FS^XZ'
+        );
+        expect(elements[0]).toMatchObject({ type: 'GRAPHICSYMBOL', x: 100, y: 152, positionType: 'FT' });
+        // k=2 ^GS reading advance is 26k-1 = 51; the following Font 0 field
+        // shares the 200-dot baseline and therefore stores y=200-floor(.75*48).
+        expect(elements[1]).toMatchObject({ type: 'TEXT', x: 151, y: 164, positionType: 'FT' });
     });
 
     test('advances after a barcode and a box, to their right edge on the ^FT y', async ({ page }) => {

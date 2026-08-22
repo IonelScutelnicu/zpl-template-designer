@@ -4,10 +4,12 @@
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import {
   GRAPHIC_SYMBOL_INK_RATIOS,
+} from '../elements/GraphicSymbolElement.js';
+import {
   graphicSymbolEffectiveSize,
   graphicSymbolCellWidth,
   graphicSymbolCellHeight,
-} from '../elements/GraphicSymbolElement.js';
+} from '../utils/graphicSymbolGeometry.js';
 import { GRAPHIC_SYMBOL_PATHS } from './graphicSymbolPaths.js';
 
 // Path2D objects are cheap to keep and expensive-ish to parse; build once.

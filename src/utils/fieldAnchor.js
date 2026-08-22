@@ -2,13 +2,18 @@ import { resolveFontMetrics, resolveBaselineOffset, measureTextAdvanceDots } fro
 import { getBarcodeGeometry, linearFallbackModules, matrixModuleDots } from './barcodeGeometry.js';
 import { DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { emittedContent, placeholderNames, resolvePlaceholders } from './placeholders.js';
+import {
+  graphicSymbolFtOffset,
+  graphicSymbolRightExtent,
+  graphicSymbolTypesetAdvance,
+} from './graphicSymbolGeometry.js';
 
 // ^FO uses a field's top-left; ^FT uses a family-specific baseline or edge.
 // Model x/y always remains the visual top-left, with positionType affecting only
 // import/export. Text rotation offsets are Labelary-calibrated; see
 // tests/e2e/field-typeset-calibration.spec.ts.
 
-/** Supported ^FT families. ^GS stays excluded because its bounds ignore its raw anchor. */
+/** Supported ^FT families. */
 const FT_CAPABLE_TYPES = new Set([
   'BOX',
   'LINE',
@@ -20,6 +25,7 @@ const FT_CAPABLE_TYPES = new Set([
   'TEXTBLOCK',
   'BARCODE',
   'QRCODE',
+  'GRAPHICSYMBOL',
 ]);
 
 /** Text families anchor on the baseline, so they need font metrics and a label
@@ -48,6 +54,10 @@ function hasDynamicContent(element) {
 
 export function supportsFieldTypeset(type, element, defaults, measureInput) {
   if (!FT_CAPABLE_TYPES.has(type)) return false;
+
+  if (type === 'GRAPHICSYMBOL') {
+    return ['N', 'R', 'I', 'B'].includes(element?.orientation || 'N');
+  }
 
   if (type === 'QRCODE') {
     // Only QR and Data Matrix are measured, and only at rotation N: a rotated
@@ -241,6 +251,7 @@ export function typesetCursorAdvance(element, defaults, isFT) {
     // the printer's per-glyph integer advances, which no rounding rule recovers.
     reading = advance === null ? null : Math.floor(advance);
   } else if (element.type === 'BARCODE') reading = barcodeBarRect(element).width;
+  else if (element.type === 'GRAPHICSYMBOL') reading = graphicSymbolTypesetAdvance(element.width);
   // QR and Data Matrix are the one measured exception: the cursor does NOT come back to
   // the ^FT y, because the firmware lift baked into matrixFtOffset moves the symbol's
   // bottom away from it. Nothing pins where, so refuse rather than guess.
@@ -340,7 +351,17 @@ function matrixFtOffset(element, previewData) {
 export function emittedFootprint(element) {
   const num = (v) => Number(v) || 0;
   switch (element?.type) {
-    case 'BOX':
+    case 'BOX': {
+      // ^GB raises either declared dimension to the border thickness. Use the
+      // printer's effective footprint while imported data still carries the
+      // raw command values; the BoxElement constructor applies the same clamp
+      // later when the parsed data becomes an editor element.
+      const thickness = num(element.thickness);
+      return {
+        width: Math.max(num(element.width), thickness),
+        height: Math.max(num(element.height), thickness),
+      };
+    }
     case 'DIAGONALLINE':
       return { width: num(element.width), height: num(element.height) };
     case 'LINE':
@@ -384,6 +405,9 @@ export function ftAnchorOffset(element, defaults, measureInput) {
   if (element.type === 'QRCODE') {
     return matrixFtOffset(element, measureInput?.previewData) || { dx: 0, dy: 0 };
   }
+  if (element.type === 'GRAPHICSYMBOL') {
+    return graphicSymbolFtOffset(element);
+  }
   const { width, height } = emittedFootprint(element);
   return { dx: isRightJustified(element) ? width : 0, dy: height };
 }
@@ -404,6 +428,9 @@ export function foJustifyOffsetX(element, defaults, measureInput) {
     if (hasDynamicContent(element)) return null;
     const advance = advanceWidthFor(element, defaults, measureInput);
     return advance === null ? null : Math.ceil(advance);
+  }
+  if (element.type === 'GRAPHICSYMBOL') {
+    return rotationOf(element) === 'N' ? graphicSymbolRightExtent(element.width) : null;
   }
   // A barcode's or matrix symbol's right-justified anchor is not measured (see
   // supportsFieldTypeset); everything else declares its own width.
@@ -454,7 +481,7 @@ export function fieldOriginCommand(element, defaults, measureInput) {
  * before its version-dependent ^FT lift and 10-dot ^FO bias.
  */
 function fieldOriginFloor(data) {
-  if (TEXT_TYPES.has(data.type)) return null;
+  if (TEXT_TYPES.has(data.type) || data.type === 'GRAPHICSYMBOL') return null;
   if (data.type === 'BARCODE') return { y: 0 };
   if (data.type === 'QRCODE') {
     if ((data.symbology || 'QR') === 'DATAMATRIX') return { y: 0 };
@@ -495,6 +522,10 @@ export function normalizeFtImport(data, justify, defaults, explicitJustify = fal
     if (!offset) return null;
     data.x = data.x - offset.dx;
     data.y = data.y - offset.dy;
+  } else if (data.type === 'GRAPHICSYMBOL') {
+    const { dx, dy } = graphicSymbolFtOffset(probe);
+    data.x = data.x - dx;
+    data.y = data.y - dy;
   } else {
     const { width, height } = emittedFootprint(data);
     data.x = (justify === 'R' ? data.x - width : data.x);
