@@ -8,6 +8,7 @@ import { maxicodeGeometry, maxicodeSize, maxicodeScmText } from '../barcodes/max
 import { getTlc39Geometry } from '../barcodes/tlc39Geometry.js';
 import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText, expandStackedDatabar } from '../barcodes/databarGeometry.js';
 import { code128RawText, encodeCode128, encodeCode128Auto, uccCaseDigits } from '../barcodes/code128Encoder.js';
+import { pdf417RawText } from '../barcodes/pdf417Encoder.js';
 import { resolvePlaceholders } from './placeholders.js';
 import { qrMaskPenalty } from './qrMaskPenalty.js';
 
@@ -824,12 +825,27 @@ function buildBwipOptions(element, data) {
     // ^B7's t=Y is the truncated ("compact") variant: no right row indicator and a
     // one-module stop bar, which bwip exposes as its own bcid.
     if (element.truncate) opts.bcid = 'pdf417compact';
+    // Compact the data the way the printer does and hand bwip the codewords — its
+    // own encoder is more efficient than Zebra's, so letting it compact would draw
+    // a different symbol from the one that prints. (See pdf417Encoder.)
+    opts.raw = true;
+    opts.text = pdf417RawText(opts.text);
+    // Total symbol codewords: data + the symbol length descriptor + error correction
+    // (2^(s+1)). Both auto-sizing rules below are functions of it.
+    const total = opts.text.length / 4 + 1 + 2 ** ((element.securityLevel || 0) + 1);
     if (element.columns > 0) {
       opts.columns = element.columns;
+    } else if (element.rows > 0) {
+      // With r set and c auto, Zebra ignores the aspect rule below and picks the
+      // narrowest symbol whose codewords still fit in r rows, then pads the stack
+      // out to exactly r rows. A row count too small for the data at every column
+      // count prints nothing; ask for an out-of-range c so the encode fails into
+      // the placeholder rather than quietly auto-sizing.
+      const cols = pdf417ColumnsForRows(total, element.rows);
+      opts.columns = cols > 0 ? cols : 31;
     } else {
       // Mirror Zebra's auto-column sizing so the canvas width matches Labelary.
-      const cols = pdf417PreferredColumns(opts);
-      if (cols > 0) opts.columns = cols;
+      opts.columns = pdf417PreferredColumns(total);
     }
   } else if (symbology === 'MICROPDF417') {
     // ^BF's mode fixes the rows×cols variant; request the matching bwip version so
@@ -919,52 +935,41 @@ function aztecAutoFormat(opts) {
   return format;
 }
 
-// Predicted PDF417 column counts, keyed by `text|eclevel`. buildBwipOptions runs
-// before the geometry cache is consulted, so memoising here keeps the extra probe
-// encode off the hot path for repeated lookups of the same symbol.
-const pdf417ColsCache = new Map();
-
 /**
  * Pick the data-column count Zebra/Labelary firmware would choose for an auto
  * (columns=0) PDF417 symbol. bwip-js's own auto-columns runs consistently wider
  * than Zebra, so the on-canvas symbol ends up too wide versus the Labelary
  * preview. Zebra instead sizes the symbol toward a ~2:1 printed width:height
- * aspect, with rows at the PDF417 spec's 3-module height. We probe-encode once
- * (bwip auto) to get the total codeword count N, then choose the column count
- * whose resulting symbol is closest to that aspect (empirically matches Labelary
- * across security levels 0–8 and a range of data lengths).
+ * aspect, with rows at the PDF417 spec's 3-module height, then chooses the column
+ * count whose resulting symbol is closest to that aspect (empirically matches
+ * Labelary across security levels 0–8 and a range of data lengths).
  */
-function pdf417PreferredColumns(opts) {
-  const key = `${opts.text}|${opts.eclevel ?? ''}`;
-  const cached = pdf417ColsCache.get(key);
-  if (cached != null) return cached;
-
-  let cols = 0;
-  try {
-    const probe = bwipjs.raw({ bcid: 'pdf417', text: opts.text, eclevel: opts.eclevel });
-    const o = probe.find((e) => e && e.pixs);
-    if (o) {
-      // PDF417 row width in modules is 17·columns + 69, so columns = (pixx − 69)/17.
-      const autoCols = Math.round((+o.pixx - 69) / 17);
-      const n = autoCols * (o.pixs.length / +o.pixx); // total codewords
-      let best = null;
-      for (let c = 1; c <= 30; c++) {
-        const rows = Math.max(3, Math.ceil(n / c));
-        if (rows > 90) continue;
-        const aspect = (17 * c + 69) / (3 * rows);
-        const dev = Math.abs(aspect - 2.06);
-        // `<=` breaks near-ties toward more columns, matching Zebra's bias.
-        if (!best || dev <= best.dev) best = { c, dev };
-      }
-      cols = best ? best.c : 0;
-    }
-  } catch {
-    cols = 0; // fall back to bwip auto; encode errors surface downstream.
+function pdf417PreferredColumns(n) {
+  let best = null;
+  for (let c = 1; c <= 30; c++) {
+    const rows = Math.max(3, Math.ceil(n / c));
+    if (rows > 90) continue;
+    const aspect = (17 * c + 69) / (3 * rows);
+    const dev = Math.abs(aspect - 2.06);
+    // `<=` breaks near-ties toward more columns, matching Zebra's bias.
+    if (!best || dev <= best.dev) best = { c, dev };
   }
+  return best ? best.c : 0;
+}
 
-  if (pdf417ColsCache.size >= CACHE_MAX) pdf417ColsCache.clear();
-  pdf417ColsCache.set(key, cols);
-  return cols;
+/**
+ * Data-column count for an auto-column PDF417 whose row count is pinned by ^B7's r:
+ * the fewest columns that still hold every codeword in `rows` rows. Verified against
+ * Labelary over r = 19…90 on a 289-char payload — the symbol comes back exactly r
+ * rows tall and one column wider each time r drops past a codeword boundary.
+ * Returns 0 when even the 30-column maximum can't fit the data in r rows, which is
+ * the case where the printer emits no symbol at all.
+ */
+function pdf417ColumnsForRows(n, rows) {
+  for (let c = 1; c <= 30; c++) {
+    if (c * rows >= n) return c;
+  }
+  return 0;
 }
 
 /**

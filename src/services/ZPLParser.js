@@ -1838,7 +1838,14 @@ export class ZPLParser {
       if (byParts[0]) moduleWidth = parseInt(byParts[0]) || 2;
     }
 
-    const rawData = this._decodeFieldDataToken(fdToken, fhToken);
+    // A line break inside ^FD is a data-stream line terminator, not data: the printer
+    // drops it before the symbol is encoded (verified on Labelary — a ^B7 field whose
+    // data starts on the line after ^FD renders identically to the one-line form).
+    // Keeping it would encode one extra codeword and change every module after it.
+    // Drop it from the raw field, ahead of ^FH decoding: an escaped _0A/_0D is data
+    // the printer does encode, and decoding first would delete that too.
+    const dataToken = fdToken && { ...fdToken, params: fdToken.params.replace(/\r\n?|\n/g, '') };
+    const rawData = this._decodeFieldDataToken(dataToken, fhToken);
     return {
       type: 'QRCODE',
       symbology: 'PDF417',

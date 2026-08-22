@@ -1070,6 +1070,35 @@ test.describe('Barcode symbology', () => {
         expect(rows[3]).toBe(12);
     });
 
+    test('PDF417 with r set and c auto takes the narrowest symbol that fits r rows', async ({ page }) => {
+        // Zebra's ~2:1 aspect auto-sizing only applies when r is auto as well. Pin r
+        // and the firmware instead picks the fewest columns whose codewords still fit,
+        // padding the stack out to exactly r rows. Every pair below is what Labelary
+        // renders for this payload (widths in modules: 17·columns + 69).
+        const geo = await page.evaluate(async () => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const base = {
+                type: 'QRCODE', symbology: 'PDF417', content: 'HELLO WORLD 123456',
+                moduleWidth: 2, rowHeight: 4, securityLevel: 0, columns: 0,
+            };
+            const at = (rows: number, securityLevel = 0) => {
+                const g = getBarcodeGeometry({ ...base, securityLevel, rows } as any);
+                return g.kind === 'matrix' ? [g.cols, g.rows] : g.kind;
+            };
+            return {
+                sized: [3, 4, 5, 6, 8, 12, 20].map((r) => at(r)),
+                // s=6 is 128 EC codewords — more than 30 columns × 3 rows can hold, so
+                // the printer emits no symbol at all and the canvas draws a placeholder.
+                overflow: at(3, 6),
+            };
+        });
+
+        expect(geo.sized).toEqual([
+            [154, 3], [137, 4], [120, 5], [120, 6], [103, 8], [103, 12], [86, 20],
+        ]);
+        expect(geo.overflow).toBe('error');
+    });
+
     test('an unreadable ^BY ratio leaves the current one alone', async ({ page }) => {
         // ^BY parameters persist, and the doc has an out-of-range value ignored
         // rather than reset to the 3.0 power-up default.
