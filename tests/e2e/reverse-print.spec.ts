@@ -10,6 +10,10 @@ import * as fs from 'fs';
  *  - drop ^FR when toggled back off
  *  - round-trip the `reverse` flag through JSON export → import
  *  - round-trip ^FR through ZPL paste-import → ZPL output
+ *
+ * Plus ^LR (Label Reverse Print), which the parser flattens into the same `reverse`
+ * flag: ^LRY reverses every field that follows it until ^LRN, and the export emits
+ * ^FR per field rather than ^LR.
  */
 
 type ElementSpec = {
@@ -122,6 +126,28 @@ test.describe('^FR (Reverse Print) — JSON round-trip', () => {
     });
 });
 
+async function pasteZPL(page: any, zplOutput: ZPLOutput, zpl: string): Promise<void> {
+    await zplOutput.openMoreActions();
+    await page.locator('#import-zpl-btn').click();
+    await expect(page.locator('#zpl-import-modal')).toBeVisible();
+    await page.locator('#zpl-import-input').fill(zpl);
+    await page.locator('#zpl-import-input').dispatchEvent('input');
+    await page.locator('#zpl-import-confirm-btn').click();
+    // If warnings show, click again to import anyway.
+    const warnings = page.locator('#zpl-import-warnings');
+    if (await warnings.isVisible().catch(() => false)) {
+        await page.locator('#zpl-import-confirm-btn').click();
+    }
+}
+
+/** The `reverse` flag on each imported element, in z-order. */
+async function elementReverseFlags(page: any): Promise<boolean[]> {
+    return page.evaluate(() => {
+        const elements = (window as any).appState?.elements ?? [];
+        return elements.map((e: any) => !!e.reverse);
+    });
+}
+
 test.describe('^FR (Reverse Print) — ZPL paste round-trip', () => {
     let zplOutput: ZPLOutput;
 
@@ -129,20 +155,6 @@ test.describe('^FR (Reverse Print) — ZPL paste round-trip', () => {
         await page.goto('/');
         zplOutput = new ZPLOutput(page);
     });
-
-    async function pasteZPL(page: any, zpl: string): Promise<void> {
-        await zplOutput.openMoreActions();
-        await page.locator('#import-zpl-btn').click();
-        await expect(page.locator('#zpl-import-modal')).toBeVisible();
-        await page.locator('#zpl-import-input').fill(zpl);
-        await page.locator('#zpl-import-input').dispatchEvent('input');
-        await page.locator('#zpl-import-confirm-btn').click();
-        // If warnings show, click again to import anyway.
-        const warnings = page.locator('#zpl-import-warnings');
-        if (await warnings.isVisible().catch(() => false)) {
-            await page.locator('#zpl-import-confirm-btn').click();
-        }
-    }
 
     const cases: { type: string; zpl: string }[] = [
         { type: 'BOX',     zpl: '^XA^FO50,50^FR^GB100,50,3,B^FS^XZ' },
@@ -155,7 +167,7 @@ test.describe('^FR (Reverse Print) — ZPL paste round-trip', () => {
 
     for (const c of cases) {
         test(`${c.type}: ^FR survives ZPL paste → re-export`, async ({ page }) => {
-            await pasteZPL(page, c.zpl);
+            await pasteZPL(page, zplOutput, c.zpl);
 
             // Wait for the import to land.
             await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
@@ -172,4 +184,105 @@ test.describe('^FR (Reverse Print) — ZPL paste round-trip', () => {
             expect(reverse).toBe(true);
         });
     }
+});
+
+
+test.describe('^LR (Label Reverse Print) — ZPL paste', () => {
+    let zplOutput: ZPLOutput;
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/');
+        zplOutput = new ZPLOutput(page);
+    });
+
+    test('^LRY reverses the field that follows it', async ({ page }) => {
+        await pasteZPL(page, zplOutput, '^XA^LRY^FO50,50^GB100,50,3,B^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        expect(await elementReverseFlags(page)).toEqual([true]);
+        expect(await zplOutput.getZPLCode()).toContain('^FR');
+    });
+
+    test('^LRN turns it back off for later fields', async ({ page }) => {
+        await pasteZPL(page, zplOutput,
+            '^XA^LRY^FO50,50^GB100,50,3,B^FS^LRN^FO50,150^GB100,50,3,B^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(2, { timeout: 5000 });
+        expect(await elementReverseFlags(page)).toEqual([true, false]);
+    });
+
+    test('only fields following ^LRY are affected', async ({ page }) => {
+        await pasteZPL(page, zplOutput,
+            '^XA^FO50,50^GB100,50,3,B^FS^LRY^FO50,150^GB100,50,3,B^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(2, { timeout: 5000 });
+        expect(await elementReverseFlags(page)).toEqual([false, true]);
+    });
+
+    test('an explicit ^FR under ^LRY stays reversed rather than cancelling', async ({ page }) => {
+        await pasteZPL(page, zplOutput, '^XA^LRY^FO50,50^FR^GB100,50,3,B^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        expect(await elementReverseFlags(page)).toEqual([true]);
+    });
+
+    test('a bare ^LR is the N default', async ({ page }) => {
+        await pasteZPL(page, zplOutput, '^XA^LR^FO50,50^GB100,50,3,B^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        expect(await elementReverseFlags(page)).toEqual([false]);
+    });
+
+    test('a field after ^LRY is still modelled, not preserved as Raw ZPL', async ({ page }) => {
+        await pasteZPL(page, zplOutput, '^XA^LRY^FO50,50^A0N,30,30^FDHi^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        const types = await page.evaluate(() => {
+            const elements = (window as any).appState?.elements ?? [];
+            return elements.map((e: any) => e.type);
+        });
+        expect(types).toEqual(['TEXT']);
+    });
+
+    test('a field preserved as Raw ZPL still carries the reversal', async ({ page }) => {
+        // ^RFW is unmodelled, so the whole field round-trips verbatim as RAW. Without
+        // the carried ^FR the exported label would silently print normally.
+        await pasteZPL(page, zplOutput, '^XA^LRY^FO10,10^RFW,H^FDx^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        expect(await zplOutput.getZPLCode()).toContain('^FR^FO10,10^RFW,H^FDx^FS');
+    });
+
+    test('a Raw ZPL field after ^LRN is left alone', async ({ page }) => {
+        await pasteZPL(page, zplOutput,
+            '^XA^LRY^FO10,10^RFW,H^FDx^FS^LRN^FO10,60^RFW,H^FDy^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(2, { timeout: 5000 });
+        const zpl = await zplOutput.getZPLCode();
+        expect(zpl).toContain('^FR^FO10,10^RFW,H^FDx^FS');
+        expect(zpl).toContain('^FO10,60^RFW,H^FDy^FS');
+        expect(zpl).not.toContain('^FR^FO10,60');
+    });
+
+    test('a Raw ZPL field that already spells out its own reversal is not doubled', async ({ page }) => {
+        await pasteZPL(page, zplOutput, '^XA^LRY^FO10,10^FR^RFW,H^FDx^FS^XZ');
+
+        await expect(page.locator('#elements-list .element-item')).toHaveCount(1, { timeout: 5000 });
+        const zpl = await zplOutput.getZPLCode();
+        expect(zpl).toContain('^FO10,10^FR^RFW,H^FDx^FS');
+        expect((zpl.match(/\^FR/g) || []).length).toBe(1);
+    });
+
+    test('^LR no longer reports as an unsupported command', async ({ page }) => {
+        await zplOutput.openMoreActions();
+        await page.locator('#import-zpl-btn').click();
+        await expect(page.locator('#zpl-import-modal')).toBeVisible();
+        await page.locator('#zpl-import-input').fill('^XA^LRY^FO50,50^GB100,50,3,B^FS^XZ');
+        await page.locator('#zpl-import-input').dispatchEvent('input');
+        await page.locator('#zpl-import-confirm-btn').click();
+
+        // The ^LR note is informational; nothing may claim the command is unsupported.
+        const warningsText = await page.locator('#zpl-import-warnings-list').textContent();
+        expect(warningsText ?? '').not.toContain('Unsupported command');
+    });
 });

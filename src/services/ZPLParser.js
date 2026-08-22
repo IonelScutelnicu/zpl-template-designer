@@ -33,6 +33,8 @@ const KNOWN_COMMANDS = new Set([
   'FV',
   // ^FW sets the default field orientation/justification for the fields after it.
   'FW',
+  // ^LR reverse-prints every field after it, exactly as if each carried its own ^FR.
+  'LR',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
   'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BO', 'BP', 'BR', 'BS', 'BT', 'BU', 'BX', 'BZ'
@@ -126,11 +128,12 @@ function tokenFwOrientation(token) {
 }
 
 /**
- * Header commands that configure label settings (not element-specific)
+ * Header commands that configure label settings (not element-specific). ^LR rides
+ * along: it is global rather than field-scoped, so it takes the same route.
  */
 const HEADER_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'DY', 'PQ'
+  'CF', 'CW', 'DY', 'PQ', 'LR'
 ]);
 
 /**
@@ -377,6 +380,14 @@ export class ZPLParser {
       // ^FO/^FT without a z justify left.
       fwOrientation: 'N',
       fwJustify: 'L',
+      // ^LR is sequential printer state: it reverse-prints every field that follows
+      // it and is not retroactive. Zebra: "identical to placing an ^FR command in all
+      // current and subsequent fields". It outlives ^XA on the printer (only ^LRN or
+      // power-off clears it), which this state matches by never resetting.
+      labelReverse: false,
+      // Set once the ^LR note has been reported, so a label full of reversed fields
+      // warns once rather than per field.
+      warnedLabelReverse: false,
       // ^LH is sequential printer state: it replaces the origin for every field
       // that follows and is not retroactive. Fields are parsed in absolute dots
       // (raw ^FO/^FT + this cursor); _flattenLabelHome folds one adopted home
@@ -856,6 +867,16 @@ export class ZPLParser {
       ? state.source.substring(start, end).replace(/\s+$/, '')
       : '';
 
+    // ^LR is modal and, like ^FW below, is consumed rather than passed through:
+    // every modelled element re-emits it as its own ^FR. A preserved field under
+    // ^LRY would otherwise round-trip as normal print and silently change what the
+    // label prints. ^FR is the per-field spelling of the same flag, so it restores
+    // the reversal without leaking into the fields that follow. Skipped when the
+    // span already says so itself, either way round.
+    if (state.labelReverse && !/\^FR/i.test(text) && !/\^LR/i.test(text)) {
+      text = '^FR' + text;
+    }
+
     // ^BY is modal: it sets barcode module width/ratio/height for every ^B that
     // follows, and the generator re-emits it per known barcode rather than in
     // the header. A preserved barcode therefore has to carry its own copy, or
@@ -996,6 +1017,13 @@ export class ZPLParser {
         if ('NY'.includes(val)) {
           state.labelSettings.printMirror = val;
         }
+        break;
+      }
+      case 'LR': {
+        // Label Reverse Print. Only Y turns it on; ^LRN and a bare ^LR both fall back
+        // to the N default. Parse-time state only — it never reaches labelSettings,
+        // because each affected element carries the flag out as its own ^FR.
+        state.labelReverse = token.params.trim().charAt(0).toUpperCase() === 'Y';
         break;
       }
       case 'MN': {
@@ -1150,102 +1178,113 @@ export class ZPLParser {
       return commands.find(c => matches(c.command, cmd));
     };
     const fhToken = getCommand('FH');
+    // ^LRY reverse-prints every field that follows it — Zebra: "identical to placing
+    // an ^FR command in all current and subsequent fields". An explicit ^FR under ^LRY
+    // is a duplicate of that, not a toggle, so the two OR rather than cancel.
+    const hasReverse = state.labelReverse || hasCommand('FR');
+    if (state.labelReverse && !state.warnedLabelReverse) {
+      state.warnedLabelReverse = true;
+      state.warnings.push({
+        command: '^LR',
+        message: 'Label Reverse Print was applied as Reverse Print (^FR) on each field that follows it; the exported ZPL emits ^FR per field instead of ^LR'
+      });
+    }
 
     // Determine element type based on commands present
     if (hasCommand('GF')) {
-      return this._parseGraphicField(group, getCommand('GF'), getCommand('FD'), hasCommand('FR'), state);
+      return this._parseGraphicField(group, getCommand('GF'), getCommand('FD'), hasReverse, state);
     }
 
     if (hasCommand('GC')) {
-      return this._parseCircleFromGC(group, getCommand('GC'), hasCommand('FR'));
+      return this._parseCircleFromGC(group, getCommand('GC'), hasReverse);
     }
 
     if (hasCommand('GE')) {
-      return this._parseCircle(group, getCommand('GE'), hasCommand('FR'));
+      return this._parseCircle(group, getCommand('GE'), hasReverse);
     }
 
     if (hasCommand('GD')) {
-      return this._parseDiagonalLine(group, getCommand('GD'), hasCommand('FR'));
+      return this._parseDiagonalLine(group, getCommand('GD'), hasReverse);
     }
 
     if (hasCommand('GS')) {
-      return this._parseGraphicSymbol(group, getCommand('GS'), getCommand('FD'), fhToken, hasCommand('FR'), state);
+      return this._parseGraphicSymbol(group, getCommand('GS'), getCommand('FD'), fhToken, hasReverse, state);
     }
 
     if (hasCommand('GB')) {
-      return this._parseGraphicBox(group, getCommand('GB'), hasCommand('FR'));
+      return this._parseGraphicBox(group, getCommand('GB'), hasReverse);
     }
 
     if (hasCommand('BQ')) {
-      return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), hasCommand('FR'), state, fhToken);
+      return this._parseQRCode(group, getCommand('BQ'), getCommand('FD'), hasReverse, state, fhToken);
     }
 
     if (hasCommand('BX')) {
-      return this._parseDataMatrix(group, getCommand('BX'), getCommand('FD'), hasCommand('FR'), fhToken);
+      return this._parseDataMatrix(group, getCommand('BX'), getCommand('FD'), hasReverse, fhToken);
     }
 
     if (hasCommand('BF')) {
-      return this._parseMicroPDF417(group, getCommand('BF'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
+      return this._parseMicroPDF417(group, getCommand('BF'), getCommand('BY'), getCommand('FD'), hasReverse, fhToken);
     }
 
     for (const command of ['BB', 'BD', 'BR', 'BT']) {
       if (hasCommand(command)) {
-        return getParserSymbology(command).parse(this, group, getCommand(command), getCommand('FD'), hasCommand('FR'), fhToken);
+        return getParserSymbology(command).parse(this, group, getCommand(command), getCommand('FD'), hasReverse, fhToken);
       }
     }
 
     if (hasCommand('BE')) {
-      return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN13', fhToken);
+      return this._parseBarcode(group, getCommand('BE'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'EAN13', fhToken);
     }
 
     if (hasCommand('BU')) {
-      return this._parseBarcode(group, getCommand('BU'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCA', fhToken);
+      return this._parseBarcode(group, getCommand('BU'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'UPCA', fhToken);
     }
 
     if (hasCommand('BC')) {
-      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE128', fhToken);
+      return this._parseBarcode(group, getCommand('BC'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'CODE128', fhToken);
     }
 
     if (hasCommand('BA')) {
-      return this._parseBarcode(group, getCommand('BA'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE93', fhToken);
+      return this._parseBarcode(group, getCommand('BA'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'CODE93', fhToken);
     }
 
     if (hasCommand('BK')) {
-      return this._parseBarcode(group, getCommand('BK'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODABAR', fhToken);
+      return this._parseBarcode(group, getCommand('BK'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'CODABAR', fhToken);
     }
 
     if (hasCommand('BI')) {
-      return this._parseBarcode(group, getCommand('BI'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'INDUSTRIAL2OF5', fhToken);
+      return this._parseBarcode(group, getCommand('BI'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'INDUSTRIAL2OF5', fhToken);
     }
 
     if (hasCommand('BJ')) {
-      return this._parseBarcode(group, getCommand('BJ'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'STANDARD2OF5', fhToken);
+      return this._parseBarcode(group, getCommand('BJ'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'STANDARD2OF5', fhToken);
     }
 
     if (hasCommand('BL')) {
-      return this._parseBarcode(group, getCommand('BL'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'LOGMARS', fhToken);
+      return this._parseBarcode(group, getCommand('BL'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'LOGMARS', fhToken);
     }
 
     if (hasCommand('BM')) {
-      return this._parseBarcode(group, getCommand('BM'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'MSI', fhToken);
+      return this._parseBarcode(group, getCommand('BM'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'MSI', fhToken);
     }
 
     if (hasCommand('BP')) {
-      return this._parseBarcode(group, getCommand('BP'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'PLESSEY', fhToken);
+      return this._parseBarcode(group, getCommand('BP'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'PLESSEY', fhToken);
     }
 
     if (hasCommand('BS')) {
-      return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCEANEXT', fhToken);
+      return this._parseBarcode(group, getCommand('BS'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'UPCEANEXT', fhToken);
     }
 
     if (hasCommand('BZ')) {
-      return this._parseBarcode(group, getCommand('BZ'), getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'POSTNET', fhToken);
+      return this._parseBarcode(group, getCommand('BZ'), getCommand('BY'), getCommand('FD'), hasReverse, state, 'POSTNET', fhToken);
     }
 
     // ^BO is the letter-O spelling of Aztec ^B0 that label generators emit in the
     // wild; Labelary renders it as Aztec, and its parameters are laid out the same.
     if (hasCommand('BO')) {
-      return this._parseAztec(group, getCommand('BO'), getCommand('FD'), hasCommand('FR'), fhToken);
+      return this._parseAztec(group, getCommand('BO'), getCommand('FD'), hasReverse, fhToken);
     }
 
     // ^B3 (Code 39), ^B4 (Code 49), ^B5 (Planet Code) and ^B7 (PDF417) tokenize as command
@@ -1255,31 +1294,31 @@ export class ZPLParser {
       const sub = bToken.params.charAt(0);
       const shifted = { ...bToken, params: bToken.params.slice(1) };
       if (sub === '1') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE11', fhToken);
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, state, 'CODE11', fhToken);
       }
       if (sub === '2') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'INTERLEAVED2OF5', fhToken);
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, state, 'INTERLEAVED2OF5', fhToken);
       }
       if (sub === '3') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'CODE39', fhToken);
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, state, 'CODE39', fhToken);
       }
       if (sub === '4') {
-        return this._parseCode49(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
+        return this._parseCode49(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, fhToken);
       }
       if (sub === '5') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'PLANET', fhToken);
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, state, 'PLANET', fhToken);
       }
       if (sub === '7') {
-        return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), fhToken);
+        return this._parsePDF417(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, fhToken);
       }
       if (sub === '8') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'EAN8', fhToken);
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, state, 'EAN8', fhToken);
       }
       if (sub === '9') {
-        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasCommand('FR'), state, 'UPCE', fhToken);
+        return this._parseBarcode(group, shifted, getCommand('BY'), getCommand('FD'), hasReverse, state, 'UPCE', fhToken);
       }
       if (sub === '0') {
-        return this._parseAztec(group, shifted, getCommand('FD'), hasCommand('FR'), fhToken);
+        return this._parseAztec(group, shifted, getCommand('FD'), hasReverse, fhToken);
       }
     }
 
@@ -1289,12 +1328,12 @@ export class ZPLParser {
       // inherit sentinel a bare ^A produces.
       const aToken = getCommand('A') || { params: '', fwOrientation: group.fwOrientation };
       if (hasCommand('TB')) {
-        return this._parseTextBlock(group, aToken, getCommand('TB'), getCommand('FD'), hasCommand('FR'), state, fhToken);
+        return this._parseTextBlock(group, aToken, getCommand('TB'), getCommand('FD'), hasReverse, state, fhToken);
       }
       if (hasCommand('FB')) {
-        return this._parseFieldBlock(group, aToken, getCommand('FB'), getCommand('FD'), hasCommand('FR'), state, fhToken);
+        return this._parseFieldBlock(group, aToken, getCommand('FB'), getCommand('FD'), hasReverse, state, fhToken);
       }
-      return this._parseText(group, aToken, getCommand('FD'), hasCommand('FR'), state, fhToken);
+      return this._parseText(group, aToken, getCommand('FD'), hasReverse, state, fhToken);
     }
 
     // Unknown element group - skip

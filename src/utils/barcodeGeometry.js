@@ -820,7 +820,9 @@ function buildBwipOptions(element, data) {
     if (element.dmRows > 0 && element.dmColumns > 0) opts.version = `${element.dmRows}x${element.dmColumns}`;
     else if (element.dmAspect === 2) opts.format = 'rectangle';
   } else if (symbology === 'PDF417') {
-    if (element.securityLevel != null) opts.eclevel = element.securityLevel;
+    // ^B7's s defaults to 0 (error detection only) when the field omits it.
+    const eclevel = element.securityLevel ?? 0;
+    opts.eclevel = eclevel;
     if (element.rows > 0) opts.rows = element.rows;
     // ^B7's t=Y is the truncated ("compact") variant: no right row indicator and a
     // one-module stop bar, which bwip exposes as its own bcid.
@@ -830,9 +832,13 @@ function buildBwipOptions(element, data) {
     // a different symbol from the one that prints. (See pdf417Encoder.)
     opts.raw = true;
     opts.text = pdf417RawText(opts.text);
+    // Left to itself bwip spends spare capacity in a fixed-size symbol on a higher
+    // error-correction level; Zebra keeps the ^B7 s level and pads with 900s instead
+    // (verified on Labelary at forced column counts), so pin the level we asked for.
+    opts.fixedeclevel = true;
     // Total symbol codewords: data + the symbol length descriptor + error correction
     // (2^(s+1)). Both auto-sizing rules below are functions of it.
-    const total = opts.text.length / 4 + 1 + 2 ** ((element.securityLevel || 0) + 1);
+    const total = opts.text.length / 4 + 1 + 2 ** (eclevel + 1);
     if (element.columns > 0) {
       opts.columns = element.columns;
     } else if (element.rows > 0) {

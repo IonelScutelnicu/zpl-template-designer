@@ -72,6 +72,14 @@ test.describe('PDF417 high-level encoding', () => {
         expect(runs[3]).toEqual([1, 89, 902, 138, 628, 478, 900, 1, 89]);     // 8 digits, numeric
     });
 
+    test('the submode lookahead stops where Numeric Compaction takes over', async ({ page }) => {
+        // The '/' before the tracking number can't latch to Mixed on the strength of
+        // the '9' that follows it — those digits are leaving Text Compaction — so it
+        // takes a Punctuation shift instead.
+        expect(await codewords(page, 'https://example.com/track/9988776655')).toEqual(
+            [817, 589, 468, 854, 589, 814, 690, 375, 334, 887, 74, 389, 589, 510, 70, 889, 902, 27, 377, 451, 755]);
+    });
+
     test('Numeric Compaction re-latches every 44 digits', async ({ page }) => {
         const cws = await codewords(page, `AB${'1234567890'.repeat(10)}`);
         expect(cws).toEqual([1, 902, 491, 81, 137, 450, 302, 67, 15, 174, 492, 862, 667, 475, 869, 12, 434,
