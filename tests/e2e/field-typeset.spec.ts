@@ -705,10 +705,43 @@ test.describe('^FT field typeset — barcodes', () => {
         expect(r[1].y).toBe(300 - 202);
     });
 
+    test('accounts for version growth when importing an ^FT QR code', async ({ page }) => {
+        const r = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { SerializationService } = await import('/src/services/SerializationService.js');
+            const parser = new ZPLParser();
+            const serializer = new SerializationService();
+            const zpl = [
+                '^XA',
+                '^FX{"labelMeta":{"w":101.625,"h":203.25,"dpmm":8}}',
+                '^PW812',
+                '^LH6,0',
+                '^FO26,12^GB8,420,8,B^FS',
+                '^FO26,430^GB630,8,8,B^FS',
+                '^FT34,500^BQN,2,10^FH^FDQA,HM,B002012345678901234567890^FS',
+                '^XZ',
+            ].join('\n');
+            const data: any = parser.parse(zpl).elements.find((element: any) => element.type === 'QRCODE');
+            const element: any = serializer.createElementFromData(data);
+            const bounds = element.getBounds(8);
+            return {
+                y: data.y,
+                bottom: bounds.y + bounds.height,
+                zpl: element.render(),
+            };
+        });
+
+        // Version 2 is 25 modules. Its ^FT lift is 7 modules rather than the
+        // version-1 lift of 3, putting the QR bottom on the y=430 rule.
+        expect(r.y).toBe(170);
+        expect(r.bottom).toBe(430);
+        expect(r.zpl).toContain('^FT34,500');
+    });
+
     // Same off-label shift as the graphics, with two measured differences: a
     // linear barcode clamps its base but CLIPS on x (rotation I keeps its
     // negative left edge), and a QR clamps the origin it has before the
-    // 3-module ^FT lift and the 10-dot ^FO bias — so its floor is that far
+    // version-dependent ^FT lift and the 10-dot ^FO bias — so its floor is that far
     // above 0, not 0. Data Matrix has neither term and clamps outright.
     test('clamps a barcode or matrix symbol anchored off the top edge', async ({ page }) => {
         const r = await page.evaluate(async () => {

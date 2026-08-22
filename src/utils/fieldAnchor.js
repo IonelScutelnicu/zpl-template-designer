@@ -300,19 +300,28 @@ function barcodeFtOffset(element, previewData) {
 
 /** QR firmware offsets: modules of lift under ^FT, and dots of ^FO y bias.
  *  Both measured. */
-const QR_FT_MODULE_OFFSET = 3;
+const QR_FT_BASE_MODULE_OFFSET = 3;
+const QR_VERSION_ONE_MODULES = 21;
 const QR_FO_Y_OFFSET_DOTS = 10;
+
+function qrFtModuleOffset(rows) {
+  // A version-1 symbol stays three modules above ^FT. For every four-module
+  // version increase, the lift grows by the same amount. Deriving that term
+  // from the encoded side keeps version 1 unchanged.
+  return QR_FT_BASE_MODULE_OFFSET + Math.max(0, rows - QR_VERSION_ONE_MODULES);
+}
 
 /**
  * ^FO -> ^FT offset for a matrix symbol at rotation N, in dots.
  *
  * Measured against Labelary:
- *   QR           drop = modules*magnification + 3*magnification + 10
+ *   QR v1        drop = modules*magnification + 3*magnification + 10
+ *   QR v2        drop = modules*magnification + 7*magnification + 10
  *   Data Matrix  drop = the symbol height, outright
  *
- * The two QR terms are firmware artifacts, not geometry, so they are pinned by
- * measurement rather than derived: QR_FT_MODULE_OFFSET (3) and
- * QR_FO_Y_OFFSET_DOTS (10).
+ * The QR terms are firmware artifacts pinned by measurement. The base lift is
+ * three modules, the encoded version growth supplies the quiet-zone correction,
+ * and ^FO carries a fixed 10-dot y bias.
  */
 function matrixFtOffset(element, previewData) {
   const geom = getBarcodeGeometry(element, previewData || {});
@@ -321,7 +330,7 @@ function matrixFtOffset(element, previewData) {
   const height = geom.rows * my;
   if ((element.symbology || 'QR') === 'DATAMATRIX') return { dx: 0, dy: height };
   const mag = Number(element.magnification) || 5;
-  return { dx: 0, dy: height + QR_FT_MODULE_OFFSET * mag + QR_FO_Y_OFFSET_DOTS };
+  return { dx: 0, dy: height + qrFtModuleOffset(geom.rows) * mag + QR_FO_Y_OFFSET_DOTS };
 }
 
 /**
@@ -442,7 +451,7 @@ export function fieldOriginCommand(element, defaults, measureInput) {
 /**
  * Per-family floor for normalized top-left coordinates. Graphics clamp both
  * axes, linear barcodes clamp y, and text clips without clamping. QR clamps
- * before its 3-module ^FT lift and 10-dot ^FO bias.
+ * before its version-dependent ^FT lift and 10-dot ^FO bias.
  */
 function fieldOriginFloor(data) {
   if (TEXT_TYPES.has(data.type)) return null;
@@ -450,7 +459,11 @@ function fieldOriginFloor(data) {
   if (data.type === 'QRCODE') {
     if ((data.symbology || 'QR') === 'DATAMATRIX') return { y: 0 };
     const mag = Number(data.magnification) || 5;
-    return { y: -(QR_FT_MODULE_OFFSET * mag + QR_FO_Y_OFFSET_DOTS) };
+    const geom = getBarcodeGeometry(data, {});
+    const moduleOffset = geom.kind === 'matrix'
+      ? qrFtModuleOffset(geom.rows)
+      : QR_FT_BASE_MODULE_OFFSET;
+    return { y: -(moduleOffset * mag + QR_FO_Y_OFFSET_DOTS) };
   }
   return { x: 0, y: 0 };
 }
