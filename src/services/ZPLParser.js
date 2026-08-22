@@ -318,9 +318,9 @@ export class ZPLParser {
         // printer reads as a command prefix wherever it appears, which is why ^FH
         // exists to smuggle one into the data. Labels do put a command between ^FD
         // and ^FS (`^FD ^FH_^FDserwis: ^FS`), and Labelary reads it as one; swallowing
-        // through to the ^FS printed the command text itself. Trailing whitespace is
-        // data here, unlike the parameter lists below.
-        const params = content.substring(m.codeEnd, nextIndex).replace(/^\s+/, '');
+        // through to the ^FS printed the command text itself. Leading and trailing
+        // whitespace are data here, unlike the parameter lists below.
+        const params = content.substring(m.codeEnd, nextIndex);
         tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: nextIndex });
       } else {
         // Everything else — including ^FX — runs to the next ^/~ command. A ^FX
