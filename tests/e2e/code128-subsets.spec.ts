@@ -7,8 +7,8 @@ import { test, expect } from '../fixtures';
  * mid-field with invocation codes, whose meaning depends on the subset in force.
  * Symbol width in modules is the observable: a Code 128 symbol is
  * 11 × (start + data + check) + 13, so every expectation below is a codeword
- * count. The values were measured on Labelary except where marked, which are the
- * Subset A cases Labelary does not implement.
+ * count. In mode N, ZPL reads A/C data as two-digit codeword values and B data
+ * as characters.
  */
 
 /** Encoded module count for ^FD data at a given start subset. */
@@ -67,22 +67,23 @@ test.describe('Code 128 subsets', () => {
     });
 
     test('the start subset changes the encoding', async ({ page }) => {
-        // A and B both carry "6566" as four single characters, so they are the
-        // same width — but not the same bars: only the start codeword differs.
-        expect(await modules(page, '6566', 'A')).toBe(79);
-        expect(await modules(page, '6566', 'B')).toBe(79);
-        // C pairs the digits, which is two codewords instead of four.
-        expect(await modules(page, '6566', 'C')).toBe(57);
+        // A reads 33/34 as codeword values ("AB"), B reads four characters,
+        // and C reads the same two values but prints the digits as entered.
+        expect(await modules(page, '3334', 'A')).toBe(57);
+        expect(await modules(page, '3334', 'B')).toBe(79);
+        expect(await modules(page, '3334', 'C')).toBe(57);
 
         const codewords = await page.evaluate(async () => {
             const { encodeCode128 } = await import('/src/barcodes/code128Encoder.js');
             return {
-                a: encodeCode128('6566', 'A').codewords,
-                b: encodeCode128('6566', 'B').codewords,
+                a: encodeCode128('3334', 'A').codewords,
+                b: encodeCode128('3334', 'B').codewords,
             };
         });
-        expect(codewords.a).toEqual([103, 22, 21, 22, 22]);
-        expect(codewords.b).toEqual([104, 22, 21, 22, 22]);
+        expect(codewords.a).toEqual([103, 33, 34]);
+        expect(codewords.b).toEqual([104, 19, 19, 19, 20]);
+        expect(await hri(page, '3334', 'A')).toBe('AB');
+        expect(await hri(page, '3334', 'C')).toBe('3334');
     });
 
     test('a digit run stays in the current subset — no automatic switch', async ({ page }) => {
@@ -103,8 +104,19 @@ test.describe('Code 128 subsets', () => {
         for (const code of ['>8', '>3', '>2', '>1']) {
             expect(await modules(page, `ABC${code}abc`, 'B'), code).toBe(112);
         }
-        // Code A from B keeps the digits single — Labelary renders this as Code C.
-        expect(await modules(page, 'ABC>712345678', 'B')).toBe(167);
+        // A also consumes pairs: >7 switches to A, then 33/34 print as "AB".
+        expect(await codewords(page, 'XY>73334', 'B')).toEqual([104, 56, 57, 101, 33, 34]);
+        expect(await hri(page, 'XY>73334', 'B')).toBe('XYAB');
+    });
+
+    test('Subset A applies to SHIFT and keeps malformed-pair handling', async ({ page }) => {
+        // From B, >4 shifts exactly one two-digit value through Subset A.
+        expect(await codewords(page, 'B>433C', 'B')).toEqual([104, 34, 98, 33, 35]);
+        expect(await hri(page, 'B>433C', 'B')).toBe('BAC');
+
+        // Invalid first/second characters and an odd trailing digit are skipped.
+        expect(await codewords(page, '33x34z5', 'A')).toEqual([103, 33, 34]);
+        expect(await hri(page, '33x34z5', 'A')).toBe('AB');
     });
 
     test('>> is an escaped literal, not an invocation', async ({ page }) => {
@@ -121,8 +133,16 @@ test.describe('Code 128 subsets', () => {
     });
 
     test('the readable line never shows invocation codes', async ({ page }) => {
-        expect(await hri(page, '382436>6CODE128>752375152', 'C')).toBe('382436CODE12852375152');
+        expect(await hri(page, '382436>6CODE128>752375152', 'C')).toBe('382436CODE128TEST');
         expect(await hri(page, 'ABC>512345678', 'B')).toBe('ABC12345678');
+    });
+
+    test('the C-to-B-to-A fixture matches the printer codewords and width', async ({ page }) => {
+        const data = '382436>6CODE128>752375152';
+        expect(await codewords(page, data, 'C')).toEqual([
+            105, 38, 24, 36, 100, 35, 47, 36, 37, 17, 18, 24, 101, 52, 37, 51, 52,
+        ]);
+        expect(await modules(page, data, 'C')).toBe(211);
     });
 
     test('a Subset C invocation that is a digit pair reaches the bars and the HRI', async ({ page }) => {

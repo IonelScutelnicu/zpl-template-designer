@@ -12,9 +12,9 @@
 //   102     FNC1        FNC1        FNC1
 //   103/104/105         Start A / Start B / Start C
 //
-// bwip-js receives raw codewords to bypass its auto-switching; Zebra switches
-// only on invocation codes. Labelary lacks Subset A, so the canvas deliberately
-// differs from it for `>9`/`>7` Subset A fields.
+// In mode N, ZPL programs Subsets A and C as pairs of decimal digits (00–99),
+// while Subset B reads characters directly. bwip-js receives the resolved raw
+// codewords so its own auto-switching cannot change that field-data grammar.
 
 const START_VALUE = { A: 103, B: 104, C: 105 };
 const LATCH_VALUE = { A: 101, B: 100, C: 99 };
@@ -51,6 +51,19 @@ function charValue(char, subset) {
   return -1;
 }
 
+/** Human-readable character for a Subset A codeword; functions 96–99 are silent. */
+function subsetAText(value) {
+  if (value < 64) return String.fromCharCode(value + 32);
+  if (value < 96) return String.fromCharCode(value - 64);
+  return '';
+}
+
+/** Two-digit ZPL data value at `index`, or null for a malformed/odd pair. */
+function digitPair(source, index) {
+  const pair = source.slice(index, index + 2);
+  return /^\d\d$/u.test(pair) ? { pair, value: Number(pair) } : null;
+}
+
 /**
  * Encode ^BC field data into Code 128 codewords.
  *
@@ -80,16 +93,25 @@ export function encodeCode128(data, startSubset = 'B') {
             codewords.push(value);
             subset = target;
           } else if (value === SHIFT_VALUE && subset !== 'C') {
-            // Shift borrows the opposite subset for exactly one character.
-            const shifted = source[i + 2];
-            const shiftedValue = shifted === undefined
-              ? -1
-              : charValue(shifted, subset === 'A' ? 'B' : 'A');
-            if (shiftedValue >= 0) {
-              codewords.push(SHIFT_VALUE, shiftedValue);
-              text += shifted;
-              i += 3;
-              continue;
+            // Shift borrows the opposite subset for one symbol. A symbols still
+            // use ZPL's two-digit field-data form; B symbols use one character.
+            if (subset === 'B') {
+              const shiftedPair = digitPair(source, i + 2);
+              if (shiftedPair) {
+                codewords.push(SHIFT_VALUE, shiftedPair.value);
+                text += subsetAText(shiftedPair.value);
+                i += 4;
+                continue;
+              }
+            } else {
+              const shifted = source[i + 2];
+              const shiftedValue = shifted === undefined ? -1 : charValue(shifted, 'B');
+              if (shiftedValue >= 0) {
+                codewords.push(SHIFT_VALUE, shiftedValue);
+                text += shifted;
+                i += 3;
+                continue;
+              }
             }
           } else if (!isSelfLatch(value, subset)) {
             codewords.push(value);
@@ -104,13 +126,13 @@ export function encodeCode128(data, startSubset = 'B') {
       }
     }
 
-    if (subset === 'C') {
-      // Subset C carries digits two at a time; anything else, including a lone
-      // trailing digit, is not encodable and is dropped.
-      const pair = source.slice(i, i + 2);
-      if (/^\d\d$/u.test(pair)) {
-        codewords.push(Number(pair));
-        text += pair;
+    if (subset === 'A' || subset === 'C') {
+      // ZPL programs A/C as two-digit codeword values. C prints the pair as
+      // entered; A decodes the value through its character table.
+      const encodedPair = digitPair(source, i);
+      if (encodedPair) {
+        codewords.push(encodedPair.value);
+        text += subset === 'C' ? encodedPair.pair : subsetAText(encodedPair.value);
         i += 2;
         continue;
       }

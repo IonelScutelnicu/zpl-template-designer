@@ -44,6 +44,8 @@ const CASES: Case[] = [
     // Mode N: a start invocation for the subset already in force is dropped by
     // both, so it belongs in the parity table.
     { name: 'm=N, C: >; already in C', data: '>;12', mode: 'N', subset: 'C' },
+    // ZPL programs A as decimal codeword pairs: 52/37/51/52 decode to TEST.
+    { name: 'm=N, C to B to A fixture', data: '382436>6CODE128>752375152', mode: 'N', subset: 'C' },
 ];
 
 /**
