@@ -27,6 +27,15 @@ export class QRCodeElement extends ZPLElement {
         // Data Matrix (^BX)
         this.moduleSize = opts.moduleSize || 4;    // individual module size in dots
         this.quality = opts.quality ?? 200;          // ECC level (200 = ECC 200, recommended; 0 = ECC 000 is valid)
+        // ^BX c/r: a forced symbol size in modules (0 = auto). PDF417's columns/rows
+        // below are a different symbology's fields — keep these separate so switching
+        // symbology can't leak one into the other.
+        this.dmColumns = opts.dmColumns || 0;
+        this.dmRows = opts.dmRows || 0;
+        // ^BX f/g/a: no effect on the drawn symbol, carried for ZPL round-trip.
+        this.dmFormat = opts.dmFormat || 0;        // 1-6, ignored at ECC 200
+        this.dmEscape = opts.dmEscape || '';       // escape char, printer default '~'
+        this.dmAspect = opts.dmAspect || 0;        // 1 = square, 2 = rectangular
         // PDF417 (^B7)
         this.moduleWidth = opts.moduleWidth || 2;  // X module width in dots (^BY)
         this.rowHeight = opts.rowHeight || 4;      // row height in dots

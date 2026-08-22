@@ -133,6 +133,73 @@ test.describe('Barcode symbology', () => {
         ]);
     });
 
+    test('Data Matrix ZPL import round-trips ^BX columns, rows, escape and ratio', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            const zpl = '^XA^FO592,501^BXN,8,200,22,22,,*^FH^FD_49_54_33_32_35_32_34_33_34_30_39_34^FS^XZ';
+            const data: any = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 203.25 }).elements[0];
+            return {
+                dmColumns: data.dmColumns,
+                dmRows: data.dmRows,
+                dmFormat: data.dmFormat,
+                dmEscape: data.dmEscape,
+                dmAspect: data.dmAspect,
+                zpl: new QRCodeElement({ ...data }).render(),
+            };
+        });
+
+        expect(result).toEqual({
+            dmColumns: 22,
+            dmRows: 22,
+            dmFormat: 0,
+            dmEscape: '*',
+            dmAspect: 0,
+            zpl: '^FO592,501^BXN,8,200,22,22,,*^FH^FDIT3252434094^FS',
+        });
+    });
+
+    test('Data Matrix omits the ^BX trailing slots when nothing forces a size', async ({ page }) => {
+        const zpl = await page.evaluate(async () => {
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            return new QRCodeElement({ symbology: 'DATAMATRIX', content: 'Data Matrix' }).render();
+        });
+
+        expect(zpl).toBe('^FO0,0^BXN,4,200^FDData Matrix^FS');
+    });
+
+    test('Data Matrix ^BX columns/rows size the symbol, and refuse an unusable size', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const size = (props: any) => {
+                const geom: any = getBarcodeGeometry(new QRCodeElement({
+                    symbology: 'DATAMATRIX', content: 'IT3252434094', moduleSize: 8, ...props,
+                }), {});
+                return geom.kind === 'matrix' ? `${geom.rows}x${geom.cols}` : geom.kind;
+            };
+            return {
+                auto: size({}),
+                forced: size({ dmColumns: 22, dmRows: 22 }),
+                rectangular: size({ dmColumns: 26, dmRows: 12 }),
+                aspectOnly: size({ dmAspect: 2 }),
+                invalidPair: size({ dmColumns: 21, dmRows: 21 }),
+                tooSmall: size({ dmColumns: 10, dmRows: 10 }),
+            };
+        });
+
+        expect(result).toEqual({
+            auto: '14x14',
+            forced: '22x22',
+            rectangular: '12x26',
+            aspectOnly: '8x32',
+            // Labelary renders these blank (no valid symbol), so the canvas must not
+            // invent an auto-sized one — it falls through to the encode-error placeholder.
+            invalidPair: 'error',
+            tooSmall: 'error',
+        });
+    });
+
     test('Code 39 emits ^BY ratio and a check-digit flag', async () => {
         await elementsPanel.addBarcodeElement();
         await elementsPanel.selectElementByIndex(0);

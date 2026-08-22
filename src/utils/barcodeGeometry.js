@@ -807,6 +807,17 @@ function buildBwipOptions(element, data) {
       // larger than the API preview for small payloads.
       opts.format = aztecAutoFormat(opts);
     }
+  } else if (symbology === 'DATAMATRIX') {
+    // ^BX's c/r force the symbol size. bwip takes the pair as a single "rows x columns"
+    // version string and derives square vs rectangular from it; a=2 on its own asks for
+    // a rectangular auto-size. A pair that isn't a valid Data Matrix size, or is too
+    // small for the data, is left to fail the encode rather than quietly auto-sized:
+    // the printer prints no symbol at all in that case, and Labelary renders a blank
+    // (verified: 10x10, 21x21 and 60x60 all come back empty, while 22x22 and 64x64
+    // render at the forced size). Failing through to the encode-error placeholder is
+    // what keeps the canvas honest about a label that would print nothing.
+    if (element.dmRows > 0 && element.dmColumns > 0) opts.version = `${element.dmRows}x${element.dmColumns}`;
+    else if (element.dmAspect === 2) opts.format = 'rectangle';
   } else if (symbology === 'PDF417') {
     if (element.securityLevel != null) opts.eclevel = element.securityLevel;
     if (element.rows > 0) opts.rows = element.rows;

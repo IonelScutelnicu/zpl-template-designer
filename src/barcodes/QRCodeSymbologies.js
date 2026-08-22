@@ -96,7 +96,11 @@ class DataMatrixSymbology extends QRSymbology {
   supportsOrientation() { return true; }
 
   render(element, content) {
-    return `^BX${orientationParam(element)},${element.moduleSize},${element.quality}${fieldData(content, element)}`;
+    // ^BXo,h,s,c,r,f,g,a — trailing slots only appear once something later needs them.
+    const slots = [element.dmColumns || '', element.dmRows || '', element.dmFormat || '', element.dmEscape || '', element.dmAspect || ''];
+    while (slots.length && slots[slots.length - 1] === '') slots.pop();
+    const tail = slots.length ? `,${slots.join(',')}` : '';
+    return `^BX${orientationParam(element)},${element.moduleSize},${element.quality}${tail}${fieldData(content, element)}`;
   }
 
   moduleDots(element) {
@@ -114,12 +118,16 @@ class DataMatrixSymbology extends QRSymbology {
         ["50", "ECC 050"],
         ["0", "ECC 000"],
       ])}
+      ${panel.createInputGroup("Columns (0 = auto)", "prop-dm-columns", element.dmColumns, "number", { min: 0, max: 144 })}
+      ${panel.createInputGroup("Rows (0 = auto)", "prop-dm-rows", element.dmRows, "number", { min: 0, max: 144 })}
     `;
   }
 
   attachProperties(_manager, _element, attach) {
     attach("prop-module-size", "moduleSize", (v) => parseInt(v) || 4);
     attach("prop-quality", "quality", (v) => parseInt(v) || 200);
+    attach("prop-dm-columns", "dmColumns", (v) => Math.max(0, parseInt(v) || 0));
+    attach("prop-dm-rows", "dmRows", (v) => Math.max(0, parseInt(v) || 0));
   }
 }
 

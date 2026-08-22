@@ -1790,7 +1790,9 @@ export class ZPLParser {
    * Parse a Data Matrix element from ^BX + ^FD
    */
   _parseDataMatrix(group, bxToken, fdToken, hasReverse, fhToken = null) {
-    // ^BX params: orientation,height(module size),quality,columns,rows,...
+    // ^BXo,h,s,c,r,f,g,a. A c/r pair forces the symbol size — without it an imported
+    // symbol auto-sizes and comes out smaller than Labelary's. f/g/a don't affect the
+    // canvas but are kept so the command round-trips unchanged.
     const parts = bxToken.params.split(',');
     const orientation = normalizeBarcodeOrientation(parts[0], tokenFwOrientation(bxToken));
     const moduleSize = parseInt(parts[1]) || 4;
@@ -1807,6 +1809,11 @@ export class ZPLParser {
       orientation,
       moduleSize,
       quality,
+      dmColumns: parseInt(parts[3]) || 0,  // 0 = auto
+      dmRows: parseInt(parts[4]) || 0,     // 0 = auto
+      dmFormat: parseInt(parts[5]) || 0,   // 0 = unset (1-6; ignored at ECC 200)
+      dmEscape: (parts[6] || '').trim(),   // '' = unset (printer default '~')
+      dmAspect: parseInt(parts[7]) || 0,   // 0 = unset, 1 = square, 2 = rectangular
       reverse: hasReverse
     };
   }
