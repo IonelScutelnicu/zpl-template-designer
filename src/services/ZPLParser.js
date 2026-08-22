@@ -4,6 +4,7 @@
 import { acsToBytes, b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
 import { snapRequestedToAllowed, enforceFontMinSize, proportionalRequestedHeight } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapseLineBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
+import { DEFAULT_FIELD_ENCODING, encodingForCharacterSet } from '../utils/zplCodePages.js';
 import { placeholderName } from '../utils/placeholders.js';
 import { emittedOriginOffset, normalizeFoJustifyImport, normalizeFtImport, typesetCursorAdvance } from '../utils/fieldAnchor.js';
 import { getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
@@ -368,6 +369,10 @@ export class ZPLParser {
       lastBYSource: null,
       lastFWSource: null,
       printWidthDots: 0,
+      // ^CI is sequential printer state: it picks the character set the ^FH hex
+      // escapes of every following field are read in. Stamped onto each field
+      // token, since the label may switch sets between fields.
+      charEncoding: DEFAULT_FIELD_ENCODING,
       // ^FW defaults: fields that omit their orientation print normal, and
       // ^FO/^FT without a z justify left.
       fwOrientation: 'N',
@@ -475,8 +480,9 @@ export class ZPLParser {
         continue;
       }
 
-      // ^FO starts a new element group
+      // ^FO starts a new element group, and with it ends whichever one is open.
       if (token.command === 'FO') {
+        this._endOpenField(state, token);
         const parts = token.params.split(',');
         state.currentGroup = {
           // Absolute dots: the ^LH in force here is added now and one adopted
@@ -501,6 +507,7 @@ export class ZPLParser {
       // normalized to the model's top-left when the group closes (see ^FS);
       // the rest still fall back to ^FO with the conversion warning.
       if (token.command === 'FT') {
+        this._endOpenField(state, token);
         const parts = token.params.split(',');
         const explicitJustify = (parts[2] || '').trim();
         if (explicitJustify === '2' && !state.ftAutoWarningAdded) {
@@ -559,11 +566,7 @@ export class ZPLParser {
       // missing still prints (Labelary renders one byte-identically with and
       // without it). Same contract the dangling passthrough run has always had.
       if (token.command === 'XZ') {
-        // A field that positioned itself is closed whatever it holds. One that
-        // did not needs data to prove it is a field at all — otherwise a trailing
-        // modal ^A or ^BY, which describes the *next* label, would mint an empty one.
-        this._promotePendingField(state, { requireData: true });
-        this._closeGroup(state, token.start);
+        this._endOpenField(state, token);
         continue;
       }
 
@@ -580,6 +583,7 @@ export class ZPLParser {
           this._parseHeaderCommand(token, state, options);
         }
         token.fwOrientation = state.fwOrientation;
+        token.charEncoding = state.charEncoding;
         state.currentGroup.commands.push(token);
         continue;
       }
@@ -593,6 +597,7 @@ export class ZPLParser {
       // A field command read before the field's ^FO/^FT waits for the group to open.
       if (isFieldScopedCommand(token.command)) {
         token.fwOrientation = state.fwOrientation;
+        token.charEncoding = state.charEncoding;
         state.pendingFieldCommands.push(token);
         continue;
       }
@@ -634,6 +639,27 @@ export class ZPLParser {
   }
 
   /**
+   * End the field that is open, because a new one is starting (^FO/^FT) or the
+   * label is ending (^XZ). A field whose ^FS is missing still prints: the printer
+   * closes it when the next origin arrives, and Labelary renders such a template
+   * byte-identically with and without the ^FS. Without this, a group opened by
+   * ^FO/^FT was overwritten by the next one and its element vanished — not even
+   * kept as a RAW passthrough.
+   *
+   * @param {Object} state
+   * @param {Object} token The command that ends the field. A field that
+   *   positioned itself is closed whatever it holds; one that did not needs data
+   *   to prove it is a field at all — otherwise a modal ^A or ^BY, which
+   *   describes the *next* field, would mint an empty one instead of flowing
+   *   into it. A preserved group's verbatim span stops at the token's start, so
+   *   it never swallows the command that ended it.
+   */
+  _endOpenField(state, token) {
+    this._promotePendingField(state, { requireData: true });
+    this._closeGroup(state, token.start);
+  }
+
+  /**
    * Open a group for a field that described itself but never positioned itself —
    * `^A0N,30^FDhi^FS` with no ^FO/^FT. The printer prints it at the label home,
    * so the buffered commands become a group there.
@@ -641,8 +667,8 @@ export class ZPLParser {
    * @param {Object} state
    * @param {Object} [options]
    * @param {boolean} [options.requireData] Only promote when the buffer holds a
-   *   ^FD/^FV. Set at ^XZ, where the buffer may instead be a trailing modal
-   *   command that belongs to no field.
+   *   ^FD/^FV. Set by _endOpenField, where the buffer may instead be a modal
+   *   command that belongs to the next field rather than to this one.
    */
   _promotePendingField(state, { requireData = false } = {}) {
     const pending = state.pendingFieldCommands;
@@ -1093,8 +1119,10 @@ export class ZPLParser {
         if (parts[2]) state.labelSettings.replicates = parseInt(parts[2]) || 0;
         break;
       }
-      // Silently accepted commands (no-op)
       case 'CI':
+        state.charEncoding = encodingForCharacterSet(token.params);
+        break;
+      // Silently accepted commands (no-op)
       case 'XA':
       case 'XZ':
         break;
@@ -1533,7 +1561,7 @@ export class ZPLParser {
     if (!fdToken) return '';
     const content = fdToken.params;
     if (!fhToken) return content;
-    return decodeFieldData(content, getFieldHexIndicator(fhToken.params));
+    return decodeFieldData(content, getFieldHexIndicator(fhToken.params), fdToken.charEncoding || DEFAULT_FIELD_ENCODING);
   }
 
   _parseFieldData(fdToken, fhToken = null) {

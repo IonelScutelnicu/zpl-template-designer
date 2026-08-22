@@ -377,7 +377,7 @@ test.describe('ZPL Output - Generation and Validation', () => {
         test('should decode imported default and custom ^FH indicators for text and barcodes', async ({ page }) => {
             const result = await page.evaluate(async () => {
                 const { ZPLParser } = await import('/src/services/ZPLParser.js');
-                const zpl = '^XA' +
+                const zpl = '^XA^CI28' +
                     '^FO10,10^A0N,30,30^FH^FD_5E_C2_B0_zz^FS' +
                     '^FO10,60^A0N,30,30^FH\\^FDTilde \\7E Inserted^FS' +
                     '^FO10,110^BY2,2^BCN,50,Y^FH^FD>:_5E_7E_5F^FS' +
@@ -395,6 +395,36 @@ test.describe('ZPL Output - Generation and Validation', () => {
                 { type: 'TEXT', content: 'Tilde ~ Inserted', symbology: null },
                 { type: 'BARCODE', content: '^~_', symbology: 'CODE128' },
                 { type: 'QRCODE', content: 'URL^é', symbology: 'QR' },
+            ]);
+        });
+
+        // ^FH bytes are read in the character set ^CI selected; ^CI0/13 (and every
+        // set the printer has no table for) is code page 850, which is also what a
+        // label with no ^CI at all prints. Expectations verified against Labelary.
+        test('should decode imported ^FH bytes in the ^CI character set', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const field = (y: number) => `^FO10,${y}^A0N,30,30^FH^FD_E0_B8_A1_AE^FS`;
+                const zpl = '^XA' +
+                    field(10) +
+                    '^CI13' + field(60) +
+                    '^CI27' + field(110) +
+                    '^CI31' + field(160) +
+                    '^CI33' + field(210) +
+                    '^CI37' + field(260) +
+                    '^CI28^FO10,310^A0N,30,30^FH^FD_C2_AE_C3_A9^FS' +
+                    '^XZ';
+                return new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 }).elements.map((el) => el.content);
+            });
+
+            expect(result).toEqual([
+                'Ó©í«',   // no ^CI -> code page 850
+                'Ó©í«',   // ^CI13  -> code page 850
+                'à¸¡®',   // ^CI27  -> windows-1252
+                'ŕ¸ˇ®',   // ^CI31  -> windows-1250
+                'аёЎ®',   // ^CI33  -> windows-1251
+                'Ó©í«',   // ^CI37  -> no table, falls back to code page 850
+                '®é',     // ^CI28  -> UTF-8
             ]);
         });
 

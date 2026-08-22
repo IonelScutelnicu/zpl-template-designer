@@ -1,4 +1,5 @@
 import { PLACEHOLDER_SPLIT_RE, WHOLE_PLACEHOLDER_RE } from './placeholders.js';
+import { decodeBytes } from './zplCodePages.js';
 
 const DEFAULT_HEX_INDICATOR = '_';
 const HEX_RE = /^[0-9A-Fa-f]{2}$/;
@@ -31,9 +32,9 @@ function byteToHex(byte) {
   return byte.toString(16).toUpperCase().padStart(2, '0');
 }
 
-function flushBytes(bytes, parts, decoder) {
+function flushBytes(bytes, parts, encoding) {
   if (bytes.length === 0) return;
-  parts.push(decoder.decode(new Uint8Array(bytes)));
+  parts.push(decodeBytes(bytes, encoding));
   bytes.length = 0;
 }
 
@@ -75,10 +76,14 @@ export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
   return { data: encoded, escaped, indicator: marker };
 }
 
-export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
+/**
+ * `encoding` is the character set the ^FH bytes are in — the one ^CI selected on
+ * import. It defaults to UTF-8 because that is what encodeFieldData emits, so
+ * decode(encode(x)) === x without the caller naming a code page.
+ */
+export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR, encoding = 'utf-8') {
   const text = String(value ?? '');
   const marker = indicator || DEFAULT_HEX_INDICATOR;
-  const decoder = new TextDecoder('utf-8');
   const parts = [];
   const bytes = [];
 
@@ -92,11 +97,11 @@ export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
       }
     }
 
-    flushBytes(bytes, parts, decoder);
+    flushBytes(bytes, parts, encoding);
     parts.push(text[i]);
   }
 
-  flushBytes(bytes, parts, decoder);
+  flushBytes(bytes, parts, encoding);
   return parts.join('');
 }
 
