@@ -300,8 +300,9 @@ export class SerializationService {
 
     // Snap bitmap-font sizes to the allowed grid (no-op for scalable/non-text
     // elements). options.labelFontId is the label default, used to resolve the
-    // effective font when the element inherits it (fontId === '').
-    normalizeElementFontSize(element, options.labelFontId);
+    // effective font when the element inherits it (fontId === ''); options.customFonts
+    // is the ^CW list, so an ID a downloaded font took over keeps its free size.
+    normalizeElementFontSize(element, options.labelFontId, options.customFonts);
 
     // Generate new ID if not keeping original
     if (!keepId) {

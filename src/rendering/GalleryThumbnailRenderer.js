@@ -8,7 +8,7 @@ export function renderTemplateThumb(rawElements, labelSettings, maxSize) {
   maxSize = maxSize || 400;
 
   const elements = rawElements
-    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true, labelFontId: (labelSettings || {}).fontId || DEFAULT_FONT_ID }); })
+    .map(function (data) { return serializationService.createElementFromData(data, { keepId: true, labelFontId: (labelSettings || {}).fontId || DEFAULT_FONT_ID, customFonts: (labelSettings || {}).customFonts }); })
     .filter(function (el) { return el !== null; });
 
   const offscreen = document.createElement('canvas');

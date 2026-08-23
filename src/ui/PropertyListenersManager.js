@@ -193,7 +193,8 @@ export class PropertyListenersManager {
     if (fontIdEl) {
       fontIdEl.addEventListener("change", (e) => {
         element.fontId = e.target.value;
-        normalizeElementFontSize(element, this.callbacks.getLabelSettings?.()?.fontId);
+        const labelSettings = this.callbacks.getLabelSettings?.();
+        normalizeElementFontSize(element, labelSettings?.fontId, labelSettings?.customFonts);
         this.callbacks.onPropertyChange(element);
         this.callbacks.onRerenderProperties?.();
       });

@@ -711,7 +711,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
    */
   renderFontSizeControls(element) {
     const resolvedFontId = element.fontId || this.labelSettings?.fontId || DEFAULT_FONT_ID;
-    const allowed = getBitmapFontAllowedSizes(resolvedFontId);
+    const allowed = getBitmapFontAllowedSizes(resolvedFontId, this.labelSettings?.customFonts);
     if (!allowed) {
       return `
         ${this.createInputGroup("Font Size (Height)", "prop-font-size", element.fontSize, "number", { min: 0, max: 32000, placeholder: "Use default" })}

@@ -47,10 +47,10 @@ function scalePos(value, s) {
   return Math.round(value * s);
 }
 
-function scaleFontDimensions(fontId, height, width, s) {
+function scaleFontDimensions(fontId, height, width, s, customFonts) {
   const scaledHeight = height ? scaleDim(height, s) : 0;
   const scaledWidth = width ? scaleDim(width, s) : 0;
-  const snapped = snapRequestedToAllowed(fontId, scaledHeight, scaledWidth);
+  const snapped = snapRequestedToAllowed(fontId, scaledHeight, scaledWidth, customFonts);
   return enforceFontMinSize(fontId, snapped.height, snapped.width);
 }
 
@@ -166,13 +166,13 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         break;
       case 'TEXT':
         ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
-          el.fontId || labelFontId, el.fontSize, el.fontWidth, s
+          el.fontId || labelFontId, el.fontSize, el.fontWidth, s, labelSettings.customFonts
         ));
         if (el.charGap) el.charGap = Math.round(el.charGap * s);
         break;
       case 'TEXTBLOCK':
         ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
-          el.fontId || labelFontId, el.fontSize, el.fontWidth, s
+          el.fontId || labelFontId, el.fontSize, el.fontWidth, s, labelSettings.customFonts
         ));
         el.blockWidth = scaleDim(el.blockWidth, s);
         el.blockHeight = scaleDim(el.blockHeight, s);
@@ -180,7 +180,7 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         break;
       case 'FIELDBLOCK':
         ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
-          el.fontId || labelFontId, el.fontSize, el.fontWidth, s
+          el.fontId || labelFontId, el.fontSize, el.fontWidth, s, labelSettings.customFonts
         ));
         el.blockWidth = scaleDim(el.blockWidth, s);
         if (el.lineSpacing) el.lineSpacing = Math.round(el.lineSpacing * s);
@@ -230,7 +230,8 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
     labelFontId,
     labelSettings.defaultFontHeight,
     labelSettings.defaultFontWidth,
-    s
+    s,
+    labelSettings.customFonts
   );
   if (labelSettings.defaultFontHeight) {
     labelSettingsPatch.defaultFontHeight = scaledDefaultFont.height;

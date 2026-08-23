@@ -11,6 +11,8 @@ const FONT_SOURCES = {
   F: { family: 'Bitstream Vera Sans Mono', src: 'src/fonts/VeraMono.ttf' },
   G: { family: 'Bitstream Vera Sans Mono', src: 'src/fonts/VeraMono.ttf' },
   H: { family: 'OCRA', src: 'src/fonts/OCRA.ttf' },
+  // Fonts 0 and P–V have no entry: they render in the system-font stack their
+  // ZPL_FONTS config names, so there is nothing to fetch.
 };
 
 const loaded = new Set();
@@ -23,13 +25,24 @@ export function isFontReady(fontId) {
 
 export function ensureFontLoaded(fontId) {
   if (isFontReady(fontId)) return Promise.resolve();
-  if (pending.has(fontId)) return pending.get(fontId);
   const { family, src } = FONT_SOURCES[fontId];
+  // Several IDs share one file under one family (A/C/D/F/G are all VeraMono), so the
+  // fetch and the FontFace registration are shared too — keyed on both halves, since
+  // the same file registered under a second family would be a different face.
+  const key = `builtin:${family}|${src}`;
+  const sharesFace = ([, source]) => source.family === family && source.src === src;
+  if (pending.has(key)) return pending.get(key);
   const face = new FontFace(family, `url(${src})`);
   const p = face.load()
-    .then(f => { document.fonts.add(f); loaded.add(fontId); })
-    .catch(() => { failed.add(fontId); pending.delete(fontId); });
-  pending.set(fontId, p);
+    .then(f => {
+      document.fonts.add(f);
+      Object.entries(FONT_SOURCES).filter(sharesFace).forEach(([id]) => loaded.add(id));
+    })
+    .catch(() => {
+      Object.entries(FONT_SOURCES).filter(sharesFace).forEach(([id]) => failed.add(id));
+      pending.delete(key);
+    });
+  pending.set(key, p);
   return p;
 }
 

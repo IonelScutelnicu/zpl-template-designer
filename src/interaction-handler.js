@@ -327,7 +327,7 @@ export class InteractionHandler {
           this.resizeStartHeight = selectedElement.fontSize || this.labelSettings?.defaultFontHeight || DEFAULT_FONT_HEIGHT;
           this.resizeStartFontWidth = selectedElement.fontWidth
             || this.labelSettings?.defaultFontWidth
-            || proportionalRequestedWidth(resolvedFontId, this.resizeStartHeight);
+            || proportionalRequestedWidth(resolvedFontId, this.resizeStartHeight, this.labelSettings?.customFonts);
           // Store the measured text width so horizontal drag tracks the right edge 1:1
           const measuredBounds = this.renderer.measureTextBounds(selectedElement, this.labelSettings);
           this.resizeStartWidth = measuredBounds.width;
@@ -728,7 +728,7 @@ export class InteractionHandler {
         // the magnification to ≥1 anyway, so no separate minimum is needed here.
         const rawFontWidth = Math.max(1, Math.round(this.resizeStartFontWidth * targetWidth / safeStart));
         // Snap live to the font's allowed grid (no-op for scalable fonts).
-        const snapped = snapRequestedToAllowed(resolvedFontId, rawFontSize, rawFontWidth);
+        const snapped = snapRequestedToAllowed(resolvedFontId, rawFontSize, rawFontWidth, this.labelSettings?.customFonts);
         this.dragElement.fontSize = snapped.height;
         this.dragElement.fontWidth = snapped.width;
         this.syncSmartGuidesForResize(e);

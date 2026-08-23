@@ -6,9 +6,10 @@
 export const HISTORY_LIMIT = 100;
 
 /**
- * Built-in ZPL fonts that cannot be overridden
+ * Resident ZPL font IDs offered by the editor. Manual custom-font creation does
+ * not reuse them, though an imported ^CW mapping can override one on the printer.
  */
-export const BUILTIN_FONTS = ['0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+export const BUILTIN_FONTS = ['0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'P', 'Q', 'R', 'S', 'T', 'U', 'V'];
 
 /**
  * The font a label uses when nothing says otherwise — matches a printer's power-up
@@ -38,11 +39,131 @@ export const CODE11_GUARD_START_CHAR = '\uE001';
 export const CODE11_GUARD_STOP_CHAR = '\uE002';
 
 /**
+ * Zebra renders Font 0 and the resident fonts P–V in CG Triumvirate Bold
+ * Condensed. This is the browser stack that stands in for it, shared by all
+ * eight so a label reads the same whichever of them a field names.
+ */
+const CG_TRIUMVIRATE_FAMILY = '"Roboto Condensed", "Arial Narrow", "Helvetica Condensed", Arial, sans-serif';
+
+/**
+ * Cap-ink height of that substitute face, as a fraction of the em (Roboto
+ * Condensed Bold: 1472/2048). Fonts P–V convert between the printer's
+ * dot-valued cap height and a canvas font size through it.
+ */
+const CG_TRIUMVIRATE_CAP_RATIO = 0.71875;
+
+/**
+ * Per-character render rules: replace specific glyphs with drawn shapes and/or
+ * control their advance width. Keyed by character; each rule's `type` selects a
+ * handler in fontMetrics.js (CHAR_RULE_HANDLERS). All ratios are fractions of
+ * fontSize. Add a character by adding an entry here; add a behaviour by adding a
+ * handler. The '-' rule draws a calibrated bar because the system font's hyphen
+ * is too narrow/short vs Zebra's CG Triumvirate Bold Condensed dash.
+ */
+const CG_TRIUMVIRATE_CHAR_RULES = {
+  // Real glyph. advanceRatio = cell pitch (match Zebra's digit spacing);
+  // widthRatio < 1 condenses the glyph itself. Centered in the cell.
+  '-': { type: 'glyph', advanceRatio: 0.903, widthRatio: 2.42, yRatio: 0.03, xRatio: 0 },
+  '_': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.3, heightRatio: 0.5, yRatio: 0.57, xRatio: 0.09 },
+  '0': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '1': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '2': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '3': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '4': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '5': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '6': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '7': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '8': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '9': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
+  '@': { type: 'glyph', advanceRatio: 0.90, widthRatio: 1 },
+  '*': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.65, heightRatio: 0.65, xRatio: -0.009, yRatio: 0.012  },
+  '$': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1.1 },
+  '#': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1.1 },
+  '!': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '(': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  ')': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '&': { type: 'glyph', advanceRatio: 0.61, widthRatio: 1.1 },
+  '%': { type: 'glyph', advanceRatio: 0.903, widthRatio: 1.55 },
+  '.': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  ',': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '/': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '+': { type: 'glyph', advanceRatio: 0.905, widthRatio: 1.45 },
+  '=': { type: 'glyph', advanceRatio: 0.905, widthRatio: 1.53, heightRatio: 0.96, xRatio: -0.006, yRatio: 0.04 },
+  '`': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '<': { type: 'glyph', advanceRatio: 1, widthRatio: 1.6 },
+  '>': { type: 'glyph', advanceRatio: 1, widthRatio: 1.6 },
+  '?': { type: 'glyph', advanceRatio: 0.441, widthRatio: 1 },
+  ';': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  ':': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '"': { type: 'glyph', advanceRatio: 0.481, widthRatio: 1 },
+  '\'': { type: 'glyph', advanceRatio: 0.296, widthRatio: 1 },
+  '[': { type: 'glyph', advanceRatio: 0.295, widthRatio: 0.96, heightRatio: 0.887, xRatio: -0.024, yRatio: 0.111 },
+  ']': { type: 'glyph', advanceRatio: 0.295, widthRatio: 0.96, heightRatio: 0.887, xRatio: 0.116, yRatio: 0.111 },
+  'A': { type: 'glyph', advanceRatio: 0.555, widthRatio: 0.92 },
+  'B': { type: 'glyph', advanceRatio: 0.555, widthRatio: 0.92 },
+  'C': { type: 'glyph', advanceRatio: 0.535, widthRatio: 0.90 },
+  'D': { type: 'glyph', advanceRatio: 0.59, widthRatio: 1 },
+  'E': { type: 'glyph', advanceRatio: 0.5, widthRatio: 1 },
+  'e': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1, heightRatio: 1.01  },
+  'F': { type: 'glyph', advanceRatio: 0.5, widthRatio: 1 },
+  'I': { type: 'glyph', advanceRatio: 0.2763, widthRatio: 1 },
+  'J': { type: 'glyph', advanceRatio: 0.445, widthRatio: 0.90 },
+  'Q': { type: 'glyph', advanceRatio: 0.57, widthRatio: 1 },
+  'W': { type: 'glyph', advanceRatio: 0.812, widthRatio: 1.1 },
+  'R': { type: 'glyph', advanceRatio: 0.59, widthRatio: 1 },
+  'T': { type: 'glyph', advanceRatio: 0.5, widthRatio: 0.90 },
+  'O': { type: 'glyph', advanceRatio: 0.57, widthRatio: 1 },
+  'G': { type: 'glyph', advanceRatio: 0.59, widthRatio: 1 },
+  'H': { type: 'glyph', advanceRatio: 0.6101, widthRatio: 1 },
+  'L': { type: 'glyph', advanceRatio: 0.481, widthRatio: 1 },
+  'M': { type: 'glyph', advanceRatio: 0.755, widthRatio: 1 },
+  'N': { type: 'glyph', advanceRatio: 0.6083, widthRatio: 0.99 },
+  'S': { type: 'glyph', advanceRatio: 0.535, widthRatio: 1 },
+  'X': { type: 'glyph', advanceRatio: 0.555, widthRatio: 1 },
+  'Y': { type: 'glyph', advanceRatio: 0.555, widthRatio: 1 },
+  'U': { type: 'glyph', advanceRatio: 0.609, widthRatio: 1 },
+  'P': { type: 'glyph', advanceRatio: 0.555, widthRatio: 1 },
+  'V': { type: 'glyph', advanceRatio: 0.535, widthRatio: 0.90 },
+  'Z': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
+  'a': { type: 'glyph', advanceRatio: 0.461, widthRatio: 1, heightRatio: 1.01 },
+  's': { type: 'glyph', advanceRatio: 0.424, widthRatio: 1 },
+  'd': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1, heightRatio: 1.01 },
+  'f': { type: 'glyph', advanceRatio: 0.275, widthRatio: 1 },
+  'g': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1 },
+  'h': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1 },
+  'H': { type: 'glyph', advanceRatio: 0.608, widthRatio: 0.946, heightRatio: 1.01, yRatio: 0.00, xRatio: 0.005 },
+  'j': { type: 'glyph', advanceRatio: 0.259, widthRatio: 1 },
+  'k': { type: 'glyph', advanceRatio: 0.443, widthRatio: 0.945, yRatio: 0.01, xRatio: 0.01},
+  'l': { type: 'glyph', advanceRatio: 0.2585, widthRatio: 1, heightRatio: 0.96, yRatio: 0.04 },
+  'w': { type: 'glyph', advanceRatio: 0.664, widthRatio: 1.1, heightRatio: 1.01},
+  'r': { type: 'glyph', advanceRatio: 0.332, widthRatio: 1, heightRatio: 1.01, xRatio: 0.01 },
+  't': { type: 'glyph', advanceRatio: 0.276, widthRatio: 0.90 },
+  'u': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1, heightRatio: 1.01 },
+  'i': { type: 'glyph', advanceRatio: 0.258, widthRatio: 1 },
+  'o': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1 },
+  'p': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
+  'z': { type: 'glyph', advanceRatio: 0.387, widthRatio: 1, xRatio: 0.008 },
+  'x': { type: 'glyph', advanceRatio: 0.442, widthRatio: 1 },
+  'c': { type: 'glyph', advanceRatio: 0.442, widthRatio: 0.92, heightRatio: 1.01 },
+  'v': { type: 'glyph', advanceRatio: 0.4425, widthRatio: 1, heightRatio: 1.01 },
+  'b': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1, yRatio: 0.01 },
+  'n': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
+  'm': { type: 'glyph', advanceRatio: 0.754, widthRatio: 1 },
+  'y': { type: 'glyph', advanceRatio: 0.444, widthRatio: 1, xRatio: 0.016 },
+  ' ': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
+  '~': { type: 'glyph', advanceRatio: 1, widthRatio: 1.7 },
+  '^': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.3 },
+  '{': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2, yRatio: 0.064, xRatio: -0.022 },
+  '}': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2, yRatio: 0.064, xRatio: 0.018 },
+  '|': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
+};
+
+/**
  * ZPL font mapping.
  */
 export const ZPL_FONTS = {
   '0': {
-    family: '"Roboto Condensed", "Arial Narrow", "Helvetica Condensed", Arial, sans-serif',
+    family: CG_TRIUMVIRATE_FAMILY,
     weight: 'bold',
     monospace: false,
     yOffset: 0.01,
@@ -60,109 +181,7 @@ export const ZPL_FONTS = {
     minHeight: 10,  // Smallest explicit height/width (dots) accepted on ZPL import;
     minWidth: 10,   // smaller positive values are clamped up. 0 stays inherit/proportional.
     wordSpacing: 0.065,  // Extra space-glyph advance as fraction of fontSize (the system font's space is narrower than Zebra's Font 0)
-    // Per-character render rules: replace specific glyphs with drawn shapes and/or
-    // control their advance width. Keyed by character; each rule's `type` selects a
-    // handler in fontMetrics.js (CHAR_RULE_HANDLERS). All ratios are fractions of
-    // fontSize. Add a character by adding an entry here; add a behaviour by adding a
-    // handler. The '-' rule draws a calibrated bar because the system font's hyphen
-    // is too narrow/short vs Zebra's CG Triumvirate Bold Condensed dash.
-    charRules: {
-      // Real glyph. advanceRatio = cell pitch (match Zebra's digit spacing);
-      // widthRatio < 1 condenses the glyph itself. Centered in the cell.
-      '-': { type: 'glyph', advanceRatio: 0.903, widthRatio: 2.42, yRatio: 0.03, xRatio: 0 },
-      '_': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.32, heightRatio: 0.5, yRatio: 0.57, xRatio: 0 },
-      '0': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '1': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '2': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '3': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '4': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '5': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '6': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '7': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '8': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '9': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.92 },
-      '@': { type: 'glyph', advanceRatio: 0.90, widthRatio: 1 },
-      '*': { type: 'glyph', advanceRatio: 0.48, widthRatio: 0.75 },
-      '$': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1.1 },
-      '#': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1.1 },
-      '!': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '(': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      ')': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '&': { type: 'glyph', advanceRatio: 0.61, widthRatio: 1.1 },
-      '%': { type: 'glyph', advanceRatio: 0.903, widthRatio: 1.55 },
-      '.': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      ',': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '/': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '+': { type: 'glyph', advanceRatio: 0.905, widthRatio: 1.45 },
-      '=': { type: 'glyph', advanceRatio: 0.905, widthRatio: 1.51 },
-      '`': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '<': { type: 'glyph', advanceRatio: 1, widthRatio: 1.6 },
-      '>': { type: 'glyph', advanceRatio: 1, widthRatio: 1.6 },
-      '?': { type: 'glyph', advanceRatio: 0.441, widthRatio: 1 },
-      ';': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      ':': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '"': { type: 'glyph', advanceRatio: 0.481, widthRatio: 1 },
-      '\'': { type: 'glyph', advanceRatio: 0.296, widthRatio: 1 },
-      '[': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      ']': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      'A': { type: 'glyph', advanceRatio: 0.555, widthRatio: 0.92 },
-      'B': { type: 'glyph', advanceRatio: 0.555, widthRatio: 0.92 },
-      'C': { type: 'glyph', advanceRatio: 0.535, widthRatio: 0.90 },
-      'D': { type: 'glyph', advanceRatio: 0.59, widthRatio: 1 },
-      'E': { type: 'glyph', advanceRatio: 0.5, widthRatio: 1 },
-      'e': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1, heightRatio: 1.01  },
-      'F': { type: 'glyph', advanceRatio: 0.5, widthRatio: 1 },
-      'I': { type: 'glyph', advanceRatio: 0.277, widthRatio: 1 },
-      'J': { type: 'glyph', advanceRatio: 0.445, widthRatio: 0.90 },
-      'Q': { type: 'glyph', advanceRatio: 0.57, widthRatio: 1 },
-      'W': { type: 'glyph', advanceRatio: 0.812, widthRatio: 1.1 },
-      'R': { type: 'glyph', advanceRatio: 0.59, widthRatio: 1 },
-      'T': { type: 'glyph', advanceRatio: 0.5, widthRatio: 0.90 },
-      'O': { type: 'glyph', advanceRatio: 0.57, widthRatio: 1 },
-      'G': { type: 'glyph', advanceRatio: 0.59, widthRatio: 1 },
-      'H': { type: 'glyph', advanceRatio: 0.6101, widthRatio: 1 },
-      'L': { type: 'glyph', advanceRatio: 0.481, widthRatio: 1 },
-      'M': { type: 'glyph', advanceRatio: 0.755, widthRatio: 1 },
-      'N': { type: 'glyph', advanceRatio: 0.6083, widthRatio: 0.99 },
-      'S': { type: 'glyph', advanceRatio: 0.535, widthRatio: 1 },
-      'X': { type: 'glyph', advanceRatio: 0.555, widthRatio: 1 },
-      'Y': { type: 'glyph', advanceRatio: 0.555, widthRatio: 1 },
-      'U': { type: 'glyph', advanceRatio: 0.609, widthRatio: 1 },
-      'P': { type: 'glyph', advanceRatio: 0.555, widthRatio: 1 },
-      'V': { type: 'glyph', advanceRatio: 0.535, widthRatio: 0.90 },
-      'Z': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
-      'a': { type: 'glyph', advanceRatio: 0.461, widthRatio: 1, heightRatio: 1.01 },
-      's': { type: 'glyph', advanceRatio: 0.424, widthRatio: 1 },
-      'd': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1, heightRatio: 1.01 },
-      'f': { type: 'glyph', advanceRatio: 0.275, widthRatio: 1 },
-      'g': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1 },
-      'h': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1 },
-      'H': { type: 'glyph', advanceRatio: 0.608, widthRatio: 0.946, heightRatio: 1.01, yRatio: 0.00, xRatio: 0.005 },
-      'j': { type: 'glyph', advanceRatio: 0.259, widthRatio: 1 },
-      'k': { type: 'glyph', advanceRatio: 0.443, widthRatio: 0.945, yRatio: 0.01, xRatio: 0.01},
-      'l': { type: 'glyph', advanceRatio: 0.2585, widthRatio: 1, heightRatio: 0.96, yRatio: 0.04 },
-      'w': { type: 'glyph', advanceRatio: 0.664, widthRatio: 1.1, heightRatio: 1.01},
-      'r': { type: 'glyph', advanceRatio: 0.332, widthRatio: 1, heightRatio: 1.01, xRatio: 0.01 },
-      't': { type: 'glyph', advanceRatio: 0.276, widthRatio: 0.90 },
-      'u': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1, heightRatio: 1.01 },
-      'i': { type: 'glyph', advanceRatio: 0.258, widthRatio: 1 },
-      'o': { type: 'glyph', advanceRatio: 0.48, widthRatio: 1 },
-      'p': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
-      'z': { type: 'glyph', advanceRatio: 0.387, widthRatio: 1, xRatio: 0.008 },
-      'x': { type: 'glyph', advanceRatio: 0.442, widthRatio: 1 },
-      'c': { type: 'glyph', advanceRatio: 0.442, widthRatio: 0.92, heightRatio: 1.01 },
-      'v': { type: 'glyph', advanceRatio: 0.4425, widthRatio: 1, heightRatio: 1.01 },
-      'b': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1, yRatio: 0.01 },
-      'n': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
-      'm': { type: 'glyph', advanceRatio: 0.754, widthRatio: 1 },
-      'y': { type: 'glyph', advanceRatio: 0.444, widthRatio: 1, xRatio: 0.016 },
-      ' ': { type: 'glyph', advanceRatio: 0.295, widthRatio: 1 },
-      '~': { type: 'glyph', advanceRatio: 1, widthRatio: 1.7 },
-      '^': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.3 },
-      '{': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
-      '}': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1.2 },
-      '|': { type: 'glyph', advanceRatio: 0.498, widthRatio: 1 },
-    }
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
   },
   'A': {
     family: '"Bitstream Vera Sans Mono", "Lucida Console", "Courier New", monospace',
@@ -184,8 +203,12 @@ export const ZPL_FONTS = {
       // start one. Sizes follow Labelary: start ≈ 0.5·cap tall, stop ≈ 0.75·cap.
       [CODE11_GUARD_START_CHAR]: { type: 'triangle', widthRatio: 0.35, heightRatio: 0.37, yRatio: -0.26, xRatio: 0.025, lineRatio: 0.05, padRatio: 0.11 },
       [CODE11_GUARD_STOP_CHAR]: { type: 'triangle', widthRatio: 0.58, heightRatio: 0.58, yRatio: -0.26, xRatio: -0.025, lineRatio: 0.05, padRatio: 0.11 },
-      '_': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1, yRatio: -0.25, xRatio: 0.04 },
+      '_': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1, heightRatio: 2.1, yRatio: -0.459, xRatio: 0.04 },
       '-': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.95, yRatio: -0.1, xRatio: -0.01 },
+      '@': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.88, heightRatio: 0.85, xRatio: -0.014, yRatio: -0.129 },
+      '=': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.98, heightRatio: 1.13, xRatio: -0.016, yRatio: -0.002 },
+      '<': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: -0.072, yRatio: 0.108 },
+      '>': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: 0.026, yRatio: 0.108 },
       ',': { type: 'glyph', xRatio: -0.04 },
       'B': { type: 'glyph', xRatio: -0.04 },
       'b': { type: 'glyph', xRatio: -0.04 },
@@ -215,7 +238,7 @@ export const ZPL_FONTS = {
       'z': { type: 'glyph', xRatio: -0.04 },
       '1': { type: 'glyph', xRatio: -0.04 },
       '+': { type: 'glyph', xRatio: -0.02, yRatio: -0.14 },
-      '*': { type: 'glyph', yRatio: 0.14 },
+      '*': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.14, heightRatio: 1.14, xRatio: -0.016, yRatio: 0.23 },
       ':': { type: 'glyph', xRatio: -0.1 },
       ';': { type: 'glyph', xRatio: -0.14 },
       '[': { type: 'glyph', xRatio: -0.04 },
@@ -228,6 +251,16 @@ export const ZPL_FONTS = {
       '$': { type: 'glyph', xRatio: -0.02 },
       '#': { type: 'glyph', xRatio: 0.01 },
       '\'': { type: 'glyph', xRatio: -0.06 },
+      '0': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.026 },
+      '1': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.045 },
+      '2': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.014 },
+      '3': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.014 },
+      '4': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.02 },
+      '5': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.014 },
+      '6': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.022 },
+      '7': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.014 },
+      '8': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.022 },
+      '9': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.96, xRatio: -0.018 },
     },
   },
   'B': {
@@ -279,6 +312,11 @@ export const ZPL_FONTS = {
     charRules: {
       '_': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1, yRatio: -0.25, xRatio: 0.04 },
       '-': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.95, yRatio: -0.1, xRatio: -0.01},
+      '@': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.88, heightRatio: 0.85, xRatio: -0.014, yRatio: -0.129 },
+      '=': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.98, heightRatio: 1.13, xRatio: -0.016, yRatio: -0.002 },
+      '<': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: -0.072, yRatio: 0.108 },
+      '>': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: 0.026, yRatio: 0.108 },
+      '*': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.14, heightRatio: 1.14, xRatio: -0.016, yRatio: 0.23 },
       'A': { type: 'glyph', xRatio: 0.02 },
       'B': { type: 'glyph', xRatio: -0.016 },
       'E': { type: 'glyph', xRatio: -0.008 },
@@ -315,6 +353,11 @@ export const ZPL_FONTS = {
     charRules: {
       '_': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1, yRatio: -0.25, xRatio: 0.04 },
       '-': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.95, yRatio: -0.1, xRatio: -0.01 },
+      '@': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.88, heightRatio: 0.85, xRatio: -0.014, yRatio: -0.129 },
+      '=': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.98, heightRatio: 1.13, xRatio: -0.016, yRatio: -0.002 },
+      '<': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: -0.072, yRatio: 0.108 },
+      '>': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: 0.026, yRatio: 0.108 },
+      '*': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.14, heightRatio: 1.14, xRatio: -0.016, yRatio: 0.23 },
       'A': { type: 'glyph', xRatio: 0.02 },
       'B': { type: 'glyph', xRatio: -0.02 },
       'b': { type: 'glyph', xRatio: -0.02 },
@@ -389,6 +432,11 @@ export const ZPL_FONTS = {
     charRules: {
       '_': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.95, yRatio: -0.25, xRatio: 0.06 },
       '-': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.4, yRatio: -0.045, xRatio: 0.01 },
+      '@': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.88, heightRatio: 0.85, xRatio: -0.014, yRatio: -0.129 },
+      '=': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.98, heightRatio: 1.13, xRatio: -0.016, yRatio: -0.002 },
+      '<': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: -0.072, yRatio: 0.108 },
+      '>': { type: 'glyph', advanceRatio: 0.602, widthRatio: 0.766, heightRatio: 1.46, xRatio: 0.026, yRatio: 0.108 },
+      '*': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.14, heightRatio: 1.14, xRatio: -0.016, yRatio: 0.23 },
       'A': { type: 'glyph', xRatio: 0.046 },
       'C': { type: 'glyph', xRatio: 0.012 },
       'B': { type: 'glyph', advanceRatio: 0.602, widthRatio: 1.1, xRatio: 0.015 },
@@ -432,6 +480,99 @@ export const ZPL_FONTS = {
     lineHeightRatio: 1.0,
     textBlockLineHeightRatio: 0.77,
     bitmap: { magStep: 21, magWidthStep: 13, capStep: 21, advStep: 19, maxMag: 10 }
+  },
+  // Legacy S-300-compatible resident fonts. These are the same CG Triumvirate Bold
+  // Condensed face Font 0 scales freely, fixed to one cell per font — so they render
+  // through Font 0's substitute family and its per-glyph advance corrections rather
+  // than a face of their own. Only the cell is theirs: height and width snap to
+  // independent integer magnifications of magStep/magWidthStep, an em maps to advStep
+  // dots per width magnification, and cap ink to capStep dots per height
+  // magnification. Both line pitches then work out to exactly one cell per line —
+  // ^FB steps a ratio of the cap ink, ^TB a ratio of the em, hence the capRatio in
+  // the second. capPad is the ascender space above the cap ink, for ^FT anchoring.
+  'P': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 3,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 20 / 12,
+    textBlockLineHeightRatio: (20 * CG_TRIUMVIRATE_CAP_RATIO) / 12,
+    bitmap: { magStep: 20, magWidthStep: 18, capStep: 12, advStep: 16.15, maxMag: 10, capPad: 3 }
+  },
+  'Q': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 4,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 28 / 17,
+    textBlockLineHeightRatio: (28 * CG_TRIUMVIRATE_CAP_RATIO) / 17,
+    bitmap: { magStep: 28, magWidthStep: 24, capStep: 17, advStep: 22.71, maxMag: 10, capPad: 4 }
+  },
+  'R': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 4.2,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 35 / 22,
+    textBlockLineHeightRatio: (35 * CG_TRIUMVIRATE_CAP_RATIO) / 22,
+    bitmap: { magStep: 35, magWidthStep: 31, capStep: 22.6, advStep: 29.34, maxMag: 10, capPad: 4 }
+  },
+  'S': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 5.4,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 40 / 25,
+    textBlockLineHeightRatio: (40 * CG_TRIUMVIRATE_CAP_RATIO) / 25,
+    bitmap: { magStep: 40, magWidthStep: 35, capStep: 25.5, advStep: 33.39, maxMag: 10, capPad: 5 }
+  },
+  'T': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 6.2,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 48 / 31,
+    textBlockLineHeightRatio: (48 * CG_TRIUMVIRATE_CAP_RATIO) / 31,
+    bitmap: { magStep: 48, magWidthStep: 42, capStep: 31, advStep: 39.49, maxMag: 10, capPad: 5 }
+  },
+  'U': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 7.6,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 59 / 38,
+    textBlockLineHeightRatio: (59 * CG_TRIUMVIRATE_CAP_RATIO) / 38,
+    bitmap: { magStep: 59, magWidthStep: 53, capStep: 38, advStep: 50.08, maxMag: 10, capPad: 6 }
+  },
+  'V': {
+    family: CG_TRIUMVIRATE_FAMILY,
+    weight: 'bold',
+    monospace: false,
+    wordSpacing: 0.065,
+    yOffset: 12,
+    charRules: CG_TRIUMVIRATE_CHAR_RULES,
+    capRatio: CG_TRIUMVIRATE_CAP_RATIO,
+    lineHeightRatio: 80 / 50,
+    textBlockLineHeightRatio: (80 * CG_TRIUMVIRATE_CAP_RATIO) / 50,
+    bitmap: { magStep: 80, magWidthStep: 71, capStep: 50, advStep: 66.65, maxMag: 10, capPad: 10 }
   },
   // Default fallback
   'default': {

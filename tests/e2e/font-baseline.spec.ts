@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures';
 import { ElementsPanel, PropertiesPanel, Canvas } from '../page-objects';
 import { compareWithBaseline } from '../fixtures/image-comparison';
 
-// Pixel-level appearance baselines for the 8 ZPL bitmap fonts (A-H).
+// Pixel-level appearance baselines for the 15 ZPL bitmap fonts (A-H, P-V).
 // Each font gets 3 sweeps — height-only, width-only, both — at multipliers
 // 1x..5x of its native base size. font-bucketing.spec.ts covers the snap
 // function; this spec covers actual glyph rendering: any regression in font
@@ -23,6 +23,13 @@ const FONTS: FontDef[] = [
     { id: 'F', baseH: 26, baseW: 13 },
     { id: 'G', baseH: 60, baseW: 40 },
     { id: 'H', baseH: 21, baseW: 13 },
+    { id: 'P', baseH: 20, baseW: 18 },
+    { id: 'Q', baseH: 28, baseW: 24 },
+    { id: 'R', baseH: 35, baseW: 31 },
+    { id: 'S', baseH: 40, baseW: 35 },
+    { id: 'T', baseH: 48, baseW: 42 },
+    { id: 'U', baseH: 59, baseW: 53 },
+    { id: 'V', baseH: 80, baseW: 71 },
 ];
 
 const BUCKETS = [1, 2, 3, 4, 5];
@@ -130,12 +137,13 @@ for (const font of FONTS) {
 //   '0' — scalable, exercises the y nudge
 //   'A' — bitmap WITH descenders ('p' in Sample), guards the descender pivot
 //   'H' — bitmap, largest xOffset (filters lowercase → no descender)
-const ROTATION_FONTS = ['0', 'A', 'H'];
+//   'P'/'V' — smallest/largest proportional resident cells
+const ROTATION_FONTS = ['0', 'A', 'H', 'P', 'V'];
 const ORIENTATIONS = ['R', 'I', 'B'];
 // Bitmap fonts only accept their allowed (per-magnification) heights via the size
 // dropdown. Pick the grid value that snaps to the SAME magnification ~40 did, so the
 // rendered glyph — and thus the baseline — is unchanged: A 9×4=36, H 21×2=42.
-const ROT_SIZE_BY_FONT: Record<string, number> = { '0': 40, A: 36, H: 42 };
+const ROT_SIZE_BY_FONT: Record<string, number> = { '0': 40, A: 36, H: 42, P: 40, V: 80 };
 
 for (const fontId of ROTATION_FONTS) {
     test.describe(`Font ${fontId} rotation baseline`, () => {

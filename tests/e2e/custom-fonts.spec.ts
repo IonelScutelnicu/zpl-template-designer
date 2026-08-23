@@ -452,8 +452,9 @@ test.describe('Custom fonts', () => {
     await expect(menu).toContainText('Scalable');
     await expect(menu).toContainText('Resident bitmap');
     // One row per built-in font, each carrying its cell metrics.
-    await expect(menu.locator('.font-picker-option')).toHaveCount(9);
+    await expect(menu.locator('.font-picker-option')).toHaveCount(16);
     await expect(menu.locator('[data-font-id="G"]')).toContainText('G · 60×40 · Resident bitmap');
+    await expect(menu.locator('[data-font-id="V"]')).toContainText('V · 80×71 · Resident bitmap');
     // The specimen renders in the font's own bundled face, not the page font.
     await expect(menu.locator('[data-font-id="H"] span span').first())
       .toHaveCSS('font-family', /OCRA/);
@@ -471,6 +472,41 @@ test.describe('Custom fonts', () => {
     // Selecting through the popover runs the same wiring as the select did:
     // G's allowed sizes replace the previous font's grid.
     await expect(page.locator('#default-font-height')).toHaveValue('60');
+  });
+
+  test('an imported ^CW collision overrides one resident row and removal restores it', async ({ page }) => {
+    const zplOutput = new ZPLOutput(page);
+    await page.goto('/?e2e=1');
+    await zplOutput.openMoreActions();
+    await page.locator('#import-zpl-btn').click();
+    await page.locator('#zpl-import-input').fill([
+      '^XA',
+      '^CWP,R:PRESET.TTF',
+      '^CFP,20,18',
+      '^FO10,10^APN,20,18^FDTest^FS',
+      '^XZ',
+    ].join('\n'));
+    await page.locator('#zpl-import-input').dispatchEvent('input');
+    await page.locator('#zpl-import-confirm-btn').click();
+    const warnings = page.locator('#zpl-import-warnings');
+    if (await warnings.isVisible().catch(() => false)) {
+      await page.locator('#zpl-import-confirm-btn').click();
+    }
+
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    await page.locator('#font-picker .font-picker-trigger').click();
+    const menu = page.locator('[data-menu-for="font-id"]');
+    await expect(menu.locator('.font-picker-option')).toHaveCount(16);
+    await expect(menu.locator('[data-font-id="P"]')).toContainText('P · PRESET · Overrides resident');
+    await page.keyboard.press('Escape');
+
+    await page.locator('.remove-custom-font[data-font-id="P"]').click();
+    await expect(page.locator('#font-id')).toHaveValue('P');
+    await page.locator('#font-picker .font-picker-trigger').click();
+    await expect(menu.locator('[data-font-id="P"]')).toContainText('P · 20×18 · Resident bitmap');
+    const output = await page.locator('#zpl-output-raw').inputValue();
+    expect(output).toContain('^CFP,20,18');
+    expect(output).not.toContain('^CWP');
   });
 
   test('flags a font with no preview file in the picker', async ({ page }) => {

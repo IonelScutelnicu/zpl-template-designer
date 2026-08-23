@@ -273,6 +273,7 @@ export class CustomFontsManager {
 
     // Add custom fonts
     customFonts.forEach(font => {
+      if (this.builtinFonts.includes(font.id)) return;
       const option = document.createElement('option');
       option.value = font.id;
       option.textContent = `${font.id} - ${font.source ? (font.source.fileName || 'Custom') : 'Printer font'}`;

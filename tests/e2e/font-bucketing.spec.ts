@@ -90,6 +90,49 @@ test.describe('ZPL bitmap font bucketing', () => {
             ]);
         });
 
+        test('Fonts P-V use the documented cell grids and independent width magnification', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { getBitmapFontAllowedSizes, snapBitmapFontSize } = await import('/src/utils/zplFontSnap.js');
+                const { ZPL_FONTS } = await import('/src/config/constants.js');
+                // Cell height × cell width, straight from Zebra's font matrix.
+                const fonts = [
+                    ['P', 20, 18],
+                    ['Q', 28, 24],
+                    ['R', 35, 31],
+                    ['S', 40, 35],
+                    ['T', 48, 42],
+                    ['U', 59, 53],
+                    ['V', 80, 71],
+                ] as const;
+                return fonts.map(([id, baseH, baseW]) => {
+                    const allowed = getBitmapFontAllowedSizes(id)!;
+                    const cell = ZPL_FONTS[id].bitmap;
+                    // Ask for height magnification 2 and width magnification 3 in one call:
+                    // each axis must resolve off its own step (magStep / magWidthStep)
+                    // rather than the width following the height. Reported as multiples of
+                    // the font's rendered steps, so retuning the render calibration
+                    // (capStep / advStep) doesn't rewrite this expectation.
+                    const rendered = snapBitmapFontSize(id, baseH * 2, baseW * 3);
+                    return {
+                        id,
+                        first: [allowed.heights[0], allowed.widths[0]],
+                        last: [allowed.heights.at(-1), allowed.widths.at(-1)],
+                        heightMag: Number((rendered.height / cell.capStep).toFixed(6)),
+                        widthMag: Number((rendered.width / cell.advStep).toFixed(6)),
+                    };
+                });
+            });
+            expect(result).toEqual([
+                { id: 'P', first: [20, 18], last: [200, 180], heightMag: 2, widthMag: 3 },
+                { id: 'Q', first: [28, 24], last: [280, 240], heightMag: 2, widthMag: 3 },
+                { id: 'R', first: [35, 31], last: [350, 310], heightMag: 2, widthMag: 3 },
+                { id: 'S', first: [40, 35], last: [400, 350], heightMag: 2, widthMag: 3 },
+                { id: 'T', first: [48, 42], last: [480, 420], heightMag: 2, widthMag: 3 },
+                { id: 'U', first: [59, 53], last: [590, 530], heightMag: 2, widthMag: 3 },
+                { id: 'V', first: [80, 71], last: [800, 710], heightMag: 2, widthMag: 3 },
+            ]);
+        });
+
         test('magnification clamps at maxMag=10', async ({ page }) => {
             const result = await page.evaluate(async () => {
                 const { snapBitmapFontSize } = await import('/src/utils/zplFontSnap.js');
@@ -480,6 +523,37 @@ test.describe('ZPL bitmap font bucketing', () => {
                 { fontSize: 40, fontWidth: 0 },
             ]);
         });
+
+        test('normalizes lower-case P-V identifiers and snaps element sizes to their resident grids', async ({ page }) => {
+            const parsed = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const result = new ZPLParser().parse(
+                    '^XA^CFp,21,19^FO10,10^AqN,30,25^FDQ^FS^FO10,60^AvN,79,70^FDV^FS^XZ'
+                );
+                return {
+                    label: {
+                        fontId: result.labelSettings.fontId,
+                        height: result.labelSettings.defaultFontHeight,
+                        width: result.labelSettings.defaultFontWidth,
+                    },
+                    elements: result.elements.map((el: any) => ({
+                        fontId: el.fontId,
+                        height: el.fontSize,
+                        width: el.fontWidth,
+                    })),
+                };
+            });
+
+            expect(parsed).toEqual({
+                // The parser preserves ^CF's written dimensions; applying the
+                // imported label settings snaps them through the normal UI path.
+                label: { fontId: 'P', height: 21, width: 19 },
+                elements: [
+                    { fontId: 'Q', height: 28, width: 24 },
+                    { fontId: 'V', height: 80, width: 71 },
+                ],
+            });
+        });
     });
 
     // ============== Inherited label default font ==============
@@ -707,6 +781,16 @@ test.describe('ZPL bitmap font bucketing', () => {
             );
             expect(await optionTexts(page, 'default-font-width')).toEqual(
                 ['Proportional', '5', '10', '15', '20', '25', '30', '35', '40', '45', '50']
+            );
+        });
+
+        test('Font V exposes its 80×71 cell at magnifications 1-10', async ({ page }) => {
+            await setLabelFont(page, 'V');
+            expect(await optionTexts(page, 'default-font-height')).toEqual(
+                ['80', '160', '240', '320', '400', '480', '560', '640', '720', '800']
+            );
+            expect(await optionTexts(page, 'default-font-width')).toEqual(
+                ['Proportional', '71', '142', '213', '284', '355', '426', '497', '568', '639', '710']
             );
         });
 

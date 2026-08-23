@@ -461,7 +461,8 @@ export class AppState {
     // the label font (fontId === '') snap their bitmap sizes to the right grid.
     if (data.elements) {
       const labelFontId = data.labelSettings?.fontId || this.labelSettings.fontId;
-      this.elements = data.elements.map(el => createElementFromData(el, { keepId: true, labelFontId }));
+      const customFonts = data.labelSettings?.customFonts || this.labelSettings.customFonts;
+      this.elements = data.elements.map(el => createElementFromData(el, { keepId: true, labelFontId, customFonts }));
       this.notify('elementsChanged', this.elements);
     }
 

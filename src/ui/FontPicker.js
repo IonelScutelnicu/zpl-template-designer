@@ -42,14 +42,15 @@ function describeFont(id, customFont) {
   if (customFont) {
     const stem = pathStem(customFont.fontFile);
     const embedded = !!customFont.source;
+    const overridesResident = BUILTIN_FONTS.includes(id);
     return {
       id,
       family: embedded ? `'${customFontFamily(customFont.source)}', ${FALLBACK_FAMILY}` : FALLBACK_FAMILY,
       weight: 'normal',
       size: specimenSize(null),
-      kind: embedded ? 'Embedded' : 'Declared',
+      kind: overridesResident ? 'Override' : embedded ? 'Embedded' : 'Declared',
       metric: stem,
-      meta: `${id} · ${stem} · ${embedded ? 'Embedded TTF' : 'Declared ^CW'}`,
+      meta: `${id} · ${stem} · ${overridesResident ? 'Overrides resident' : embedded ? 'Embedded TTF' : 'Declared ^CW'}`,
       chip: !embedded
         ? { text: 'No preview', title: 'No preview file — renders in the label default font, as the API preview does' }
         : exceedsApiPreview(customFont.source)
@@ -132,6 +133,7 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
   const customById = new Map(customFonts.map(font => [font.id, font]));
   const infoFor = (id) => describeFont(id, customById.get(id));
   const bitmapIds = BUILTIN_FONTS.filter(id => id !== '0');
+  const customOnly = customFonts.filter(font => !BUILTIN_FONTS.includes(font.id));
 
   const inherit = override && !current;
   const triggerInfo = inherit ? null : infoFor(current || DEFAULT_FONT_ID);
@@ -147,7 +149,7 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
     ? `<select id="${selectId}" class="sr-only" tabindex="-1" aria-hidden="true">
          <option value="" ${current ? '' : 'selected'}>Use label default</option>
          ${BUILTIN_FONTS.map(id => `<option value="${id}" ${current === id ? 'selected' : ''}>${escapeHtml(infoFor(id).meta)}</option>`).join('')}
-         ${customFonts.map(font => `<option value="${escapeAttr(font.id)}" ${current === font.id ? 'selected' : ''}>${escapeHtml(infoFor(font.id).meta)}</option>`).join('')}
+         ${customOnly.map(font => `<option value="${escapeAttr(font.id)}" ${current === font.id ? 'selected' : ''}>${escapeHtml(infoFor(font.id).meta)}</option>`).join('')}
        </select>`
     : '';
 
@@ -157,9 +159,9 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
     optionHtml(infoFor('0'), current === '0'),
     groupHeaderHtml('Resident bitmap', bitmapIds.length),
     bitmapIds.map(id => optionHtml(infoFor(id), current === id)).join(''),
-    customFonts.length
-      ? groupHeaderHtml('Embedded · downloaded', customFonts.length)
-        + customFonts.map(font => optionHtml(infoFor(font.id), current === font.id)).join('')
+    customOnly.length
+      ? groupHeaderHtml('Embedded · downloaded', customOnly.length)
+        + customOnly.map(font => optionHtml(infoFor(font.id), current === font.id)).join('')
       : '',
   ].join('');
 

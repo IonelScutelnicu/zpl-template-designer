@@ -2122,14 +2122,14 @@ function renderDefaultFontPicker() {
 }
 
 /**
- * Renders the label default font Height/Width controls. Bitmap fonts (A–H) only render at
+ * Renders the label default font Height/Width controls. Bitmap fonts (A–H, P–V) only render at
  * integer magnifications of their base cell, so they get dropdowns of the allowed values;
  * scalable fonts (0, custom) keep free numeric inputs.
  */
 function renderDefaultFontSizeControls() {
   const height = state.labelSettings.defaultFontHeight;
   const width = state.labelSettings.defaultFontWidth || 0;
-  const allowed = getBitmapFontAllowedSizes(state.labelSettings.fontId);
+  const allowed = getBitmapFontAllowedSizes(state.labelSettings.fontId, state.labelSettings.customFonts);
   const inputClass = "w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white";
   // ^CF always emits a height, so the height control has no "default" option; a width of
   // 0 omits the parameter and lets the printer pick the proportional width.
@@ -2158,10 +2158,11 @@ function renderDefaultFontSizeControls() {
  * it (fontId === ''). State only; callers do their own re-rendering.
  */
 function applyLabelDefaultFont(newFontId) {
-  const snapped = snapRequestedToAllowed(newFontId, state.labelSettings.defaultFontHeight, state.labelSettings.defaultFontWidth);
+  const customFonts = state.labelSettings.customFonts;
+  const snapped = snapRequestedToAllowed(newFontId, state.labelSettings.defaultFontHeight, state.labelSettings.defaultFontWidth, customFonts);
   const clamped = enforceFontMinSize(newFontId, snapped.height, snapped.width);
   state.updateLabelSettings({ fontId: newFontId, defaultFontHeight: clamped.height, defaultFontWidth: clamped.width });
-  state.elements.forEach(el => { if (!el.fontId) normalizeElementFontSize(el, newFontId); });
+  state.elements.forEach(el => { if (!el.fontId) normalizeElementFontSize(el, newFontId, customFonts); });
 }
 
 function addCustomFont() {
@@ -2183,11 +2184,21 @@ function addCustomFont() {
 function removeCustomFont(id) {
   const customFonts = customFontsManager.remove(id, state.labelSettings.customFonts);
   state.updateLabelSettings({ customFonts });
-  // The pickers rebuild from customFonts, so they immediately read "Use label default" /
-  // the built-in default font — but the references behind them would live on and keep emitting
-  // ^A<id>/^CF<id> with no ^CW mapping. Drop both so the output says what the panels show.
-  state.elements.forEach(el => { if (el.fontId === id) el.fontId = ''; });
-  applyLabelDefaultFont(state.labelSettings.fontId === id ? DEFAULT_FONT_ID : state.labelSettings.fontId);
+  // Removing an imported ^CW collision reveals the resident font with the same
+  // ID. A non-resident alias has no such fallback, so references to it are still
+  // cleared exactly as before.
+  const restoresResident = BUILTIN_FONTS.includes(id);
+  if (restoresResident) {
+    // The override let those elements hold any size; the resident font behind it only
+    // renders on its own grid, so re-snap them the way applyLabelDefaultFont does for
+    // the elements that inherit.
+    state.elements.forEach(el => { if (el.fontId === id) normalizeElementFontSize(el, id, customFonts); });
+  } else {
+    state.elements.forEach(el => { if (el.fontId === id) el.fontId = ''; });
+  }
+  applyLabelDefaultFont(!restoresResident && state.labelSettings.fontId === id
+    ? DEFAULT_FONT_ID
+    : state.labelSettings.fontId);
   refreshCustomFontPickers();
   fontId.value = state.labelSettings.fontId;
   renderDefaultFontSizeControls();
@@ -3839,7 +3850,7 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   // Recreate elements from template. Pass the label default so inherited bitmap
   // sizes snap to the right grid.
   const importedElements = template.elements
-    .map(elementData => createElementFromData(elementData, { keepId: false, labelFontId: state.labelSettings.fontId }))
+    .map(elementData => createElementFromData(elementData, { keepId: false, labelFontId: state.labelSettings.fontId, customFonts: state.labelSettings.customFonts }))
     .filter(element => element !== null);
 
   // Set all imported elements at once

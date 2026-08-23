@@ -192,6 +192,21 @@ test.describe('Density rescale', () => {
       expect(zpl).toContain('^CFA,18');
       expect(zpl).toContain('^AAN,27,15');
     });
+
+    test('keeps proportional resident Font P on its independent height and width grids', async ({ page }) => {
+      const result = await page.evaluate(async () => {
+        const { applyRescale } = await import('/src/services/DensityRescaleService.js');
+        const text = { type: 'TEXT', x: 5, y: 6, fontId: 'P', fontSize: 40, fontWidth: 36 };
+        const labelSettings = { fontId: 'P', defaultFontHeight: 40, defaultFontWidth: 36 };
+        const { labelSettingsPatch } = applyRescale({
+          elements: [text], labelSettings, oldDpmm: 8, newDpmm: 24,
+        });
+        return { text, labelSettingsPatch };
+      });
+
+      expect(result.text).toMatchObject({ x: 15, y: 18, fontId: 'P', fontSize: 120, fontWidth: 108 });
+      expect(result.labelSettingsPatch).toMatchObject({ dpmm: 24, defaultFontHeight: 120, defaultFontWidth: 108 });
+    });
   });
 
   test.describe('Editable graphic re-rasterization', () => {

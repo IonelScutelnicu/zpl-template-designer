@@ -1095,8 +1095,9 @@ export class ZPLParser {
       case 'CF': {
         const parts = token.params.split(',');
         if (parts[0]) {
-          state.labelSettings.fontId = parts[0].trim();
-          state.defaultFont.id = parts[0].trim();
+          const fontId = parts[0].trim().toUpperCase();
+          state.labelSettings.fontId = fontId;
+          state.defaultFont.id = fontId;
         }
         if (parts[1]) {
           const h = parseInt(parts[1]);
@@ -1121,7 +1122,7 @@ export class ZPLParser {
         const parts = token.params.split(',');
         const rawFile = parts.slice(1).join(',').trim().toUpperCase();
         if (rawFile) {
-          state.customFonts.push({ id: parts[0].trim(), fontFile: ensurePrinterDrive(rawFile) });
+          state.customFonts.push({ id: parts[0].trim().toUpperCase(), fontFile: ensurePrinterDrive(rawFile) });
         }
         break;
       }
@@ -1467,11 +1468,11 @@ export class ZPLParser {
     // Before ^CF supplies a height, omitted ^A height follows width magnification;
     // afterwards it inherits ^CF. A height-less ^CF does not change this state.
     const height = font.height || (font.width && !state.sawCfHeight
-      ? proportionalRequestedHeight(this._sizingFontId(fontId, state), font.width)
+      ? proportionalRequestedHeight(this._sizingFontId(fontId, state), font.width, state.customFonts)
       : 0);
     const rawSize = height === state.defaultFont.height ? 0 : height;
     const rawWidth = font.width === state.defaultFont.width ? 0 : font.width;
-    const snapped = snapRequestedToAllowed(fontId, rawSize, rawWidth);
+    const snapped = snapRequestedToAllowed(fontId, rawSize, rawWidth, state.customFonts);
     const clamped = enforceFontMinSize(fontId, snapped.height, snapped.width);
     return {
       fontId: fontId === state.defaultFont.id ? '' : fontId,
