@@ -81,7 +81,9 @@ export class SerializationService {
           data.fontId,
           data.orientation,
           data.reverse,
-          data.fieldHex
+          data.fieldHex,
+          data.printDirection,
+          data.charGap
         );
         break;
 
@@ -148,7 +150,9 @@ export class SerializationService {
           data.fontId,
           data.reverse,
           data.orientation,
-          data.fieldHex
+          data.fieldHex,
+          data.printDirection,
+          data.charGap
         );
         break;
 
@@ -164,7 +168,9 @@ export class SerializationService {
           data.fontId,
           data.reverse,
           data.orientation,
-          data.fieldHex
+          data.fieldHex,
+          data.printDirection,
+          data.charGap
         );
         break;
 

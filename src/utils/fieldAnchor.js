@@ -1,6 +1,7 @@
 import { resolveFontMetrics, resolveBaselineOffset, measureTextAdvanceDots } from './fontMetrics.js';
 import { getBarcodeGeometry, linearFallbackModules, matrixModuleDots } from './barcodeGeometry.js';
 import { DEFAULT_FONT_HEIGHT } from '../config/constants.js';
+import { normalizePrintDirection } from './fieldParameter.js';
 import { emittedContent, placeholderNames, resolvePlaceholders } from './placeholders.js';
 import {
   graphicSymbolFtOffset,
@@ -83,6 +84,12 @@ export function supportsFieldTypeset(type, element, defaults, measureInput) {
 
   const rot = rotationOf(element);
   if (!['N', 'R', 'I', 'B'].includes(rot)) return false;
+  // ^FP. Measured on Labelary, a vertical or reversed field at rotation N keeps the
+  // same ^FT anchor a horizontal one has — the drop is the baseline either way, and
+  // the x behaves as ^FO's. Combined with a rotation or with right justification the
+  // anchor moves along an axis nothing pins, so refuse rather than reuse the N table.
+  if (normalizePrintDirection(element?.printDirection) !== 'H'
+    && (rot !== 'N' || element?.fieldJustify === 'R')) return false;
   // Right justification is measured for rotation N only. Combined with a
   // rotation the anchor moves along a different axis and nothing pins where —
   // refuse rather than reuse the N formula.
@@ -178,6 +185,10 @@ function textFieldExtents(element, defaults = {}) {
  * has to measure it. Split out of textFieldExtents rather than returned beside
  * them because only I, B and z=1 read this axis — N and R must not pay for a
  * measurement they do not use, nor be refused when it is unavailable.
+ *
+ * ^FP never reaches here: supportsFieldTypeset refuses every non-horizontal field
+ * that needs this axis, so the only ^FP fields that anchor are rotation N, where
+ * the offset is the baseline drop alone.
  */
 function textReadingExtent(element, defaults, measureInput) {
   if (BLOCK_TYPES.has(element.type)) return Number(element.blockWidth) || 0;
@@ -260,6 +271,12 @@ export function typesetCursorAdvance(element, defaults, isFT) {
   // null is measureTextAdvanceDots' unmeasurable sentinel; a zero advance would read as
   // "the field printed nothing" rather than "we could not tell".
   if (reading === null) return { dx: 0, dy: 0, reliable: false, measured: false };
+  // ^FPV walks the cursor down the glyph axis and ^FPR walks it backwards; neither
+  // is measured, so leave the cursor where it was and mark it untrustworthy rather
+  // than advance it by a horizontal width the printer never used.
+  if (normalizePrintDirection(element.printDirection) !== 'H') {
+    return { dx: 0, dy: 0, reliable: false, measured: false };
+  }
 
   // The cursor tracks the TYPESET anchor, so an ^FO field's top-left origin has to walk
   // there first — measured: text placed with ^FO leaves the cursor on its baseline, and

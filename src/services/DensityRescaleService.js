@@ -168,6 +168,7 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
           el.fontId || labelFontId, el.fontSize, el.fontWidth, s
         ));
+        if (el.charGap) el.charGap = Math.round(el.charGap * s);
         break;
       case 'TEXTBLOCK':
         ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
@@ -175,6 +176,7 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         ));
         el.blockWidth = scaleDim(el.blockWidth, s);
         el.blockHeight = scaleDim(el.blockHeight, s);
+        if (el.charGap) el.charGap = Math.round(el.charGap * s);
         break;
       case 'FIELDBLOCK':
         ({ height: el.fontSize, width: el.fontWidth } = scaleFontDimensions(
@@ -183,6 +185,7 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         el.blockWidth = scaleDim(el.blockWidth, s);
         if (el.lineSpacing) el.lineSpacing = Math.round(el.lineSpacing * s);
         if (el.hangingIndent) el.hangingIndent = Math.round(el.hangingIndent * s);
+        if (el.charGap) el.charGap = Math.round(el.charGap * s);
         break;
       case 'BARCODE':
         el.height = scaleDim(el.height, s);

@@ -1,8 +1,9 @@
 // Text Block Renderer
 // Renders TEXTBLOCK elements on canvas with word wrapping and truncation
 
-import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, drawStyledText, wrapStyledText } from '../utils/fontMetrics.js';
+import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, wrapStyledText, drawSpacedText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { effectiveCharGap } from '../utils/fieldParameter.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 
 /**
@@ -40,8 +41,13 @@ export class TextBlockRenderer {
     const raw = resolvePlaceholders(element.content, labelSettings?.previewData);
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
 
+    // ^FP's gap widens every advance and so moves the wrap points — measured on
+    // Labelary, ^TB honours the gap exactly as ^FB does. (It ignores the vertical and
+    // reverse directions outright, which is why only the gap is read here.)
+    const charGap = (effectiveCharGap(element) * scale) / scaleX;
+
     // Wrap with hard-break; ^TB uses a constant block width for every line.
-    const lines = wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, () => blockWidth);
+    const lines = wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, () => blockWidth, charGap);
 
     // ^TB truncates text that exceeds the block height
     const baseLineHeight = resolveFontLineHeight(fontMetrics, 1, scale, 'textBlockLineHeightRatio', 'fontSize');
@@ -64,7 +70,7 @@ export class TextBlockRenderer {
         targetCtx.save();
         targetCtx.translate(offsetX + fontXOffset, lineY);
         targetCtx.scale(scaleX, 1);
-        drawStyledText(targetCtx, line, 0, fillY, fontConfig, fontSize);
+        drawSpacedText(targetCtx, line, 0, fillY, fontConfig, fontSize, charGap);
         targetCtx.restore();
       });
     };

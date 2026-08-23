@@ -10,6 +10,7 @@ import { emittedOriginOffset, normalizeFoJustifyImport, normalizeFtImport, types
 import { getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive, isUnknownFontId, normalizePrinterFontPath, nextCustomFontId, resolveRenderFontId } from '../utils/customFonts.js';
 import { DEFAULT_FONT_ID } from '../config/constants.js';
+import { clampCharGap, normalizePrintDirection } from '../utils/fieldParameter.js';
 
 // ZPL with no ^CF is read the way a printer would read it: font A at magnification 1
 // (power-up ^CFA,9,5). This is deliberately *not*
@@ -35,6 +36,9 @@ const KNOWN_COMMANDS = new Set([
   'FW',
   // ^LR reverse-prints every field after it, exactly as if each carried its own ^FR.
   'LR',
+  // ^FP sets one field's print direction and inter-character gap. Field-scoped, so
+  // it needs no entry in FIELD_STRUCTURE_COMMANDS and no handler in the parse loop.
+  'FP',
   // Additional barcode symbologies: ^B3 (Code 39) and ^B7 (PDF417) tokenize as
   // 'B' since the tokenizer only captures letters; ^BA/^BE/^BI/^BJ/^BK/^BL/^BM/^BP/^BS/^BU/^BX/^BZ are two-letter.
   'B', 'BA', 'BB', 'BD', 'BE', 'BF', 'BI', 'BJ', 'BK', 'BL', 'BM', 'BO', 'BP', 'BR', 'BS', 'BT', 'BU', 'BX', 'BZ'
@@ -120,6 +124,24 @@ function normalizeShapeColor(value) {
 function normalizeBarcodeOrientation(value, fallback = 'N') {
   const orientation = (value || '').trim().toUpperCase();
   return ['N', 'R', 'I', 'B'].includes(orientation) ? orientation : fallback;
+}
+
+/**
+ * ^FP print direction and inter-character gap, from the raw parameter string.
+ * `clamped` reports a gap outside the documented 0..9999 range, at EITHER end:
+ * Labelary renders -10..-1 as overlapping glyphs and accepts values above 9999, the
+ * editor's model does neither, and silently re-exporting a different command would be
+ * worse than warning about it. See src/utils/fieldParameter.js for the layout.
+ */
+function parseFieldParameter(params) {
+  const parts = String(params || '').split(',');
+  const gap = parseInt(parts[1]);
+  const charGap = clampCharGap(parts[1]);
+  return {
+    printDirection: normalizePrintDirection(parts[0]),
+    charGap,
+    clamped: Number.isFinite(gap) && gap !== charGap
+  };
 }
 
 /** ^FW orientation stamped on this token when it was parsed. */
@@ -1327,13 +1349,17 @@ export class ZPLParser {
       // ^CF selected. A params-less token stands in for it, which is the same
       // inherit sentinel a bare ^A produces.
       const aToken = getCommand('A') || { params: '', fwOrientation: group.fwOrientation };
+      // ^FP is read here rather than inside each parser: it applies to every text
+      // family the same way, and to nothing else — measured on Labelary, a ^FP in a
+      // barcode field changes neither the symbol nor its interpretation line.
+      const fpToken = getCommand('FP');
       if (hasCommand('TB')) {
-        return this._parseTextBlock(group, aToken, getCommand('TB'), getCommand('FD'), hasReverse, state, fhToken);
+        return this._applyFieldParameter(this._parseTextBlock(group, aToken, getCommand('TB'), getCommand('FD'), hasReverse, state, fhToken), fpToken, state);
       }
       if (hasCommand('FB')) {
-        return this._parseFieldBlock(group, aToken, getCommand('FB'), getCommand('FD'), hasReverse, state, fhToken);
+        return this._applyFieldParameter(this._parseFieldBlock(group, aToken, getCommand('FB'), getCommand('FD'), hasReverse, state, fhToken), fpToken, state);
       }
-      return this._parseText(group, aToken, getCommand('FD'), hasReverse, state, fhToken);
+      return this._applyFieldParameter(this._parseText(group, aToken, getCommand('FD'), hasReverse, state, fhToken), fpToken, state);
     }
 
     // Unknown element group - skip
@@ -1606,6 +1632,38 @@ export class ZPLParser {
   _parseFieldData(fdToken, fhToken = null) {
     if (!fdToken) return '';
     return this._decodeFieldDataToken(fdToken, fhToken);
+  }
+
+  /**
+   * Stamp a text element's ^FP print direction and character gap, warning about the
+   * two cases the editor cannot reproduce faithfully.
+   */
+  _applyFieldParameter(data, fpToken, state) {
+    if (!data || !fpToken) return data;
+    const { printDirection, charGap, clamped } = parseFieldParameter(fpToken.params);
+
+    if (clamped && !state.warnedFieldParameterGap) {
+      state.warnedFieldParameterGap = true;
+      state.warnings.push({
+        command: '^FP',
+        message: 'An inter-character gap outside 0 to 9999 dots was clamped to that range, which ZPL documents as the accepted values'
+      });
+    }
+    // Only the gap is drawn for a block. ^TB ignores both other directions outright,
+    // ^FB renders vertical as a single character, and its reverse placement differs
+    // from a plain text field's (the run ends at the origin rather than starting
+    // there) by a rule one measurement cannot pin. All of it still round-trips.
+    if (printDirection !== 'H' && data.type !== 'TEXT' && !state.warnedFieldParameterBlock) {
+      state.warnedFieldParameterBlock = true;
+      state.warnings.push({
+        command: '^FP',
+        message: 'Vertical and reverse print directions on a block field are preserved in the ZPL but drawn left-to-right on the canvas; only the character gap is laid out'
+      });
+    }
+
+    data.printDirection = printDirection;
+    data.charGap = charGap;
+    return data;
   }
 
   /**

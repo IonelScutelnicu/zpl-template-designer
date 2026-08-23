@@ -3,10 +3,11 @@ import { renderFieldDataCommand, normalizeLineBreaks } from '../utils/zplFieldDa
 import { substitutePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
+import { fieldParameterCommand } from '../utils/fieldParameter.js';
 
 // Text Block Element Class (^TB command)
 export class TextBlockElement extends ZPLElement {
-    constructor(x = 0, y = 0, content = '', fontSize = 0, fontWidth = 0, blockWidth = 200, blockHeight = 50, fontId = '', reverse = false, orientation = 'N', fieldHex = false) {
+    constructor(x = 0, y = 0, content = '', fontSize = 0, fontWidth = 0, blockWidth = 200, blockHeight = 50, fontId = '', reverse = false, orientation = 'N', fieldHex = false, printDirection = 'H', charGap = 0) {
         super(x, y);
         this.type = 'TEXTBLOCK';
         this.content = content; // Template string: literal text mixed with %placeholder%s
@@ -18,6 +19,8 @@ export class TextBlockElement extends ZPLElement {
         this.reverse = reverse; // ^FR (reverse print)
         this.orientation = orientation; // N, R, I, B
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
+        this.printDirection = printDirection; // ^FP direction: H, V, R
+        this.charGap = charGap; // ^FP additional inter-character gap, in dots
     }
 
     _render(content, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts = []) {
@@ -30,7 +33,7 @@ export class TextBlockElement extends ZPLElement {
         // ^TB breaks on a real line feed, which renderFieldDataCommand escapes as
         // _0A under ^FH. Normalizing first keeps a pasted CRLF from emitting _0D.
         const pos = fieldOriginCommand(this, { fontId: defaultFontId, defaultFontHeight, defaultFontWidth, customFonts });
-        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(normalizeLineBreaks(content), '_', this.fieldHex, this.fieldDataCommand)}^FS`;
+        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${fieldParameterCommand(this)}^TB${this.orientation},${this.blockWidth},${this.blockHeight}${renderFieldDataCommand(normalizeLineBreaks(content), '_', this.fieldHex, this.fieldDataCommand)}^FS`;
     }
 
     render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, customFonts = []) {

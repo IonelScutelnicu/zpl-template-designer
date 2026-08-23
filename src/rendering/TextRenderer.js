@@ -1,10 +1,11 @@
 // Text Renderer
 // Renders TEXT elements on canvas
 
-import { resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
+import { resolveFontMetrics, resolveBaselinePlacement, resolveFontCellHeight, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { collapseLineBreaks } from '../utils/zplFieldData.js';
+import { effectiveCharGap, layoutCharOffsets, normalizePrintDirection, runLeadOffset, segmentForDirection } from '../utils/fieldParameter.js';
 
 /**
  * Renderer for TEXT elements
@@ -43,7 +44,25 @@ export class TextRenderer {
     ctx.wordSpacing = `${wordSpacingPx}px`;
     // Measure text width at unscaled size, then apply horizontal scale
     const metrics = ctx.measureText(text);
-    const textWidth = measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
+
+    // ^FP. The gap is an absolute dot value, so it must not be squeezed by the font's
+    // horizontal scale the way the font's ratio-based spacing is — divide it out, as
+    // fontXOffset is below. It is applied by placing each character rather than
+    // through ctx.letterSpacing, which would also trail the last character and which
+    // the font's charRules bypass entirely for the glyphs they redraw.
+    const direction = normalizePrintDirection(element.printDirection);
+    const charGap = (effectiveCharGap(element) * scale) / scaleX;
+    const perChar = direction !== 'H' || charGap > 0;
+    const chars = perChar ? segmentForDirection(text, direction) : [];
+    const advances = chars.map(ch => measureStyledText(ctx, ch, fontConfig, fontSize, 1));
+    const layout = perChar ? layoutCharOffsets(advances, direction, charGap) : null;
+    const textWidth = layout
+      ? (layout.max - layout.min) * scaleX
+      : measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
+    // Measured on Labelary, ^FO/^FT anchor the far reading end for rotations I and B,
+    // and that end is the run's `max` — which for plain horizontal text is just its
+    // width, so nothing about plain text moves.
+    const readingPivot = layout ? layout.max * scaleX : textWidth;
     // Rotation/reverse box height, in dot space: the rendered cap-ink height for
     // bitmap fonts, the em for Font 0 (fontSize also carries its heightScale
     // stretch, which must not move the pivot).
@@ -58,6 +77,16 @@ export class TextRenderer {
 
     const fontXOffset = fontWidth * (fontConfig.xOffset || 0);
 
+    // ^FPV stacks upright glyphs one FONT CELL apart along the glyph-down axis —
+    // not one snappedHeight, which for a bitmap font is only the cap ink. ^FO anchors
+    // the run's top-left, so the rotations whose glyph-down axis runs toward negative
+    // label coordinates (R and I) put the FIRST character at the far end.
+    const vPitch = resolveFontCellHeight(fontMetrics) * scale;
+    const vReversed = element.orientation === 'R' || element.orientation === 'I';
+    const vStackOffset = (index) => (vReversed ? (index - (chars.length - 1)) * vPitch : index * vPitch);
+    // Glyph-down extent of the whole field, for the rotation pivots and the ^FR box.
+    const downExtent = direction === 'V' ? Math.max(0, chars.length - 1) * vPitch + textHeight : textHeight;
+
     const drawTransformedText = (context, color, offsetX = 0, offsetY = 0) => {
       context.save();
       context.fillStyle = color;
@@ -71,11 +100,11 @@ export class TextRenderer {
         context.rotate(Math.PI / 2);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'I') {
-        context.translate(x + textWidth + offsetX, y + textHeight + pivotDescent + offsetY);
+        context.translate(x + readingPivot + offsetX, y + textHeight + pivotDescent + offsetY);
         context.rotate(Math.PI);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'B') {
-        context.translate(x + offsetX, y + textWidth + offsetY);
+        context.translate(x + offsetX, y + readingPivot + offsetY);
         context.rotate(-Math.PI / 2);
         context.scale(scaleX, 1);
       } else {
@@ -86,7 +115,15 @@ export class TextRenderer {
       // Per-font nudges live in the local (post-rotate) frame so they travel
       // with the rotated text. fillText x is scaled by scaleX, so divide the
       // horizontal nudge to keep it exactly fontXOffset px along the advance.
-      drawStyledText(context, text, fontXOffset / scaleX, fillY + translateNudge, fontConfig, fontSize);
+      const baseX = fontXOffset / scaleX;
+      const baseY = fillY + translateNudge;
+      if (direction === 'V') {
+        chars.forEach((ch, index) => drawStyledText(context, ch, baseX, baseY + vStackOffset(index), fontConfig, fontSize));
+      } else if (layout) {
+        chars.forEach((ch, index) => drawStyledText(context, ch, baseX + layout.offsets[index], baseY, fontConfig, fontSize));
+      } else {
+        drawStyledText(context, text, baseX, baseY, fontConfig, fontSize);
+      }
       context.restore();
     };
 
@@ -96,11 +133,14 @@ export class TextRenderer {
     let captured = null;
     if (element.reverse) {
       const rotated = element.orientation === 'R' || element.orientation === 'B';
+      // A reversed run starts before its origin on N and R, and at it on I and B —
+      // sampling the wrong rectangle would flip the background behind the wrong pixels.
+      const lead = runLeadOffset(layout && { min: layout.min * scaleX }, element.orientation || 'N');
       captured = captureReverseBg(ctx, canvas, {
-        x,
-        y,
-        width: rotated ? textHeight : textWidth,
-        height: rotated ? textWidth : textHeight,
+        x: x + lead.dx,
+        y: y + lead.dy,
+        width: rotated ? downExtent : textWidth,
+        height: rotated ? textWidth : downExtent,
       });
     }
 

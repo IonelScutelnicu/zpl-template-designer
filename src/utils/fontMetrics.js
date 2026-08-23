@@ -3,6 +3,7 @@
 // TextBlockRenderer, FieldBlockRenderer, and canvas-renderer's measureTextBounds.
 
 import { ZPL_FONTS, DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
+import { effectiveCharGap } from './fieldParameter.js';
 import { customFontFamily, customFontLineHeightRatio, resolveRenderFontId } from './customFonts.js';
 import { snapBitmapFontSize } from './zplFontSnap.js';
 
@@ -135,6 +136,25 @@ export function resolveBaselinePlacement(metrics, scale = 1) {
 }
 
 /**
+ * The ZPL font cell height in dots — the ^A height snapped to the printer's grid.
+ * Distinct from `snappedHeight`, which for a bitmap font is the CAP ink height and
+ * is smaller by the cell's descender space (font A: 14 of an 18-dot cell; font B:
+ * the full 11). ^FPV steps one cell per character, verified on Labelary: ^AAN,25
+ * and ^AAN,27 both pitch 27, and ^A0N,33 pitches 33.
+ *
+ * @param {Object} metrics Result from resolveFontMetrics
+ * @returns {number} cell height in dots
+ */
+export function resolveFontCellHeight(metrics) {
+  const { fontConfig, snappedHeight, isBitmap } = metrics;
+  if (!isBitmap) return snappedHeight;
+  const b = fontConfig.bitmap || {};
+  if (!b.capStep || !b.magStep) return snappedHeight;
+  const magnification = Math.max(1, Math.round(snappedHeight / b.capStep));
+  return b.magStep * magnification;
+}
+
+/**
  * Labelary-calibrated ^FO-to-baseline offset in dots. Bitmap fonts add cell
  * padding to snappedHeight; scalable/downloaded fonts use floor(0.75 * height).
  * This differs from resolveBaselinePlacement().fillY, which is a canvas draw
@@ -189,7 +209,8 @@ export function measureTextAdvanceDots(element, labelSettings, content) {
   ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
   ctx.letterSpacing = `${(fontConfig.letterSpacing || 0) * fontSize}px`;
   ctx.wordSpacing = `${(fontConfig.wordSpacing || 0) * fontSize}px`;
-  const width = measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
+  // The gap is in the pre-scaleX frame, like every other advance here.
+  const width = styledTextAdvance(ctx, text, fontConfig, fontSize, scaleX, effectiveCharGap(element) / scaleX);
   return Number.isFinite(width) ? width : null;
 }
 
@@ -347,6 +368,26 @@ export function measureStyledText(ctx, text, fontConfig, fontSize, scaleX) {
 }
 
 /**
+ * Styled width plus the ^FP inter-character gap, which widens every advance but not
+ * the run's trailing edge — so n characters carry n-1 gaps. Added arithmetically
+ * rather than through ctx.letterSpacing, which the font's charRules bypass for the
+ * glyphs they redraw. `charGap` is in the pre-scaleX frame, like the advances.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {Object} fontConfig
+ * @param {number} fontSize
+ * @param {number} scaleX
+ * @param {number} [charGap=0]
+ * @returns {number} Width in the post-scaleX coordinate space
+ */
+export function styledTextAdvance(ctx, text, fontConfig, fontSize, scaleX, charGap = 0) {
+  const width = measureStyledText(ctx, text, fontConfig, fontSize, scaleX);
+  if (!charGap) return width;
+  return width + charGap * Math.max(0, Array.from(String(text ?? '')).length - 1) * scaleX;
+}
+
+/**
  * Wrap text into lines that fit a per-line max width, soft-breaking on spaces and
  * hard-breaking words longer than the line. A newline in the text is an explicit
  * break (both ^FB and ^TB honor one); consecutive newlines produce
@@ -365,8 +406,8 @@ export function measureStyledText(ctx, text, fontConfig, fontSize, scaleX) {
  * @returns {Array<{text: string, termination: 'soft'|'forced'|'hard'|'end'}>} The wrapped
  *          lines and how each line ended.
  */
-export function wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth) {
-  const measure = (s) => measureStyledText(ctx, s, fontConfig, fontSize, scaleX);
+export function wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth, charGap = 0) {
+  const measure = (s) => styledTextAdvance(ctx, s, fontConfig, fontSize, scaleX, charGap);
 
   // Hard-break a word that exceeds maxWidth into character-level chunks.
   const breakWord = (word, maxWidth) => {
@@ -432,8 +473,8 @@ export function wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, 
 /**
  * String-only wrapper retained for callers that do not need line-break provenance.
  */
-export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth) {
-  return wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth)
+export function wrapStyledText(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth, charGap = 0) {
+  return wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX, lineMaxWidth, charGap)
     .map(line => line.text);
 }
 
@@ -475,6 +516,31 @@ export function drawStyledText(ctx, text, startX, startY, fontConfig, fontSize) 
     }
   }
   flushRun();
+}
+
+/**
+ * drawStyledText plus the ^FP inter-character gap. Each character is placed rather
+ * than leaning on ctx.letterSpacing, which the font's charRules bypass for the glyphs
+ * they redraw. `charGap` is in the pre-scaleX frame, like the advances.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} startX
+ * @param {number} startY
+ * @param {Object} fontConfig
+ * @param {number} fontSize
+ * @param {number} [charGap=0]
+ */
+export function drawSpacedText(ctx, text, startX, startY, fontConfig, fontSize, charGap = 0) {
+  if (!charGap) {
+    drawStyledText(ctx, text, startX, startY, fontConfig, fontSize);
+    return;
+  }
+  let localX = startX;
+  for (const char of Array.from(String(text ?? ''))) {
+    drawStyledText(ctx, char, localX, startY, fontConfig, fontSize);
+    localX += measureStyledText(ctx, char, fontConfig, fontSize, 1) + charGap;
+  }
 }
 
 function positiveNumber(value) {

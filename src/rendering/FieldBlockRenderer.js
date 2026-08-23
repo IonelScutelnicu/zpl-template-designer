@@ -1,11 +1,12 @@
 // Field Block Renderer
 // Renders FIELDBLOCK elements on canvas with word wrapping and justification
 
-import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, drawStyledText, wrapStyledTextDetailed } from '../utils/fontMetrics.js';
+import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, wrapStyledTextDetailed, styledTextAdvance, drawSpacedText } from '../utils/fontMetrics.js';
 import { LINE_HEIGHT_RATIO, fieldBlockExtents } from '../utils/geometry.js';
 import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { decodeFieldBlockBreaks } from '../utils/zplFieldData.js';
+import { effectiveCharGap } from '../utils/fieldParameter.js';
 
 /**
  * Renderer for FIELDBLOCK elements
@@ -45,10 +46,15 @@ export class FieldBlockRenderer {
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
 
     const hangingIndentPx = (element.hangingIndent || 0) * scale;
+    // ^FP's gap widens every advance inside a block too, which moves the wrap points —
+    // measured on Labelary, eight characters that fit one line at gap 0 wrap to two at
+    // gap 20, in both ^FB and ^TB. The gap is an absolute dot value, so divide out the
+    // font's horizontal squeeze the way the drawing frame applies it.
+    const charGap = (effectiveCharGap(element) * scale) / scaleX;
 
     // Wrap with hard-break; ^FB indents lines 2+ by the hanging indent.
     const lines = wrapStyledTextDetailed(ctx, text, fontConfig, fontSize, scaleX,
-      i => (i === 0 ? blockWidth : Math.max(0, blockWidth - hangingIndentPx)));
+      i => (i === 0 ? blockWidth : Math.max(0, blockWidth - hangingIndentPx)), charGap);
 
     // Draw lines (respect maxLines)
     const maxLines = element.maxLines || lines.length;
@@ -74,7 +80,7 @@ export class FieldBlockRenderer {
       const trailingSpaceWidth = measureStyledText(targetCtx, ' ', fontConfig, fontSize, scaleX);
 
       lines.forEach(({ text: line, termination }, i) => {
-        const measuredWidth = measureStyledText(targetCtx, line, fontConfig, fontSize, scaleX);
+        const measuredWidth = styledTextAdvance(targetCtx, line, fontConfig, fontSize, scaleX, charGap);
         // Clamp overflow lines to the last line's Y position (ZPL ^FB spec behavior)
         const clampedIndex = Math.min(i, maxLines - 1);
         const lineY = offsetY + (clampedIndex * lineHeight) + yOffset;
@@ -90,7 +96,7 @@ export class FieldBlockRenderer {
 
           // Only justify if: not last line AND has multiple words AND line is shorter than block width
           if (!isLastLine && jWords.length > 1 && measuredWidth < lineBlockWidth) {
-            const wordWidths = jWords.map(word => measureStyledText(targetCtx, word, fontConfig, fontSize, scaleX));
+            const wordWidths = jWords.map(word => styledTextAdvance(targetCtx, word, fontConfig, fontSize, scaleX, charGap));
             const totalWordWidth = wordWidths.reduce((sum, w) => sum + w, 0);
             const spaceBetweenWords = (lineBlockWidth - totalWordWidth) / (jWords.length - 1);
 
@@ -99,7 +105,7 @@ export class FieldBlockRenderer {
               targetCtx.save();
               targetCtx.translate(currentX, lineY);
               targetCtx.scale(scaleX, 1);
-              drawStyledText(targetCtx, word, 0, fillY, fontConfig, fontSize);
+              drawSpacedText(targetCtx, word, 0, fillY, fontConfig, fontSize, charGap);
               targetCtx.restore();
               currentX += wordWidths[wordIndex] + spaceBetweenWords;
             });
@@ -121,7 +127,7 @@ export class FieldBlockRenderer {
         targetCtx.save();
         targetCtx.translate(lineX, lineY);
         targetCtx.scale(scaleX, 1);
-        drawStyledText(targetCtx, line, 0, fillY, fontConfig, fontSize);
+        drawSpacedText(targetCtx, line, 0, fillY, fontConfig, fontSize, charGap);
         targetCtx.restore();
       });
     };

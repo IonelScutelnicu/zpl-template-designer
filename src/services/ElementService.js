@@ -52,7 +52,9 @@ export class ElementService {
           props.fontId || '',
           props.orientation || 'N',
           props.reverse || false,
-          props.fieldHex || false
+          props.fieldHex || false,
+          props.printDirection || 'H',
+          props.charGap || 0
         );
         break;
 
@@ -180,7 +182,9 @@ export class ElementService {
           props.fontId || '',
           props.reverse || false,
           props.orientation || 'N',
-          props.fieldHex || false
+          props.fieldHex || false,
+          props.printDirection || 'H',
+          props.charGap || 0
         );
         break;
 
@@ -195,7 +199,9 @@ export class ElementService {
           props.fontId || '',
           props.reverse || false,
           props.orientation || 'N',
-          props.fieldHex || false
+          props.fieldHex || false,
+          props.printDirection || 'H',
+          props.charGap || 0
         );
         break;
 

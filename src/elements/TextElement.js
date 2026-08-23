@@ -3,10 +3,11 @@ import { renderFieldDataCommand, collapseLineBreaks } from '../utils/zplFieldDat
 import { resolvePlaceholders, substitutePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
+import { fieldParameterCommand } from '../utils/fieldParameter.js';
 
 // TEXT Element Class
 export class TextElement extends ZPLElement {
-    constructor(x = 0, y = 0, content = '', fontSize = 0, fontWidth = 0, fontId = '', orientation = 'N', reverse = false, fieldHex = false) {
+    constructor(x = 0, y = 0, content = '', fontSize = 0, fontWidth = 0, fontId = '', orientation = 'N', reverse = false, fieldHex = false, printDirection = 'H', charGap = 0) {
         super(x, y);
         this.type = 'TEXT';
         this.content = content; // Template string: literal text mixed with %placeholder%s
@@ -16,6 +17,8 @@ export class TextElement extends ZPLElement {
         this.orientation = orientation; // N, R, I, B
         this.reverse = reverse; // ^FR (reverse print)
         this.fieldHex = fieldHex; // ^FH (force field hex indicator)
+        this.printDirection = printDirection; // ^FP direction: H, V, R
+        this.charGap = charGap; // ^FP additional inter-character gap, in dots
     }
 
     // Geometry measures the placeholder names, not the Preview Data values, so an
@@ -36,7 +39,7 @@ export class TextElement extends ZPLElement {
         // Preview Data (or pasted Content) that spans lines collapses to spaces.
         const emitted = collapseLineBreaks(content);
         const pos = fieldOriginCommand(this, { fontId: defaultFontId, defaultFontHeight, defaultFontWidth, customFonts }, { content: emitted });
-        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${renderFieldDataCommand(emitted, '_', this.fieldHex, this.fieldDataCommand)}^FS`;
+        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${fieldParameterCommand(this)}${renderFieldDataCommand(emitted, '_', this.fieldHex, this.fieldDataCommand)}^FS`;
     }
 
     render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, customFonts = []) {
@@ -53,9 +56,13 @@ export class TextElement extends ZPLElement {
     }
 
     getBounds() {
-        // Estimate text dimensions (unrotated)
-        const textW = this.getEstimatedWidth();
-        const textH = (this.fontSize || 30) + 10;
+        // Estimate text dimensions (unrotated). The canvas measures TEXT properly
+        // through measureTextBounds; this is the DOM-less fallback.
+        const chars = Math.max(1, resolvePlaceholders(this.content).length);
+        const cell = this.fontSize || 30;
+        const vertical = this.printDirection === 'V';
+        const textW = vertical ? Math.max(this.fontWidth || 30, 50) : this.getEstimatedWidth();
+        const textH = (vertical ? cell * chars : cell) + 10;
 
         let width = textW;
         let height = textH;

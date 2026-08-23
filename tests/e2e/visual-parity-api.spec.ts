@@ -668,4 +668,61 @@ ${regression.command}
         expect(Math.abs(canvasDots.width - apiDots.width)).toBeLessThan(20);
         expect(Math.abs(canvasDots.height - apiDots.height)).toBeLessThan(20);
     });
+    // ^FP (Field Parameter). The layout constants in src/utils/fieldParameter.js and
+    // TextRenderer were derived by pixel-scanning Labelary output; these pin them, and
+    // cover the two axes that interact — the direction itself and the ^A rotation.
+    const FP_PARITY_CASES = [
+        { name: 'vertical', zpl: '^FO200,60^AAN,18,10^FPV^FDABCD^FS' },
+        { name: 'reverse', zpl: '^FO500,60^AAN,18,10^FPR^FDABCD^FS' },
+        { name: 'horizontal gap', zpl: '^FO200,60^AAN,18,10^FPH,20^FDABCD^FS' },
+        { name: 'vertical under a rotated font', zpl: '^FO200,60^AAR,18,10^FPV^FDABCD^FS' },
+        { name: 'reverse under a rotated font', zpl: '^FO200,200^AAR,18,10^FPR^FDABCD^FS' },
+        { name: 'vertical in font 0', zpl: '^FO200,60^A0N,40,40^FPV^FDABCD^FS' },
+        // Blocks draw the gap (and wrap by it); the other two directions are warned
+        // about rather than drawn, so they are deliberately not asserted here. Nor is
+        // the wrap BOUNDARY: Labelary lets a block's last character start up to one
+        // gap past the declared width, which no single measurement pins.
+        { name: 'gap in an ^FB block', zpl: '^FO100,60^AAN,18,10^FPH,20^FB300,3,0,L^FDABCD^FS' },
+        { name: 'gap in a ^TB block', zpl: '^FO100,60^AAN,18,10^FPH,20^TBN,300,60^FDABCD^FS' },
+    ];
+
+    for (const fpCase of FP_PARITY_CASES) {
+        test(`should match the API bounding box for ^FP ${fpCase.name}`, async () => {
+            const labelWidthDots = 800;
+            const labelHeightDots = 400;
+            await zplOutput.openZplFromContent(`^XA
+^FX{"labelMeta":{"w":100,"h":50,"dpmm":8}}
+^PW800
+^CFA,9
+${fpCase.zpl}
+^XZ`);
+
+            await canvas.waitForReady();
+            const canvasImage = await canvas.takeFullResolutionScreenshot();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+            const canvasBounds = findContentBounds(canvasImage);
+            const apiBounds = findContentBounds(apiImage);
+            const canvasDims = getImageDimensions(canvasImage);
+            const apiDims = getImageDimensions(apiImage);
+            const toDots = (bounds: any, dims: any) => ({
+                left: bounds.left * labelWidthDots / dims.width,
+                top: bounds.top * labelHeightDots / dims.height,
+                width: bounds.width * labelWidthDots / dims.width,
+                height: bounds.height * labelHeightDots / dims.height,
+            });
+            const canvasDots = toDots(canvasBounds, canvasDims);
+            const apiDots = toDots(apiBounds, apiDims);
+
+            // The canvas approximates the printer's per-glyph integer advances, so a
+            // few dots of residual is expected and is not worth chasing — the same
+            // allowance the typeset-cursor advance documents.
+            expect(Math.abs(canvasDots.left - apiDots.left), 'left').toBeLessThan(6);
+            expect(Math.abs(canvasDots.top - apiDots.top), 'top').toBeLessThan(6);
+            expect(Math.abs(canvasDots.width - apiDots.width), 'width').toBeLessThan(8);
+            expect(Math.abs(canvasDots.height - apiDots.height), 'height').toBeLessThan(8);
+        });
+    }
 });

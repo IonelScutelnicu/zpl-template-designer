@@ -2,7 +2,8 @@
 // Orchestrates rendering of all element types on HTML5 Canvas
 
 import { fieldBlockExtents, isSpatial } from './utils/geometry.js';
-import { resolveFontMetrics, measureStyledText } from './utils/fontMetrics.js';
+import { resolveFontMetrics, resolveFontCellHeight, measureStyledText } from './utils/fontMetrics.js';
+import { effectiveCharGap, layoutCharOffsets, normalizePrintDirection, runLeadOffset, segmentForDirection } from './utils/fieldParameter.js';
 import { resolvePlaceholders } from './utils/placeholders.js';
 import { collapseLineBreaks } from './utils/zplFieldData.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
@@ -316,28 +317,50 @@ export class CanvasRenderer {
    */
   measureTextBounds(element, labelSettings) {
     // scale=1: work in label-dot space, not screen pixels.
-    const { fontConfig, fontSize, snappedHeight, snappedWidth, scaleX, isBitmap } =
-      resolveFontMetrics(element, labelSettings, 1);
+    const metrics = resolveFontMetrics(element, labelSettings, 1);
+    const { fontConfig, fontSize, snappedHeight, snappedWidth, scaleX, isBitmap } = metrics;
     // Match the glyphs the renderer actually draws (uppercase/filtered fonts,
     // and ^A's line-break collapse).
     const raw = collapseLineBreaks(resolvePlaceholders(element.content, labelSettings?.previewData));
     const text = fontConfig.uppercase ? raw.toUpperCase() : fontConfig.filterLowercase ? raw.replace(/[a-z]/g, ' ') : raw;
+    // ^FP: the same layout the renderer draws, so the box bounds the real ink.
+    const direction = normalizePrintDirection(element.printDirection);
+    const charGap = effectiveCharGap(element) / scaleX;
     this.ctx.save();
     this.ctx.font = `${fontConfig.weight} ${fontSize}px ${fontConfig.family}`;
     this.ctx.letterSpacing = fontConfig.letterSpacing ? `${fontConfig.letterSpacing * fontSize}px` : '0px';
     this.ctx.wordSpacing = fontConfig.wordSpacing ? `${fontConfig.wordSpacing * fontSize}px` : '0px';
     const m = this.ctx.measureText(text);
-    const measuredWidth = measureStyledText(this.ctx, text, fontConfig, fontSize, scaleX);
+    const perChar = direction !== 'H' || charGap > 0;
+    const chars = perChar ? segmentForDirection(text, direction) : [];
+    const layout = perChar
+      ? layoutCharOffsets(chars.map(ch => measureStyledText(this.ctx, ch, fontConfig, fontSize, 1)), direction, charGap)
+      : null;
+    const measuredWidth = layout
+      ? (layout.max - layout.min) * scaleX
+      : measureStyledText(this.ctx, text, fontConfig, fontSize, scaleX);
     // Bitmap fonts draw from a cap-height baseline (snappedHeight); the glyph
     // descender hangs below that, so the visible cell is snappedHeight + descent.
     // Match TextRenderer's pivotDescent so the box bounds the actual ink.
     const descent = isBitmap ? (m.actualBoundingBoxDescent || 0) : 0;
     this.ctx.restore();
     const textW = Math.max(measuredWidth, snappedWidth);
-    const textH = snappedHeight + descent;
+    // A vertical stack is as deep as its characters; a reversed run starts left of
+    // the origin, so the box has to walk back with it.
+    const cellHeight = resolveFontCellHeight(metrics);
+    const textH = snappedHeight + descent + (direction === 'V' ? Math.max(0, chars.length - 1) * cellHeight : 0);
+    const rotated = element.orientation === 'R' || element.orientation === 'B';
     let w = textW, h = textH;
-    if (element.orientation === 'R' || element.orientation === 'B') { w = textH; h = textW; }
-    return { x: element.x, y: element.y, width: w, height: h };
+    if (rotated) { w = textH; h = textW; }
+    // A reversed run walks back from its origin, but only on the rotations whose
+    // reading axis points along a positive label axis — see runLeadOffset.
+    const lead = runLeadOffset(layout && { min: layout.min * scaleX }, element.orientation || 'N');
+    return {
+      x: element.x + lead.dx,
+      y: element.y + lead.dy,
+      width: w,
+      height: h,
+    };
   }
 
   drawSelectionIndicator(element, labelSettings) {
@@ -347,13 +370,13 @@ export class CanvasRenderer {
 
     let x, y, width, height;
     if (element.type === 'TEXT' && labelSettings) {
+      // bounds.x/y, not element.x/y: a ^FPR run starts before its own origin, and the
+      // resize handles are hit-tested against these same measured bounds.
       const bounds = this.measureTextBounds(element, labelSettings);
-      const w = bounds.width * this.scale;
-      const h = bounds.height * this.scale;
-      x = (element.x + this.homeX) * this.scale;
-      y = (element.y + this.homeY + this.labelTop) * this.scale;
-      width = w;
-      height = h;
+      x = (bounds.x + this.homeX) * this.scale;
+      y = (bounds.y + this.homeY + this.labelTop) * this.scale;
+      width = bounds.width * this.scale;
+      height = bounds.height * this.scale;
     } else if (element.type === 'FIELDBLOCK' && labelSettings) {
       // fieldBlockExtents resolves the orientation, including the trailing
       // line-spacing slot an R/I rotation pivots from — the box FieldBlockRenderer

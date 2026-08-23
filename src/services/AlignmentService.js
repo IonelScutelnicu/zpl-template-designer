@@ -213,19 +213,23 @@ export class AlignmentService {
   }
 
   /**
-   * Center element horizontally on label
+   * Center element horizontally on label.
+   *
+   * Moves by a delta rather than assigning the edge, the way alignElements does: a
+   * ^FPR run's measured box starts before its own origin, so assigning the box edge
+   * straight to element.x would leave the visible run offset by that lead.
    */
   centerHorizontally(element, labelSize, bounds) {
-    const centeredX = Math.round((labelSize.width - bounds.width) / 2);
-    element.x = Math.max(0, centeredX);
+    const centeredX = Math.max(0, Math.round((labelSize.width - bounds.width) / 2));
+    element.x = Math.round(element.x + (centeredX - bounds.x));
   }
 
   /**
-   * Center element vertically on label
+   * Center element vertically on label. Delta-based for the same reason.
    */
   centerVertically(element, labelSize, bounds) {
-    const centeredY = Math.round((labelSize.height - bounds.height) / 2);
-    element.y = Math.max(0, centeredY);
+    const centeredY = Math.max(0, Math.round((labelSize.height - bounds.height) / 2));
+    element.y = Math.round(element.y + (centeredY - bounds.y));
   }
 
   /**

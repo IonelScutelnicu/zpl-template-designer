@@ -4,6 +4,7 @@
 import { getBitmapFontAllowedSizes } from '../utils/zplFontSnap.js';
 import { DEFAULT_FONT_ID } from '../config/constants.js';
 import { supportsFieldTypeset } from '../utils/fieldAnchor.js';
+import { FP_MAX_CHAR_GAP, PRINT_DIRECTIONS } from '../utils/fieldParameter.js';
 import { fontSizeSelectHtml } from './fontSizeSelect.js';
 import { fontPickerHtml } from './FontPicker.js';
 import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
@@ -280,12 +281,13 @@ export class PropertiesPanelRenderer {
    * Create an input group with label
    */
   createInputGroup(label, id, value, type = "text", options = {}) {
-    const { min, max, step, placeholder } = options;
+    const { min, max, step, placeholder, disabled, hint } = options;
     const attributes = [
       min !== undefined ? `min="${min}"` : "",
       max !== undefined ? `max="${max}"` : "",
       step !== undefined ? `step="${step}"` : "",
       placeholder !== undefined ? `placeholder="${placeholder}"` : "",
+      disabled ? "disabled" : "",
     ].join(" ");
 
     // For number inputs with 0 meaning "use default", show empty instead of 0
@@ -299,9 +301,36 @@ export class PropertiesPanelRenderer {
           id="${id}"
           value="${escapeAttr(displayValue)}"
           ${attributes}
-          class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+          class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${disabled ? "text-slate-400 bg-slate-50 cursor-not-allowed" : "text-slate-700 bg-white"}"
         >
+        ${hint ? `<p class="mt-1 text-[11px] leading-snug text-slate-500">${hint}</p>` : ""}
       </div>
+    `;
+  }
+
+  /**
+   * ^FP print direction + inter-character gap, shared by TEXT, TEXTBLOCK and
+   * FIELDBLOCK. The gap is disabled for vertical layout because the printer
+   * ignores it there — the stored value still round-trips through the ZPL.
+   */
+  renderFieldParameterControls(element) {
+    const direction = element.printDirection || "H";
+    // A block prints only the gap: ^TB ignores the other two directions and ^FB
+    // lays them out by a rule the canvas does not reproduce, so say so rather than
+    // offer a control that silently does nothing.
+    const isBlock = element.type !== "TEXT";
+    const undrawn = isBlock && direction !== "H";
+    return `
+      <div class="grid grid-cols-2 gap-3">
+        ${this.createSelectGroup("Print Direction", "prop-print-direction", direction, PRINT_DIRECTIONS)}
+        ${this.createInputGroup("Character Gap (dots)", "prop-char-gap", element.charGap || 0, "number", {
+          min: 0,
+          max: FP_MAX_CHAR_GAP,
+          disabled: direction === "V",
+          hint: direction === "V" ? "Ignored in vertical layout, as on the printer." : "",
+        })}
+      </div>
+      ${undrawn ? `<p class="-mt-1 mb-3 text-[11px] leading-snug text-amber-600">Kept in the ZPL, but a block field is drawn left-to-right here; check the Preview.</p>` : ""}
     `;
   }
 
@@ -759,6 +788,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
         <div class="grid grid-cols-2 gap-3">
           ${this.renderFontSizeControls(element)}
         </div>
+        ${this.renderFieldParameterControls(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Appearance", this.renderReversePrintRow(element), { open: true, elementType: element.type })}
     `;
@@ -1102,6 +1132,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
         <div class="grid grid-cols-2 gap-3">
           ${this.renderFontSizeControls(element)}
         </div>
+        ${this.renderFieldParameterControls(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Block Configuration", `
         <div class="grid grid-cols-2 gap-3">
@@ -1168,6 +1199,7 @@ ${escapeHtml(values[name] ?? "")}</textarea>
         <div class="grid grid-cols-2 gap-3">
           ${this.renderFontSizeControls(element)}
         </div>
+        ${this.renderFieldParameterControls(element)}
       `, { elementType: element.type })}
       ${this.renderSection("Block Configuration", `
         <div class="grid grid-cols-2 gap-3">

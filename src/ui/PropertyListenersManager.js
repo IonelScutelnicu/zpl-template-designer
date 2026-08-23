@@ -11,6 +11,7 @@ import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
 import { autoGrowTextarea } from '../utils/dom-helpers.js';
 import { attachFontPicker, ensureSpecimenFaces } from './FontPicker.js';
 import { clampNumber } from '../utils/geometry.js';
+import { clampCharGap, normalizePrintDirection } from '../utils/fieldParameter.js';
 
 /**
  * Manages property panel event listeners
@@ -204,6 +205,22 @@ export class PropertyListenersManager {
     }
     attach("prop-font-size", "fontSize", (v) => Math.max(0, parseInt(v) || 0));
     attach("prop-font-width", "fontWidth", (v) => Math.max(0, parseInt(v) || 0));
+
+    // ^FP. Switching to vertical re-renders the panel so the gap input disables:
+    // the printer ignores the gap there, and a live-looking control that does
+    // nothing is worse than one that says so.
+    const directionEl = document.getElementById("prop-print-direction");
+    if (directionEl) {
+      directionEl.addEventListener("change", (e) => {
+        const previous = element.printDirection || "H";
+        element.printDirection = normalizePrintDirection(e.target.value);
+        this.callbacks.onPropertyChange(element);
+        if (previous === "V" || element.printDirection === "V") {
+          this.callbacks.onRerenderProperties?.();
+        }
+      });
+    }
+    attach("prop-char-gap", "charGap", (v) => clampCharGap(v));
   }
 
   /**

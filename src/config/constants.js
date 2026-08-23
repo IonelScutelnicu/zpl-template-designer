@@ -137,6 +137,7 @@ export const ZPL_FONTS = {
       'f': { type: 'glyph', advanceRatio: 0.275, widthRatio: 1 },
       'g': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1 },
       'h': { type: 'glyph', advanceRatio: 0.497, widthRatio: 1 },
+      'H': { type: 'glyph', advanceRatio: 0.608, widthRatio: 0.946, heightRatio: 1.01, yRatio: 0.00, xRatio: 0.005 },
       'j': { type: 'glyph', advanceRatio: 0.259, widthRatio: 1 },
       'k': { type: 'glyph', advanceRatio: 0.443, widthRatio: 0.945, yRatio: 0.01, xRatio: 0.01},
       'l': { type: 'glyph', advanceRatio: 0.2585, widthRatio: 1, heightRatio: 0.96, yRatio: 0.04 },
