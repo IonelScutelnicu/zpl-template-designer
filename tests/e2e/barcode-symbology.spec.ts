@@ -100,6 +100,62 @@ test.describe('Barcode symbology', () => {
         expect(masks).toEqual([5, 3, 6, 4, 2, 6, 3, 7, 5]);
     });
 
+    test('QR import separates and preserves automatic and manual input-mode prefixes', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            const elements: any[] = new ZPLParser().parse(
+                '^XA^FO10,10^BQN,2,5^FDMM,AAC-42^FS^FO10,100^BQN,2,5^FDHA,hello^FS^XZ',
+                { dpmm: 8, labelHeight: 100 },
+            ).elements;
+            return elements.map((data: any) => ({
+                content: data.content,
+                errorCorrection: data.errorCorrection,
+                inputMode: data.inputMode,
+                qrManualMode: data.qrManualMode,
+                zpl: new QRCodeElement(data).render(),
+            }));
+        });
+
+        expect(result).toEqual([
+            {
+                content: 'AC-42',
+                errorCorrection: 'M',
+                inputMode: 'M',
+                qrManualMode: 'A',
+                zpl: '^FO10,10^BQN,2,5^FDMM,AAC-42^FS',
+            },
+            {
+                content: 'hello',
+                errorCorrection: 'H',
+                inputMode: 'A',
+                qrManualMode: '',
+                zpl: '^FO10,100^BQN,2,5^FDHA,hello^FS',
+            },
+        ]);
+    });
+
+    test('QR Model 1 stays round-trippable without drawing a false Model 2 symbol', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
+            const elements: any[] = new ZPLParser().parse(
+                '^XA^FO10,10^BQN,1,1^FDQA,model-one^FS^FO10,100^BQN,2,11^FDQA,large^FS^XZ',
+                { dpmm: 8, labelHeight: 100 },
+            ).elements;
+            return elements.map((data: any) => ({
+                kind: (getBarcodeGeometry(data) as any).kind,
+                zpl: new QRCodeElement(data).render(),
+            }));
+        });
+
+        expect(result).toEqual([
+            { kind: 'empty', zpl: '^FO10,10^BQN,1,1^FDQA,model-one^FS' },
+            { kind: 'matrix', zpl: '^FO10,100^BQN,2,11^FDQA,large^FS' },
+        ]);
+    });
+
     test('2D barcode ZPL import preserves orientation by symbology', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
@@ -622,7 +678,49 @@ test.describe('Barcode symbology', () => {
         expect(r.bE2).toBe(r.b); // e2 (HRI insertion) does not change the bars
     });
 
+    test('MSI drops non-digit field data instead of rejecting the symbol', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { getBarcodeGeometry, normalizeBarcodeData } = await import('/src/utils/barcodeGeometry.js');
+            const invalid: any = getBarcodeGeometry({
+                type: 'BARCODE', symbology: 'MSI', content: '1234A67@',
+                msiCheckMode: 'A', width: 2, ratio: 3,
+            });
+            const normalized: any = getBarcodeGeometry({
+                type: 'BARCODE', symbology: 'MSI', content: '123467',
+                msiCheckMode: 'A', width: 2, ratio: 3,
+            });
+            return {
+                normalized: normalizeBarcodeData('MSI', '1234A67@'),
+                kind: invalid.kind,
+                sameBars: invalid.sbs?.join(',') === normalized.sbs?.join(','),
+            };
+        });
+
+        expect(result).toEqual({ normalized: '123467', kind: 'linear', sameBars: true });
+    });
+
     // ============== PLESSEY (^BP) ==============
+    test('Plessey folds hexadecimal field data and drops unsupported characters', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { getBarcodeGeometry, normalizeBarcodeData } = await import('/src/utils/barcodeGeometry.js');
+            const invalid: any = getBarcodeGeometry({
+                type: 'BARCODE', symbology: 'PLESSEY', content: '12a4G5$',
+                width: 2, ratio: 3,
+            });
+            const normalized: any = getBarcodeGeometry({
+                type: 'BARCODE', symbology: 'PLESSEY', content: '12A45',
+                width: 2, ratio: 3,
+            });
+            return {
+                normalized: normalizeBarcodeData('PLESSEY', '12a4G5$'),
+                kind: invalid.kind,
+                sameBars: invalid.sbs?.join(',') === normalized.sbs?.join(','),
+            };
+        });
+
+        expect(result).toEqual({ normalized: '12A45', kind: 'linear', sameBars: true });
+    });
+
     test('Plessey emits ^BPo,e,h,f,g and round-trips the print-check-digit (e) flag', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const [{ BarcodeElement }, { ZPLParser }, { plesseyCheckDigits }] = await Promise.all([
@@ -1290,8 +1388,11 @@ test.describe('Barcode symbology', () => {
                 ean8Pad: normalizeBarcodeData('EAN8', '12'),
                 ean8Truncate: normalizeBarcodeData('EAN8', '123456789'),
                 upcaPad: normalizeBarcodeData('UPCA', '12'),
+                upcaComplete: normalizeBarcodeData('UPCA', '123456789302'),
+                upcaWrongCheck: normalizeBarcodeData('UPCA', '123456789307'),
                 upcePad: normalizeBarcodeData('UPCE', '12'),
                 upceTruncate: normalizeBarcodeData('UPCE', '1234567'),
+                upceFromUpca: normalizeBarcodeData('UPCE', '1230000045'),
                 passthrough: normalizeBarcodeData('CODE128', 'abc'),
             };
         });
@@ -1301,8 +1402,11 @@ test.describe('Barcode symbology', () => {
         expect(cases.ean8Pad).toBe('0000012');     // 7-digit field, left-padded
         expect(cases.ean8Truncate).toBe('3456789'); // keeps the trailing 7
         expect(cases.upcaPad).toBe('00000000012');
+        expect(cases.upcaComplete).toBe('12345678930');
+        expect(cases.upcaWrongCheck).toBe('12345678930');
         expect(cases.upcePad).toBe('000012');      // 6-digit field, left-padded
         expect(cases.upceTruncate).toBe('234567'); // keeps the trailing 6
+        expect(cases.upceFromUpca).toBe('123453');
         expect(cases.passthrough).toBe('abc');
     });
 

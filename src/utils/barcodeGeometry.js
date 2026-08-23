@@ -175,9 +175,48 @@ export function normalizeBarcodeData(symbology, data) {
     // (UspsPostalSymbology.displayText).
     return s.replace(/\D/g, '');
   }
+  if (symbology === 'MSI') {
+    // ^BM silently discards characters outside its numeric alphabet. Keeping
+    // them makes bwip reject the entire field and turns a printable symbol into
+    // an editor placeholder.
+    return s.replace(/\D/g, '');
+  }
+  if (symbology === 'PLESSEY') {
+    // Plessey's alphabet is hexadecimal. Zebra folds lowercase and drops the
+    // remaining unsupported characters rather than rejecting the whole field.
+    return s.toUpperCase().replace(/[^0-9A-F]/g, '');
+  }
+  if (symbology === 'UPCE') {
+    s = s.replace(/\D/g, '0');
+    // ^B9 also accepts an uncompressed UPC-A body. Convert its manufacturer
+    // and product fields to the six UPC-E data digits when the standard zero
+    // suppression rules allow it (for example 1230000045 -> 123453).
+    if (s.length >= 8) {
+      const body = s.padStart(11, '0').slice(-11);
+      const manufacturer = body.slice(1, 6);
+      const product = body.slice(6);
+      const productNumber = Number(product);
+      if (/^[012]$/.test(manufacturer.charAt(2)) && manufacturer.endsWith('00') && productNumber <= 999) {
+        return manufacturer.slice(0, 2) + product.slice(-3) + manufacturer.charAt(2);
+      }
+      if (manufacturer.endsWith('00') && productNumber <= 99) {
+        return manufacturer.slice(0, 3) + product.slice(-2) + '3';
+      }
+      if (manufacturer.endsWith('0') && productNumber <= 9) {
+        return manufacturer.slice(0, 4) + product.slice(-1) + '4';
+      }
+      if (productNumber >= 5 && productNumber <= 9) {
+        return manufacturer + product.slice(-1);
+      }
+    }
+  }
   const len = FIXED_FD_LENGTH[symbology];
   if (!len) return s;
   s = s.replace(/\D/g, '0'); // numeric-only: disallowed chars become '0'
+  // UPC-A also accepts the complete 12-digit form. The last digit is supplied
+  // as the check digit, but the printer recomputes it from the first 11 rather
+  // than encoding it as data (including when the supplied check digit is wrong).
+  if (symbology === 'UPCA' && s.length === 12) return s.slice(0, 11);
   // Right-aligned: keep the trailing `len` chars (Labelary truncates leading
   // overflow) / left-pad short data with zeros.
   return s.length > len ? s.slice(-len) : s.padStart(len, '0');
@@ -988,6 +1027,12 @@ export function getBarcodeGeometry(element, previewData = {}) {
   // Geometry is measured from the resolved Content: the canvas draws the real
   // encoded symbol, so an unset placeholder falls back to its bare name.
   const data = resolvePlaceholders(element.content, previewData);
+  // bwip-js only implements QR Model 2. Rendering that matrix for a Model 1
+  // command is actively misleading (and can print data Model 1 cannot hold), so
+  // preserve the element for round-trip but leave its canvas geometry empty.
+  if (resolveSymbology(element) === 'QR' && Number(element.model) === 1) {
+    return { kind: 'empty' };
+  }
   if (resolveSymbology(element) === 'TLC39') return getTlc39Geometry(element, data);
   const opts = buildBwipOptions(element, data);
   const symbology = resolveSymbology(element);

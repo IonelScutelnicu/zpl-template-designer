@@ -112,10 +112,16 @@ export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR, encodi
  * label and differ only across prints with ^MC map retention, so an imported
  * ^FV has to be carried back out rather than inferred.
  */
-export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false, command = 'FD') {
+export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false, command = 'FD', options = {}) {
   const encoded = encodeFieldData(value, indicator);
   const fh = encoded.escaped || forceHex
     ? `^FH${encoded.indicator === DEFAULT_HEX_INDICATOR ? '' : encoded.indicator}`
     : '';
+  if (command === 'SN') {
+    const parsedIncrement = parseInt(options.increment);
+    const increment = Number.isFinite(parsedIncrement) ? parsedIncrement : 1;
+    const preserveLeadingZeros = options.preserveLeadingZeros ? 'Y' : 'N';
+    return `${fh}^SN${encoded.data},${increment},${preserveLeadingZeros}`;
+  }
   return `${fh}^${command === 'FV' ? 'FV' : 'FD'}${encoded.data}`;
 }

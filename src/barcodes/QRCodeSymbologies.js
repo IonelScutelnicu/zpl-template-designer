@@ -45,7 +45,9 @@ class QRSymbology {
   }
 
   renderDefault(element, content) {
-    return `^BQN,${element.model},${element.magnification}${fieldData(`${element.errorCorrection}A,${content}`, element)}`;
+    const inputMode = element.inputMode === 'M' ? 'M' : 'A';
+    const manualMode = inputMode === 'M' ? (element.qrManualMode || 'A') : '';
+    return `^BQN,${element.model},${element.magnification}${fieldData(`${element.errorCorrection}${inputMode},${manualMode}${content}`, element)}`;
   }
 
   supportsOrientation() {
@@ -53,10 +55,14 @@ class QRSymbology {
   }
 
   moduleDots(element) {
-    return { mx: element.magnification || 5, my: element.magnification || 5 };
+    const magnification = Math.max(1, Math.min(10, Number(element.magnification) || 5));
+    return { mx: magnification, my: magnification };
   }
 
   bounds(element, geom, helpers) {
+    if (geom.kind === 'empty') {
+      return { x: element.x, y: element.y, width: 0, height: 0 };
+    }
     if (geom.kind === 'matrix') {
       const { mx, my } = this.moduleDots(element);
       return { x: element.x, y: element.y, width: geom.cols * mx, height: geom.rows * my + helpers.yOffset };
@@ -65,6 +71,7 @@ class QRSymbology {
   }
 
   renderCanvas(ctx, canvas, element, geom, frame, helpers) {
+    if (geom.kind === 'empty') return;
     if (geom.kind !== 'matrix') return helpers.drawPlaceholder(ctx, element, frame);
     helpers.drawMatrixWithReverse(ctx, canvas, element, geom, frame);
   }

@@ -39,7 +39,11 @@ export class TextElement extends ZPLElement {
         // Preview Data (or pasted Content) that spans lines collapses to spaces.
         const emitted = collapseLineBreaks(content);
         const pos = fieldOriginCommand(this, { fontId: defaultFontId, defaultFontHeight, defaultFontWidth, customFonts }, { content: emitted });
-        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${fieldParameterCommand(this)}${renderFieldDataCommand(emitted, '_', this.fieldHex, this.fieldDataCommand)}^FS`;
+        const fieldData = renderFieldDataCommand(emitted, '_', this.fieldHex, this.fieldDataCommand, {
+            increment: this.serialIncrement,
+            preserveLeadingZeros: this.serialPreserveLeadingZeros,
+        });
+        return `${pos}${reverseCmd}^A${fontId}${this.orientation},${fontSize}${fontWidthParam}${fieldParameterCommand(this)}${fieldData}^FS`;
     }
 
     render(defaultFontId = DEFAULT_FONT_ID, defaultFontHeight = DEFAULT_FONT_HEIGHT, defaultFontWidth = 0, customFonts = []) {

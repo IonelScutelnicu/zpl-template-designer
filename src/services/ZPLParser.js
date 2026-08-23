@@ -25,7 +25,7 @@ const POWER_UP_FONT_HEIGHT = 9;
  */
 const KNOWN_COMMANDS = new Set([
   'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
-  'CF', 'CW', 'DY', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'BC', 'BY',
+  'CF', 'CW', 'DY', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'SN', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'GS', 'FX',
   // Native variable and clock commands are supported no-ops during import.
   'FE', 'FC', 'FN', 'SO',
@@ -189,7 +189,7 @@ function rawDependsOnLabelHome(text) {
 }
 
 /**
- * The ^FD/^FV token whose payload the field actually prints: the last one, since a
+ * The ^FD/^FV/^SN token whose payload the field actually prints: the last one, since a
  * second data command in one field overwrites the first on the printer.
  *
  * Which of the two it is decides both the content and the command the element
@@ -199,7 +199,7 @@ function rawDependsOnLabelHome(text) {
 function lastFieldDataToken(commands) {
   for (let i = commands.length - 1; i >= 0; i--) {
     const { command } = commands[i];
-    if (command === 'FD' || command === 'FV') return commands[i];
+    if (command === 'FD' || command === 'FV' || command === 'SN') return commands[i];
   }
   return null;
 }
@@ -330,12 +330,9 @@ export class ZPLParser {
       const m = matches[i];
       const nextIndex = (i + 1 < matches.length) ? matches[i + 1].index : content.length;
 
-      // Special handling for ^FD: consume everything until ^FS. ^FV (field
-      // variable) delimits its data the same way and prints identically, so it
-      // shares this branch — but it keeps its own name: the printer clears a ^FV
-      // field after printing and retains a ^FD one, and rewriting the command
-      // would silently turn a variable field into a fixed one on export.
-      if (m.command === 'FD' || m.command === 'FV') {
+      // Field-data commands keep whitespace verbatim. ^FV differs from ^FD in
+      // map retention; ^SN adds increment parameters, handled when the field is built.
+      if (m.command === 'FD' || m.command === 'FV' || m.command === 'SN') {
         // Field data ends at the next command, not at the ^FS: a caret is what the
         // printer reads as a command prefix wherever it appears, which is why ^FH
         // exists to smuggle one into the data. Labels do put a command between ^FD
@@ -748,7 +745,15 @@ export class ZPLParser {
         // data through the same ^FD/^FV lookup. Absent means ^FD. Read from
         // the token whose payload won, not from whether a ^FV appears anywhere:
         // `^FVold^FDnew` is a retained field, however it started.
-        if (lastFieldDataToken(group.commands)?.command === 'FV') element.fieldDataCommand = 'FV';
+        const dataToken = lastFieldDataToken(group.commands);
+        if (dataToken?.command === 'FV') element.fieldDataCommand = 'FV';
+        if (dataToken?.command === 'SN') {
+          const [, increment = '', preserveLeadingZeros = ''] = dataToken.params.split(',');
+          const parsedIncrement = parseInt(increment);
+          element.fieldDataCommand = 'SN';
+          element.serialIncrement = Number.isFinite(parsedIncrement) ? parsedIncrement : 1;
+          element.serialPreserveLeadingZeros = preserveLeadingZeros.trim().toUpperCase() === 'Y';
+        }
         // Both read the cursor as the field consumed it, so they run before the
         // advance below overwrites it.
         this._warnTypesetCursor(state, group);
@@ -1188,14 +1193,16 @@ export class ZPLParser {
    */
   _buildElement(group, state) {
     const commands = group.commands;
-    // ^FV is field data too, so every `getCommand('FD')` below finds it.
-    const matches = (command, cmd) => command === cmd || (cmd === 'FD' && command === 'FV');
+    // ^FV and ^SN are field data too, so every `getCommand('FD')` below finds them.
+    const matches = (command, cmd) => command === cmd
+      || (cmd === 'FD' && (command === 'FV' || command === 'SN'));
     const hasCommand = (cmd) => commands.some(c => matches(c.command, cmd));
     const getCommand = (cmd) => {
       // A second ^FD in one field overwrites the first on the printer, so the data
       // command is read from the end; every other command keeps its first occurrence.
       if (cmd === 'FD') {
         const last = lastFieldDataToken(commands);
+        if (last?.command === 'SN') return { ...last, params: last.params.split(',')[0] };
         if (last) return last;
       }
       return commands.find(c => matches(c.command, cmd));
@@ -2042,16 +2049,25 @@ export class ZPLParser {
     const model = parseInt(bqParts[1]) || 2;
     const magnification = parseInt(bqParts[2]) || 5;
 
-    // ^FD format: {errorCorrection}A,{data} (e.g., "QA,https://example.com")
+    // ^FD format: {errorCorrection}{inputMode},{data} (for example,
+    // "QA,https://example.com" or "MM,AAC-42"). Manual input mode still owns
+    // the two-character prefix; it is control data, not part of the payload.
     let errorCorrection = 'Q';
+    let inputMode = 'A';
+    let qrManualMode = '';
     let rawData = '';
 
     if (fdToken) {
       const fdContent = this._decodeFieldDataToken(fdToken, fhToken);
-      const ecMatch = fdContent.match(/^([HQML])A,(.*)$/s);
+      const ecMatch = fdContent.match(/^([HQML])([AM]),(.*)$/s);
       if (ecMatch) {
         errorCorrection = ecMatch[1];
-        rawData = ecMatch[2];
+        inputMode = ecMatch[2];
+        rawData = ecMatch[3];
+        if (inputMode === 'M' && /^[ANBK]/.test(rawData)) {
+          qrManualMode = rawData.charAt(0);
+          rawData = rawData.slice(1);
+        }
       } else {
         rawData = fdContent;
       }
@@ -2068,6 +2084,8 @@ export class ZPLParser {
       model,
       magnification,
       errorCorrection,
+      inputMode,
+      qrManualMode,
       reverse: hasReverse
     };
   }

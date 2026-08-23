@@ -387,7 +387,7 @@ export const ZPL_FONTS = {
     weight: 'normal',
     monospace: true,
     xOffset: -0.15,
-    yOffset: 8,
+    yOffset: 3,
     capRatio: 0.73438,
     advanceRatio: 0.723,
     lineHeightRatio: 1.4,

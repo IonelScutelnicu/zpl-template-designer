@@ -175,7 +175,8 @@ class MsiSymbology extends BarcodeSymbology {
   }
 
   displayText(element, data = '') {
-    return `${data}${element.msiCheckInText ? msiCheckDigits(data, element.msiCheckMode) : ''}`;
+    const digits = normalizeBarcodeData('MSI', data);
+    return `${digits}${element.msiCheckInText ? msiCheckDigits(digits, element.msiCheckMode) : ''}`;
   }
 
   extraSettings(panel, element) {
@@ -202,7 +203,8 @@ class PlesseySymbology extends CheckDigitBarcodeSymbology {
   }
 
   displayText(element, data = '') {
-    return `${data}${element.checkDigit ? plesseyCheckDigits(data) : ''}`;
+    const normalized = normalizeBarcodeData('PLESSEY', data);
+    return `${normalized}${element.checkDigit ? plesseyCheckDigits(normalized) : ''}`;
   }
 }
 

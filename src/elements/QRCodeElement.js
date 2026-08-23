@@ -22,8 +22,10 @@ export class QRCodeElement extends ZPLElement {
         this.content = opts.content ?? ''; // Template string: literal text mixed with %placeholder%s
         // QR (^BQ)
         this.model = opts.model || 2;              // 1 = original, 2 = enhanced (recommended)
-        this.magnification = opts.magnification || 5; // 1-10 (scaling factor)
+        this.magnification = opts.magnification || 5; // 1-10 (scaling factor; printer clamps larger imports)
         this.errorCorrection = opts.errorCorrection || 'Q'; // H, Q, M, L (high to low)
+        this.inputMode = opts.inputMode === 'M' ? 'M' : 'A'; // A = automatic, M = manual
+        this.qrManualMode = /^[ANBK]$/.test(opts.qrManualMode) ? opts.qrManualMode : 'A';
         // Data Matrix (^BX)
         this.moduleSize = opts.moduleSize || 4;    // individual module size in dots
         this.quality = opts.quality ?? 200;          // ECC level (200 = ECC 200, recommended; 0 = ECC 000 is valid)
