@@ -90,6 +90,27 @@ test.describe('ZPL bitmap font bucketing', () => {
             ]);
         });
 
+        test('Font E canvas y-offset scales with bitmap magnification', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { resolveBaselinePlacement, resolveFontMetrics } = await import('/src/utils/fontMetrics.js');
+                const labelSettings = {
+                    fontId: 'A',
+                    defaultFontHeight: 18,
+                    defaultFontWidth: 0,
+                    customFonts: [],
+                };
+                return [28, 168].map(fontSize => {
+                    const metrics = resolveFontMetrics({ fontId: 'E', fontSize, fontWidth: 15 }, labelSettings, 1);
+                    const placement = resolveBaselinePlacement(metrics, 1);
+                    return { fontSize, snappedHeight: metrics.snappedHeight, nudge: placement.nudge };
+                });
+            });
+            expect(result).toEqual([
+                { fontSize: 28, snappedHeight: 20, nudge: 3 },
+                { fontSize: 168, snappedHeight: 120, nudge: 18 },
+            ]);
+        });
+
         test('Fonts P-V use the documented cell grids and independent width magnification', async ({ page }) => {
             const result = await page.evaluate(async () => {
                 const { getBitmapFontAllowedSizes, snapBitmapFontSize } = await import('/src/utils/zplFontSnap.js');

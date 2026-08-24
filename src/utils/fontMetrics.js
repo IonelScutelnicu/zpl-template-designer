@@ -109,7 +109,7 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
  *   - nudge:    per-font vertical calibration offset, applied in the local frame
  * Three models:
  *   - bitmap fonts: alphabetic baseline at the rendered cap height, so the cap top
- *     lands on element.y; nudge is in dots (×scale).
+ *     lands on element.y; nudge is in dots per magnification step (×scale).
  *   - custom TTFs (baselineRatio): alphabetic baseline at baselineRatio×em below
  *     element.y, matching Zebra/Labelary placement of downloaded fonts.
  *   - Font 0: 'top' baseline with a fraction-of-em nudge calibrated for its
@@ -123,10 +123,12 @@ export function resolveFontMetrics(element, labelSettings, scale = 1) {
 export function resolveBaselinePlacement(metrics, scale = 1) {
   const { fontConfig, fontSize, snappedHeight, isBitmap } = metrics;
   if (isBitmap) {
+    const capStep = fontConfig.bitmap?.capStep;
+    const magnification = capStep ? Math.max(1, Math.round(snappedHeight / capStep)) : 1;
     return {
       baseline: 'alphabetic',
       fillY: snappedHeight * scale,
-      nudge: (fontConfig.yOffset || 0) * scale,
+      nudge: (fontConfig.yOffset || 0) * magnification * scale,
     };
   }
   if (fontConfig.baselineRatio) {
