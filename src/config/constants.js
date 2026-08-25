@@ -560,8 +560,8 @@ export const ZPL_FONTS = {
     yOffset: 4.2,
     charRules: CG_TRIUMVIRATE_CHAR_RULES,
     capRatio: CG_TRIUMVIRATE_CAP_RATIO,
-    lineHeightRatio: 35 / 22,
-    textBlockLineHeightRatio: (35 * CG_TRIUMVIRATE_CAP_RATIO) / 22,
+    lineHeightRatio: 35 / 22.6,
+    textBlockLineHeightRatio: (35 * CG_TRIUMVIRATE_CAP_RATIO) / 22.6,
     bitmap: { magStep: 35, magWidthStep: 31, capStep: 22.6, advStep: 29.34, maxMag: 10, capPad: 4 }
   },
   'S': {
@@ -572,8 +572,8 @@ export const ZPL_FONTS = {
     yOffset: 5.4,
     charRules: CG_TRIUMVIRATE_CHAR_RULES,
     capRatio: CG_TRIUMVIRATE_CAP_RATIO,
-    lineHeightRatio: 40 / 25,
-    textBlockLineHeightRatio: (40 * CG_TRIUMVIRATE_CAP_RATIO) / 25,
+    lineHeightRatio: 40 / 25.5,
+    textBlockLineHeightRatio: (40 * CG_TRIUMVIRATE_CAP_RATIO) / 25.5,
     bitmap: { magStep: 40, magWidthStep: 35, capStep: 25.5, advStep: 33.39, maxMag: 10, capPad: 5 }
   },
   'T': {
@@ -605,12 +605,12 @@ export const ZPL_FONTS = {
     weight: 'bold',
     monospace: false,
     wordSpacing: 0.065,
-    yOffset: 12,
+    yOffset: 10.5,
     charRules: CG_TRIUMVIRATE_CHAR_RULES,
     capRatio: CG_TRIUMVIRATE_CAP_RATIO,
-    lineHeightRatio: 80 / 50,
-    textBlockLineHeightRatio: (80 * CG_TRIUMVIRATE_CAP_RATIO) / 50,
-    bitmap: { magStep: 80, magWidthStep: 71, capStep: 50, advStep: 66.65, maxMag: 10, capPad: 10 }
+    lineHeightRatio: 80 / 51.4,
+    textBlockLineHeightRatio: (80 * CG_TRIUMVIRATE_CAP_RATIO) / 51.4,
+    bitmap: { magStep: 80, magWidthStep: 71, capStep: 51.4, advStep: 66.65, maxMag: 10, capPad: 10 }
   },
   // Default fallback
   'default': {
