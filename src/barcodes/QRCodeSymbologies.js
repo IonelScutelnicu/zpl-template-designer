@@ -587,6 +587,7 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
       const { scale, homeX, homeY, labelTop } = transform;
       const symbology = resolveSymbology(element);
       const yOffset = symbology === 'QR' ? 10 * scale : 0;
+      const qrYOffset = symbology === 'QR' ? (element.qrYOffset || 0) * scale : 0;
       // MaxiCode is fixed-size (density-derived pitch); every other 2D symbology
       // sizes from its own dot fields via matrixModuleDots.
       const { mx, my } = symbology === 'MAXICODE'
@@ -596,7 +597,7 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
         scale,
         dpmm,
         x: (element.x + homeX) * scale,
-        y: (element.y + homeY + labelTop) * scale + yOffset,
+        y: (element.y + homeY + labelTop) * scale + yOffset + qrYOffset,
         moduleW: mx * scale,
         moduleH: my * scale,
         element,

@@ -53,3 +53,22 @@ guarded by a regression test that fails if the patch is missing.
   a hard encode error). Spec-length data produces byte-identical geometry.
 - **Guard test:** `tests/e2e/barcode-symbology.spec.ts` →
   "Planet Code / POSTNET render any digit count like Labelary (vendor patch guard)".
+
+---
+
+## 3. Explicit Zebra QR data-mode boundaries
+
+- **File:** `bwipp.mjs`, function `bwipp_qrcode` (source ref `//#27458`)
+- **Change:** add the local `zplmode` option. It accepts either one QR data mode
+  (`N`, `A`, `B`, or `K`) or a comma-separated mode/byte-length sequence such as
+  `N:10,A:5,B:7`, and replaces stock bwip-js's selected sequence before encoding.
+- **Why:** Zebra's automatic `^BQ` input mode uses different numeric,
+  alphanumeric, and byte boundaries from stock bwip-js. Although both symbols
+  decode to the same payload, their modules and sometimes their selected version
+  differ. The application derives Zebra's boundaries before mask selection and
+  passes them through this option.
+- **Scope:** the option is local and unset by default, so direct stock bwip-js QR
+  calls are unchanged. The application uses it for imported/manual QR modes and
+  ASCII automatic-mode data; non-ASCII automatic data keeps stock segmentation.
+- **Guard test:** `tests/e2e/barcode-symbology.spec.ts` →
+  "QR automatic input uses Zebra mode boundaries for mixed payloads".

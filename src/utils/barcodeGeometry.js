@@ -820,6 +820,8 @@ function buildBwipOptions(element, data) {
   }
   if (symbology === 'QR') {
     opts.eclevel = element.errorCorrection || 'Q';
+    const zplmode = qrZplMode(element, opts.text);
+    if (zplmode) opts.zplmode = zplmode;
     const mask = qrAutoMask(opts);
     if (mask) opts.mask = mask;
   } else if (symbology === 'AZTEC') {
@@ -923,8 +925,65 @@ const CACHE_MAX = 256;
 // payload and error-correction level.
 const qrMaskCache = new Map();
 
+function qrZplMode(element, text) {
+  if (element.inputMode === 'M') return /^[NABK]$/.test(element.qrManualMode) ? element.qrManualMode : 'A';
+  if (!/^[\x00-\x7f]*$/u.test(text)) return undefined;
+
+  const isNumeric = (char) => /[0-9]/u.test(char);
+  const isAlpha = (char) => /[A-Z $%*+\-./:]/u.test(char);
+  const runLength = (offset, predicate) => {
+    let end = offset;
+    while (end < text.length && predicate(text[end])) end += 1;
+    return end - offset;
+  };
+  // Zebra uses fixed switch thresholds and folds a short alphanumeric tail
+  // into the following byte segment instead of minimizing the total bit count.
+  const preferredMode = (offset) => {
+    const numericLength = runLength(offset, isNumeric);
+    if (numericLength >= 4 || (numericLength > 0 && offset + numericLength === text.length)) {
+      return { mode: 'N', length: numericLength };
+    }
+    const alphaLength = runLength(offset, isAlpha);
+    if (alphaLength >= 5) return { mode: 'A', length: alphaLength };
+    const compatibleLength = runLength(offset, (char) => isNumeric(char) || isAlpha(char));
+    const reachesEnd = offset + compatibleLength === text.length;
+    if (compatibleLength >= 6 || (compatibleLength >= 4 && reachesEnd)) {
+      if (!reachesEnd) {
+        let runOffset = offset;
+        let lastStrongEnd = 0;
+        while (runOffset < offset + compatibleLength) {
+          const numeric = isNumeric(text[runOffset]);
+          const length = runLength(runOffset, numeric ? isNumeric : isAlpha);
+          if ((numeric && length >= 4) || (!numeric && length >= 5)) {
+            lastStrongEnd = runOffset + length - offset;
+          }
+          runOffset += length;
+        }
+        if (lastStrongEnd) return { mode: 'A', length: lastStrongEnd };
+      }
+      return { mode: 'A', length: compatibleLength };
+    }
+    return null;
+  };
+
+  const parts = [];
+  for (let offset = 0; offset < text.length;) {
+    const preferred = preferredMode(offset);
+    if (preferred) {
+      parts.push(preferred);
+      offset += preferred.length;
+      continue;
+    }
+    let end = offset + 1;
+    while (end < text.length && !preferredMode(end)) end += 1;
+    parts.push({ mode: 'B', length: end - offset });
+    offset = end;
+  }
+  return parts.map(({ mode, length }) => `${mode}:${length}`).join(',');
+}
+
 function qrAutoMask(opts) {
-  const key = `${opts.text}|${opts.eclevel ?? ''}`;
+  const key = `${opts.text}|${opts.eclevel ?? ''}|${opts.zplmode ?? ''}`;
   const cached = qrMaskCache.get(key);
   if (cached) return cached;
 
@@ -1057,7 +1116,7 @@ export function getBarcodeGeometry(element, previewData = {}) {
   // Every option that changes the symbol has to appear here. ^B7's r (opts.rows)
   // is one of them: it sizes the stack independently of the column count, so
   // without it two PDF417s differing only in rows share whichever rendered first.
-  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.columns || ''}|${opts.rows || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${opts.mode ?? ''}|${ratioKey}`;
+  const key = `${opts.bcid}|${opts.text}|${opts.eclevel ?? ''}|${opts.zplmode ?? ''}|${opts.columns || ''}|${opts.rows || ''}|${opts.version || ''}|${opts.format || ''}|${opts.layers ?? ''}|${opts.includetext ? 'text' : ''}|${opts.includecheck ? 'chk' : ''}|${opts.checktype || ''}|${opts.mode ?? ''}|${ratioKey}`;
   const cached = geomCache.get(key);
   if (cached) return cached;
 

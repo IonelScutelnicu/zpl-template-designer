@@ -26917,6 +26917,7 @@ function bwipp_qrcode() {
     $_.parsefnc = false; //#27004
     $_.mask = -1; //#27005
     $_.suppresskanjimode = true; //#27006
+    $_.zplmode = "unset"; // PATCHED(zebra-zpl-qr-mode): apply ZPL QR data-mode boundaries.
     $k[$j++] = null; //#27008
     bwipp_processoptions(); //#27008
     var _BU = $k[--$j]; //#27008
@@ -27860,6 +27861,42 @@ function bwipp_qrcode() {
         } //#27458
         var _LT = $k[--$j]; //#27458
         $_.seq = _LT; //#27458
+        // PATCHED(zebra-zpl-qr-mode): accept Zebra-compatible mode boundaries;
+        // stock BWIPP can choose different boundaries for the same field.
+        if ($ne($_.zplmode, "unset")) {
+            var zebraZplQrModes = new Map([
+                ["N", $_.qrcode_N],
+                ["A", $_.qrcode_A],
+                ["B", $_.qrcode_B],
+                ["K", $_.qrcode_K]
+            ]);
+            if ($has(zebraZplQrModes, $_.zplmode)) {
+                $_.seq = $a([$get(zebraZplQrModes, $_.zplmode), $_.msg]);
+            } else {
+                var zebraZplQrSequence = [];
+                var zebraZplQrOffset = 0;
+                var zebraZplQrParts = $_.zplmode.split(",");
+                for (var zebraZplQrIndex = 0; zebraZplQrIndex < zebraZplQrParts.length; zebraZplQrIndex++) {
+                    var zebraZplQrPart = zebraZplQrParts[zebraZplQrIndex].split(":");
+                    var zebraZplQrMode = zebraZplQrPart[0];
+                    var zebraZplQrLength = parseInt(zebraZplQrPart[1], 10);
+                    if (!$has(zebraZplQrModes, zebraZplQrMode) || !(zebraZplQrLength > 0)) {
+                        $k[$j++] = "bwipp.qrcodeBadZplMode#27458";
+                        $k[$j++] = "ZPL QR mode must be N, A, B, or K";
+                        bwipp_raiseerror();
+                    }
+                    zebraZplQrSequence.push($get(zebraZplQrModes, zebraZplQrMode));
+                    zebraZplQrSequence.push($geti($_.msg, zebraZplQrOffset, zebraZplQrLength));
+                    zebraZplQrOffset += zebraZplQrLength;
+                }
+                if (zebraZplQrOffset != $_.msglen) {
+                    $k[$j++] = "bwipp.qrcodeBadZplModeLength#27458";
+                    $k[$j++] = "ZPL QR mode lengths must cover the input";
+                    bwipp_raiseerror();
+                }
+                $_.seq = $a(zebraZplQrSequence);
+            }
+        }
         for (;;) { //#27490
             if ($_.seq == -1) { //#27464
                 break; //#27464

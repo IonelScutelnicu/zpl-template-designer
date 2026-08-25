@@ -100,12 +100,61 @@ test.describe('Barcode symbology', () => {
         expect(masks).toEqual([5, 3, 6, 4, 2, 6, 3, 7, 5]);
     });
 
+    test('QR automatic input uses Zebra mode boundaries for mixed payloads', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const [{ getBarcodeGeometry }, { default: bwipjs }] = await Promise.all([
+                import('/src/utils/barcodeGeometry.js'),
+                import('/src/vendor/bwip-js.mjs'),
+            ]);
+            const text = '0123456789ABCD 2D code';
+            const geom: any = getBarcodeGeometry({
+                type: 'QRCODE', symbology: 'QR', content: text,
+                errorCorrection: 'Q', inputMode: 'A', magnification: 5,
+            } as any);
+            const expected: any = bwipjs.raw({
+                bcid: 'qrcode', text, eclevel: 'Q', zplmode: 'N:10,A:5,B:7', mask: 2,
+            }).find((entry: any) => entry?.pixs);
+            const json = '{"orderId":"528173","pincode":"40259","parcels":1,"parcelId":"7f9753ad-a865-4769-94e9-7b9ef3c500e9"}';
+            const jsonGeom: any = getBarcodeGeometry({
+                type: 'QRCODE', symbology: 'QR', content: json,
+                errorCorrection: 'L', inputMode: 'A', magnification: 5,
+            } as any);
+            const jsonExpected: any = bwipjs.raw({
+                bcid: 'qrcode', text: json, eclevel: 'L',
+                zplmode: 'B:12,N:6,B:13,N:5,B:28,N:4,B:4,A:8,B:20', mask: 5,
+            }).find((entry: any) => entry?.pixs);
+            const alphaText = '114224L5:204904:383MC01AT545:C185:TL:3:8';
+            const alphaGeom: any = getBarcodeGeometry({
+                type: 'QRCODE', symbology: 'QR', content: alphaText,
+                errorCorrection: 'M', inputMode: 'A', magnification: 8,
+            } as any);
+            const alphaExpected: any = bwipjs.raw({
+                bcid: 'qrcode', text: alphaText, eclevel: 'M', zplmode: 'N:6,A:34', mask: 2,
+            }).find((entry: any) => entry?.pixs);
+            return {
+                size: geom.cols,
+                matches: expected.pixs.every((value: number, index: number) => value === geom.pixs[index]),
+                jsonMatches: jsonExpected.pixs.every((value: number, index: number) => value === jsonGeom.pixs[index]),
+                alphaMatches: alphaExpected.pixs.every((value: number, index: number) => value === alphaGeom.pixs[index]),
+            };
+        });
+
+        expect(result).toEqual({ size: 25, matches: true, jsonMatches: true, alphaMatches: true });
+    });
+
     test('QR import separates and preserves automatic and manual input-mode prefixes', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
             const { QRCodeElement } = await import('/src/elements/QRCodeElement.js');
             const elements: any[] = new ZPLParser().parse(
-                '^XA^FO10,10^BQN,2,5^FDMM,AAC-42^FS^FO10,100^BQN,2,5^FDHA,hello^FS^XZ',
+                '^XA' +
+                '^FO10,10^BQN,2,5^FDMM,AAC-42^FS' +
+                '^FO10,100^BQN,2,5^FDHA,hello^FS' +
+                '^FO10,200^BQN,2,5^FDM,{barcode}^FS' +
+                '^FO10,300^BQN,2,5^FDhttp://example.com^FS' +
+                '^FO10,400^BQN,2,5^FDPackage^FS' +
+                '^BY3,3,145^FO10,500^BQN,2,5^FDMM,AABC|123^FS' +
+                '^XZ',
                 { dpmm: 8, labelHeight: 100 },
             ).elements;
             return elements.map((data: any) => ({
@@ -113,6 +162,7 @@ test.describe('Barcode symbology', () => {
                 errorCorrection: data.errorCorrection,
                 inputMode: data.inputMode,
                 qrManualMode: data.qrManualMode,
+                qrYOffset: data.qrYOffset,
                 zpl: new QRCodeElement(data).render(),
             }));
         });
@@ -123,6 +173,7 @@ test.describe('Barcode symbology', () => {
                 errorCorrection: 'M',
                 inputMode: 'M',
                 qrManualMode: 'A',
+                qrYOffset: 0,
                 zpl: '^FO10,10^BQN,2,5^FDMM,AAC-42^FS',
             },
             {
@@ -130,7 +181,40 @@ test.describe('Barcode symbology', () => {
                 errorCorrection: 'H',
                 inputMode: 'A',
                 qrManualMode: '',
+                qrYOffset: 0,
                 zpl: '^FO10,100^BQN,2,5^FDHA,hello^FS',
+            },
+            {
+                content: '{barcode}',
+                errorCorrection: 'M',
+                inputMode: 'A',
+                qrManualMode: '',
+                qrYOffset: 0,
+                zpl: '^FO10,200^BQN,2,5^FDMA,{barcode}^FS',
+            },
+            {
+                content: 'p://example.com',
+                errorCorrection: 'H',
+                inputMode: 'A',
+                qrManualMode: '',
+                qrYOffset: 0,
+                zpl: '^FO10,300^BQN,2,5^FDHA,p://example.com^FS',
+            },
+            {
+                content: 'kage',
+                errorCorrection: 'Q',
+                inputMode: 'A',
+                qrManualMode: '',
+                qrYOffset: 0,
+                zpl: '^FO10,400^BQN,2,5^FDQA,kage^FS',
+            },
+            {
+                content: 'ABC|123',
+                errorCorrection: 'M',
+                inputMode: 'M',
+                qrManualMode: 'A',
+                qrYOffset: 145,
+                zpl: '^FO10,500^BQN,2,5^FDMM,AABC|123^FS',
             },
         ]);
     });

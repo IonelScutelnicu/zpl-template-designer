@@ -26,6 +26,7 @@ export class QRCodeElement extends ZPLElement {
         this.errorCorrection = opts.errorCorrection || 'Q'; // H, Q, M, L (high to low)
         this.inputMode = opts.inputMode === 'M' ? 'M' : 'A'; // A = automatic, M = manual
         this.qrManualMode = /^[ANBK]$/.test(opts.qrManualMode) ? opts.qrManualMode : 'A';
+        this.qrYOffset = opts.qrYOffset || 0;
         // Data Matrix (^BX)
         this.moduleSize = opts.moduleSize || 4;    // individual module size in dots
         this.quality = opts.quality ?? 200;          // ECC level (200 = ECC 200, recommended; 0 = ECC 000 is valid)
@@ -133,6 +134,7 @@ export class QRCodeElement extends ZPLElement {
                 return { x: element.x, y: element.y, width: size, height: size + yOffset };
             }
         });
+        if (this.symbology === 'QR' && this.qrYOffset) bounds.y += this.qrYOffset;
         if (symbology.supportsOrientation() && (this.orientation === 'R' || this.orientation === 'B')) {
             return { x: bounds.x, y: bounds.y, width: bounds.height, height: bounds.width };
         }

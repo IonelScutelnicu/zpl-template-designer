@@ -2059,19 +2059,33 @@ export class ZPLParser {
 
     if (fdToken) {
       const fdContent = this._decodeFieldDataToken(fdToken, fhToken);
-      const ecMatch = fdContent.match(/^([HQML])([AM]),(.*)$/s);
-      if (ecMatch) {
-        errorCorrection = ecMatch[1];
-        inputMode = ecMatch[2];
-        rawData = ecMatch[3];
-        if (inputMode === 'M' && /^[ANBK]/.test(rawData)) {
-          qrManualMode = rawData.charAt(0);
-          rawData = rawData.slice(1);
-        }
+      const standardMatch = fdContent.match(/^([HQML])([AM]),(.*)$/is);
+      const shorthandMatch = fdContent.match(/^([HQML]),(.*)$/is);
+      if (standardMatch) {
+        errorCorrection = standardMatch[1].toUpperCase();
+        inputMode = standardMatch[2].toUpperCase();
+        rawData = standardMatch[3];
+      } else if (shorthandMatch) {
+        errorCorrection = shorthandMatch[1].toUpperCase();
+        rawData = shorthandMatch[2];
       } else {
-        rawData = fdContent;
+        const candidateErrorCorrection = fdContent.charAt(0).toUpperCase();
+        if (/^[HQML]$/.test(candidateErrorCorrection)) errorCorrection = candidateErrorCorrection;
+        const candidateInputMode = fdContent.charAt(1).toUpperCase();
+        if (/^[AM]$/.test(candidateInputMode)) inputMode = candidateInputMode;
+        // Zebra consumes the mandatory error-correction, input-mode and comma
+        // switch positions even when malformed labels omit those switches.
+        rawData = fdContent.slice(3);
+      }
+      if (inputMode === 'M' && /^[ANBK]/.test(rawData)) {
+        qrManualMode = rawData.charAt(0);
+        rawData = rawData.slice(1);
       }
     }
+
+    // Labelary offsets an invalid manual-alphanumeric QR by the active ^BY height.
+    const invalidManualAlpha = inputMode === 'M' && qrManualMode === 'A' &&
+      /[^0-9A-Z $%*+\-./:]/u.test(rawData);
 
     return {
       type: 'QRCODE',
@@ -2086,6 +2100,7 @@ export class ZPLParser {
       errorCorrection,
       inputMode,
       qrManualMode,
+      qrYOffset: invalidManualAlpha ? state.barcodeDefaults.height : 0,
       reverse: hasReverse
     };
   }
