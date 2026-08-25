@@ -28,7 +28,7 @@ export class TextRenderer {
     ctx.save();
 
     const fontMetrics = resolveFontMetrics(element, labelSettings, scale);
-    const { fontConfig, fontSize, fontWidth, scaleX, snappedHeight, isBitmap } = fontMetrics;
+    const { fontConfig, fontSize, fontWidth, scaleX } = fontMetrics;
     // ^A collapses line breaks to spaces — match it so a multiline
     // Preview Data value looks the same on the canvas as in the Preview.
     const raw = collapseLineBreaks(resolvePlaceholders(element.content, labelSettings?.previewData));
@@ -42,8 +42,6 @@ export class TextRenderer {
     const wordSpacingPx = fontConfig.wordSpacing ? fontConfig.wordSpacing * fontSize : 0;
     ctx.letterSpacing = `${letterSpacingPx}px`;
     ctx.wordSpacing = `${wordSpacingPx}px`;
-    // Measure text width at unscaled size, then apply horizontal scale
-    const metrics = ctx.measureText(text);
 
     // ^FP. The gap is an absolute dot value, so it must not be squeezed by the font's
     // horizontal scale the way the font's ratio-based spacing is — divide it out, as
@@ -63,29 +61,24 @@ export class TextRenderer {
     // and that end is the run's `max` — which for plain horizontal text is just its
     // width, so nothing about plain text moves.
     const readingPivot = layout ? layout.max * scaleX : textWidth;
-    // Rotation/reverse box height, in dot space: the rendered cap-ink height for
-    // bitmap fonts, the em for Font 0 (fontSize also carries its heightScale
-    // stretch, which must not move the pivot).
-    const textHeight = snappedHeight * scale;
-    // Bitmap fonts draw from an alphabetic baseline at the cap height, so glyph
-    // ink hangs `descent` px below the rotation box. N/B place that descent on a
-    // harmless edge, but R/I pivot on textHeight (cap-ink only) and would shove
-    // the whole string by the descender. Add it back for R/I. No descender
-    // (uppercase/filtered fonts) ⇒ descent≈0, matching their correct look.
-    // Font 0 already pivots on the full em (fontSize), so it needs no extra.
-    const pivotDescent = isBitmap ? (metrics.actualBoundingBoxDescent || 0) : 0;
+    // Rotation pivot along the glyph-down axis, in dot space: the FONT CELL, not
+    // snappedHeight, which for a bitmap font is only the cap ink. Verified on
+    // Labelary across every resident font — an R field's ink mirrors its N ink about
+    // the cell, so a cap-ink pivot shifts R and I by the cell's ascender+descender
+    // padding (0 only for B/H/Font 0, the fonts whose cell IS their cap ink).
+    // N and B never touch it: their pivots are the origin and the reading end.
+    const cellHeight = resolveFontCellHeight(fontMetrics) * scale;
 
     const fontXOffset = fontWidth * (fontConfig.xOffset || 0);
 
-    // ^FPV stacks upright glyphs one FONT CELL apart along the glyph-down axis —
-    // not one snappedHeight, which for a bitmap font is only the cap ink. ^FO anchors
-    // the run's top-left, so the rotations whose glyph-down axis runs toward negative
-    // label coordinates (R and I) put the FIRST character at the far end.
-    const vPitch = resolveFontCellHeight(fontMetrics) * scale;
+    // ^FPV stacks upright glyphs one FONT CELL apart along the glyph-down axis. ^FO
+    // anchors the run's top-left, so the rotations whose glyph-down axis runs toward
+    // negative label coordinates (R and I) put the FIRST character at the far end —
+    // which is why the R/I pivot stays one cell even for a multi-cell stack.
     const vReversed = element.orientation === 'R' || element.orientation === 'I';
-    const vStackOffset = (index) => (vReversed ? (index - (chars.length - 1)) * vPitch : index * vPitch);
-    // Glyph-down extent of the whole field, for the rotation pivots and the ^FR box.
-    const downExtent = direction === 'V' ? Math.max(0, chars.length - 1) * vPitch + textHeight : textHeight;
+    const vStackOffset = (index) => (vReversed ? (index - (chars.length - 1)) * cellHeight : index * cellHeight);
+    // Glyph-down extent of the whole field, for the ^FR box.
+    const downExtent = direction === 'V' ? Math.max(1, chars.length) * cellHeight : cellHeight;
 
     const drawTransformedText = (context, color, offsetX = 0, offsetY = 0) => {
       context.save();
@@ -96,11 +89,11 @@ export class TextRenderer {
       context.wordSpacing = `${wordSpacingPx}px`;
 
       if (element.orientation === 'R') {
-        context.translate(x + textHeight + pivotDescent + offsetX, y + offsetY);
+        context.translate(x + cellHeight + offsetX, y + offsetY);
         context.rotate(Math.PI / 2);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'I') {
-        context.translate(x + readingPivot + offsetX, y + textHeight + pivotDescent + offsetY);
+        context.translate(x + readingPivot + offsetX, y + cellHeight + offsetY);
         context.rotate(Math.PI);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'B') {

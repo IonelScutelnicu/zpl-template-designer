@@ -131,12 +131,12 @@ for (const font of FONTS) {
 
 // Rotation baselines: guard that rotated text stays aligned. Two regressions
 // are covered: (1) per-font x/y nudges must travel in the local frame, not the
-// screen frame; (2) the R/I rotation pivot must include the glyph descender,
-// not just cap-ink height (snappedHeight) — otherwise descender-bearing bitmap
-// fonts shift by the descender depth at R and I. Coverage:
+// screen frame; (2) the R/I rotation pivot must be the whole FONT CELL, not the
+// cap-ink height (snappedHeight) — otherwise every font whose cell is taller than
+// its cap ink shifts by that padding at R and I. Coverage:
 //   '0' — scalable, exercises the y nudge
-//   'A' — bitmap WITH descenders ('p' in Sample), guards the descender pivot
-//   'H' — bitmap, largest xOffset (filters lowercase → no descender)
+//   'A' — bitmap whose cell exceeds its cap ink, and that has descenders ('p' in Sample)
+//   'H' — bitmap, largest xOffset, and the one font whose cell IS its cap ink
 //   'P'/'V' — smallest/largest proportional resident cells
 const ROTATION_FONTS = ['0', 'A', 'H', 'P', 'V'];
 const ORIENTATIONS = ['R', 'I', 'B'];

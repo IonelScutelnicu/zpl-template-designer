@@ -341,7 +341,7 @@ export class CanvasRenderer {
       : measureStyledText(this.ctx, text, fontConfig, fontSize, scaleX);
     // Bitmap fonts draw from a cap-height baseline (snappedHeight); the glyph
     // descender hangs below that, so the visible cell is snappedHeight + descent.
-    // Match TextRenderer's pivotDescent so the box bounds the actual ink.
+    // Match TextRenderer's draw so the box bounds the actual ink.
     const descent = isBitmap ? (m.actualBoundingBoxDescent || 0) : 0;
     this.ctx.restore();
     const textW = Math.max(measuredWidth, snappedWidth);
@@ -352,12 +352,19 @@ export class CanvasRenderer {
     const rotated = element.orientation === 'R' || element.orientation === 'B';
     let w = textW, h = textH;
     if (rotated) { w = textH; h = textW; }
+    // R and I pivot on the far edge of the font cell (see TextRenderer), so their ink
+    // sits at the far end of it — this box bounds the cap ink, not the whole cell, so
+    // it has to start one cell's worth of padding in from the origin. N and B pivot on
+    // the origin and the reading end, so their box starts there.
+    const cellDrop = element.orientation === 'R' || element.orientation === 'I'
+      ? Math.max(0, cellHeight - (snappedHeight + descent))
+      : 0;
     // A reversed run walks back from its origin, but only on the rotations whose
     // reading axis points along a positive label axis — see runLeadOffset.
     const lead = runLeadOffset(layout && { min: layout.min * scaleX }, element.orientation || 'N');
     return {
-      x: element.x + lead.dx,
-      y: element.y + lead.dy,
+      x: element.x + lead.dx + (element.orientation === 'R' ? cellDrop : 0),
+      y: element.y + lead.dy + (element.orientation === 'I' ? cellDrop : 0),
       width: w,
       height: h,
     };
