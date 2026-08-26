@@ -1354,6 +1354,36 @@ test.describe('Barcode symbology', () => {
         expect(kinds.runeEmpty).toBe('matrix');
     });
 
+    test('Aztec uses Zebra mode switching for mixed data', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { zplAztecHighLevelBits } = await import('/src/barcodes/aztecZplEncoder.js');
+            const bits = zplAztecHighLevelBits('7. This is testing label 7')!;
+            return { length: bits.length, bits };
+        });
+
+        expect(result.length).toBe(150);
+        expect(result.bits).toBe(
+            '111101001000000011111110101111011100010010101010100000010101010100000011010100110101001010101010011110100000001011010001000011001100110100001111101001',
+        );
+    });
+
+    test('Aztec field data ends at an unsupported command prefix', async ({ page }) => {
+        const parsed = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const result = new ZPLParser().parse(
+                '^XA^FO10,10^B0N,11,N^FD0123456789-abcdefgz/ABSDKFJJWIOWEUT=@#$%^&*(():WWW.COM^FS^XZ',
+                { dpmm: 8, labelHeight: 50 },
+            );
+            return {
+                content: result.elements[0]?.content,
+                magnification: result.elements[0]?.magnification,
+            };
+        });
+
+        expect(parsed.content).toBe('0123456789-abcdefgz/ABSDKFJJWIOWEUT=@#$%');
+        expect(parsed.magnification).toBe(10);
+    });
+
     test('Aztec rune data is coerced to a valid 0–255 byte (canvas + ZPL)', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const [{ normalizeAztecRune }, { QRCodeElement }] = await Promise.all([

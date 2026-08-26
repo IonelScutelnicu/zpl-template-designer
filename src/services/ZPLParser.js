@@ -329,6 +329,13 @@ export class ZPLParser {
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i];
       const nextIndex = (i + 1 < matches.length) ? matches[i + 1].index : content.length;
+      const nextCaret = content.indexOf('^', m.codeEnd);
+      const nextTilde = content.indexOf('~', m.codeEnd);
+      const nextPrefix = Math.min(
+        nextCaret === -1 ? content.length : nextCaret,
+        nextTilde === -1 ? content.length : nextTilde
+      );
+      const commandEnd = Math.min(nextIndex, nextPrefix);
 
       // Field-data commands keep whitespace verbatim. ^FV differs from ^FD in
       // map retention; ^SN adds increment parameters, handled when the field is built.
@@ -339,15 +346,15 @@ export class ZPLParser {
         // and ^FS (`^FD ^FH_^FDserwis: ^FS`), and Labelary reads it as one; swallowing
         // through to the ^FS printed the command text itself. Leading and trailing
         // whitespace are data here, unlike the parameter lists below.
-        const params = content.substring(m.codeEnd, nextIndex);
-        tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: nextIndex });
+        const params = content.substring(m.codeEnd, commandEnd);
+        tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: commandEnd });
       } else {
         // Everything else — including ^FX — runs to the next ^/~ command. A ^FX
         // comment ends at the next caret or tilde on a real printer (and in
         // Labelary), so commands written on the same line as a comment still
         // execute; the comment must not swallow them.
-        const params = content.substring(m.codeEnd, nextIndex).replace(/^\s+/, '').replace(/\s+$/, '');
-        tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: nextIndex });
+        const params = content.substring(m.codeEnd, commandEnd).replace(/^\s+/, '').replace(/\s+$/, '');
+        tokens.push({ prefix: m.prefix, command: m.command, params, start: m.index, end: commandEnd });
       }
     }
 
@@ -2117,7 +2124,7 @@ export class ZPLParser {
   _parseAztec(group, b0Token, fdToken, hasReverse, fhToken = null) {
     const parts = b0Token.params.split(',');
     const orientation = normalizeBarcodeOrientation(parts[0], tokenFwOrientation(b0Token));
-    const magnification = parseInt(parts[1]) || 5;
+    const magnification = Math.max(1, Math.min(10, parseInt(parts[1]) || 5));
     const d = parseInt(parts[3]) || 0;
 
     let aztecSizeMode = 'auto';

@@ -9,6 +9,7 @@ import { getTlc39Geometry } from '../barcodes/tlc39Geometry.js';
 import { DATABAR_BCID, DATABAR_TYPES, DATABAR_TYPE_NUM, DATABAR_TYPE_BY_NUM, databarBwipText, expandStackedDatabar } from '../barcodes/databarGeometry.js';
 import { code128RawText, encodeCode128, encodeCode128Auto, uccCaseDigits } from '../barcodes/code128Encoder.js';
 import { pdf417RawText } from '../barcodes/pdf417Encoder.js';
+import { zplAztecHighLevelBits } from '../barcodes/aztecZplEncoder.js';
 import { resolvePlaceholders } from './placeholders.js';
 import { qrMaskPenalty } from './qrMaskPenalty.js';
 
@@ -834,20 +835,29 @@ function buildBwipOptions(element, data) {
     if (mode === 'rune') {
       opts.format = 'rune';
       opts.text = normalizeAztecRune(data); // rune = single 0–255 byte
-    } else if (mode === 'compact') {
-      opts.format = 'compact';
-      if (layers > 0) opts.layers = Math.min(layers, 4);
-    } else if (mode === 'full') {
-      opts.format = 'full';
-      if (layers > 0) opts.layers = Math.min(layers, 32);
     } else {
-      const ec = element.aztecErrorControl || 0;
-      if (ec >= 5) opts.eclevel = Math.min(ec, 95);
-      // Zebra/Labelary pick the smallest symbol for d=0 (auto): a compact Aztec
-      // when the data fits, else full-range. bwip defaults to 'full', so probe
-      // compact explicitly — otherwise the canvas symbol is one ring (4 modules)
-      // larger than the API preview for small payloads.
-      opts.format = aztecAutoFormat(opts);
+      const zplBits = zplAztecHighLevelBits(opts.text);
+      if (zplBits) {
+        opts.text = zplBits;
+        opts.raw = true;
+      }
+
+      if (mode === 'compact') {
+        opts.format = 'compact';
+        if (layers > 0) opts.layers = Math.min(layers, 4);
+      } else if (mode === 'full') {
+        opts.format = 'full';
+        if (layers > 0) opts.layers = Math.min(layers, 32);
+      } else {
+        const ec = element.aztecErrorControl || 0;
+        // ^B0's percentage is an inclusive minimum; bwip's threshold is exclusive.
+        if (ec >= 5) opts.eclevel = Math.max(5, Math.min(ec - 1, 94));
+        // Zebra/Labelary pick the smallest symbol for d=0 (auto): a compact Aztec
+        // when the data fits, else full-range. bwip defaults to 'full', so probe
+        // compact explicitly — otherwise the canvas symbol is one ring (4 modules)
+        // larger than the API preview for small payloads.
+        opts.format = aztecAutoFormat(opts);
+      }
     }
   } else if (symbology === 'DATAMATRIX') {
     // ^BX's c/r force the symbol size. bwip takes the pair as a single "rows x columns"
