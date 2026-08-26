@@ -129,6 +129,18 @@ test.describe('^FO/^FT ends a field that omitted its ^FS', () => {
         expect(elements).toEqual(withFS.elements);
     });
 
+    test('an abandoned barcode command does not create an empty symbol', async ({ page }) => {
+        const { elements, warnings } = await parse(
+            page,
+            '^XA^FO10,10^BCN,50,Y,N,N^FO20,20^BXN,4,200^FDABC^FS^XZ'
+        );
+
+        expect(elements).toMatchObject([
+            { type: 'QRCODE', x: 20, y: 20, content: 'ABC' },
+        ]);
+        expect(warnings).toEqual([]);
+    });
+
     test('back-to-back graphics with no ^FS at all both survive', async ({ page }) => {
         const { elements } = await parse(
             page,

@@ -821,6 +821,13 @@ function buildBwipOptions(element, data) {
   }
   if (symbology === 'QR') {
     opts.eclevel = element.errorCorrection || 'Q';
+    if (element.inputMode === 'M' && element.qrManualMode === 'B') {
+      // Manual byte mode prefixes the segment with a four-digit byte count.
+      // Zebra consumes that count and then chooses the most compact QR segment
+      // representation for the payload itself.
+      const match = opts.text.match(/^(\d{4})([\s\S]*)$/u);
+      if (match) opts.text = match[2].slice(0, Number.parseInt(match[1], 10));
+    }
     const zplmode = qrZplMode(element, opts.text);
     if (zplmode) opts.zplmode = zplmode;
     const mask = qrAutoMask(opts);
@@ -936,7 +943,10 @@ const CACHE_MAX = 256;
 const qrMaskCache = new Map();
 
 function qrZplMode(element, text) {
-  if (element.inputMode === 'M') return /^[NABK]$/.test(element.qrManualMode) ? element.qrManualMode : 'A';
+  if (element.inputMode === 'M') {
+    if (element.qrManualMode === 'B') return undefined;
+    return /^[NAK]$/.test(element.qrManualMode) ? element.qrManualMode : 'A';
+  }
   if (!/^[\x00-\x7f]*$/u.test(text)) return undefined;
 
   const isNumeric = (char) => /[0-9]/u.test(char);

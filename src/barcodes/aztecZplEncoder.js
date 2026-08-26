@@ -138,9 +138,10 @@ export function zplAztecHighLevelBits(text) {
     }
 
     if (target === 'upper' && (mode === 'lower' || mode === 'digit')) {
-      const shiftCost = codeWidth(mode) + 5;
-      const latchCost = pathCost(LATCH_PATHS[mode].upper) + runLength * 5;
-      if (shiftCost * runLength <= latchCost) {
+      // Unlike the punctuation branch above, Zebra does not price this one: an
+      // uppercase run of one or two characters shifts per character, and anything
+      // longer latches ("3700.00GR" shifts twice on its way out of digit mode).
+      if (runLength <= 2) {
         emit(mode === 'lower' ? 28 : 15);
         emit(TABLES.upper.indexOf(char), 'upper');
         offset += 1;

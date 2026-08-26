@@ -3,9 +3,9 @@ import { test, expect } from '../fixtures';
 /**
  * Coverage for the ^B7 high-level encoder.
  *
- * bwip-js compacts PDF417 optimally; Zebra's firmware runs a greedy pass with one
- * character of lookahead, so the two encode the same data into different codewords
- * and print visibly different symbols. src/barcodes/pdf417Encoder.js reproduces
+ * bwip-js compacts PDF417 optimally; Zebra's firmware runs a greedy pass, so the
+ * two encode the same data into different codewords and print visibly different
+ * symbols. src/barcodes/pdf417Encoder.js reproduces
  * Zebra's choices, and every expectation below is a codeword stream read back off a
  * Labelary render of the same ^FD data (the symbol decoded through the PDF417
  * cluster tables), so these are observations, not derivations.
@@ -93,6 +93,25 @@ test.describe('PDF417 high-level encoding', () => {
         expect(await codewords(page, '\x80ABCDEF')).toEqual([913, 128, 900, 1, 63, 125]);
         expect(await codewords(page, '\x80\x81\x82ABC')).toEqual([901, 128, 129, 130, 900, 1, 89]);
         expect(await codewords(page, '\x80\x81\x82\x83\x84\x85ABC')).toEqual([924, 215, 318, 502, 193, 33, 900, 1, 89]);
+    });
+
+    test('a FedEx control-heavy payload matches the printer codeword stream', async ({ page }) => {
+        const data = '[)>\x1e01\x1d0275201\x1d840\x1d019\x1d794981365794\x1dFDEG\x1d4910221\x1d030\x1d\x1d1/1\x1d3.00LB\x1dN'
+            + '\x1d456 Delivery Ave\x1dDallas\x1dTX\x1dTest Recipient\x1e06\x1d10ZGD009\x1d11ZRecipient Corp\x1d12Z5559876543'
+            + '\x1d20Z\x1c\x1d31Z9622001900004910221300794981365794\x1d34Z01\x1d\x1e\x04';
+        const cws = await codewords(page, data);
+
+        expect(cws).toHaveLength(159);
+        expect(cws.slice(0, 48)).toEqual([
+            865, 144, 89, 901, 30, 48, 49, 29, 902, 12, 616, 801, 901, 48, 870, 248,
+            69, 412, 49, 57, 29, 902, 2, 662, 226, 339, 694, 924, 49, 53, 115, 174,
+            501, 902, 18, 366, 821, 901, 48, 823, 107, 841, 9, 49, 47, 49, 29, 900,
+        ]);
+        expect(cws.slice(-40)).toEqual([
+            779, 902, 21, 309, 651, 643, 924, 48, 834, 754, 46, 709, 900, 843, 58, 779,
+            902, 62, 475, 316, 600, 465, 286, 289, 35, 303, 733, 706, 394, 901, 29, 900,
+            843, 148, 778, 1, 901, 29, 30, 4,
+        ]);
     });
 
     test('an EDIFACT payload encodes exactly as the printer does', async ({ page }) => {

@@ -613,6 +613,26 @@ test.describe('ZPL bitmap font bucketing', () => {
             expect(r.twoInside).toEqual([60, 0]);
         });
 
+        test('an omitted ^CF width restores proportional width without changing earlier fields', async ({ page }) => {
+            const parsed = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const parse = (zpl: string) => {
+                    const result = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 });
+                    return {
+                        defaultWidth: result.labelSettings.defaultFontWidth,
+                        widths: result.elements.map((element: any) => element.fontWidth),
+                    };
+                };
+                return {
+                    reset: parse('^XA^CF0,65,55^FO10,10^FDwide^FS^CF0,25^FO10,100^FDnatural^FS^XZ'),
+                    pin: parse('^XA^CF0,25^FO10,10^FDnatural^FS^CF0,37,40^FO10,100^FDwide^FS^XZ'),
+                };
+            });
+
+            expect(parsed.reset).toEqual({ defaultWidth: 0, widths: [55, 0] });
+            expect(parsed.pin).toEqual({ defaultWidth: 40, widths: [25, 0] });
+        });
+
         test('createElementFromData snaps an inherited element to the passed label default', async ({ page }) => {
             const r = await page.evaluate(async () => {
                 const mod = await import('/src/services/SerializationService.js');

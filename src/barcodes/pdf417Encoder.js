@@ -1,7 +1,7 @@
 // PDF417 (^B7) high-level encoder, written to match Zebra firmware rather than
 // bwip-js. Both produce a valid symbol for the same data, but they choose different
 // compaction modes, so the printed pattern differs — bwip-js runs an optimal
-// shortest-path encoder while Zebra runs a greedy one-character-lookahead pass.
+// shortest-path encoder while Zebra runs a greedy compaction pass.
 // The canvas has to show what the printer prints, so we run Zebra's algorithm here
 // and hand bwip-js the finished codewords (its `raw` mode), which then only builds
 // the error correction and the module patterns.
@@ -36,6 +36,9 @@ const TEXT_LATCH = 900, BYTE_LATCH = 901, NUMERIC_LATCH = 902, BYTE_SHIFT = 913,
 // Zebra leaves Text Compaction for a digit run this long — the spec suggests 13, the
 // firmware uses 8 (verified on Labelary: 7 digits stay in text, 8 latch to numeric).
 const NUMERIC_RUN = 8;
+const BYTE_NUMERIC_RUN = 4;
+const BYTE_TEXT_RUN = 5;
+const BYTE_TEXT_BEFORE_NUMERIC_RUN = 3;
 // Numeric Compaction packs at most 44 digits per group, and Zebra re-latches on each.
 const NUMERIC_CHUNK = 44;
 
@@ -81,7 +84,9 @@ export function pdf417Codewords(text) {
   let i = 0;
   while (i < str.length) {
     const run = digitRun(str, i);
-    if (run >= NUMERIC_RUN) {
+    // Four digits are already cheaper than bytes when leaving Byte Compaction;
+    // Text Compaction needs eight before its extra numeric latch pays off.
+    if (run >= (mode === 'byte' ? BYTE_NUMERIC_RUN : NUMERIC_RUN)) {
       if (mode === 'text') flush();
       encodeNumeric(str.substr(i, run), cws);
       mode = 'numeric';
@@ -89,8 +94,13 @@ export function pdf417Codewords(text) {
       continue;
     }
     const c = str[i];
-    if (isText(c)) {
-      if (mode !== 'text') { cws.push(TEXT_LATCH); mode = 'text'; submode = ALPHA; }
+    if (isText(c) && (mode === 'text' || mode === 'shift' || textRun(str, i) >= BYTE_TEXT_RUN
+      || textBeforeNumeric(str, i) || textEndsMessage(str, i))) {
+      if (mode !== 'text') {
+        cws.push(TEXT_LATCH);
+        mode = 'text';
+        submode = ALPHA;
+      }
       // The lookahead only sees the rest of this text segment: a character that
       // starts a numeric run is about to leave Text Compaction, so it can't justify
       // a submode latch ("…/track/9988776655" shifts for the '/', it doesn't latch).
@@ -100,10 +110,16 @@ export function pdf417Codewords(text) {
       continue;
     }
     if (mode === 'text') flush();
-    let j = i;
-    while (j < str.length && !isText(str[j])) j++;
-    encodeBytes(str.slice(i, j), cws, mode);
-    mode = 'byte';
+    const previousMode = mode;
+    let bytes = byteRun(str, i);
+    if (previousMode === 'text' && !isText(c)) {
+      const candidate = str.slice(i, i + bytes);
+      const binaryCount = [...candidate].filter(char => !isText(char)).length;
+      if (binaryCount === 1) bytes = 1;
+    }
+    const j = i + bytes;
+    encodeBytes(str.slice(i, j), cws, previousMode);
+    mode = previousMode === 'text' && bytes === 1 ? 'shift' : 'byte';
     i = j;
   }
   if (mode === 'text') flush();
@@ -119,6 +135,35 @@ function digitRun(s, i) {
   let j = i;
   while (j < s.length && isDigit(s[j])) j++;
   return j - i;
+}
+
+function textRun(s, i) {
+  let j = i;
+  while (j < s.length && isText(s[j]) && digitRun(s, j) < BYTE_NUMERIC_RUN) j++;
+  return j - i;
+}
+
+function textBeforeNumeric(s, i) {
+  const run = textRun(s, i);
+  return run > 0 && digitRun(s, i + run) >= BYTE_NUMERIC_RUN;
+}
+
+function textEndsMessage(s, i) {
+  const run = textRun(s, i);
+  return run > 0 && i + run === s.length;
+}
+
+function byteRun(s, i) {
+  let j = i;
+  while (j < s.length) {
+    if (digitRun(s, j) >= BYTE_NUMERIC_RUN) break;
+    const text = textRun(s, j);
+    if (textEndsMessage(s, j)) break;
+    if (textBeforeNumeric(s, j) && text >= BYTE_TEXT_BEFORE_NUMERIC_RUN) break;
+    if (text >= BYTE_TEXT_RUN) break;
+    j += Math.max(text, 1);
+  }
+  return Math.max(j - i, 1);
 }
 
 /**

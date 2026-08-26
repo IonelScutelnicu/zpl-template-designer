@@ -219,6 +219,31 @@ test.describe('Barcode symbology', () => {
         ]);
     });
 
+    test('manual QR byte count is consumed before choosing the matrix', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const [{ ZPLParser }, { getBarcodeGeometry }] = await Promise.all([
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const zpl = '^XA^FO10,10^BQN,2,10^FDHM,B002012345678901234567890^FS^XZ';
+            const parsed: any = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 }).elements[0];
+            const geometry: any = getBarcodeGeometry(parsed);
+            return {
+                content: parsed.content,
+                inputMode: parsed.inputMode,
+                manualMode: parsed.qrManualMode,
+                cols: geometry.cols,
+            };
+        });
+
+        expect(result).toEqual({
+            content: '002012345678901234567890',
+            inputMode: 'M',
+            manualMode: 'B',
+            cols: 25,
+        });
+    });
+
     test('QR Model 1 stays round-trippable without drawing a false Model 2 symbol', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
@@ -1365,6 +1390,15 @@ test.describe('Barcode symbology', () => {
         expect(result.bits).toBe(
             '111101001000000011111110101111011100010010101010100000010101010100000011010100110101001010101010011110100000001011010001000011001100110100001111101001',
         );
+    });
+
+    test('Aztec shifts two uppercase characters out of digit mode', async ({ page }) => {
+        const bits = await page.evaluate(async () => {
+            const { zplAztecHighLevelBits } = await import('/src/barcodes/aztecZplEncoder.js');
+            return zplAztecHighLevelBits('3700.00GR\x1d');
+        });
+
+        expect(bits).toBe('11110010110010010001011010010001011110100011111001111101110110001');
     });
 
     test('Aztec field data ends at an unsupported command prefix', async ({ page }) => {

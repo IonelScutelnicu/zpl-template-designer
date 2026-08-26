@@ -2,7 +2,7 @@
 // Parses ZPL template strings into app element objects and label settings
 
 import { acsToBytes, b64WithCrcToBytes, hexToBytes, z64ToBytes } from '../utils/graphicField.js';
-import { snapRequestedToAllowed, enforceFontMinSize, proportionalRequestedHeight } from '../utils/zplFontSnap.js';
+import { snapRequestedToAllowed, enforceFontMinSize, proportionalRequestedHeight, proportionalRequestedWidth } from '../utils/zplFontSnap.js';
 import { decodeFieldData, getFieldHexIndicator, decodeFieldBlockBreaks, collapseLineBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { DEFAULT_FIELD_ENCODING, encodingForCharacterSet } from '../utils/zplCodePages.js';
 import { placeholderName } from '../utils/placeholders.js';
@@ -1127,6 +1127,11 @@ export class ZPLParser {
             state.labelSettings.defaultFontWidth = width;
             state.defaultFont.width = width;
           }
+        } else if (parts[1]) {
+          // A new ^CF height with no width restores that font's proportional
+          // width; it does not retain an explicit width from an earlier ^CF.
+          state.labelSettings.defaultFontWidth = 0;
+          state.defaultFont.width = 0;
         }
         break;
       }
@@ -1244,12 +1249,17 @@ export class ZPLParser {
       return this._parseDiagonalLine(group, getCommand('GD'), hasReverse);
     }
 
-    if (hasCommand('GS')) {
-      return this._parseGraphicSymbol(group, getCommand('GS'), getCommand('FD'), fhToken, hasReverse, state);
-    }
-
     if (hasCommand('GB')) {
       return this._parseGraphicBox(group, getCommand('GB'), hasReverse);
+    }
+
+    // Every modelled field below this point needs field data. A barcode command
+    // abandoned by the next ^FO/^FT prints nothing; building it with empty data
+    // can instead create a large, valid-looking symbol.
+    if (!hasCommand('FD')) return null;
+
+    if (hasCommand('GS')) {
+      return this._parseGraphicSymbol(group, getCommand('GS'), getCommand('FD'), fhToken, hasReverse, state);
     }
 
     if (hasCommand('BQ')) {
@@ -1629,7 +1639,9 @@ export class ZPLParser {
       delete element._inheritedFont;
       if (!element.fontId && inherited.id !== fontId) element.fontId = inherited.id;
       if (!element.fontSize && inherited.height !== defaultFontHeight) element.fontSize = inherited.height;
-      if (!element.fontWidth && inherited.width !== defaultFontWidth) element.fontWidth = inherited.width;
+      if (!element.fontWidth && inherited.width !== defaultFontWidth) {
+        element.fontWidth = inherited.width || proportionalRequestedWidth(inherited.id, inherited.height, state.customFonts);
+      }
     }
   }
 
