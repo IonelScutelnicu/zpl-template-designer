@@ -2013,8 +2013,8 @@ export class ZPLParser {
 
   /**
    * Parse Code 49 element from ^B4 + ^FD. ^B4o,h,f,m — h is the row-height multiplier,
-   * f the interpretation line (ignored: the 2D canvas can't render Code 49's HRI), and m
-   * the starting mode (0–5 / A). Module width comes from ^BY, mirroring Micro-PDF417.
+   * f the interpretation line (ignored: Labelary falls back to raw field-data text), and
+   * m the starting mode (0–5 / A). Module width comes from ^BY, mirroring Micro-PDF417.
    */
   _parseCode49(group, b4Token, byToken, fdToken, hasReverse, fhToken = null) {
     const parts = b4Token.params.split(',');

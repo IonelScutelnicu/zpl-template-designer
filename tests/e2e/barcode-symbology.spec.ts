@@ -1584,12 +1584,13 @@ test.describe('Barcode symbology', () => {
     });
 
     // ============== CODE 49 (^B4) ==============
-    test('Code 49 emits ^B4o,h,f,m (f fixed N), encodes a stacked matrix, and round-trips mode', async ({ page }) => {
+    test('Code 49 emits ^B4o,h,f,m, keeps matrix geometry, and renders the API text fallback', async ({ page }) => {
         const r = await page.evaluate(async () => {
-            const [{ QRCodeElement }, { ZPLParser }, geo] = await Promise.all([
+            const [{ QRCodeElement }, { ZPLParser }, geo, { QRCodeRenderer }] = await Promise.all([
                 import('/src/elements/QRCodeElement.js'),
                 import('/src/services/ZPLParser.js'),
                 import('/src/utils/barcodeGeometry.js'),
+                import('/src/rendering/QRCodeRenderer.js'),
             ]);
             // ctor: ...symbology, moduleSize, quality, moduleWidth, rowHeight, securityLevel,
             //       columns, aztecSizeMode, aztecErrorControl, aztecLayers, fieldHex, microPdfMode, code49Mode
@@ -1601,6 +1602,28 @@ test.describe('Barcode symbology', () => {
             const def: any = make('A');
             const g: any = geo.getBarcodeGeometry(make('A'));
             const gBad: any = geo.getBarcodeGeometry(make('A', ''));
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d')!;
+            const previewElement: any = make('A');
+            previewElement.orientation = 'R';
+            previewElement.rowHeight = 20;
+            new QRCodeRenderer().render(ctx, canvas, previewElement, {
+                dpmm: 8,
+                fontId: 'A',
+                defaultFontHeight: 9,
+                defaultFontWidth: 0,
+                previewData: {},
+            }, { scale: 1, homeX: 0, homeY: 0, labelTop: 0 });
+            const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let inkPixels = 0;
+            let maxInkY = -1;
+            for (let i = 3; i < pixels.length; i += 4) {
+                if (pixels[i] === 0) continue;
+                inkPixels++;
+                maxInkY = Math.max(maxInkY, Math.floor((i / 4) / canvas.width));
+            }
             return {
                 // ^BY module width then ^B4 with o=N, h=rowHeight, f=N, m=2
                 emits: zpl.includes('^BY3^B4N,6,N,2'),
@@ -1615,6 +1638,8 @@ test.describe('Barcode symbology', () => {
                 mw: parsed?.moduleWidth,
                 rh: parsed?.rowHeight,
                 data: parsed?.content,
+                inkPixels,
+                maxInkY,
             };
         });
         expect(r.emits).toBe(true);
@@ -1629,6 +1654,8 @@ test.describe('Barcode symbology', () => {
         expect(r.mw).toBe(3);
         expect(r.rh).toBe(6);
         expect(r.data).toBe('CODE 49');
+        expect(r.inkPixels).toBeGreaterThan(0);
+        expect(r.maxInkY).toBeLessThan(30); // API ignores ^B4 sizing/orientation and prints the raw field data
     });
 
     // ============== TLC39 (^BT) ==============

@@ -50,9 +50,9 @@ export class QRCodeElement extends ZPLElement {
         // moduleWidth (^BY) and rowHeight above for sizing.
         this.microPdfMode = opts.microPdfMode || 0;
         // Code 49 (^B4). Stacked alphanumeric symbology; reuses moduleWidth (^BY) and
-        // rowHeight above for sizing. m = starting mode (0–5 / A=auto). NOTE: Labelary
-        // does not render Code 49 (it shows the raw data as text), so the on-canvas
-        // bwip-js encoding is the design reference for this symbology, not the preview pane.
+        // rowHeight above for sizing. m = starting mode (0–5 / A=auto). Labelary does
+        // not render Code 49 and shows the raw field data as text, which the canvas
+        // mirrors while the bwip-js geometry remains available for element sizing.
         this.code49Mode = opts.code49Mode || 'A'; // '0'–'5' or 'A' (automatic, default)
         // Codablock (^BB). Stacked Code 128 symbology; reuses moduleWidth (^BY) and
         // rowHeight above for sizing. m = mode (A=Code 39, E=Code 128+FNC1, F=Code 128).

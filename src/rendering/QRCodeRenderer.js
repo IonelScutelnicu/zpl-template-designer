@@ -3,11 +3,16 @@
 
 import { getBarcodeGeometry, matrixModuleDots, resolveSymbology, SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
 import { createCanvasHelpers, getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
+import { TextRenderer } from './TextRenderer.js';
 
 /**
  * Renderer for QRCODE elements
  */
 export class QRCodeRenderer {
+  constructor() {
+    this.textRenderer = new TextRenderer();
+  }
+
   /**
    * Render a QRCODE element on canvas
    * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -18,6 +23,20 @@ export class QRCodeRenderer {
    */
   render(ctx, canvas, element, labelSettings, transform) {
     const symbology = resolveSymbology(element);
+    if (symbology === 'CODE49') {
+      // Labelary ignores ^B4 parameters and renders its ^FD as unrotated default-font text.
+      this.textRenderer.render(ctx, canvas, {
+        ...element,
+        orientation: 'N',
+        fontId: '',
+        fontSize: 0,
+        fontWidth: 0,
+        printDirection: 'H',
+        charGap: 0,
+      }, labelSettings, transform);
+      return;
+    }
+
     const dpmm = labelSettings?.dpmm || 8;
     const helpers = createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels: SYMBOLOGY_LABELS, dpmm });
     const frame = helpers.frame(element, transform);
