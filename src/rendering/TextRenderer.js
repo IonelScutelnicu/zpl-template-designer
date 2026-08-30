@@ -2,7 +2,7 @@
 // Renders TEXT elements on canvas
 
 import { resolveFontMetrics, resolveBaselinePlacement, resolveFontCellHeight, measureStyledText, drawStyledText } from '../utils/fontMetrics.js';
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { collapseLineBreaks } from '../utils/zplFieldData.js';
 import { effectiveCharGap, layoutCharOffsets, normalizePrintDirection, runLeadOffset, segmentForDirection } from '../utils/fieldParameter.js';
@@ -80,7 +80,7 @@ export class TextRenderer {
     // Glyph-down extent of the whole field, for the ^FR box.
     const downExtent = direction === 'V' ? Math.max(1, chars.length) * cellHeight : cellHeight;
 
-    const drawTransformedText = (context, color, offsetX = 0, offsetY = 0) => {
+    const drawTransformedText = (context, color) => {
       context.save();
       context.fillStyle = color;
       context.font = font;
@@ -89,19 +89,19 @@ export class TextRenderer {
       context.wordSpacing = `${wordSpacingPx}px`;
 
       if (element.orientation === 'R') {
-        context.translate(x + cellHeight + offsetX, y + offsetY);
+        context.translate(x + cellHeight, y);
         context.rotate(Math.PI / 2);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'I') {
-        context.translate(x + readingPivot + offsetX, y + cellHeight + offsetY);
+        context.translate(x + readingPivot, y + cellHeight);
         context.rotate(Math.PI);
         context.scale(scaleX, 1);
       } else if (element.orientation === 'B') {
-        context.translate(x + offsetX, y + readingPivot + offsetY);
+        context.translate(x, y + readingPivot);
         context.rotate(-Math.PI / 2);
         context.scale(scaleX, 1);
       } else {
-        context.translate(x + offsetX, y + offsetY);
+        context.translate(x, y);
         context.scale(scaleX, 1);
       }
 
@@ -120,31 +120,19 @@ export class TextRenderer {
       context.restore();
     };
 
-    // ^FR: snapshot the bg BEFORE drawing so the mask only sees pixels
-    // that were already there. Sampling after the draw would treat the
-    // element's own ink as "previously dark" and flip its whole shape.
-    let captured = null;
-    if (element.reverse) {
-      const rotated = element.orientation === 'R' || element.orientation === 'B';
-      // A reversed run starts before its origin on N and R, and at it on I and B —
-      // sampling the wrong rectangle would flip the background behind the wrong pixels.
-      const lead = runLeadOffset(layout && { min: layout.min * scaleX }, element.orientation || 'N');
-      captured = captureReverseBg(ctx, canvas, {
-        x: x + lead.dx,
-        y: y + lead.dy,
-        width: rotated ? downExtent : textWidth,
-        height: rotated ? textWidth : downExtent,
-      });
-    }
-
-    // Apply rotation based on orientation (ZPL: N=0°, R=90° CW, I=180°, B=270° CW)
-    drawTransformedText(ctx, '#000000');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, (tempCtx, color, ox, oy) => {
-        drawTransformedText(tempCtx, color, ox, oy);
-      });
-    }
+    const rotated = element.orientation === 'R' || element.orientation === 'B';
+    const lead = runLeadOffset(layout && { min: layout.min * scaleX }, element.orientation || 'N');
+    drawWithReverse(ctx, canvas, {
+      x: x + lead.dx,
+      y: y + lead.dy,
+      width: rotated ? downExtent : textWidth,
+      height: rotated ? textWidth : downExtent
+    }, drawTransformedText, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: transform.transparentBackground,
+      padding: Math.ceil(fontSize * Math.max(1, scaleX))
+    });
 
     ctx.restore();
   }

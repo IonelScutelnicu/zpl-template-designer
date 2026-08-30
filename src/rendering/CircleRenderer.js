@@ -1,7 +1,7 @@
 // Circle/Ellipse Renderer
 // Renders CIRCLE elements on canvas
 
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 
 /**
  * Renderer for CIRCLE elements (ellipses and circles)
@@ -23,10 +23,11 @@ export class CircleRenderer {
     const width = element.width * scale;
     const height = element.height * scale;
     const thickness = element.thickness * scale;
+    const isWhite = element.color !== 'B';
 
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      const sx = x + ox;
-      const sy = y + oy;
+    const drawShape = (targetCtx, color) => {
+      const sx = x;
+      const sy = y;
       const cx = sx + width / 2;
       const cy = sy + height / 2;
       const rx = width / 2;
@@ -49,14 +50,10 @@ export class CircleRenderer {
       targetCtx.restore();
     };
 
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, { x, y, width, height })
-      : null;
-
-    drawShape(ctx, element.color === 'B' ? '#000000' : '#FFFFFF');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, drawShape);
-    }
+    drawWithReverse(ctx, canvas, { x, y, width, height }, drawShape, {
+      reverse: element.reverse && !isWhite,
+      color: isWhite ? '#FFFFFF' : '#000000',
+      transparentBackground: transform.transparentBackground
+    });
   }
 }

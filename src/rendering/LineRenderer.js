@@ -1,7 +1,7 @@
 // Line Renderer
 // Renders LINE elements on canvas
 
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 
 /**
  * Renderer for LINE elements
@@ -38,11 +38,11 @@ export class LineRenderer {
 
     const isWhite = element.color !== 'B';
 
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+    const drawShape = (targetCtx, color) => {
       targetCtx.save();
       targetCtx.fillStyle = color;
-      const sx = x + ox;
-      const sy = y + oy;
+      const sx = x;
+      const sy = y;
       if (rounding > 0) {
         this.roundRect(targetCtx, sx, sy, width, height, rounding, true, false);
       } else {
@@ -51,15 +51,11 @@ export class LineRenderer {
       targetCtx.restore();
     };
 
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, { x, y, width, height })
-      : null;
-
-    drawShape(ctx, isWhite ? '#FFFFFF' : '#000000');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, drawShape);
-    }
+    drawWithReverse(ctx, canvas, { x, y, width, height }, drawShape, {
+      reverse: element.reverse && !isWhite,
+      color: isWhite ? '#FFFFFF' : '#000000',
+      transparentBackground: transform.transparentBackground
+    });
 
     // White elements are invisible on the white canvas background; draw a faint dashed
     // outline so the element remains selectable and editable during design

@@ -1,7 +1,7 @@
 // Box Renderer
 // Renders BOX elements on canvas
 
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 
 /**
  * Renderer for BOX elements
@@ -29,12 +29,12 @@ export class BoxRenderer {
 
     const isWhite = element.color !== 'B';
 
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+    const drawShape = (targetCtx, color) => {
       targetCtx.save();
       targetCtx.strokeStyle = color;
       targetCtx.fillStyle = color;
-      const sx = x + ox;
-      const sy = y + oy;
+      const sx = x;
+      const sy = y;
       if (thickness >= width || thickness >= height) {
         if (rounding > 0) {
           this.roundRect(targetCtx, sx, sy, width, height, rounding, true, false);
@@ -57,15 +57,11 @@ export class BoxRenderer {
       targetCtx.restore();
     };
 
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, { x, y, width, height })
-      : null;
-
-    drawShape(ctx, isWhite ? '#FFFFFF' : '#000000');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, drawShape);
-    }
+    drawWithReverse(ctx, canvas, { x, y, width, height }, drawShape, {
+      reverse: element.reverse && !isWhite,
+      color: isWhite ? '#FFFFFF' : '#000000',
+      transparentBackground: transform.transparentBackground
+    });
 
     if (isWhite) {
       ctx.save();

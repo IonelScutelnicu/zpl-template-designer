@@ -457,6 +457,7 @@ let panStartClientY = 0;
 let panStartPanX = 0;
 let panStartPanY = 0;
 let viewportResizeObserver = null;
+let canvasPreviewFrame = null;
 
 // Initialize function
 export function initApp() {
@@ -637,8 +638,7 @@ export function initApp() {
       }
     },
     onElementDragging: (element) => {
-      // Update canvas in real-time during drag
-      renderCanvasPreview();
+      scheduleCanvasPreviewRender();
       // Update properties panel X/Y inputs if properties panel is showing this element
       if (state.selectedElement && state.selectedElement.id === element.id) {
         const propX = document.getElementById('prop-x');
@@ -736,10 +736,10 @@ export function initApp() {
       // refreshed once on release via onSelectionChanged).
       state.setSelection(elements);
       setMarqueeOverlay(clientRect);
-      renderCanvasPreview();
+      scheduleCanvasPreviewRender();
     },
     onElementsDragging: () => {
-      renderCanvasPreview();
+      scheduleCanvasPreviewRender();
     },
     onGroupTransformStart: (elements) => startGroupTransformSession(elements),
     onElementsDragEnd: (elements) => {
@@ -1561,8 +1561,20 @@ function closeZPLMoreMenu() {
 }
 
 // Render Canvas Preview
+function scheduleCanvasPreviewRender() {
+  if (!canvasRenderer || canvasPreviewFrame !== null) return;
+  canvasPreviewFrame = requestAnimationFrame(() => {
+    canvasPreviewFrame = null;
+    renderCanvasPreview();
+  });
+}
+
 export function renderCanvasPreview() {
   if (!canvasRenderer) return;
+  if (canvasPreviewFrame !== null) {
+    cancelAnimationFrame(canvasPreviewFrame);
+    canvasPreviewFrame = null;
+  }
   if (isAtFit) {
     // Auto mode (sticky): pick 100% when the label fits at native size,
     // otherwise scale down to fit. See CONTEXT.md `Fit` glossary entry.
@@ -1617,41 +1629,49 @@ function applyViewport() {
   // rotation. Since the footprint is the transpose of the stage box, the
   // rotated stage fills the viewport exactly and both share a centre.
   const rotated = isViewRotationSwapped();
-  previewViewport.style.width = `${rotated ? pxH : pxW}px`;
-  previewViewport.style.height = `${rotated ? pxW : pxH}px`;
-  previewViewport.style.transform =
-    `translate(-50%, -50%) translate(${Math.round(panX)}px, ${Math.round(panY)}px)`;
+  setStyleIfChanged(previewViewport, 'width', `${rotated ? pxH : pxW}px`);
+  setStyleIfChanged(previewViewport, 'height', `${rotated ? pxW : pxH}px`);
+  setStyleIfChanged(
+    previewViewport,
+    'transform',
+    `translate(-50%, -50%) translate(${Math.round(panX)}px, ${Math.round(panY)}px)`
+  );
 
   if (previewStage) {
-    previewStage.style.width = `${pxW}px`;
-    previewStage.style.height = `${pxH}px`;
-    previewStage.style.transform = `translate(-50%, -50%) rotate(${viewRotation}deg)`;
+    setStyleIfChanged(previewStage, 'width', `${pxW}px`);
+    setStyleIfChanged(previewStage, 'height', `${pxH}px`);
+    setStyleIfChanged(previewStage, 'transform', `translate(-50%, -50%) rotate(${viewRotation}deg)`);
   }
 
   // The canvas's internal width/height is set by the renderer; force the CSS
   // size to match (so rect.width === canvas.width and `cssScaleX === 1`).
   if (labelCanvas) {
-    labelCanvas.style.width = `${pxW}px`;
-    labelCanvas.style.height = `${pxH}px`;
+    setStyleIfChanged(labelCanvas, 'width', `${pxW}px`);
+    setStyleIfChanged(labelCanvas, 'height', `${pxH}px`);
   }
   if (previewImage) {
-    previewImage.style.width = `${pxW}px`;
-    previewImage.style.height = `${pxH}px`;
-    previewImage.style.maxWidth = `${pxW}px`;
-    previewImage.style.maxHeight = `${pxH}px`;
+    setStyleIfChanged(previewImage, 'width', `${pxW}px`);
+    setStyleIfChanged(previewImage, 'height', `${pxH}px`);
+    setStyleIfChanged(previewImage, 'maxWidth', `${pxW}px`);
+    setStyleIfChanged(previewImage, 'maxHeight', `${pxH}px`);
   }
   if (previewBacking) {
-    previewBacking.style.width = `${pxW}px`;
-    previewBacking.style.height = `${pxH}px`;
+    setStyleIfChanged(previewBacking, 'width', `${pxW}px`);
+    setStyleIfChanged(previewBacking, 'height', `${pxH}px`);
   }
 
   updateZoomLabel();
 }
 
+function setStyleIfChanged(element, property, value) {
+  if (element.style[property] !== value) element.style[property] = value;
+}
+
 function updateZoomLabel() {
   if (!zoomLevelLabel) return;
   const pct = Math.round(zoom * 100);
-  zoomLevelLabel.textContent = isAtFit ? `Fit ${pct}%` : `${pct}%`;
+  const text = isAtFit ? `Fit ${pct}%` : `${pct}%`;
+  if (zoomLevelLabel.textContent !== text) zoomLevelLabel.textContent = text;
 }
 
 function clampZoom(z) {

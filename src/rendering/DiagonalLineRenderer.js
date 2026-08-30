@@ -1,7 +1,7 @@
 // Diagonal Line Renderer
 // Renders DIAGONALLINE elements on canvas
 
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 
 /**
  * Renderer for DIAGONALLINE elements (^GD)
@@ -35,28 +35,24 @@ export class DiagonalLineRenderer {
       ? [[0, 0], [thickness, 0], [width + thickness, height], [width, height]]
       : [[0, height], [thickness, height], [width + thickness, 0], [width, 0]];
 
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
+    const drawShape = (targetCtx, color) => {
       targetCtx.save();
       targetCtx.fillStyle = color;
       targetCtx.beginPath();
-      targetCtx.moveTo(x + pts[0][0] + ox, y + pts[0][1] + oy);
+      targetCtx.moveTo(x + pts[0][0], y + pts[0][1]);
       for (let i = 1; i < pts.length; i++) {
-        targetCtx.lineTo(x + pts[i][0] + ox, y + pts[i][1] + oy);
+        targetCtx.lineTo(x + pts[i][0], y + pts[i][1]);
       }
       targetCtx.closePath();
       targetCtx.fill();
       targetCtx.restore();
     };
 
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, { x, y, width: width + thickness, height })
-      : null;
-
-    drawShape(ctx, isWhite ? '#FFFFFF' : '#000000');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, drawShape);
-    }
+    drawWithReverse(ctx, canvas, { x, y, width: width + thickness, height }, drawShape, {
+      reverse: element.reverse && !isWhite,
+      color: isWhite ? '#FFFFFF' : '#000000',
+      transparentBackground: transform.transparentBackground
+    });
 
     // White elements are invisible on the white canvas background; draw a faint dashed
     // outline so the element remains selectable and editable during design

@@ -1,81 +1,128 @@
-// Shared ^FR (Reverse Print) overlay helper
-//
-// Implements ZPL's "no print where fields overlap" semantics on canvas.
-// The overlap-flip is computed against the canvas state BEFORE the
-// element is drawn — sampling AFTER would treat the element's own freshly
-// painted pixels as "previously dark" and flip its whole shape to white.
-//
-// Algorithm (two-phase):
-//   1. captureReverseBg: snapshot the bbox region BEFORE the main draw.
-//   2. ...renderer draws the element normally (in black)...
-//   3. applyReverseOverlay: build a mask from the captured snapshot's
-//      dark pixels, paint the element's shape in white masked to that
-//      region, and composite it onto the main canvas. Where the
-//      element's ink overlaps prior dark pixels it flips to white;
-//      everywhere else the normally-drawn black stays put.
+function getTransformedBounds(ctx, canvas, bbox, padding) {
+  const transform = ctx.getTransform();
+  const corners = [
+    [bbox.x, bbox.y],
+    [bbox.x + bbox.width, bbox.y],
+    [bbox.x, bbox.y + bbox.height],
+    [bbox.x + bbox.width, bbox.y + bbox.height]
+  ].map(([x, y]) => ({
+    x: transform.a * x + transform.c * y + transform.e,
+    y: transform.b * x + transform.d * y + transform.f
+  }));
 
-const DARK_PIXEL_THRESHOLD = 40 * 3;
+  const left = Math.max(0, Math.floor(Math.min(...corners.map(point => point.x)) - padding));
+  const top = Math.max(0, Math.floor(Math.min(...corners.map(point => point.y)) - padding));
+  const right = Math.min(canvas.width, Math.ceil(Math.max(...corners.map(point => point.x)) + padding));
+  const bottom = Math.min(canvas.height, Math.ceil(Math.max(...corners.map(point => point.y)) + padding));
 
-/**
- * Snapshot the canvas bbox area before the element is drawn. Pass the
- * returned object to `applyReverseOverlay` after the draw.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {HTMLCanvasElement} canvas
- * @param {{x: number, y: number, width: number, height: number}} bbox
- * @returns {{imageData: ImageData, left: number, top: number, width: number, height: number} | null}
- */
-export function captureReverseBg(ctx, canvas, bbox) {
-  const left = Math.max(0, Math.floor(bbox.x));
-  const top = Math.max(0, Math.floor(bbox.y));
-  const right = Math.min(canvas.width, Math.ceil(bbox.x + bbox.width));
-  const bottom = Math.min(canvas.height, Math.ceil(bbox.y + bbox.height));
-  const width = Math.max(0, right - left);
-  const height = Math.max(0, bottom - top);
-  if (width === 0 || height === 0) return null;
-  return { imageData: ctx.getImageData(left, top, width, height), left, top, width, height };
+  return {
+    left,
+    top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+    transform
+  };
+}
+
+function createShapeLayer(bounds, drawShape) {
+  const shapeCanvas = document.createElement('canvas');
+  shapeCanvas.width = bounds.width;
+  shapeCanvas.height = bounds.height;
+  const shapeCtx = shapeCanvas.getContext('2d');
+
+  shapeCtx.setTransform(
+    bounds.transform.a,
+    bounds.transform.b,
+    bounds.transform.c,
+    bounds.transform.d,
+    bounds.transform.e - bounds.left,
+    bounds.transform.f - bounds.top
+  );
+  drawShape(shapeCtx, '#FFFFFF');
+
+  return shapeCanvas;
+}
+
+function createTransparentLayers(canvas, bounds, shapeCanvas) {
+  const backgroundCanvas = document.createElement('canvas');
+  backgroundCanvas.width = bounds.width;
+  backgroundCanvas.height = bounds.height;
+  const backgroundCtx = backgroundCanvas.getContext('2d');
+  backgroundCtx.drawImage(
+    canvas,
+    bounds.left,
+    bounds.top,
+    bounds.width,
+    bounds.height,
+    0,
+    0,
+    bounds.width,
+    bounds.height
+  );
+
+  // Split the completed field mask by the canvas's existing alpha. Difference
+  // applies only over existing pixels; transparent pixels receive black ink
+  // directly. This keeps anti-aliased edges from accumulating white then black.
+  const opaqueCanvas = document.createElement('canvas');
+  opaqueCanvas.width = bounds.width;
+  opaqueCanvas.height = bounds.height;
+  const opaqueCtx = opaqueCanvas.getContext('2d');
+  opaqueCtx.drawImage(shapeCanvas, 0, 0);
+  opaqueCtx.globalCompositeOperation = 'destination-in';
+  opaqueCtx.drawImage(backgroundCanvas, 0, 0);
+
+  const transparentCanvas = document.createElement('canvas');
+  transparentCanvas.width = bounds.width;
+  transparentCanvas.height = bounds.height;
+  const transparentCtx = transparentCanvas.getContext('2d');
+  transparentCtx.drawImage(backgroundCanvas, 0, 0);
+  transparentCtx.globalCompositeOperation = 'source-out';
+  transparentCtx.drawImage(shapeCanvas, 0, 0);
+  transparentCtx.globalCompositeOperation = 'source-in';
+  transparentCtx.fillStyle = '#000000';
+  transparentCtx.fillRect(0, 0, bounds.width, bounds.height);
+
+  return { opaqueCanvas, transparentCanvas };
 }
 
 /**
- * Apply the reverse-print overlay using a previously captured bg snapshot.
- *
- * @param {CanvasRenderingContext2D} ctx - Main canvas context
- * @param {ReturnType<typeof captureReverseBg>} captured - Snapshot from captureReverseBg
- * @param {(tempCtx: CanvasRenderingContext2D, color: string, offsetX: number, offsetY: number) => void} drawShape -
- *   Callback that paints the element's shape on the temp context, in
- *   `color`, offset by (offsetX, offsetY) — same callback the renderer
- *   uses for the main draw, just with a different color.
+ * Draw an element with ZPL ^FR semantics without reading pixels back from the canvas.
+ * Painting white with `difference` flips existing black/white pixels. Transparent
+ * previews need one extra composited mask so transparent pixels become black.
  */
-export function applyReverseOverlay(ctx, captured, drawShape) {
-  if (!captured) return;
-  const { imageData, left, top, width, height } = captured;
-
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = width;
-  maskCanvas.height = height;
-  const maskCtx = maskCanvas.getContext('2d');
-  const maskData = maskCtx.createImageData(width, height);
-  const src = imageData.data;
-  const dst = maskData.data;
-
-  for (let i = 0; i < src.length; i += 4) {
-    const alpha = src[i + 3];
-    if (alpha < 128) continue;
-    const brightness = src[i] + src[i + 1] + src[i + 2];
-    if (brightness < DARK_PIXEL_THRESHOLD) {
-      dst[i + 3] = 255;
-    }
+export function drawWithReverse(ctx, canvas, bbox, drawShape, {
+  reverse = false,
+  color = '#000000',
+  transparentBackground = false,
+  padding = 2
+} = {}) {
+  if (!reverse) {
+    drawShape(ctx, color);
+    return;
   }
 
-  maskCtx.putImageData(maskData, 0, 0);
+  const bounds = getTransformedBounds(ctx, canvas, bbox, Math.max(0, padding));
+  if (bounds.width === 0 || bounds.height === 0) return;
 
-  const shapeCanvas = document.createElement('canvas');
-  shapeCanvas.width = width;
-  shapeCanvas.height = height;
-  const shapeCtx = shapeCanvas.getContext('2d');
-  drawShape(shapeCtx, '#FFFFFF', -left, -top);
-  shapeCtx.globalCompositeOperation = 'destination-in';
-  shapeCtx.drawImage(maskCanvas, 0, 0);
+  // Buffer the complete field before applying `difference`. Canvas compositing
+  // operates per draw call, so drawing glyphs or lines directly could invert an
+  // overlapping pixel twice. One layer draw makes the field mask idempotent.
+  const shapeCanvas = createShapeLayer(bounds, drawShape);
+  const transparentLayers = transparentBackground
+    ? createTransparentLayers(canvas, bounds, shapeCanvas)
+    : null;
 
-  ctx.drawImage(shapeCanvas, left, top);
+  ctx.save();
+  ctx.resetTransform();
+  ctx.globalCompositeOperation = 'difference';
+  ctx.drawImage(transparentLayers?.opaqueCanvas || shapeCanvas, bounds.left, bounds.top);
+  ctx.restore();
+
+  if (transparentLayers) {
+    ctx.save();
+    ctx.resetTransform();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(transparentLayers.transparentCanvas, bounds.left, bounds.top);
+    ctx.restore();
+  }
 }

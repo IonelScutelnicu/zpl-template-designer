@@ -3,7 +3,7 @@
 
 import { getBarcodeGeometry, linearFallbackModules, resolveSymbology, getHriConfig, SYMBOLOGY_LABELS } from '../utils/barcodeGeometry.js';
 import { drawLinear, drawPlaceholder, drawHriLine, measureHriLine } from './barcodeRender.js';
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 
@@ -84,8 +84,8 @@ export class BarcodeRenderer {
       bottom0 = Math.max(bottom0, textBounds.bottom);
     }
 
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      this._withOrientation(targetCtx, x + ox, y + oy, totalWidth, height, orientation, (lx, ly) => {
+    const drawShape = (targetCtx, color) => {
+      this._withOrientation(targetCtx, x, y, totalWidth, height, orientation, (lx, ly) => {
         // Extend EAN/UPC guard bars a fixed amount below the barcode height,
         // regardless of whether the interpretation text is visible.
         const guardBottomY = isEanUpc ? ly + height + GUARD_EXTEND_DOTS * scale : undefined;
@@ -97,15 +97,17 @@ export class BarcodeRenderer {
       });
     };
 
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, this._screenBbox(x, y, totalWidth, height, orientation, { left0, top0, right0, bottom0 }))
-      : null;
-
-    drawShape(ctx, '#000000');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, drawShape);
-    }
+    drawWithReverse(
+      ctx,
+      canvas,
+      this._screenBbox(x, y, totalWidth, height, orientation, { left0, top0, right0, bottom0 }),
+      drawShape,
+      {
+        reverse: element.reverse,
+        color: '#000000',
+        transparentBackground: transform.transparentBackground
+      }
+    );
   }
 
   /**

@@ -106,7 +106,8 @@ export class CanvasRenderer {
 
     // Normalize selection to a list so a single element, an array, or null all work.
     const selectedList = Array.isArray(selection) ? selection : (selection ? [selection] : []);
-    this._selectedIds = new Set(selectedList.filter(Boolean).map(el => String(el.id)));
+    const selectedElements = selectedList.filter(Boolean);
+    this._selectedIds = new Set(selectedElements.map(el => String(el.id)));
     this._selectionCount = this._selectedIds.size;
 
     // Store offsets and orientation for use in element drawing and coordinate conversion
@@ -128,14 +129,23 @@ export class CanvasRenderer {
     // Apply current zoom: 1 dot becomes `zoom` screen pixels.
     this.scale = this.zoom || 1;
 
-    // Set canvas internal size to match zoom; the CSS width/height is set to
-    // the same value externally so `rect.width / canvas.width === 1`.
-    this.canvas.width = Math.max(1, Math.round(labelWidthDots * this.scale));
-    this.canvas.height = Math.max(1, Math.round(labelHeightDots * this.scale));
+    // Resizing a canvas clears its bitmap and resets its entire context. Avoid
+    // paying that allocation cost on every pointer move when its size is stable.
+    const canvasWidth = Math.max(1, Math.round(labelWidthDots * this.scale));
+    const canvasHeight = Math.max(1, Math.round(labelHeightDots * this.scale));
+    if (this.canvas.width !== canvasWidth || this.canvas.height !== canvasHeight) {
+      this.canvas.width = canvasWidth;
+      this.canvas.height = canvasHeight;
+      this.ctx.imageSmoothingEnabled = false;
+    }
 
     // Calculate offsets to center canvas
     this.offsetX = 0;
     this.offsetY = 0;
+
+    this.ctx.resetTransform();
+    this.ctx.globalCompositeOperation = 'source-over';
+    this.ctx.globalAlpha = 1;
 
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -143,7 +153,7 @@ export class CanvasRenderer {
     if (!this.transparentBackground) {
       // Draw white label background
       this.ctx.fillStyle = '#FFFFFF';
-      this.ctx.fillRect(0, 0, labelWidthDots, labelHeightDots);
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     if (!this.transparentBackground) {
@@ -172,6 +182,13 @@ export class CanvasRenderer {
       this.drawElement(element, labelSettings);
     });
 
+    // Editor chrome must not become input to a later field's ^FR compositing.
+    selectedElements.forEach(element => {
+      this.ctx.save();
+      this.drawSelectionIndicator(element, labelSettings);
+      this.ctx.restore();
+    });
+
     // Draw smart guide lines on top of elements in the same transformed space
     // so guides align with offsets/orientation/mirror.
     if (this.smartGuides.length > 0) {
@@ -188,7 +205,7 @@ export class CanvasRenderer {
       this.ctx.restore();
     }
 
-    prefetchFontsForElements(elements, labelSettings, () => this.renderCanvas(elements, labelSettings, selectedList));
+    prefetchFontsForElements(elements, labelSettings, () => this.renderCanvas(elements, labelSettings, selectedElements));
   }
 
   /**
@@ -281,8 +298,6 @@ export class CanvasRenderer {
    * Draw a single element on canvas
    */
   drawElement(element, labelSettings) {
-    const isSelected = this._selectedIds && this._selectedIds.has(String(element.id));
-
     this.ctx.save();
 
     // Prepare transform parameters for renderers
@@ -290,18 +305,14 @@ export class CanvasRenderer {
       scale: this.scale,
       homeX: this.homeX,
       homeY: this.homeY,
-      labelTop: this.labelTop
+      labelTop: this.labelTop,
+      transparentBackground: this.transparentBackground
     };
 
     // Draw element using specialized renderer
     const renderer = this.renderers[element.type];
     if (renderer) {
       renderer.render(this.ctx, this.canvas, element, labelSettings, transform);
-    }
-
-    // Draw selection indicator
-    if (isSelected) {
-      this.drawSelectionIndicator(element, labelSettings);
     }
 
     this.ctx.restore();

@@ -1,7 +1,7 @@
 import { renderFieldDataCommand } from '../utils/zplFieldData.js';
 import { placeholderNames } from '../utils/placeholders.js';
 import { drawLinear, drawMatrix, drawMaxiCode, drawPlaceholder } from '../rendering/barcodeRender.js';
-import { applyReverseOverlay, captureReverseBg } from '../rendering/reverseOverlay.js';
+import { drawWithReverse } from '../rendering/reverseOverlay.js';
 import { maxicodeSize, maxicodePitchDots } from './maxicodeGeometry.js';
 import { databarLinearBarDots, DATABAR_SEPARATOR_HEIGHT } from './databarGeometry.js';
 
@@ -334,14 +334,16 @@ class MaxiCodeSymbology extends QRSymbology {
   renderCanvas(ctx, canvas, element, geom, frame, helpers) {
     if (geom.kind !== 'maxicode') return helpers.drawPlaceholder(ctx, element, frame);
     const { width, height } = maxicodeSize(frame.moduleW);
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      helpers.withOrientation(targetCtx, frame, width, height, ox, oy, () => {
+    const drawShape = (targetCtx, color) => {
+      helpers.withOrientation(targetCtx, frame, width, height, () => {
         drawMaxiCode(targetCtx, geom, { x: 0, y: 0, moduleW: frame.moduleW, color });
       });
     };
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, helpers.screenBbox(frame, width, height)) : null;
-    drawShape(ctx, '#000000');
-    if (captured) applyReverseOverlay(ctx, captured, drawShape);
+    drawWithReverse(ctx, canvas, helpers.screenBbox(frame, width, height), drawShape, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: frame.transparentBackground
+    });
   }
 
   renderSettings(panel, element) {
@@ -399,14 +401,16 @@ class GS1DataBarSymbology extends QRSymbology {
     if (geom.kind !== 'linear') return super.renderCanvas(ctx, canvas, element, geom, frame, helpers);
     const barHeight = databarLinearBarDots(element) * frame.scale;
     const width = geom.modules * frame.moduleW;
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      helpers.withOrientation(targetCtx, frame, width, barHeight, ox, oy, () => {
+    const drawShape = (targetCtx, color) => {
+      helpers.withOrientation(targetCtx, frame, width, barHeight, () => {
         drawLinear(targetCtx, geom, { x: 0, y: 0, moduleW: frame.moduleW, height: barHeight, color });
       });
     };
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, helpers.screenBbox(frame, width, barHeight)) : null;
-    drawShape(ctx, '#000000');
-    if (captured) applyReverseOverlay(ctx, captured, drawShape);
+    drawWithReverse(ctx, canvas, helpers.screenBbox(frame, width, barHeight), drawShape, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: frame.transparentBackground
+    });
   }
 
   renderSettings(panel, element, bounds) {
@@ -496,8 +500,8 @@ class TLC39Symbology extends QRSymbology {
     const height = (geom.code39.kind === 'linear' ? c39Height + (geom.micropdf ? gap : 0) : 0) + mpH;
     // TLC39 spec layout: the MicroPDF417 is stacked ON TOP of the Code 39, sharing
     // its left edge with a small separator gap between them.
-    const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-      helpers.withOrientation(targetCtx, frame, width, height, ox, oy, () => {
+    const drawShape = (targetCtx, color) => {
+      helpers.withOrientation(targetCtx, frame, width, height, () => {
         let cy = 0;
         if (geom.micropdf) {
           drawMatrix(targetCtx, geom.micropdf, { x: 0, y: cy, moduleW: w2, moduleH: h2, color });
@@ -508,9 +512,11 @@ class TLC39Symbology extends QRSymbology {
         }
       });
     };
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, helpers.screenBbox(frame, width, height)) : null;
-    drawShape(ctx, '#000000');
-    if (captured) applyReverseOverlay(ctx, captured, drawShape);
+    drawWithReverse(ctx, canvas, helpers.screenBbox(frame, width, height), drawShape, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: frame.transparentBackground
+    });
   }
 
   renderSettings(panel, element, bounds) {
@@ -584,7 +590,7 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
 
   return {
     frame(element, transform) {
-      const { scale, homeX, homeY, labelTop } = transform;
+      const { scale, homeX, homeY, labelTop, transparentBackground } = transform;
       const symbology = resolveSymbology(element);
       const yOffset = symbology === 'QR' ? 10 * scale : 0;
       const qrYOffset = symbology === 'QR' ? (element.qrYOffset || 0) * scale : 0;
@@ -600,6 +606,7 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
         y: (element.y + homeY + labelTop) * scale + yOffset + qrYOffset,
         moduleW: mx * scale,
         moduleH: my * scale,
+        transparentBackground,
         element,
       };
     },
@@ -611,29 +618,31 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
     drawMatrixWithReverse(ctx, canvas, element, geom, frame) {
       const width = geom.cols * frame.moduleW;
       const height = geom.rows * frame.moduleH;
-      const drawShape = (targetCtx, color, ox = 0, oy = 0) => {
-        this.withOrientation(targetCtx, frame, width, height, ox, oy, () => {
+      const drawShape = (targetCtx, color) => {
+        this.withOrientation(targetCtx, frame, width, height, () => {
           drawMatrix(targetCtx, geom, { x: 0, y: 0, moduleW: frame.moduleW, moduleH: frame.moduleH, color });
         });
       };
-      const captured = element.reverse ? captureReverseBg(ctx, canvas, this.screenBbox(frame, width, height)) : null;
-      drawShape(ctx, '#000000');
-      if (captured) applyReverseOverlay(ctx, captured, drawShape);
+      drawWithReverse(ctx, canvas, this.screenBbox(frame, width, height), drawShape, {
+        reverse: element.reverse,
+        color: '#000000',
+        transparentBackground: frame.transparentBackground
+      });
     },
-    withOrientation(ctx, frame, width, height, ox, oy, drawFn) {
+    withOrientation(ctx, frame, width, height, drawFn) {
       const orient = orientation(frame.element);
       ctx.save();
       if (orient === 'R') {
-        ctx.translate(frame.x + ox + height, frame.y + oy);
+        ctx.translate(frame.x + height, frame.y);
         ctx.rotate(Math.PI / 2);
       } else if (orient === 'I') {
-        ctx.translate(frame.x + ox + width, frame.y + oy + height);
+        ctx.translate(frame.x + width, frame.y + height);
         ctx.rotate(Math.PI);
       } else if (orient === 'B') {
-        ctx.translate(frame.x + ox, frame.y + oy + width);
+        ctx.translate(frame.x, frame.y + width);
         ctx.rotate(-Math.PI / 2);
       } else {
-        ctx.translate(frame.x + ox, frame.y + oy);
+        ctx.translate(frame.x, frame.y);
       }
       drawFn();
       ctx.restore();

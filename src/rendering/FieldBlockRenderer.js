@@ -3,7 +3,7 @@
 
 import { resolveFontLineHeight, resolveFontMetrics, resolveBaselinePlacement, measureStyledText, wrapStyledTextDetailed, styledTextAdvance, drawSpacedText } from '../utils/fontMetrics.js';
 import { LINE_HEIGHT_RATIO, fieldBlockExtents } from '../utils/geometry.js';
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 import { resolvePlaceholders } from '../utils/placeholders.js';
 import { decodeFieldBlockBreaks } from '../utils/zplFieldData.js';
 import { effectiveCharGap } from '../utils/fieldParameter.js';
@@ -153,23 +153,18 @@ export class FieldBlockRenderer {
       }
     };
 
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, { x, y, width: bboxW, height: bboxH })
-      : null;
+    const drawShape = (targetCtx, color) => {
+      targetCtx.save();
+      applyRotation(targetCtx, x, y);
+      drawLines(targetCtx, 0, 0, color);
+      targetCtx.restore();
+    };
 
-    // Main drawing with rotation
-    ctx.save();
-    applyRotation(ctx, x, y);
-    drawLines(ctx, 0, 0, '#000000');
-    ctx.restore();
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, (tempCtx, color, ox, oy) => {
-        tempCtx.save();
-        applyRotation(tempCtx, x + ox, y + oy);
-        drawLines(tempCtx, 0, 0, color);
-        tempCtx.restore();
-      });
-    }
+    drawWithReverse(ctx, canvas, { x, y, width: bboxW, height: bboxH }, drawShape, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: transform.transparentBackground,
+      padding: Math.ceil(fontSize * Math.max(1, scaleX))
+    });
   }
 }

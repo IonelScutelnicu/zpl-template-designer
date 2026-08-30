@@ -1,9 +1,13 @@
 // Graphic Field Renderer
 // Renders GRAPHIC elements on canvas by drawing the decoded 1-bit bitmap.
 
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 
 export class GraphicFieldRenderer {
+  constructor() {
+    this.sourceCache = new WeakMap();
+  }
+
   /**
    * @param {CanvasRenderingContext2D} ctx
    * @param {HTMLCanvasElement} canvas - Main canvas (for reverse overlay)
@@ -21,16 +25,21 @@ export class GraphicFieldRenderer {
 
     if (element.isOpaque && element.isOpaque()) {
       const opaqueBbox = this._screenBbox(x, y, width, height, orientation);
-      const captured = element.reverse ? captureReverseBg(ctx, canvas, opaqueBbox) : null;
-      this._withOrientation(ctx, x, y, width, height, orientation, (lx, ly) => {
-        this._renderOpaquePlaceholder(ctx, lx, ly, width, height);
-      });
-      if (captured) {
-        applyReverseOverlay(ctx, captured, (tempCtx, color, ox, oy) => {
-          tempCtx.save();
-          tempCtx.fillStyle = color;
-          tempCtx.fillRect(opaqueBbox.x + ox, opaqueBbox.y + oy, opaqueBbox.width, opaqueBbox.height);
-          tempCtx.restore();
+      if (element.reverse) {
+        const drawOpaqueShape = (targetCtx, color) => {
+          targetCtx.save();
+          targetCtx.fillStyle = color;
+          targetCtx.fillRect(opaqueBbox.x, opaqueBbox.y, opaqueBbox.width, opaqueBbox.height);
+          targetCtx.restore();
+        };
+        drawWithReverse(ctx, canvas, opaqueBbox, drawOpaqueShape, {
+          reverse: true,
+          color: '#000000',
+          transparentBackground: transform.transparentBackground
+        });
+      } else {
+        this._withOrientation(ctx, x, y, width, height, orientation, (lx, ly) => {
+          this._renderOpaquePlaceholder(ctx, lx, ly, width, height);
         });
       }
       return;
@@ -45,46 +54,44 @@ export class GraphicFieldRenderer {
     }
 
     const bbox = this._screenBbox(x, y, width, height, orientation);
-    const captured = element.reverse ? captureReverseBg(ctx, canvas, bbox) : null;
+    const drawShape = (targetCtx, color) => {
+      const source = this._getSourceCanvas(imageData, color);
 
-    // Always use the drawImage path (not putImageData) because:
-    // 1. putImageData ignores canvas transforms (rotation won't work)
-    // 2. putImageData writes pixels directly without alpha compositing,
-    //    so transparent (white) pixels would overwrite content behind them.
-    //
-    // When ^FR is on, the main pass paints only the ink pixels (white
-    // pixels stay transparent) so anything behind keeps showing through —
-    // matching Zebra's "field acts as a mask" semantics.
-    const mainSource = element.reverse
-      ? this._buildTintedCanvas(imageData, '#000000')
-      : (() => {
-          const off = document.createElement('canvas');
-          off.width = imageData.width;
-          off.height = imageData.height;
-          off.getContext('2d').putImageData(imageData, 0, 0);
-          return off;
-        })();
-    const prevSmoothing = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = false;
-    this._withOrientation(ctx, x, y, width, height, orientation, (lx, ly) => {
-      ctx.drawImage(mainSource, lx, ly, width, height);
-    });
-    ctx.imageSmoothingEnabled = prevSmoothing;
-
-    if (captured) {
-      // Tinted-white version of the bitmap, masked to the captured
-      // dark-bg pixels — flips the bitmap's ink to white only where it
-      // overlaps prior dark pixels.
-      const tinted = this._buildTintedCanvas(imageData, '#FFFFFF');
-      applyReverseOverlay(ctx, captured, (tempCtx, _color, ox, oy) => {
-        const prev = tempCtx.imageSmoothingEnabled;
-        tempCtx.imageSmoothingEnabled = false;
-        this._withOrientation(tempCtx, x + ox, y + oy, width, height, orientation, (lx, ly) => {
-          tempCtx.drawImage(tinted, lx, ly, width, height);
-        });
-        tempCtx.imageSmoothingEnabled = prev;
+      const previousSmoothing = targetCtx.imageSmoothingEnabled;
+      targetCtx.imageSmoothingEnabled = false;
+      this._withOrientation(targetCtx, x, y, width, height, orientation, (lx, ly) => {
+        targetCtx.drawImage(source, lx, ly, width, height);
       });
+      targetCtx.imageSmoothingEnabled = previousSmoothing;
+    };
+
+    drawWithReverse(ctx, canvas, bbox, drawShape, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: transform.transparentBackground
+    });
+  }
+
+  _getSourceCanvas(imageData, color) {
+    let sources = this.sourceCache.get(imageData);
+    if (!sources) {
+      sources = new Map();
+      this.sourceCache.set(imageData, sources);
     }
+
+    if (sources.has(color)) return sources.get(color);
+
+    let source;
+    if (color === '#000000') {
+      source = document.createElement('canvas');
+      source.width = imageData.width;
+      source.height = imageData.height;
+      source.getContext('2d').putImageData(imageData, 0, 0);
+    } else {
+      source = this._buildTintedCanvas(imageData, color);
+    }
+    sources.set(color, source);
+    return source;
   }
 
   /**

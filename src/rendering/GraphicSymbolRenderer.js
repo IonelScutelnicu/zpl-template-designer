@@ -1,7 +1,7 @@
 // Graphic Symbol Renderer
 // Renders GRAPHICSYMBOL (^GS) elements on canvas
 
-import { applyReverseOverlay, captureReverseBg } from './reverseOverlay.js';
+import { drawWithReverse } from './reverseOverlay.js';
 import {
   GRAPHIC_SYMBOL_INK_RATIOS,
 } from '../elements/GraphicSymbolElement.js';
@@ -60,44 +60,39 @@ export class GraphicSymbolRenderer {
     const cellW = graphicSymbolCellWidth(element.width) * scale;
     const cellH = graphicSymbolCellHeight(element.height) * scale;
 
-    const drawSymbol = (targetCtx, color, ox = 0, oy = 0) => {
+    const drawSymbol = (targetCtx, color) => {
       targetCtx.save();
       // ZPL rotation: N=0°, R=90° CW, I=180°, B=270° CW, pivoting on the
       // cell's corners the way TextRenderer pivots on the text box.
       if (element.orientation === 'R') {
-        targetCtx.translate(x + cellH + ox, y + oy);
+        targetCtx.translate(x + cellH, y);
         targetCtx.rotate(Math.PI / 2);
       } else if (element.orientation === 'I') {
-        targetCtx.translate(x + cellW + ox, y + cellH + oy);
+        targetCtx.translate(x + cellW, y + cellH);
         targetCtx.rotate(Math.PI);
       } else if (element.orientation === 'B') {
-        targetCtx.translate(x + ox, y + cellW + oy);
+        targetCtx.translate(x, y + cellW);
         targetCtx.rotate(-Math.PI / 2);
       } else {
-        targetCtx.translate(x + ox, y + oy);
+        targetCtx.translate(x, y);
       }
       this._drawGlyph(targetCtx, element.symbol, w, h, color);
       targetCtx.restore();
     };
 
-    // ^FR: snapshot the bg BEFORE drawing so the mask only sees pixels that
-    // were already there. The capture rect is the visual (rotated) box; for
-    // I/B the cell overhangs the command box, so span both.
+    // The reverse rect is the visual (rotated) box; for I/B the cell overhangs
+    // the command box, so span both.
     const rotated = element.orientation === 'R' || element.orientation === 'B';
-    const captured = element.reverse
-      ? captureReverseBg(ctx, canvas, {
-          x,
-          y,
-          width: rotated ? h : Math.max(w, cellW),
-          height: rotated ? Math.max(w, cellW) : h,
-        })
-      : null;
-
-    drawSymbol(ctx, '#000000');
-
-    if (captured) {
-      applyReverseOverlay(ctx, captured, drawSymbol);
-    }
+    drawWithReverse(ctx, canvas, {
+      x,
+      y,
+      width: rotated ? h : Math.max(w, cellW),
+      height: rotated ? Math.max(w, cellW) : h
+    }, drawSymbol, {
+      reverse: element.reverse,
+      color: '#000000',
+      transparentBackground: transform.transparentBackground
+    });
   }
 
   /**
