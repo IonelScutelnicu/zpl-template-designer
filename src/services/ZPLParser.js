@@ -1126,6 +1126,20 @@ export class ZPLParser {
             const { width } = enforceFontMinSize(state.defaultFont.id, 0, w);
             state.labelSettings.defaultFontWidth = width;
             state.defaultFont.width = width;
+            if (!(parseInt(parts[1]) > 0)) {
+              // The mirror of the height-less case below: a ^CF width with no
+              // height restores that font's proportional height rather than
+              // retaining an earlier ^CF's (verified on Labelary: ^CF0,65,55
+              // then ^CF0,,25 renders exactly like ^CF0,25,25, and ^CFA,,25
+              // like ^CFA,45,25).
+              const { height } = enforceFontMinSize(
+                state.defaultFont.id,
+                proportionalRequestedHeight(state.defaultFont.id, width, state.customFonts),
+                0
+              );
+              state.labelSettings.defaultFontHeight = height;
+              state.defaultFont.height = height;
+            }
           }
         } else if (parts[1]) {
           // A new ^CF height with no width restores that font's proportional

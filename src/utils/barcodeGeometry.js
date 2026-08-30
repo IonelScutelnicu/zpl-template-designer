@@ -825,11 +825,17 @@ function buildBwipOptions(element, data) {
       // Manual byte mode prefixes the segment with a four-digit byte count.
       // Zebra consumes that count and then chooses the most compact QR segment
       // representation for the payload itself.
+      // A field without the count never reaches here — qrPrintsNothing rejects it.
       const match = opts.text.match(/^(\d{4})([\s\S]*)$/u);
       if (match) opts.text = match[2].slice(0, Number.parseInt(match[1], 10));
     }
     const zplmode = qrZplMode(element, opts.text);
     if (zplmode) opts.zplmode = zplmode;
+    const bytes = qrByteText(opts.text);
+    if (bytes) {
+      opts.text = bytes;
+      opts.parse = true;
+    }
     const mask = qrAutoMask(opts);
     if (mask) opts.mask = mask;
   } else if (symbology === 'AZTEC') {
@@ -942,15 +948,72 @@ const CACHE_MAX = 256;
 // payload and error-correction level.
 const qrMaskCache = new Map();
 
+// A numeric run inside a mixed alphanumeric run only earns its own segment once it
+// repays the mode switch: six digits when nothing alphanumeric follows it in the run,
+// nine when the run carries on afterwards and the switch back has to be paid too.
+// Measured on Labelary.
+const NUMERIC_SPLIT_AT_RUN_END = 6;
+const NUMERIC_SPLIT_MID_RUN = 9;
+// A numeric run shorter than four only ends a byte run already under way once it
+// reaches three digits — below that the bytes are cheaper than the mode switch.
+const NUMERIC_TAIL_AFTER_BYTE = 3;
+
+// Bytes 0x80-0x9F of code page 1252, positionally; the five slots the page leaves
+// undefined hold their own C1 character so the index still maps back to the byte.
+const CP1252_HIGH =
+  '\u20ac\u0081\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u008d\u017d\u008f'
+  + '\u0090\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u009d\u017e\u0178';
+
+/**
+ * The QR payload rewritten as bwip `^NNN` escapes, one per byte the printer sends,
+ * or null when it is plain ASCII and needs none.
+ *
+ * A QR field encodes single code-page bytes, not the UTF-8 the label was written
+ * in: `^FDMA,é` and `^FDMM,B0002é` both draw the symbol for the single byte 0xE9,
+ * and `€` the symbol for 0x80 (verified on Labelary). Left to itself bwip UTF-8
+ * encodes the string, drawing the two-byte C3 A9 symbol — a code that scans as
+ * different data from the one that prints.
+ */
+function qrByteText(text) {
+  if (/^[\x00-\x7f]*$/u.test(text)) return null;
+  let out = '';
+  for (const char of text) {
+    const code = char.codePointAt(0);
+    const high = code <= 0xff ? -1 : CP1252_HIGH.indexOf(char);
+    if (code <= 0xff) out += '^' + String(code).padStart(3, '0');
+    else if (high >= 0) out += '^' + String(0x80 + high).padStart(3, '0');
+    // Outside the single-byte page there is no byte to send, so the character is
+    // left for bwip to encode as before rather than guessing a substitute.
+    else out += char;
+  }
+  return out;
+}
+
+/**
+ * Whether a QR field is one the printer draws no symbol for. Verified on Labelary,
+ * which renders the rest of the label and leaves the QR blank for both:
+ *  - manual Kanji (`^FDMM,K…`), for every payload — Shift-JIS byte pairs included;
+ *  - manual byte mode without its mandatory four-digit count (`^FDMM,BABCD`).
+ */
+function qrPrintsNothing(element, data) {
+  if (element.inputMode !== 'M') return false;
+  if (element.qrManualMode === 'K') return true;
+  return element.qrManualMode === 'B' && !/^\d{4}/u.test(data || '');
+}
+
 function qrZplMode(element, text) {
   if (element.inputMode === 'M') {
     if (element.qrManualMode === 'B') return undefined;
-    return /^[NAK]$/.test(element.qrManualMode) ? element.qrManualMode : 'A';
+    // Kanji never reaches here (qrPrintsNothing keeps a K field off the canvas),
+    // which also keeps bwip's kanji encoder out of the picture — it spins forever
+    // on an odd byte count instead of failing.
+    return element.qrManualMode === 'N' ? 'N' : 'A';
   }
   if (!/^[\x00-\x7f]*$/u.test(text)) return undefined;
 
   const isNumeric = (char) => /[0-9]/u.test(char);
   const isAlpha = (char) => /[A-Z $%*+\-./:]/u.test(char);
+  const isAlnum = (char) => isNumeric(char) || isAlpha(char);
   const runLength = (offset, predicate) => {
     let end = offset;
     while (end < text.length && predicate(text[end])) end += 1;
@@ -958,28 +1021,50 @@ function qrZplMode(element, text) {
   };
   // Zebra uses fixed switch thresholds and folds a short alphanumeric tail
   // into the following byte segment instead of minimizing the total bit count.
-  const preferredMode = (offset) => {
+  const preferredMode = (offset, endsByteRun) => {
     const numericLength = runLength(offset, isNumeric);
-    if (numericLength >= 4 || (numericLength > 0 && offset + numericLength === text.length)) {
+    const endsText = offset + numericLength === text.length;
+    const shortestTail = endsByteRun ? NUMERIC_TAIL_AFTER_BYTE : 1;
+    if (numericLength >= 4 || (endsText && numericLength >= shortestTail)) {
       return { mode: 'N', length: numericLength };
     }
     const alphaLength = runLength(offset, isAlpha);
     if (alphaLength >= 5) return { mode: 'A', length: alphaLength };
-    const compatibleLength = runLength(offset, (char) => isNumeric(char) || isAlpha(char));
+    let compatibleLength = runLength(offset, isAlnum);
+    // A numeric run long enough to pay for its own mode switch ends the mixed run
+    // rather than being carried at the alphanumeric rate.
+    let splitsBeforeNumeric = false;
+    for (let runOffset = offset; runOffset < offset + compatibleLength;) {
+      const numeric = isNumeric(text[runOffset]);
+      const length = runLength(runOffset, numeric ? isNumeric : isAlpha);
+      const endsRun = runOffset + length === offset + compatibleLength;
+      if (numeric && length >= (endsRun ? NUMERIC_SPLIT_AT_RUN_END : NUMERIC_SPLIT_MID_RUN)) {
+        compatibleLength = runOffset - offset;
+        splitsBeforeNumeric = true;
+        break;
+      }
+      runOffset += length;
+    }
     const reachesEnd = offset + compatibleLength === text.length;
     if (compatibleLength >= 6 || (compatibleLength >= 4 && reachesEnd)) {
-      if (!reachesEnd) {
-        let runOffset = offset;
-        let lastStrongEnd = 0;
-        while (runOffset < offset + compatibleLength) {
-          const numeric = isNumeric(text[runOffset]);
-          const length = runLength(runOffset, numeric ? isNumeric : isAlpha);
-          if ((numeric && length >= 4) || (!numeric && length >= 5)) {
-            lastStrongEnd = runOffset + length - offset;
-          }
-          runOffset += length;
+      // End of the last numeric or alphabetic run inside this one that is itself long
+      // enough to stand as a segment.
+      let lastStrongEnd = 0;
+      for (let runOffset = offset; runOffset < offset + compatibleLength;) {
+        const numeric = isNumeric(text[runOffset]);
+        const length = runLength(runOffset, numeric ? isNumeric : isAlpha);
+        if ((numeric && length >= 4) || (!numeric && length >= 5)) {
+          lastStrongEnd = runOffset + length - offset;
         }
-        if (lastStrongEnd) return { mode: 'A', length: lastStrongEnd };
+        runOffset += length;
+      }
+      // A byte run already under way only gives way to a run carrying one of those;
+      // anything weaker stays cheaper as bytes.
+      if (endsByteRun && !lastStrongEnd) return null;
+      // The weak tail is only folded onward when a byte segment follows it; a run
+      // ended by a numeric split keeps its tail.
+      if (!reachesEnd && !splitsBeforeNumeric && lastStrongEnd) {
+        return { mode: 'A', length: lastStrongEnd };
       }
       return { mode: 'A', length: compatibleLength };
     }
@@ -988,15 +1073,18 @@ function qrZplMode(element, text) {
 
   const parts = [];
   for (let offset = 0; offset < text.length;) {
-    const preferred = preferredMode(offset);
+    const preferred = preferredMode(offset, false);
     if (preferred) {
       parts.push(preferred);
       offset += preferred.length;
       continue;
     }
     let end = offset + 1;
-    while (end < text.length && !preferredMode(end)) end += 1;
-    parts.push({ mode: 'B', length: end - offset });
+    while (end < text.length && !preferredMode(end, true)) end += 1;
+    // A run too short for the thresholds is still alphanumeric when every character
+    // is: opening a byte segment for it costs more than the mode switch saves.
+    const mode = runLength(offset, isAlnum) >= end - offset ? 'A' : 'B';
+    parts.push({ mode, length: end - offset });
     offset = end;
   }
   return parts.map(({ mode, length }) => `${mode}:${length}`).join(',');
@@ -1109,7 +1197,10 @@ export function getBarcodeGeometry(element, previewData = {}) {
   // bwip-js only implements QR Model 2. Rendering that matrix for a Model 1
   // command is actively misleading (and can print data Model 1 cannot hold), so
   // preserve the element for round-trip but leave its canvas geometry empty.
-  if (resolveSymbology(element) === 'QR' && Number(element.model) === 1) {
+  // Manual Kanji and a countless manual byte field are the same story: the printer
+  // draws nothing, so neither does the canvas (see qrPrintsNothing).
+  if (resolveSymbology(element) === 'QR'
+    && (Number(element.model) === 1 || qrPrintsNothing(element, data))) {
     return { kind: 'empty' };
   }
   if (resolveSymbology(element) === 'TLC39') return getTlc39Geometry(element, data);

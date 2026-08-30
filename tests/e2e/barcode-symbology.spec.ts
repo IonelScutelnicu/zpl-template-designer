@@ -142,6 +142,67 @@ test.describe('Barcode symbology', () => {
         expect(result).toEqual({ size: 25, matches: true, jsonMatches: true, alphaMatches: true });
     });
 
+    // Where a numeric run inside a mixed alphanumeric run earns its own segment,
+    // and what happens to the characters either side of the break. Every pairing
+    // below was measured against Labelary's rendered modules.
+    test('QR automatic input breaks out numeric runs at the Zebra thresholds', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const [{ getBarcodeGeometry }, { default: bwipjs }] = await Promise.all([
+                import('/src/utils/barcodeGeometry.js'),
+                import('/src/vendor/bwip-js.mjs'),
+            ]);
+            const cases: Array<[string, string, string, string]> = [
+                // [label, payload, error correction, expected zplmode]
+                // Six digits pay for the switch when nothing alphanumeric follows...
+                ['tail-5', 'A1B2C:12345', 'M', 'A:11'],
+                ['tail-6', 'A1B2C:123456', 'M', 'A:6,N:6'],
+                // ...but nine are needed when the run carries on afterwards and the
+                // switch back has to be paid too.
+                ['mid-8', 'A1B2C:12345678:X1Y', 'M', 'A:18'],
+                ['mid-9', 'A1B2C:123456789:X1Y', 'M', 'A:6,N:9,A:4'],
+                // The alphanumeric tail before the break stays alphanumeric — it is only
+                // folded onward when a byte segment follows it.
+                ['weak tail kept', 'A1B2C:ABCDE1X1234567890', 'M', 'A:13,N:10'],
+                ['weak tail folded', 'A1B2C:1234abc', 'M', 'A:10,B:3'],
+                // A run the thresholds reject is byte only if some character forces it.
+                ['all alphanumeric run', ':Z123456789abc', 'M', 'A:2,N:9,B:3'],
+                ['run with byte character', 'hello:Z', 'M', 'B:7'],
+                // An ^FT-anchored FNSKU: 'HM,B' cannot go alphanumeric (the comma), and
+                // the 24-digit tail is far past the run-end threshold.
+                ['fnsku', 'HM,B002012345678901234567890', 'Q', 'B:4,N:24'],
+                // A byte run already under way is harder to break out of: it takes a
+                // numeric run of four or an alphabetic run of five to end it, so the
+                // weak '/1Z' stays in bytes and only the digits leave.
+                ['byte run keeps weak run', 'https://track.example.com/1Z999', 'H', 'B:28,N:3'],
+                // Below four digits a trailing run needs three to be worth leaving for.
+                ['two digit tail', 'abcdef12', 'M', 'B:8'],
+                ['three digit tail', 'abcdef123', 'M', 'B:6,N:3'],
+            ];
+            return cases.map(([label, text, eclevel, zplmode]) => {
+                const geom: any = getBarcodeGeometry({
+                    type: 'QRCODE', symbology: 'QR', content: text,
+                    errorCorrection: eclevel, inputMode: 'A', magnification: 5,
+                } as any);
+                // The mask only permutes a fixed set of codewords, so a match under any
+                // mask means the segmentation agrees; a different one never would.
+                const matched = [1, 2, 3, 4, 5, 6, 7, 8].some((mask) => {
+                    const expected: any = bwipjs.raw({ bcid: 'qrcode', text, eclevel, zplmode, mask })
+                        .find((entry: any) => entry?.pixs);
+                    return expected.pixs.length === geom.pixs.length
+                        && expected.pixs.every((value: number, index: number) => value === geom.pixs[index]);
+                });
+                return `${label}: ${matched}`;
+            });
+        });
+
+        expect(result).toEqual([
+            'tail-5: true', 'tail-6: true', 'mid-8: true', 'mid-9: true',
+            'weak tail kept: true', 'weak tail folded: true',
+            'all alphanumeric run: true', 'run with byte character: true', 'fnsku: true',
+            'byte run keeps weak run: true', 'two digit tail: true', 'three digit tail: true',
+        ]);
+    });
+
     test('QR import separates and preserves automatic and manual input-mode prefixes', async ({ page }) => {
         const result = await page.evaluate(async () => {
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
@@ -217,6 +278,65 @@ test.describe('Barcode symbology', () => {
                 zpl: '^FO10,500^BQN,2,5^FDMM,AABC|123^FS',
             },
         ]);
+    });
+
+    test('QR fields Zebra prints nothing for stay off the canvas', async ({ page }) => {
+        // Manual Kanji draws no symbol at all on Labelary (for Shift-JIS byte pairs as
+        // much as for ASCII), and neither does a manual byte field missing its four-digit
+        // count. Handing either to BWIPP is worse than wrong: its kanji encoder never
+        // returns on an odd byte count, so a hang here fails this test on the timeout.
+        const result = await page.evaluate(async () => {
+            const [{ ZPLParser }, { getBarcodeGeometry }] = await Promise.all([
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const kinds = (fd: string) => {
+                const zpl = '^XA^CI28^FO10,10^BQN,2,5^FD' + fd + '^FS^XZ';
+                const parsed: any = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 }).elements[0];
+                return (getBarcodeGeometry(parsed) as any).kind;
+            };
+            return {
+                kanjiAscii: kinds('MM,KABC'),
+                kanjiOddBytes: kinds('MM,K漢'),
+                byteWithoutCount: kinds('MM,BABCD'),
+                byteWithCount: kinds('MM,B0004ABCD'),
+            };
+        });
+
+        expect(result).toEqual({
+            kanjiAscii: 'empty',
+            kanjiOddBytes: 'empty',
+            byteWithoutCount: 'empty',
+            byteWithCount: 'matrix',
+        });
+    });
+
+    test('QR encodes a non-ASCII payload as single code-page bytes', async ({ page }) => {
+        // Expected modules read off the Labelary render of each ZPL at 8dpmm. The printer
+        // sends one code-page byte per character (é -> 0xE9, € -> 0x80); bwip left to
+        // itself UTF-8 encodes the string and draws a symbol that scans as different data.
+        const result = await page.evaluate(async () => {
+            const [{ ZPLParser }, { getBarcodeGeometry }] = await Promise.all([
+                import('/src/services/ZPLParser.js'),
+                import('/src/utils/barcodeGeometry.js'),
+            ]);
+            const modules = (fd: string) => {
+                const zpl = '^XA^CI28^FO50,50^BQN,2,5^FD' + fd + '^FS^XZ';
+                const parsed: any = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 100 }).elements[0];
+                return (getBarcodeGeometry(parsed) as any).pixs.join('');
+            };
+            return {
+                manualByte: modules('MM,B0002é'),
+                automatic: modules('MA,é'),
+                cp1252Only: modules('MM,B0003€'),
+            };
+        });
+
+        expect(result).toEqual({
+            manualByte: '111111101001001111111100000100001001000001101110101000001011101101110100010001011101101110101101101011101100000100111001000001111111101010101111111000000001001100000000000001100001001010101011101000111101111001010101101110000100000100111000111010101010100110110001011111110000000001010010000101111111100111110011111100000101101101000111101110100001000011100101110100101110101000101110100010011111011100000100100000101000111111100100010100110',
+            automatic: '111111101001001111111100000100001001000001101110101000001011101101110100010001011101101110101101101011101100000100111001000001111111101010101111111000000001001100000000000001100001001010101011101000111101111001010101101110000100000100111000111010101010100110110001011111110000000001010010000101111111100111110011111100000101101101000111101110100001000011100101110100101110101000101110100010011111011100000100100000101000111111100100010100110',
+            cp1252Only: '111111100010101111111100000101101101000001101110101001101011101101110101010101011101101110101101101011101100000101010101000001111111101010101111111000000000011000000000001001111110010111110000011001101011101100001110111110101111011011010000111011101100111100111000100111111000000001010101000000111111101010011000110100000101010100010010101110100001010000111101110100011010101100101110101011111111011100000100110110101100111111100100110111101',
+        });
     });
 
     test('manual QR byte count is consumed before choosing the matrix', async ({ page }) => {

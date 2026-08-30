@@ -633,6 +633,34 @@ test.describe('ZPL bitmap font bucketing', () => {
             expect(parsed.pin).toEqual({ defaultWidth: 40, widths: [25, 0] });
         });
 
+        test('an omitted ^CF height restores proportional height without changing earlier fields', async ({ page }) => {
+            const parsed = await page.evaluate(async () => {
+                const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                const parse = (zpl: string) => {
+                    const result = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 });
+                    return {
+                        defaultHeight: result.labelSettings.defaultFontHeight,
+                        defaultWidth: result.labelSettings.defaultFontWidth,
+                        sizes: result.elements.map((element: any) => [element.fontSize, element.fontWidth]),
+                    };
+                };
+                return {
+                    // ^CF0,,25 renders exactly like ^CF0,25,25 on Labelary, whatever the
+                    // earlier ^CF set: a width-only ^CF does not keep the old height.
+                    scalable: parse('^XA^CF0,65,55^FO10,10^FDwide^FS^CF0,,25^FO10,100^FDnatural^FS^XZ'),
+                    // The same for a bitmap font, at its own proportional height (^CFA,,25
+                    // renders like ^CFA,45,25).
+                    bitmap: parse('^XA^CFA,65,55^CFA,,25^FO10,10^FDnatural^FS^XZ'),
+                    // An explicit zero height is as omitted as a missing one.
+                    zeroHeight: parse('^XA^CF0,65,55^CF0,0,40^FO10,10^FDnatural^FS^XZ'),
+                };
+            });
+
+            expect(parsed.scalable).toEqual({ defaultHeight: 25, defaultWidth: 25, sizes: [[65, 55], [0, 0]] });
+            expect(parsed.bitmap).toEqual({ defaultHeight: 45, defaultWidth: 25, sizes: [[0, 0]] });
+            expect(parsed.zeroHeight).toEqual({ defaultHeight: 40, defaultWidth: 40, sizes: [[0, 0]] });
+        });
+
         test('createElementFromData snaps an inherited element to the passed label default', async ({ page }) => {
             const r = await page.evaluate(async () => {
                 const mod = await import('/src/services/SerializationService.js');
