@@ -40,6 +40,7 @@ export class TooltipManager {
   _show(el) {
     if (!this._el) return;
     this._el.textContent = el.dataset.tooltip;
+    this._el.classList.toggle('zpl-tooltip--wide', el.hasAttribute('data-tooltip-wide'));
     this._el.classList.add('visible');
     // rAF ensures _position() measures the tooltip after layout has settled
     requestAnimationFrame(() => {

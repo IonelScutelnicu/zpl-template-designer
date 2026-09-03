@@ -130,7 +130,27 @@ test.describe('Tooltips', () => {
         await expect(page.locator('.zpl-tooltip')).toContainText('Add 1D Barcode');
     });
 
-    // 7. Properties panel buttons have tooltips (after adding an element)
+    // 7. Label Setup media buttons describe their ZPL option on hover
+    test('should show tooltip for Black Mark media tracking button', async ({ page }) => {
+        await page.locator('[data-media-tracking="M"]').hover();
+        await page.waitForTimeout(600);
+        const tooltip = page.locator('.zpl-tooltip');
+        await expect(tooltip).toBeVisible();
+        await expect(tooltip).toContainText('^MNM');
+        await expect(tooltip).toContainText('black mark printed on the back');
+        await expect(tooltip).toHaveClass(/zpl-tooltip--wide/);
+    });
+
+    test('should show tooltip for Thermal Transfer label type button', async ({ page }) => {
+        await page.locator('[data-media-type="T"]').hover();
+        await page.waitForTimeout(600);
+        const tooltip = page.locator('.zpl-tooltip');
+        await expect(tooltip).toBeVisible();
+        await expect(tooltip).toContainText('^MTT');
+        await expect(tooltip).toContainText('ribbon');
+    });
+
+    // 8. Properties panel buttons have tooltips (after adding an element)
     test('should show tooltip for Center Horizontally alignment button', async ({ page }) => {
         await page.locator('#add-box-btn').click();
         await page.locator('#prop-center-x').hover();

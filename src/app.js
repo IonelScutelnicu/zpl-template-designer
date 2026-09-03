@@ -328,46 +328,20 @@ const setMirrorActive = (value) => {
   });
 };
 const mediaTrackingButtons = document.querySelectorAll('[data-media-tracking]');
-const mediaTrackingCaption = document.getElementById("media-tracking-caption");
-
-const MEDIA_TRACKING_CAPTIONS = {
-  default: {
-    code: '',
-    text: 'Optional. Leave all buttons unselected to omit ^MN from the generated ZPL.',
-  },
-  Y: { code: '^MNY', text: 'Die-cut labels separated by gaps. The printer senses each gap to find label boundaries.' },
-  N: { code: '^MNN', text: 'Receipt-style roll with no gaps or marks. Label length comes from the template (^LL), not the media.' },
-  M: { code: '^MNM', text: 'Labels with a black mark printed on the back. The printer senses each mark to set length.' },
-  A: { code: '^MNA', text: 'The printer calibrates on feed and detects the media type automatically.' },
-};
-
 const setMediaTrackingActive = (value) => {
   mediaTrackingButtons.forEach(btn => {
     const isActive = btn.getAttribute('data-media-tracking') === value;
     btn.className = `flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${isActive ? 'border-2 border-blue-500 bg-blue-50 text-blue-600' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`;
     btn.setAttribute('aria-pressed', String(isActive));
   });
-  const caption = MEDIA_TRACKING_CAPTIONS[value] || MEDIA_TRACKING_CAPTIONS.default;
-  mediaTrackingCaption.querySelector('.font-mono').textContent = caption.code;
-  mediaTrackingCaption.querySelector('[data-caption-text]').textContent = caption.text;
 };
 const mediaTypeButtons = document.querySelectorAll('[data-media-type]');
-const mediaTypeCaption = document.getElementById("media-type-caption");
-
-const MEDIA_TYPE_CAPTIONS = {
-  T: { code: '^MTT', text: 'A heated printhead transfers ink from a ribbon onto the label. Durable prints that resist heat, light, and abrasion.' },
-  D: { code: '^MTD', text: 'The printhead heats chemically coated media that darkens on contact. No ribbon needed, but prints fade over time.' },
-};
-
 const setMediaTypeActive = (value) => {
   mediaTypeButtons.forEach(btn => {
     const isActive = btn.getAttribute('data-media-type') === value;
     btn.className = `flex flex-col items-center gap-2 rounded-lg p-3 transition-colors ${isActive ? 'border-2 border-blue-500 bg-blue-50 text-blue-600' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`;
     btn.setAttribute('aria-pressed', String(isActive));
   });
-  const caption = MEDIA_TYPE_CAPTIONS[value] || MEDIA_TYPE_CAPTIONS.D;
-  mediaTypeCaption.querySelector('.font-mono').textContent = caption.code;
-  mediaTypeCaption.querySelector('[data-caption-text]').textContent = caption.text;
 };
 const mediaDarkness = document.getElementById("media-darkness");
 const printSpeed = document.getElementById("print-speed");

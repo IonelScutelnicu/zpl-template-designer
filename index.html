@@ -210,6 +210,12 @@
       visibility: visible;
     }
 
+    .zpl-tooltip--wide {
+      white-space: normal;
+      max-width: 240px;
+      text-align: left;
+    }
+
     /* Onboarding walkthrough */
     .walkthrough-spotlight {
       position: fixed;
@@ -1611,12 +1617,14 @@
                   </div>
                   <div class="pt-3 border-t border-slate-100">
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">
-                      Label Media Tracking (Optional)
+                      <span class="cursor-help" data-tooltip-wide
+                        data-tooltip="Optional. Leave all buttons unselected to omit ^MN from the generated ZPL.">Label Media Tracking (Optional)</span>
                       <a href="https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-mn.html"
                         target="_blank" class="text-blue-500 hover:underline">^MN</a>
                     </label>
                     <div class="grid grid-cols-2 gap-3">
-                      <button type="button" data-media-tracking="Y" aria-pressed="false"
+                      <button type="button" data-media-tracking="Y" data-tooltip-wide
+                        data-tooltip="^MNY — Die-cut labels separated by gaps. The printer senses each gap to find label boundaries." aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
                           <rect x="1" y="9" width="62" height="14" rx="2" fill="#d7dfec" />
@@ -1629,7 +1637,8 @@
                         </svg>
                         <span class="text-xs font-medium">Web / Gap</span>
                       </button>
-                      <button type="button" data-media-tracking="N" aria-pressed="false"
+                      <button type="button" data-media-tracking="N" data-tooltip-wide
+                        data-tooltip="^MNN — Receipt-style roll with no gaps or marks. Label length comes from the template (^LL), not the media." aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
                           <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="#ffffff" stroke="#8da0b9"
@@ -1642,7 +1651,8 @@
                         </svg>
                         <span class="text-xs font-medium">Continuous</span>
                       </button>
-                      <button type="button" data-media-tracking="M" aria-pressed="false"
+                      <button type="button" data-media-tracking="M" data-tooltip-wide
+                        data-tooltip="^MNM — Labels with a black mark printed on the back. The printer senses each mark to set length." aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
                           <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="#ffffff" stroke="#8da0b9"
@@ -1653,7 +1663,8 @@
                         </svg>
                         <span class="text-xs font-medium">Black Mark</span>
                       </button>
-                      <button type="button" data-media-tracking="A" aria-pressed="false"
+                      <button type="button" data-media-tracking="A" data-tooltip-wide
+                        data-tooltip="^MNA — The printer calibrates on feed and detects the media type automatically." aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="64" height="32" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
                           <rect x="1.5" y="9.5" width="61" height="13" rx="2" fill="none" stroke="#8da0b9"
@@ -1664,11 +1675,6 @@
                         <span class="text-xs font-medium">Auto-detect</span>
                       </button>
                     </div>
-                    <div id="media-tracking-caption"
-                      class="mt-3 rounded-lg bg-slate-50 border border-slate-100 py-2.5 px-3 text-xs text-slate-500 leading-relaxed">
-                      <span class="font-mono text-blue-500"></span> <span data-caption-text>Optional. Leave all buttons
-                        unselected to omit ^MN from the generated ZPL.</span>
-                    </div>
                   </div>
                   <div class="pt-3 border-t border-slate-100">
                     <label class="block font-medium text-slate-700 mb-1 flex justify-between">
@@ -1677,7 +1683,8 @@
                         target="_blank" class="text-blue-500 hover:underline">^MT</a>
                     </label>
                     <div class="grid grid-cols-2 gap-3">
-                      <button type="button" data-media-type="T" aria-pressed="false"
+                      <button type="button" data-media-type="T" data-tooltip-wide
+                        data-tooltip="^MTT — A heated printhead transfers ink from a ribbon onto the label. Durable prints that resist heat, light, and abrasion." aria-pressed="false"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border border-slate-200 bg-white text-slate-700 hover:border-slate-300 transition-colors">
                         <svg width="72" height="38" viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg"
                           aria-hidden="true">
@@ -1700,7 +1707,8 @@
                           <span class="block text-[11px] opacity-60">Ribbon required</span>
                         </span>
                       </button>
-                      <button type="button" data-media-type="D" aria-pressed="true"
+                      <button type="button" data-media-type="D" data-tooltip-wide
+                        data-tooltip="^MTD — The printhead heats chemically coated media that darkens on contact. No ribbon needed, but prints fade over time." aria-pressed="true"
                         class="flex flex-col items-center gap-2 rounded-lg p-3 border-2 border-blue-500 bg-blue-50 text-blue-600 transition-colors">
                         <svg width="72" height="38" viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg"
                           aria-hidden="true">
@@ -1722,12 +1730,6 @@
                           <span class="block text-[11px] opacity-60">No ribbon</span>
                         </span>
                       </button>
-                    </div>
-                    <div id="media-type-caption"
-                      class="mt-3 rounded-lg bg-slate-50 border border-slate-100 py-2.5 px-3 text-xs text-slate-500 leading-relaxed">
-                      <span class="font-mono text-blue-500">^MTD</span> <span data-caption-text>The printhead heats
-                        chemically coated media that darkens on contact. No ribbon needed, but prints fade over
-                        time.</span>
                     </div>
                   </div>
                 </div>
