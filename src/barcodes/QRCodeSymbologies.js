@@ -4,9 +4,16 @@ import { drawLinear, drawMatrix, drawMaxiCode, drawPlaceholder } from '../render
 import { drawWithReverse } from '../rendering/reverseOverlay.js';
 import { maxicodeSize, maxicodePitchDots } from './maxicodeGeometry.js';
 import { databarLinearBarDots, DATABAR_SEPARATOR_HEIGHT } from './databarGeometry.js';
+import { BY_DEFAULT_HEIGHT } from '../config/constants.js';
 
 export const DATABAR_TYPE_NUM = { omni: 1, truncated: 2, stacked: 3, stackedomni: 4, limited: 5, expanded: 6 };
 export const DATABAR_TYPE_BY_NUM = { 1: 'omni', 2: 'truncated', 3: 'stacked', 4: 'stackedomni', 5: 'limited', 6: 'expanded' };
+
+export function qrOriginYBias(element) {
+  if (element.positionType === 'FT') return BY_DEFAULT_HEIGHT;
+  const height = Number(element.byHeight);
+  return Number.isFinite(height) && height >= 1 ? Math.round(height) : BY_DEFAULT_HEIGHT;
+}
 
 function fieldData(value, element) {
   return renderFieldDataCommand(value, '_', element.fieldHex, element.fieldDataCommand);
@@ -61,11 +68,11 @@ class QRSymbology {
 
   bounds(element, geom, helpers) {
     if (geom.kind === 'empty') {
-      return { x: element.x, y: element.y, width: 0, height: 0 };
+      return { x: element.x, y: element.y + helpers.yOffset, width: 0, height: 0 };
     }
     if (geom.kind === 'matrix') {
       const { mx, my } = this.moduleDots(element);
-      return { x: element.x, y: element.y, width: geom.cols * mx, height: geom.rows * my + helpers.yOffset };
+      return { x: element.x, y: element.y + helpers.yOffset, width: geom.cols * mx, height: geom.rows * my };
     }
     return helpers.placeholderBounds(element);
   }
@@ -592,8 +599,9 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
     frame(element, transform) {
       const { scale, homeX, homeY, labelTop, transparentBackground } = transform;
       const symbology = resolveSymbology(element);
-      const yOffset = symbology === 'QR' ? 10 * scale : 0;
-      const qrYOffset = symbology === 'QR' ? (element.qrYOffset || 0) * scale : 0;
+      const yOffset = symbology === 'QR'
+        ? qrOriginYBias(element) * scale
+        : 0;
       // MaxiCode is fixed-size (density-derived pitch); every other 2D symbology
       // sizes from its own dot fields via matrixModuleDots.
       const { mx, my } = symbology === 'MAXICODE'
@@ -603,7 +611,7 @@ export function createCanvasHelpers({ matrixModuleDots, resolveSymbology, labels
         scale,
         dpmm,
         x: (element.x + homeX) * scale,
-        y: (element.y + homeY + labelTop) * scale + yOffset + qrYOffset,
+        y: (element.y + homeY + labelTop) * scale + yOffset,
         moduleW: mx * scale,
         moduleH: my * scale,
         transparentBackground,

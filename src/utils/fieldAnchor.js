@@ -330,6 +330,8 @@ function barcodeFtOffset(element, previewData) {
  *  Both measured. */
 const QR_FT_BASE_MODULE_OFFSET = 3;
 const QR_VERSION_ONE_MODULES = 21;
+// This fixed coordinate-conversion bias is independent of the modal
+// BY_DEFAULT_HEIGHT, despite both having the same power-up value.
 const QR_FO_Y_OFFSET_DOTS = 10;
 
 function qrFtModuleOffset(rows) {

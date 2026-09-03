@@ -10,7 +10,13 @@ const FIELD_X = 20;
 const FIELD_Y = 20;
 const FIELD_STEP = 130;
 
-async function renderLabelary(page: any, zpl: string): Promise<Buffer> {
+async function renderLabelary(
+    page: any,
+    zpl: string,
+    dimensions: { width?: number; height?: number } = {},
+): Promise<Buffer> {
+    const width = dimensions.width ?? LABEL_WIDTH_IN;
+    const height = dimensions.height ?? LABEL_HEIGHT_IN;
     for (let attempt = 0; attempt < 7; attempt++) {
         await waitForRateLimit();
         const result = await page.evaluate(async ({ zpl, dpmm, width, height }: any) => {
@@ -28,7 +34,7 @@ async function renderLabelary(page: any, zpl: string): Promise<Buffer> {
             let binary = '';
             for (const byte of bytes) binary += String.fromCharCode(byte);
             return { base64: btoa(binary) };
-        }, { zpl, dpmm: DPMM, width: LABEL_WIDTH_IN, height: LABEL_HEIGHT_IN });
+        }, { zpl, dpmm: DPMM, width, height });
 
         if (result.base64) return Buffer.from(result.base64, 'base64');
         await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
@@ -79,4 +85,26 @@ test('QR canvas modules match Labelary for payload lengths 1 through 9', async (
     });
 
     expect(canvasModules).toEqual(apiModules);
+});
+
+test('^FO QR inherits ^BY height 240 and starts at y=290', async ({ page }) => {
+    await page.goto('/');
+
+    const zpl = '^XA' +
+        '^FO50,480^GB712,2,2^FS' +
+        '^FO50,120^BY3,2,240^BCN,100,Y,N,N^FD1234567890^FS' +
+        '^FO600,50^BQN,2,5^FDHA,QR DATA^FS' +
+        '^XZ';
+    const png = PNG.sync.read(await renderLabelary(page, zpl, { width: 4, height: 3 }));
+    let minQrY = png.height;
+    for (let y = 250; y < Math.min(480, png.height); y++) {
+        for (let x = 550; x < Math.min(800, png.width); x++) {
+            const offset = (y * png.width + x) * 4;
+            if (png.data[offset + 3] > 0 && png.data[offset] < 128) {
+                minQrY = Math.min(minQrY, y);
+            }
+        }
+    }
+
+    expect(minQrY).toBe(290);
 });

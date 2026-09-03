@@ -5,6 +5,7 @@
 // See CONTEXT.md ("Density rescale") for the decision and edge cases.
 
 import { BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
+import { qrOriginYBias } from '../barcodes/QRCodeSymbologies.js';
 import { resampleBitmap } from '../utils/graphicField.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
 import { enforceFontMinSize, snapRequestedToAllowed } from '../utils/zplFontSnap.js';
@@ -196,6 +197,9 @@ export function applyRescale({ elements, labelSettings, oldDpmm, newDpmm }) {
         // The 2D element emits three commands with different dot fields; scale
         // the ones the active symbology actually uses (see QRCodeElement),
         // clamping each to its bound so we never emit out-of-range modules.
+        if (el.positionType !== 'FT' && (el.symbology || 'QR') === 'QR') {
+          el.byHeight = scaleDim(qrOriginYBias(el), s);
+        }
         if (el.symbology === 'DATAMATRIX') {
           el.moduleSize = scaleClamped(el.moduleSize, s, BARCODE_2D_SIZE_BOUNDS.DATAMATRIX.moduleSize);
         } else if (el.symbology === 'PDF417' || el.symbology === 'MICROPDF417' || el.symbology === 'CODE49') {

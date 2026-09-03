@@ -1,7 +1,11 @@
 import { ZPLElement } from './ZPLElement.js';
 import { fieldOriginCommand } from '../utils/fieldAnchor.js';
 import { getBarcodeGeometry, normalizeAztecRune } from '../utils/barcodeGeometry.js';
-import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
+import {
+    getQRCodeSymbology,
+    qrOriginYBias,
+} from '../barcodes/QRCodeSymbologies.js';
+import { BY_DEFAULT_HEIGHT } from '../config/constants.js';
 import { substitutePlaceholders } from '../utils/placeholders.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
@@ -9,8 +13,8 @@ import { substitutePlaceholders } from '../utils/placeholders.js';
 //   CODE49 -> ^B4 (stacked),  CODABLOCK -> ^BB (stacked),  MAXICODE -> ^BD (hexagonal),
 //   GS1DATABAR -> ^BR (GS1 DataBar family: linear + stacked),
 //   TLC39 -> ^BT (composite: Code 39 + MicroPDF417)
-// QR codes carry a 10-dot quiet-zone Y offset (Labelary renders ^BQ this way);
-// Aztec has no quiet zone, so it keeps the default 0 offset.
+// Under ^FO, QR ink starts below the origin by the active ^BY height. ^FT keeps
+// its separately calibrated 10-dot offset; other 2D symbologies have no offset.
 export class QRCodeElement extends ZPLElement {
     constructor(x = 0, y = 0, content = '', model = 2, magnification = 5, errorCorrection = 'Q', reverse = false, symbology = 'QR', moduleSize = 4, quality = 200, moduleWidth = 2, rowHeight = 4, securityLevel = 5, columns = 0, aztecSizeMode = 'auto', aztecErrorControl = 0, aztecLayers = 0, fieldHex = false, microPdfMode = 0, code49Mode = 'A', codablockMode = 'F', maxicodeMode = '4', databarType = 'omni', orientation = 'N') {
         const opts = (x && typeof x === 'object')
@@ -26,7 +30,15 @@ export class QRCodeElement extends ZPLElement {
         this.errorCorrection = opts.errorCorrection || 'Q'; // H, Q, M, L (high to low)
         this.inputMode = opts.inputMode === 'M' ? 'M' : 'A'; // A = automatic, M = manual
         this.qrManualMode = /^[ANBK]$/.test(opts.qrManualMode) ? opts.qrManualMode : 'A';
-        this.qrYOffset = opts.qrYOffset || 0;
+        const byHeight = Number(opts.byHeight);
+        if (Number.isFinite(byHeight) && byHeight >= 1) {
+            this.byHeight = Math.round(byHeight);
+        } else if (Object.prototype.hasOwnProperty.call(opts, 'qrYOffset')) {
+            const legacyOffset = Number(opts.qrYOffset);
+            if (Number.isFinite(legacyOffset)) {
+                this.byHeight = Math.max(1, Math.round(BY_DEFAULT_HEIGHT + legacyOffset));
+            }
+        }
         // Data Matrix (^BX)
         this.moduleSize = opts.moduleSize || 4;    // individual module size in dots
         this.quality = opts.quality ?? 200;          // ECC level (200 = ECC 200, recommended; 0 = ECC 000 is valid)
@@ -102,8 +114,11 @@ export class QRCodeElement extends ZPLElement {
         const reverseCmd = this.reverse ? '^FR' : '';
         // The anchor needs the encoded module count, measured from the same
         // data the symbol will carry.
-        const pos = `${fieldOriginCommand(this, undefined, { previewData })}${reverseCmd}`;
-        return `${pos}${getQRCodeSymbology(this.symbology).render(this, content)}^FS`;
+        const pos = fieldOriginCommand(this, undefined, { previewData });
+        const by = (this.symbology === 'QR' || !this.symbology) && pos.startsWith('^FO')
+            ? `^BY,,${qrOriginYBias(this)}`
+            : '';
+        return `${pos}${by}${reverseCmd}${getQRCodeSymbology(this.symbology).render(this, content)}^FS`;
     }
 
     render() {
@@ -123,7 +138,9 @@ export class QRCodeElement extends ZPLElement {
     // dpmm sizes the fixed MaxiCode symbol (defaults to the factory 8 dpmm when a
     // caller has no label settings); all other symbologies ignore it.
     getBounds(dpmm = 8, previewData = {}) {
-        const yOffset = this.symbology === 'QR' || !this.symbology ? 10 : 0;
+        const yOffset = this.symbology === 'QR' || !this.symbology
+            ? qrOriginYBias(this)
+            : 0;
         const geom = getBarcodeGeometry(this, previewData);
         const symbology = getQRCodeSymbology(this.symbology);
         const bounds = symbology.bounds(this, geom, {
@@ -131,10 +148,9 @@ export class QRCodeElement extends ZPLElement {
             dpmm,
             placeholderBounds: (element) => {
                 const size = 21 * (element.magnification || 5);
-                return { x: element.x, y: element.y, width: size, height: size + yOffset };
+                return { x: element.x, y: element.y + yOffset, width: size, height: size };
             }
         });
-        if (this.symbology === 'QR' && this.qrYOffset) bounds.y += this.qrYOffset;
         if (symbology.supportsOrientation() && (this.orientation === 'R' || this.orientation === 'B')) {
             return { x: bounds.x, y: bounds.y, width: bounds.height, height: bounds.width };
         }

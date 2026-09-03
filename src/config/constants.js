@@ -5,6 +5,9 @@
  */
 export const HISTORY_LIMIT = 100;
 
+/** Power-up height for the modal ^BY barcode defaults. */
+export const BY_DEFAULT_HEIGHT = 10;
+
 /**
  * Resident ZPL font IDs offered by the editor. Manual custom-font creation does
  * not reuse them, though an imported ^CW mapping can override one on the printer.

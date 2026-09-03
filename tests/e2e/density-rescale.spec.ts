@@ -42,7 +42,7 @@ test.describe('Density rescale', () => {
         Object.assign(t('TEXTBLOCK'), { x: 7, y: 9, fontId: '0', fontSize: 28, fontWidth: 18, blockWidth: 100, blockHeight: 60 });
         Object.assign(t('FIELDBLOCK'), { x: 3, y: 3, fontId: '0', fontSize: 26, fontWidth: 16, blockWidth: 90, lineSpacing: 4, hangingIndent: 8 });
         Object.assign(t('BARCODE'), { x: 1, y: 1, width: 3, height: 50 });
-        Object.assign(t('QRCODE'), { x: 0, y: 0, symbology: 'QR', magnification: 3 });
+        Object.assign(t('QRCODE'), { x: 0, y: 0, symbology: 'QR', magnification: 3, byHeight: 10 });
         Object.assign(s.labelSettings, { fontId: '0', defaultFontHeight: 20, defaultFontWidth: 10, homeX: 10, homeY: 6, labelTop: 4 });
       });
 
@@ -80,7 +80,7 @@ test.describe('Density rescale', () => {
       expect(r.textblock).toMatchObject({ fontSize: 84, fontWidth: 54, blockWidth: 300, blockHeight: 180 });
       expect(r.fieldblock).toMatchObject({ fontSize: 78, fontWidth: 48, blockWidth: 270, lineSpacing: 12, hangingIndent: 24 });
       expect(r.barcode).toMatchObject({ width: 9, height: 150 });
-      expect(r.qrcode).toMatchObject({ magnification: 9 });
+      expect(r.qrcode).toMatchObject({ magnification: 9, byHeight: 30 });
       expect(r.label).toEqual({ defaultFontHeight: 60, defaultFontWidth: 30, homeX: 30, homeY: 18, labelTop: 4 });
     });
 
@@ -112,6 +112,20 @@ test.describe('Density rescale', () => {
 
       expect(result.box).toMatchObject({ width: 32000, height: 32000, thickness: 32000 });
       expect(result.line).toMatchObject({ width: 32000, thickness: 32000 });
+    });
+
+    test('materializes and rescales the effective QR ^BY height, but leaves ^FT independent', async ({ page }) => {
+      const result = await page.evaluate(async () => {
+        const { applyRescale } = await import('/src/services/DensityRescaleService.js');
+        const fieldOrigin: any = { type: 'QRCODE', symbology: 'QR', x: 10, y: 20, magnification: 3 };
+        const fieldTypeset: any = { type: 'QRCODE', symbology: 'QR', x: 10, y: 20, magnification: 3, positionType: 'FT' };
+        applyRescale({ elements: [fieldOrigin, fieldTypeset], labelSettings: {}, oldDpmm: 8, newDpmm: 24 });
+        return { fieldOrigin, fieldTypeset };
+      });
+
+      expect(result.fieldOrigin).toMatchObject({ x: 30, y: 60, magnification: 9, byHeight: 30 });
+      expect(result.fieldTypeset).toMatchObject({ x: 30, y: 60, magnification: 9, positionType: 'FT' });
+      expect(result.fieldTypeset.byHeight).toBeUndefined();
     });
   });
 

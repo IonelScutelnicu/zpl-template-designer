@@ -9,7 +9,7 @@ import { placeholderName } from '../utils/placeholders.js';
 import { emittedOriginOffset, normalizeFoJustifyImport, normalizeFtImport, typesetCursorAdvance } from '../utils/fieldAnchor.js';
 import { getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive, isUnknownFontId, normalizePrinterFontPath, nextCustomFontId, resolveRenderFontId } from '../utils/customFonts.js';
-import { DEFAULT_FONT_ID } from '../config/constants.js';
+import { BY_DEFAULT_HEIGHT, DEFAULT_FONT_ID } from '../config/constants.js';
 import { clampCharGap, normalizePrintDirection } from '../utils/fieldParameter.js';
 
 // ZPL with no ^CF is read the way a printer would read it: font A at magnification 1
@@ -172,6 +172,11 @@ const FIELD_STRUCTURE_COMMANDS = new Set(['FO', 'FT', 'FS', 'FW', 'BY', 'FX']);
 function byModuleWidth(raw, fallback) {
   const value = Math.round(parseFloat(raw));
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function byBarHeight(raw, fallback) {
+  const value = parseInt(raw, 10);
+  return Number.isNaN(value) ? fallback : Math.max(1, Math.abs(value));
 }
 
 /**
@@ -377,7 +382,7 @@ export class ZPLParser {
       currentGroup: null,
       // ^BY power-up defaults: w=2 dots, r=3.0 wide:narrow (^BY doc). The ratio is the
       // printer's, not the editor's — a ^BY that omits r prints Code 39 & friends at 3:1.
-      barcodeDefaults: { width: 2, ratio: 3.0, height: 50 },
+      barcodeDefaults: { width: 2, ratio: 3.0, height: BY_DEFAULT_HEIGHT },
       defaultFont: { id: DEFAULT_FONT_ID, height: POWER_UP_FONT_HEIGHT, width: 0 },
       // Whether a ^CF has supplied a height yet. Until one does the printer has no
       // permanent height for an ^A to fall back on — see _resolveFontSize.
@@ -949,11 +954,10 @@ export class ZPLParser {
   _parseBY(token, state) {
     const parts = token.params.split(',');
     if (parts[0]) state.barcodeDefaults.width = byModuleWidth(parts[0], state.barcodeDefaults.width);
-    // An unreadable value leaves the parameter alone — ^BY's parameters persist and
-    // the doc has an out-of-range value ignored, not reset to the power-up default.
-    // The per-field override in _parseBarcode falls back the same way.
+    // An unreadable value leaves the height alone. Numeric height is unsigned and
+    // floors at 1; values above the documented maximum remain effective.
     if (parts[1]) state.barcodeDefaults.ratio = parseFloat(parts[1]) || state.barcodeDefaults.ratio;
-    if (parts[2]) state.barcodeDefaults.height = parseInt(parts[2]) || state.barcodeDefaults.height;
+    state.barcodeDefaults.height = byBarHeight(parts[2], state.barcodeDefaults.height);
     // Kept verbatim so a preserved barcode can re-assert these defaults; see
     // _buildRawData.
     if (token.start >= 0 && token.end > token.start) {
@@ -1874,7 +1878,7 @@ export class ZPLParser {
       const byParts = byToken.params.split(',');
       if (byParts[0]) width = byModuleWidth(byParts[0], width);
       if (byParts[1]) ratio = parseFloat(byParts[1]) || ratio;
-      if (byParts[2]) height = parseInt(byParts[2]) || height;
+      height = byBarHeight(byParts[2], height);
     }
     // The command's own height parameter, when present, overrides the ^BY default.
     if (parts[heightIdx]) height = parseInt(parts[heightIdx]) || height;
@@ -2116,10 +2120,6 @@ export class ZPLParser {
       }
     }
 
-    // Labelary offsets an invalid manual-alphanumeric QR by the active ^BY height.
-    const invalidManualAlpha = inputMode === 'M' && qrManualMode === 'A' &&
-      /[^0-9A-Z $%*+\-./:]/u.test(rawData);
-
     return {
       type: 'QRCODE',
       symbology: 'QR',
@@ -2133,7 +2133,7 @@ export class ZPLParser {
       errorCorrection,
       inputMode,
       qrManualMode,
-      qrYOffset: invalidManualAlpha ? state.barcodeDefaults.height : 0,
+      ...(group.isFT ? {} : { byHeight: state.barcodeDefaults.height }),
       reverse: hasReverse
     };
   }

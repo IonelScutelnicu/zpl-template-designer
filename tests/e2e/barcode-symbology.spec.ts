@@ -223,7 +223,7 @@ test.describe('Barcode symbology', () => {
                 errorCorrection: data.errorCorrection,
                 inputMode: data.inputMode,
                 qrManualMode: data.qrManualMode,
-                qrYOffset: data.qrYOffset,
+                byHeight: data.byHeight,
                 zpl: new QRCodeElement(data).render(),
             }));
         });
@@ -234,50 +234,183 @@ test.describe('Barcode symbology', () => {
                 errorCorrection: 'M',
                 inputMode: 'M',
                 qrManualMode: 'A',
-                qrYOffset: 0,
-                zpl: '^FO10,10^BQN,2,5^FDMM,AAC-42^FS',
+                byHeight: 10,
+                zpl: '^FO10,10^BY,,10^BQN,2,5^FDMM,AAC-42^FS',
             },
             {
                 content: 'hello',
                 errorCorrection: 'H',
                 inputMode: 'A',
                 qrManualMode: '',
-                qrYOffset: 0,
-                zpl: '^FO10,100^BQN,2,5^FDHA,hello^FS',
+                byHeight: 10,
+                zpl: '^FO10,100^BY,,10^BQN,2,5^FDHA,hello^FS',
             },
             {
                 content: '{barcode}',
                 errorCorrection: 'M',
                 inputMode: 'A',
                 qrManualMode: '',
-                qrYOffset: 0,
-                zpl: '^FO10,200^BQN,2,5^FDMA,{barcode}^FS',
+                byHeight: 10,
+                zpl: '^FO10,200^BY,,10^BQN,2,5^FDMA,{barcode}^FS',
             },
             {
                 content: 'p://example.com',
                 errorCorrection: 'H',
                 inputMode: 'A',
                 qrManualMode: '',
-                qrYOffset: 0,
-                zpl: '^FO10,300^BQN,2,5^FDHA,p://example.com^FS',
+                byHeight: 10,
+                zpl: '^FO10,300^BY,,10^BQN,2,5^FDHA,p://example.com^FS',
             },
             {
                 content: 'kage',
                 errorCorrection: 'Q',
                 inputMode: 'A',
                 qrManualMode: '',
-                qrYOffset: 0,
-                zpl: '^FO10,400^BQN,2,5^FDQA,kage^FS',
+                byHeight: 10,
+                zpl: '^FO10,400^BY,,10^BQN,2,5^FDQA,kage^FS',
             },
             {
                 content: 'ABC|123',
                 errorCorrection: 'M',
                 inputMode: 'M',
                 qrManualMode: 'A',
-                qrYOffset: 145,
-                zpl: '^FO10,500^BQN,2,5^FDMM,AABC|123^FS',
+                byHeight: 145,
+                zpl: '^FO10,500^BY,,145^BQN,2,5^FDMM,AABC|123^FS',
             },
         ]);
+    });
+
+    test('1D barcode import uses the ^BY power-up height when no height is supplied', async ({ page }) => {
+        const height = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            return new ZPLParser().parse('^XA^FO10,10^BCN^FD123456^FS^XZ').elements[0].height;
+        });
+
+        expect(height).toBe(10);
+    });
+
+    test('^BY height floors zero, ignores the sign, preserves large values, and retains on unreadable input', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            const parser = new ZPLParser();
+            const modalHeight = (value: string) => parser.parse(
+                `^XA^BY,,100^BY,,${value}^FO10,10^BQN,2,5^FDQA,DATA^FS^XZ`,
+            ).elements[0].byHeight;
+            const inlineHeight = (value: string) => parser.parse(
+                `^XA^BY,,100^FO10,10^BY,,${value}^BCN^FD123456^FS^XZ`,
+            ).elements[0].height;
+            return {
+                zero: modalHeight('0'),
+                negative: modalHeight('-5'),
+                unreadable: modalHeight('abc'),
+                aboveMaximum: modalHeight('40000'),
+                inlineZero: inlineHeight('0'),
+                inlineNegative: inlineHeight('-5'),
+            };
+        });
+
+        expect(result).toEqual({
+            zero: 1,
+            negative: 5,
+            unreadable: 100,
+            aboveMaximum: 40000,
+            inlineZero: 1,
+            inlineNegative: 5,
+        });
+    });
+
+    test('QR ^FO captures modal, inherited, and inline ^BY heights while ^FT ignores them', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const [{ ZPLParser }, { SerializationService }] = await Promise.all([
+                import('/src/services/ZPLParser.js'),
+                import('/src/services/SerializationService.js'),
+            ]);
+            const zpl = [
+                '^XA',
+                '^FO10,10^BQN,2,5^FDQA,default^FS',
+                '^BY,,1^FO10,40^BQN,2,5^FDMM,AONE^FS',
+                '^BY,,10^FO10,70^BQN,2,5^FDQA,ten^FS',
+                '^BY,,50^FO10,100^BQN,2,5^FDQA,fifty^FS',
+                '^BY,,100^FO10,130^BQN,2,5^FDQA,hundred^FS',
+                '^BY,,240^FO10,160^BQN,2,5^FDQA,two-forty^FS',
+                '^BY3,2^FO10,190^BQN,2,5^FDQA,inherited^FS',
+                '^FO10,220^BY,,50^BQN,2,5^FDMM,AINLINE^FS',
+                '^BY,,10^FT400,500^BQN,2,5^FDQA,typeset^FS',
+                '^BY,,240^FT400,500^BQN,2,5^FDQA,typeset^FS',
+                '^XZ',
+            ].join('');
+            const elements: any[] = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 100 }).elements;
+            const serializer = new SerializationService();
+            return elements.map((data: any) => {
+                const element: any = serializer.createElementFromData(data);
+                return {
+                    byHeight: data.byHeight,
+                    positionType: data.positionType || 'FO',
+                    y: data.y,
+                    out: element.render(),
+                };
+            });
+        });
+
+        expect(result.slice(0, 8).map((row) => row.byHeight)).toEqual([10, 1, 10, 50, 100, 240, 240, 50]);
+        expect(result.slice(0, 8).map((row) => row.out.match(/\^BY,,(\d+)\^BQ/)?.[1])).toEqual(
+            ['10', '1', '10', '50', '100', '240', '240', '50'],
+        );
+        expect(result[1].out).toContain('^FDMM,AONE');
+        expect(result[7].out).toContain('^FDMM,AINLINE');
+        expect(result.slice(8)).toHaveLength(2);
+        expect(result[8]).toMatchObject({ byHeight: undefined, positionType: 'FT' });
+        expect(result[9]).toMatchObject({ byHeight: undefined, positionType: 'FT', y: result[8].y });
+        expect(result[8].out).not.toContain('^BY');
+        expect(result[9].out).not.toContain('^BY');
+    });
+
+    test('^FO QR inherits ^BY height 240, draws at y=290, and round-trips deterministically', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const [{ ZPLParser }, { SerializationService }, { QRCodeRenderer }] = await Promise.all([
+                import('/src/services/ZPLParser.js'),
+                import('/src/services/SerializationService.js'),
+                import('/src/rendering/QRCodeRenderer.js'),
+            ]);
+            const source = '^XA' +
+                '^FO50,480^GB712,2,2^FS' +
+                '^FO50,120^BY3,2,240^BCN,100,Y,N,N^FD1234567890^FS' +
+                '^FO600,50^BQN,2,5^FDHA,QR DATA^FS' +
+                '^XZ';
+            const parser = new ZPLParser();
+            const parsed: any = parser.parse(source, { dpmm: 8, labelHeight: 100 }).elements
+                .find((element: any) => element.type === 'QRCODE');
+            const element: any = new SerializationService().createElementFromData(parsed);
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 500;
+            const ctx = canvas.getContext('2d')!;
+            new QRCodeRenderer().render(ctx, canvas, element, { dpmm: 8, previewData: {} }, {
+                scale: 1, homeX: 0, homeY: 0, labelTop: 0, transparentBackground: true,
+            });
+            const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let minInkY = canvas.height;
+            for (let index = 3; index < pixels.length; index += 4) {
+                if (pixels[index] > 0) minInkY = Math.min(minInkY, Math.floor((index / 4) / canvas.width));
+            }
+            const out = element.render();
+            const roundTrip: any = parser.parse(`^XA${out}^XZ`, { dpmm: 8, labelHeight: 100 }).elements[0];
+            return {
+                byHeight: element.byHeight,
+                boundsY: element.getBounds().y,
+                minInkY,
+                out,
+                roundTripHeight: roundTrip.byHeight,
+            };
+        });
+
+        expect(result).toMatchObject({
+            byHeight: 240,
+            boundsY: 290,
+            minInkY: 290,
+            roundTripHeight: 240,
+        });
+        expect(result.out).toBe('^FO600,50^BY,,240^BQN,2,5^FDHA,QR DATA^FS');
     });
 
     test('QR fields Zebra prints nothing for stay off the canvas', async ({ page }) => {
@@ -380,8 +513,8 @@ test.describe('Barcode symbology', () => {
         });
 
         expect(result).toEqual([
-            { kind: 'empty', zpl: '^FO10,10^BQN,1,1^FDQA,model-one^FS' },
-            { kind: 'matrix', zpl: '^FO10,100^BQN,2,11^FDQA,large^FS' },
+            { kind: 'empty', zpl: '^FO10,10^BY,,10^BQN,1,1^FDQA,model-one^FS' },
+            { kind: 'matrix', zpl: '^FO10,100^BY,,10^BQN,2,11^FDQA,large^FS' },
         ]);
     });
 
