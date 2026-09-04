@@ -3,6 +3,8 @@
 // development comes back to the same label instead of a blank one. Deliberately
 // inert on any other host: this is a dev aid, not a product feature.
 
+import { safeLocalStorageRemove } from '../utils/storage.js';
+
 const DRAFT_KEY = 'zebra-local-draft';
 const SAVE_DELAY = 500;
 
@@ -47,5 +49,5 @@ export function readLocalDraft() {
 }
 
 export function clearLocalDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch { }
+  safeLocalStorageRemove(DRAFT_KEY);
 }

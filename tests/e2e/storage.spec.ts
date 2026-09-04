@@ -36,4 +36,15 @@ test.describe('safe localStorage removal', () => {
 
         expect(error).toBeNull();
     });
+
+    test('clearLocalDraft removes the saved draft through the safe helper', async ({ page }) => {
+        const value = await page.evaluate(async () => {
+            localStorage.setItem('zebra-local-draft', 'draft');
+            const { clearLocalDraft } = await import('/src/services/LocalDraftService.js');
+            clearLocalDraft();
+            return localStorage.getItem('zebra-local-draft');
+        });
+
+        expect(value).toBeNull();
+    });
 });
