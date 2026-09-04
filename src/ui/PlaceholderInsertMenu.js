@@ -9,7 +9,7 @@
 // tracked instead.
 
 import { isValidPlaceholderName } from '../utils/placeholders.js';
-import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
+import { escapeHtml } from '../utils/dom-helpers.js';
 
 export class PlaceholderInsertMenu {
   /**
@@ -114,7 +114,7 @@ export class PlaceholderInsertMenu {
     const canDefine = isValidPlaceholderName(typed) && !this.getNames().includes(typed);
 
     const rows = matches.map((name) => `
-      <button type="button" data-insert="${escapeAttr(name)}"
+      <button type="button" data-insert="${escapeHtml(name)}"
         class="w-full flex items-baseline justify-between gap-3 px-3 py-1.5 text-left hover:bg-blue-50">
         <span class="font-mono text-xs text-slate-700">%${escapeHtml(name)}%</span>
         <span class="shrink-0 truncate text-[11px] text-slate-400">${escapeHtml(values[name] ?? '')}</span>
@@ -123,7 +123,7 @@ export class PlaceholderInsertMenu {
     this.panel.innerHTML = `
       <div class="p-2 border-b border-slate-100">
         <input type="text" data-search placeholder="Search placeholders…" autocomplete="off"
-          value="${escapeAttr(this.query)}"
+          value="${escapeHtml(this.query)}"
           class="w-full rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white" />
       </div>
       ${matches.length > 0 ? `

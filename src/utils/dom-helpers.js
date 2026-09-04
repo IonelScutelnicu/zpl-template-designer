@@ -16,15 +16,6 @@ export function escapeHtml(s) {
 }
 
 /**
- * Escape a string for safe insertion into an HTML attribute value.
- * Currently identical to escapeHtml — kept as a separate export so
- * call sites read naturally (`escapeAttr` for attributes).
- */
-export function escapeAttr(s) {
-  return escapeHtml(s);
-}
-
-/**
  * Grow a textarea to fit its content, so a one-row box stays one row until the
  * value actually wraps or contains a line break.
  *

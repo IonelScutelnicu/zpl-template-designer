@@ -5,7 +5,7 @@
 import { renderTemplateThumb } from './rendering/GalleryThumbnailRenderer.js';
 import { ZPLGenerator } from './services/ZPLGenerator.js';
 import { SerializationService } from './services/SerializationService.js';
-import { escapeHtml, escapeAttr, formatDate } from './utils/dom-helpers.js';
+import { escapeHtml, formatDate } from './utils/dom-helpers.js';
 import * as driveAuth from './services/DriveAuth.js';
 import * as drive from './services/DriveFiles.js';
 import { isConfigured } from './config/drive-config.js';
@@ -507,7 +507,7 @@ function buildCard(t) {
     '<span class="pill">' + t.dpi + ' dpi</span>';
   var actionLabel = t.source === 'mine' ? 'Edit template' : 'Use template';
   var classes = 'tcard' + (t.source === 'mine' ? ' private' : '');
-  return '<div class="' + classes + '" data-id="' + escapeAttr(t.id) + '">' +
+  return '<div class="' + classes + '" data-id="' + escapeHtml(t.id) + '">' +
     '<div class="thumb-wrap">' + badges + thumbHtml(t.thumb) + '</div>' +
     '<div class="meta">' +
       '<div class="name-row"><div class="name">' + escapeHtml(t.name) + '</div><div class="dim">' + escapeHtml(t.media) + '</div></div>' +
@@ -516,7 +516,7 @@ function buildCard(t) {
     '</div>' +
     '<div class="footer">' +
       '<span class="uses">' + (USE_LABELS[t.use] || escapeHtml(t.use)) + '</span>' +
-      '<button class="use-btn" data-id="' + escapeAttr(t.id) + '">' + actionLabel + ' <span class="material-icons-round" aria-hidden="true">arrow_forward</span></button>' +
+      '<button class="use-btn" data-id="' + escapeHtml(t.id) + '">' + actionLabel + ' <span class="material-icons-round" aria-hidden="true">arrow_forward</span></button>' +
     '</div>' +
     '</div>';
 }
@@ -949,7 +949,7 @@ function renderHeaderChip() {
   var profile = s.profile || {};
   var initial = (profile.name || '?').charAt(0).toUpperCase();
   var avatarHtml = profile.picture
-    ? '<span class="drive-avatar"><img src="' + escapeAttr(profile.picture) + '" alt=""></span>'
+    ? '<span class="drive-avatar"><img src="' + escapeHtml(profile.picture) + '" alt=""></span>'
     : '<span class="drive-avatar">' + escapeHtml(initial) + '</span>';
 
   host.innerHTML = '<div class="drive-chip">' +

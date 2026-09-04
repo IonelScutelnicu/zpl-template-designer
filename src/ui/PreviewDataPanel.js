@@ -9,7 +9,7 @@
 // an "Unused" heading rather than disappearing.
 
 import { placeholderNames, isValidPlaceholderName } from '../utils/placeholders.js';
-import { escapeHtml, escapeAttr, autoGrowTextarea } from '../utils/dom-helpers.js';
+import { escapeHtml, autoGrowTextarea } from '../utils/dom-helpers.js';
 
 export class PreviewDataPanel {
   /**
@@ -119,11 +119,11 @@ export class PreviewDataPanel {
         <div class="flex items-center justify-between gap-1 mb-1.5">
           <span class="min-w-0 break-all text-[11px] leading-tight text-slate-500 font-mono">${escapeHtml(name)}</span>
           ${isUsed ? '' : `
-            <button type="button" data-remove-placeholder="${escapeAttr(name)}"
-              aria-label="Remove ${escapeAttr(name)}"
+            <button type="button" data-remove-placeholder="${escapeHtml(name)}"
+              aria-label="Remove ${escapeHtml(name)}"
               class="shrink-0 text-slate-300 hover:text-red-500 leading-none text-sm">&times;</button>`}
         </div>
-        <textarea rows="1" data-placeholder="${escapeAttr(name)}" placeholder="${escapeAttr(name)}"
+        <textarea rows="1" data-placeholder="${escapeHtml(name)}" placeholder="${escapeHtml(name)}"
           class="w-full resize-none overflow-hidden rounded-md border border-slate-200 py-1 px-2 text-xs text-slate-700 bg-white">
 ${escapeHtml(this.values[name] ?? '')}</textarea>
       </div>`;

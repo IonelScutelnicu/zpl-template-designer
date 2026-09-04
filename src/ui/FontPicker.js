@@ -6,7 +6,7 @@
 
 import { BUILTIN_FONTS, ZPL_FONTS, DEFAULT_FONT_ID } from '../config/constants.js';
 import { customFontFamily, exceedsApiPreview } from '../utils/customFonts.js';
-import { escapeAttr, escapeHtml } from '../utils/dom-helpers.js';
+import { escapeHtml } from '../utils/dom-helpers.js';
 import { ensureCustomFontLoaded, ensureFontLoaded } from '../utils/fontLoader.js';
 
 const SPECIMEN_TEXT = 'ABC 123';
@@ -87,15 +87,15 @@ function groupHeaderHtml(title, count) {
 function optionHtml(info, selected) {
   const rowTone = selected ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-slate-50';
   const chip = info.chip
-    ? `<span class="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-600" title="${escapeAttr(info.chip.title)}">${info.chip.text}</span>`
+    ? `<span class="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-600" title="${escapeHtml(info.chip.title)}">${info.chip.text}</span>`
     : '';
   return `
-    <button type="button" role="option" data-font-id="${escapeAttr(info.id)}" aria-selected="${selected}"
+    <button type="button" role="option" data-font-id="${escapeHtml(info.id)}" aria-selected="${selected}"
       class="font-picker-option w-full flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition ${rowTone}">
       ${badgeHtml(info.id, selected)}
       <span class="flex-1 min-w-0">
         <span class="block truncate leading-tight text-slate-800"
-          style="font-family: ${escapeAttr(info.family)}; font-weight: ${info.weight}; font-size: ${info.size}px">${SPECIMEN_TEXT}</span>
+          style="font-family: ${escapeHtml(info.family)}; font-weight: ${info.weight}; font-size: ${info.size}px">${SPECIMEN_TEXT}</span>
         <span class="block truncate font-mono text-[10px] text-slate-400">${escapeHtml(info.meta)}</span>
       </span>
       ${chip}
@@ -149,7 +149,7 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
     ? `<select id="${selectId}" class="sr-only" tabindex="-1" aria-hidden="true">
          <option value="" ${current ? '' : 'selected'}>Use label default</option>
          ${BUILTIN_FONTS.map(id => `<option value="${id}" ${current === id ? 'selected' : ''}>${escapeHtml(infoFor(id).meta)}</option>`).join('')}
-         ${customOnly.map(font => `<option value="${escapeAttr(font.id)}" ${current === font.id ? 'selected' : ''}>${escapeHtml(infoFor(font.id).meta)}</option>`).join('')}
+         ${customOnly.map(font => `<option value="${escapeHtml(font.id)}" ${current === font.id ? 'selected' : ''}>${escapeHtml(infoFor(font.id).meta)}</option>`).join('')}
        </select>`
     : '';
 
@@ -166,7 +166,7 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
   ].join('');
 
   return `
-    <div class="font-picker relative" data-select="${escapeAttr(selectId)}" data-open="false">
+    <div class="font-picker relative" data-select="${escapeHtml(selectId)}" data-open="false">
       ${nativeSelect}
       <button type="button" class="font-picker-trigger w-full flex items-center gap-2.5 rounded-lg border border-blue-300 bg-white px-2.5 py-2 text-left shadow-sm ring-1 ring-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 transition"
         aria-haspopup="listbox" aria-expanded="false">
@@ -174,7 +174,7 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
         <span class="font-picker-chevron material-icons-round shrink-0 text-lg text-slate-400 transition-transform">expand_more</span>
       </button>
       <div class="font-picker-menu hidden fixed z-50 rounded-xl border border-slate-200 bg-white shadow-xl"
-        data-menu-for="${escapeAttr(selectId)}" role="listbox">
+        data-menu-for="${escapeHtml(selectId)}" role="listbox">
         <div class="font-picker-list max-h-72 overflow-auto p-1.5">${groups}</div>
       </div>
     </div>`;

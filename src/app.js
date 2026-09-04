@@ -32,7 +32,7 @@ import { DensityRescaleModal } from './ui/DensityRescaleModal.js';
 import { analyzeRescale, applyRescale } from './services/DensityRescaleService.js';
 import { imageToBitmap } from './utils/graphicField.js';
 import { loadImage } from './utils/loadImage.js';
-import { escapeHtml, escapeAttr, autoGrowTextarea } from './utils/dom-helpers.js';
+import { escapeHtml, autoGrowTextarea } from './utils/dom-helpers.js';
 import { createTemplate, loadTemplate, updateTemplate } from './services/DriveFiles.js';
 import * as driveAuth from './services/DriveAuth.js';
 import { isConfigured as isDriveConfigured } from './config/drive-config.js';
@@ -4053,7 +4053,7 @@ function renderEditorHeaderChip() {
   const profile = authState.profile || {};
   const initial = (profile.name || '?').charAt(0).toUpperCase();
   const avatarHtml = profile.picture
-    ? `<img src="${escapeAttr(profile.picture)}" class="w-6 h-6 rounded-full object-cover flex-shrink-0" alt="">`
+    ? `<img src="${escapeHtml(profile.picture)}" class="w-6 h-6 rounded-full object-cover flex-shrink-0" alt="">`
     : `<span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold inline-flex items-center justify-center flex-shrink-0">${escapeHtml(initial)}</span>`;
 
   host.innerHTML = `<div class="relative inline-flex items-center">

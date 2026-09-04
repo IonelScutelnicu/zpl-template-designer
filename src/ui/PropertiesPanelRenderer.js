@@ -7,7 +7,7 @@ import { supportsFieldTypeset } from '../utils/fieldAnchor.js';
 import { FP_MAX_CHAR_GAP, PRINT_DIRECTIONS } from '../utils/fieldParameter.js';
 import { fontSizeSelectHtml } from './fontSizeSelect.js';
 import { fontPickerHtml } from './FontPicker.js';
-import { escapeHtml, escapeAttr } from '../utils/dom-helpers.js';
+import { escapeHtml } from '../utils/dom-helpers.js';
 import { SYMBOLOGY_LABELS, SYMBOLOGY_META, BARCODE_SYMBOLOGIES, QR_SYMBOLOGIES, BARCODE_2D_SIZE_BOUNDS } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
@@ -299,7 +299,7 @@ export class PropertiesPanelRenderer {
         <input
           type="${type}"
           id="${id}"
-          value="${escapeAttr(displayValue)}"
+          value="${escapeHtml(displayValue)}"
           ${attributes}
           class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${disabled ? "text-slate-400 bg-slate-50 cursor-not-allowed" : "text-slate-700 bg-white"}"
         >
@@ -342,7 +342,7 @@ export class PropertiesPanelRenderer {
       <div class="mb-3">
         <label class="block text-xs font-medium text-slate-700 mb-1">${label}</label>
         <select id="${id}" class="w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-          ${options.map(([v, lbl]) => `<option value="${escapeAttr(v)}" ${String(value) === String(v) ? "selected" : ""}>${lbl}</option>`).join("")}
+          ${options.map(([v, lbl]) => `<option value="${escapeHtml(v)}" ${String(value) === String(v) ? "selected" : ""}>${lbl}</option>`).join("")}
         </select>
       </div>
     `;
@@ -596,7 +596,7 @@ export class PropertiesPanelRenderer {
     const shared = "w-full rounded-md border border-slate-200 py-1.5 px-2 text-xs text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white";
     const field = rows > 0
       ? `<textarea id="prop-content" rows="${rows}" autocomplete="off" class="${shared}">${escapeHtml(element.content)}</textarea>`
-      : `<input type="text" id="prop-content" value="${escapeAttr(element.content)}" autocomplete="off" class="${shared}">`;
+      : `<input type="text" id="prop-content" value="${escapeHtml(element.content)}" autocomplete="off" class="${shared}">`;
 
     return `
       <div class="mb-3">
@@ -644,7 +644,7 @@ export class PropertiesPanelRenderer {
           ${names.map(name => `
             <div>
               <span class="block break-all text-[10px] leading-tight font-mono text-amber-800">%${escapeHtml(name)}%</span>
-              <textarea rows="1" data-content-placeholder="${escapeAttr(name)}" placeholder="Preview value"
+              <textarea rows="1" data-content-placeholder="${escapeHtml(name)}" placeholder="Preview value"
                 class="w-full resize-none overflow-hidden rounded-md border border-amber-200 py-1 px-2 text-xs text-slate-700 bg-white focus:ring-1 focus:ring-amber-400 focus:border-amber-400">
 ${escapeHtml(values[name] ?? "")}</textarea>
             </div>

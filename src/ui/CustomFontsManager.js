@@ -2,7 +2,7 @@
 // Manages the custom fonts UI and functionality
 
 import { CUSTOM_FONT_IDS, PRINTER_FONT_PATH_RE, customFontFamily, ensurePrinterDrive, exceedsApiPreview, normalizePrinterFontPath } from '../utils/customFonts.js';
-import { escapeAttr, escapeHtml } from '../utils/dom-helpers.js';
+import { escapeHtml } from '../utils/dom-helpers.js';
 import { ensureCustomFontLoaded } from '../utils/fontLoader.js';
 
 // Kept short on purpose: the specimen box narrows to ~130px in the compact
@@ -139,24 +139,24 @@ export class CustomFontsManager {
         <div class="flex items-center gap-2">
           <span class="font-mono font-bold text-blue-600 w-6">${escapeHtml(font.id)}</span>
           <span class="custom-font-file flex-1 text-slate-600 truncate text-[11px] cursor-pointer hover:text-blue-600"
-            data-font-id="${escapeAttr(font.id)}" title="${escapeAttr(font.fontFile)} (click to edit)">${escapeHtml(font.fontFile)}</span>
+            data-font-id="${escapeHtml(font.id)}" title="${escapeHtml(font.fontFile)} (click to edit)">${escapeHtml(font.fontFile)}</span>
           ${font.source ? `${exceedsApiPreview(font.source)
             ? '<span class="text-[9px] text-amber-600" title="Over 2 MB: canvas preview only">Canvas only</span>'
             : '<span class="text-[9px] text-emerald-600">Ready</span>'}
           <button class="export-custom-font text-slate-400 hover:text-blue-500 transition-colors p-0.5"
-            data-font-id="${escapeAttr(font.id)}" title="Export printer install ZPL">
+            data-font-id="${escapeHtml(font.id)}" title="Export printer install ZPL">
             <span class="material-icons-round text-sm">download</span>
           </button>` : ''}
           <button class="remove-custom-font text-slate-400 hover:text-red-500 transition-colors p-0.5"
-            data-font-id="${escapeAttr(font.id)}" title="Remove">
+            data-font-id="${escapeHtml(font.id)}" title="Remove">
             <span class="material-icons-round text-sm">close</span>
           </button>
         </div>
         ${font.source ? `<button class="replace-preview-font w-full text-left truncate rounded border border-slate-200 bg-white px-2 py-1.5 text-[15px] leading-tight text-slate-700 hover:border-blue-300 transition-colors"
-          data-font-id="${escapeAttr(font.id)}" title="${escapeAttr(font.source.fileName || 'Preview file')} (click to replace)"
+          data-font-id="${escapeHtml(font.id)}" title="${escapeHtml(font.source.fileName || 'Preview file')} (click to replace)"
           style="font-family: '${customFontFamily(font.source)}', Arial, sans-serif">${SPECIMEN_TEXT}</button>`
         : `<button class="attach-custom-font w-full flex items-center justify-center gap-1 py-1 rounded border border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors"
-          data-font-id="${escapeAttr(font.id)}" title="Attach a TTF so this font previews in its real face">
+          data-font-id="${escapeHtml(font.id)}" title="Attach a TTF so this font previews in its real face">
           <span class="material-icons-round text-sm">add</span>
           <span>Add preview file</span>
         </button>`}
