@@ -3755,8 +3755,8 @@ function handleZPLImport() {
     zplImportWarnings.classList.remove('hidden');
     zplImportWarningsList.innerHTML = result.warnings
       .map(w => {
-        const cmd = w.command ? `<code class="bg-amber-100 px-1 rounded">${escapeHtmlForZPLImport(w.command)}</code> ` : '';
-        return `<li>${cmd}${escapeHtmlForZPLImport(w.message)}</li>`;
+        const cmd = w.command ? `<code class="bg-amber-100 px-1 rounded">${escapeHtml(w.command)}</code> ` : '';
+        return `<li>${cmd}${escapeHtml(w.message)}</li>`;
       })
       .join('');
     zplImportConfirmBtn.textContent = 'Import Anyway';
@@ -3776,12 +3776,6 @@ async function finalizeZPLImport(result) {
     labelSettings: result.labelSettings
   });
   closeZPLImportModal();
-}
-
-function escapeHtmlForZPLImport(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // Import Template from JSON
