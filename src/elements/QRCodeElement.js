@@ -5,7 +5,6 @@ import {
     getQRCodeSymbology,
     qrOriginYBias,
 } from '../barcodes/QRCodeSymbologies.js';
-import { BY_DEFAULT_HEIGHT } from '../config/constants.js';
 import { substitutePlaceholders } from '../utils/placeholders.js';
 
 // 2D Barcode element. The `symbology` selects the ZPL command:
@@ -33,11 +32,6 @@ export class QRCodeElement extends ZPLElement {
         const byHeight = Number(opts.byHeight);
         if (Number.isFinite(byHeight) && byHeight >= 1) {
             this.byHeight = Math.round(byHeight);
-        } else if (Object.prototype.hasOwnProperty.call(opts, 'qrYOffset')) {
-            const legacyOffset = Number(opts.qrYOffset);
-            if (Number.isFinite(legacyOffset)) {
-                this.byHeight = Math.max(1, Math.round(BY_DEFAULT_HEIGHT + legacyOffset));
-            }
         }
         // Data Matrix (^BX)
         this.moduleSize = opts.moduleSize || 4;    // individual module size in dots

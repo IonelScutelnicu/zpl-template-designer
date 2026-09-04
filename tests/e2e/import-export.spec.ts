@@ -752,13 +752,13 @@ test.describe('Import/Export - Template Persistence', () => {
     });
 
     test.describe('JSON import/export field data escaping', () => {
-        test('migrates legacy QR qrYOffset into total byHeight without reserializing the old field', async ({ page }) => {
+        test('ignores the zero-only legacy QR qrYOffset field', async ({ page }) => {
             const result = await page.evaluate(async () => {
                 const { SerializationService } = await import('/src/services/SerializationService.js');
                 const service = new SerializationService();
                 const element: any = service.createElementFromData({
                     type: 'QRCODE', x: 10, y: 20, content: 'legacy', symbology: 'QR',
-                    model: 2, magnification: 5, errorCorrection: 'Q', qrYOffset: 40,
+                    model: 2, magnification: 5, errorCorrection: 'Q', qrYOffset: 0,
                 }, { keepId: true });
                 const serialized: any = service.serializeElementWithId(element);
                 return {
@@ -771,12 +771,12 @@ test.describe('Import/Export - Template Persistence', () => {
             });
 
             expect(result).toMatchObject({
-                byHeight: 50,
                 hasLegacyField: false,
-                boundsY: 70,
-                zpl: '^FO10,20^BY,,50^BQN,2,5^FDQA,legacy^FS',
+                boundsY: 30,
+                zpl: '^FO10,20^BY,,10^BQN,2,5^FDQA,legacy^FS',
             });
-            expect(result.serialized.byHeight).toBe(50);
+            expect(result.byHeight).toBeUndefined();
+            expect(result.serialized.byHeight).toBeUndefined();
             expect(result.serialized.qrYOffset).toBeUndefined();
         });
 

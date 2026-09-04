@@ -287,8 +287,8 @@ export class SerializationService {
       // imported label or a hand-edited template can't slip back in.
       if ((data.type === 'BOX' || data.type === 'LINE')
         && (key === 'width' || key === 'height' || key === 'thickness')) continue;
-      // QRCodeElement validates the replacement field and migrates the legacy
-      // additive offset. Never copy either raw JSON value back over that result.
+      // QRCodeElement validates byHeight; qrYOffset was a zero-only legacy field.
+      // Never copy either raw JSON value back over the validated/default result.
       if (data.type === 'QRCODE' && (key === 'byHeight' || key === 'qrYOffset')) continue;
       element[key] = data[key];
     }
