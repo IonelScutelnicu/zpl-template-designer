@@ -130,11 +130,6 @@ export class QRCodeElement extends ZPLElement {
         return this._render(substitutePlaceholders(this.content, previewData), previewData);
     }
 
-    getDisplayName() {
-        const displayText = this.content;
-        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
-    }
-
     // dpmm sizes the fixed MaxiCode symbol (defaults to the factory 8 dpmm when a
     // caller has no label settings); all other symbologies ignore it.
     getBounds(dpmm = 8, previewData = {}) {

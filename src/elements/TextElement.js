@@ -47,11 +47,6 @@ export class TextElement extends ZPLElement {
         return this._render(substitutePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
-    getDisplayName() {
-        const displayText = this.content;
-        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
-    }
-
     getBounds(_dpmm, previewData = {}, labelSettings = {}) {
         // Estimate text dimensions (unrotated). The canvas measures TEXT properly
         // through measureTextBounds; this is the DOM-less fallback.

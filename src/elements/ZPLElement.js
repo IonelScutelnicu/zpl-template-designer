@@ -11,6 +11,11 @@ export class ZPLElement {
         throw new Error('render() must be implemented by subclass');
     }
 
+    getDisplayName() {
+        const displayText = this.content;
+        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
+    }
+
     /**
      * Whether the "Match Label Width/Height" actions apply to this element.
      * Defaults to true; types whose dimensions are derived (TEXT — auto-sized

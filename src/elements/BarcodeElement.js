@@ -54,11 +54,6 @@ export class BarcodeElement extends ZPLElement {
         return this._render(substitutePlaceholders(this.content, previewData), previewData);
     }
 
-    getDisplayName() {
-        const displayText = this.content;
-        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
-    }
-
     getBounds(dpmm, previewData = {}) {
         const geom = getBarcodeGeometry(this, previewData);
         const modules = geom.kind === 'linear'

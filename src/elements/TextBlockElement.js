@@ -44,11 +44,6 @@ export class TextBlockElement extends ZPLElement {
         return this._render(substitutePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
-    getDisplayName() {
-        const displayText = this.content;
-        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
-    }
-
     getBounds() {
         const blockW = this.blockWidth || 200;
         const blockH = this.blockHeight || 50;

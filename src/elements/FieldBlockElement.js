@@ -61,11 +61,6 @@ export class FieldBlockElement extends ZPLElement {
         return this._render(substitutePlaceholders(this.content, previewData), defaultFontId, defaultFontHeight, defaultFontWidth, customFonts);
     }
 
-    getDisplayName() {
-        const displayText = this.content;
-        return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
-    }
-
     getBounds(_dpmm, _previewData, labelSettings = {}) {
         const { width, height } = fieldBlockExtents(this, labelSettings);
         return { x: this.x, y: this.y, width, height };
