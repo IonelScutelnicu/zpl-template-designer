@@ -540,7 +540,7 @@ export class PropertyListenersManager {
     // value on every keystroke so the ZPL stays in range, but only normalise
     // the visible text on blur — rewriting mid-type would make values whose
     // leading digit is below the minimum (e.g. 1500 → 3) unreachable.
-    const clampDim = (v) => Math.min(4095, Math.max(3, parseInt(v) || 3));
+    const clampDim = (v) => clampNumber(parseInt(v) || 3, 3, 4095);
 
     // Width is authoritative: while locked, editing width mirrors to height
     // (1:1 Circle / ^GC).
@@ -569,7 +569,7 @@ export class PropertyListenersManager {
     const thicknessInput = document.getElementById('prop-thickness');
     if (thicknessInput) {
       thicknessInput.addEventListener('input', (e) => {
-        element.thickness = Math.min(4095, Math.max(2, parseInt(e.target.value) || 2));
+        element.thickness = clampNumber(parseInt(e.target.value) || 2, 2, 4095);
         this.callbacks.onPropertyChange(element);
       });
       thicknessInput.addEventListener('change', (e) => { e.target.value = element.thickness; });

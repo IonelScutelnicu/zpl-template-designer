@@ -11,6 +11,7 @@ import { getParserSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { MAX_CUSTOM_FONT_BYTES, bytesToBase64, ensurePrinterDrive, isUnknownFontId, normalizePrinterFontPath, nextCustomFontId, resolveRenderFontId } from '../utils/customFonts.js';
 import { BY_DEFAULT_HEIGHT, DEFAULT_FONT_ID } from '../config/constants.js';
 import { clampCharGap, normalizePrintDirection } from '../utils/fieldParameter.js';
+import { clampNumber } from '../utils/geometry.js';
 
 // ZPL with no ^CF is read the way a printer would read it: font A at magnification 1
 // (power-up ^CFA,9,5). This is deliberately *not*
@@ -100,7 +101,7 @@ function isValidMetaDpmm(value) {
 function clampShapeDim(value, fallback) {
   const n = parseInt(value);
   if (!Number.isFinite(n)) return fallback;
-  return Math.min(4095, Math.max(3, n));
+  return clampNumber(n, 3, 4095);
 }
 
 /**
@@ -109,7 +110,7 @@ function clampShapeDim(value, fallback) {
 function clampShapeThickness(value, fallback) {
   const n = parseInt(value);
   if (!Number.isFinite(n)) return fallback;
-  return Math.min(4095, Math.max(2, n));
+  return clampNumber(n, 2, 4095);
 }
 
 /**

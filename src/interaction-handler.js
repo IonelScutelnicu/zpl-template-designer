@@ -949,7 +949,7 @@ export class InteractionHandler {
           const maxMultiplier = totalModules > 0 ? 10 : this.dragElement.width;
           const targetMultiplier = totalModules > 0 ? moduleExtent / totalModules : this.dragElement.width;
           const roundedMultiplier = Math.round(targetMultiplier);
-          const clampedMultiplier = Math.max(1, Math.min(maxMultiplier, roundedMultiplier));
+          const clampedMultiplier = clampNumber(roundedMultiplier, 1, maxMultiplier);
 
           this.dragElement.width = clampedMultiplier;
           this.dragElement.height = Math.round(barExtent);
