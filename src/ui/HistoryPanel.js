@@ -82,11 +82,8 @@ export class HistoryPanel {
    * Open the history panel
    */
   open() {
-    if (this.elements.panel) {
-      this.elements.panel.classList.add("open");
-    }
-    if (this.elements.backdrop) {
-      this.elements.backdrop.classList.add("open");
+    if (this.elements.panel && !this.elements.panel.open) {
+      this.elements.panel.showModal();
     }
   }
 
@@ -94,12 +91,7 @@ export class HistoryPanel {
    * Close the history panel
    */
   close() {
-    if (this.elements.panel) {
-      this.elements.panel.classList.remove("open");
-    }
-    if (this.elements.backdrop) {
-      this.elements.backdrop.classList.remove("open");
-    }
+    this.elements.panel?.close();
   }
 
   /**

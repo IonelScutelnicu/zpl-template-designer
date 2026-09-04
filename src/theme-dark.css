@@ -370,8 +370,8 @@ html.dark .confirm-actions .btn-primary.danger:hover { background: #912018; }
    bg-slate-900/* utilities), which tints the page blue. Use neutral black
    to match the gray theme. (The <dialog> backdrops already use bg-black.) */
 html.dark .modal-scrim::backdrop { background: rgba(0, 0, 0, 0.6); }
-html.dark #shortcuts-backdrop { background-color: rgba(0, 0, 0, 0.6); }
-html.dark #history-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+html.dark #shortcuts-modal::backdrop { background-color: rgba(0, 0, 0, 0.6); }
+html.dark #history-panel::backdrop { background-color: rgba(0, 0, 0, 0.5); }
 
 /* Dim the white label thumbnails in the gallery cards and modal preview,
    matching the #preview-viewport treatment so they aren't flashy. */

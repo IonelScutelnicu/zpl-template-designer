@@ -265,7 +265,6 @@ const historyPanel = document.getElementById("history-panel");
 const historyCloseBtn = document.getElementById("history-close-btn");
 const historyList = document.getElementById("history-list");
 const historyClearBtn = document.getElementById("history-clear-btn");
-const historyBackdrop = document.getElementById("history-backdrop");
 const elementsList = document.getElementById("elements-list");
 const propertiesPanel = document.getElementById("properties-panel");
 const zplOutputHighlight = document.getElementById("zpl-output-highlight");
@@ -470,7 +469,7 @@ export function initApp() {
 
   // Initialize history panel UI
   historyPanelUI = new HistoryPanel(
-    { panel: historyPanel, backdrop: historyBackdrop, list: historyList },
+    { panel: historyPanel, list: historyList },
     (index) => {
       if (index === state.getHistoryIndex()) return;
       state.setHistoryIndex(index);
@@ -902,6 +901,7 @@ export function initApp() {
   });
   dismissOnBackdrop(exportGalleryModal);
   dismissOnBackdrop(zplImportModal);
+  dismissOnBackdrop(historyPanel);
   shareBtn.addEventListener("click", shareTemplate);
   shareMenu.addEventListener("click", () => { closeZPLMoreMenu(); shareTemplate(); });
   importBtn.addEventListener("click", async () => {
@@ -961,37 +961,22 @@ export function initApp() {
   redoBtn.addEventListener("click", redo);
   historyToggleBtn.addEventListener("click", openHistoryPanel);
   historyCloseBtn.addEventListener("click", closeHistoryPanel);
-  historyBackdrop.addEventListener("click", closeHistoryPanel);
   historyClearBtn.addEventListener("click", () => resetHistory("History cleared", { kind: "clear" }));
   historyList.addEventListener("click", handleHistoryClick);
 
-  // Shortcuts modal — click to open, backdrop/close/Esc to dismiss.
+  // Shortcuts modal — <dialog> handles Esc and the backdrop click dismisses.
   const shortcutsBtn = document.getElementById("shortcuts-btn");
   const shortcutsModal = document.getElementById("shortcuts-modal");
   const shortcutsClose = document.getElementById("shortcuts-close");
-  const shortcutsBackdrop = document.getElementById("shortcuts-backdrop");
-  const openShortcuts = () => {
-    shortcutsModal.classList.remove("hidden");
-    requestAnimationFrame(() => shortcutsModal.setAttribute("data-state", "open"));
-  };
-  const closeShortcuts = () => {
-    shortcutsModal.setAttribute("data-state", "closed");
-    setTimeout(() => shortcutsModal.classList.add("hidden"), 180);
-  };
-  if (shortcutsBtn) shortcutsBtn.addEventListener("click", openShortcuts);
-  if (shortcutsClose) shortcutsClose.addEventListener("click", closeShortcuts);
-  if (shortcutsBackdrop) shortcutsBackdrop.addEventListener("click", closeShortcuts);
+  if (shortcutsBtn) shortcutsBtn.addEventListener("click", () => shortcutsModal.showModal());
+  if (shortcutsClose) shortcutsClose.addEventListener("click", () => shortcutsModal.close());
+  dismissOnBackdrop(shortcutsModal);
   document.addEventListener("keydown", (e) => {
-    if (shortcutsModal.classList.contains("hidden")) {
-      // "?" opens the shortcuts modal — only when not typing in an input
-      if (e.key === "?" && !e.target.closest("input,textarea,select,[contenteditable]")) {
-        e.preventDefault();
-        openShortcuts();
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      closeShortcuts();
-    }
+    // "?" opens the shortcuts modal — only when not typing in an input
+    if (e.key !== "?" || shortcutsModal.open) return;
+    if (e.target.closest("input,textarea,select,[contenteditable]")) return;
+    e.preventDefault();
+    shortcutsModal.showModal();
   });
 
   // Warnings panel event listeners. The dismiss button collapses the
@@ -1043,12 +1028,8 @@ export function initApp() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !e.defaultPrevented) {
-      if (!zplMoreMenu.classList.contains('hidden')) {
-        closeZPLMoreMenu();
-      } else if (historyPanel.classList.contains('open')) {
-        closeHistoryPanel();
-      }
+    if (e.key === "Escape" && !e.defaultPrevented && !zplMoreMenu.classList.contains('hidden')) {
+      closeZPLMoreMenu();
     }
   });
 

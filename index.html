@@ -167,23 +167,46 @@
     }
 
     #history-panel {
+      position: fixed;
+      inset: 0 0 0 auto;
+      height: 100%;
+      width: 20rem;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      border-left-width: 1px;
       transform: translateX(100%);
-      transition: transform 0.25s ease-in-out;
+      transition: transform 0.25s ease-in-out,
+        overlay 0.25s ease-in-out allow-discrete, display 0.25s ease-in-out allow-discrete;
     }
 
-    #history-panel.open {
+    #history-panel[open] {
+      display: flex;
+      flex-direction: column;
       transform: translateX(0);
     }
 
-    #history-backdrop {
+    #history-panel::backdrop {
+      background-color: rgb(15 23 42 / 0.3);
       opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease-in-out;
+      transition: opacity 0.2s ease-in-out,
+        overlay 0.2s ease-in-out allow-discrete, display 0.2s ease-in-out allow-discrete;
     }
 
-    #history-backdrop.open {
+    #history-panel[open]::backdrop {
       opacity: 1;
-      pointer-events: auto;
+    }
+
+    @starting-style {
+      #history-panel[open] {
+        transform: translateX(100%);
+      }
+
+      #history-panel[open]::backdrop {
+        opacity: 0;
+      }
     }
 
     .zpl-tooltip {
@@ -858,29 +881,39 @@
 
     /* Shortcuts modal: enter/leave animation */
     #shortcuts-modal {
-      transition: opacity 0.18s ease;
-      /* The modal is a fixed full-screen overlay but lives inside a
-         space-y-6 flow container, which adds a 24px top margin that pushes
-         the backdrop down and leaves the header uncovered. Zero it out. */
-      margin-top: 0;
-    }
-
-    #shortcuts-modal.hidden {
-      display: none;
-    }
-
-    #shortcuts-modal>.modal-card {
-      transition: transform 0.18s ease, opacity 0.18s ease;
-    }
-
-    #shortcuts-modal[data-state="closed"] {
+      margin: auto;
       opacity: 0;
-      pointer-events: none;
-    }
-
-    #shortcuts-modal[data-state="closed"]>.modal-card {
       transform: translateY(8px) scale(0.98);
+      transition: opacity 0.18s ease, transform 0.18s ease,
+        overlay 0.18s ease allow-discrete, display 0.18s ease allow-discrete;
+    }
+
+    #shortcuts-modal[open] {
+      display: flex;
+      flex-direction: column;
+      opacity: 1;
+      transform: none;
+    }
+
+    #shortcuts-modal::backdrop {
       opacity: 0;
+      transition: opacity 0.18s ease,
+        overlay 0.18s ease allow-discrete, display 0.18s ease allow-discrete;
+    }
+
+    #shortcuts-modal[open]::backdrop {
+      opacity: 1;
+    }
+
+    @starting-style {
+      #shortcuts-modal[open] {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+      }
+
+      #shortcuts-modal[open]::backdrop {
+        opacity: 0;
+      }
     }
 
     /* ZPL card is anchored at the bottom of the screen in fullscreen, so its
@@ -2235,11 +2268,8 @@
                   <span class="text-xs font-medium pr-1">Shortcuts</span>
                 </button>
 
-                <div id="shortcuts-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4"
-                  data-state="closed" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
-                  <div id="shortcuts-backdrop" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
-                  <div
-                    class="modal-card relative bg-white rounded-xl shadow-2xl w-[min(820px,92vw)] max-h-[88vh] flex flex-col overflow-hidden">
+                <dialog id="shortcuts-modal" aria-labelledby="shortcuts-title"
+                  class="p-0 bg-white rounded-xl shadow-2xl w-[min(820px,92vw)] max-h-[88vh] overflow-hidden backdrop:bg-slate-900/40 backdrop:backdrop-blur-sm">
                     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                       <div class="flex items-center gap-2.5">
                         <span class="material-icons-round text-slate-500 text-[20px]">keyboard</span>
@@ -2372,8 +2402,7 @@
                       </section>
 
                     </div>
-                  </div>
-                </div>
+                </dialog>
 
 
                 <!-- ZPL Warnings Panel -->
@@ -2523,8 +2552,8 @@
     </div>
   </div>
 
-  <aside id="history-panel"
-    class="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col">
+  <dialog id="history-panel" aria-label="Edit history"
+    class="bg-white shadow-2xl border-slate-200">
     <div class="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
       <div>
         <h2 class="font-semibold text-slate-700 text-sm">History</h2>
@@ -2545,9 +2574,7 @@
         Clear History
       </button>
     </div>
-  </aside>
-
-  <div id="history-backdrop" class="fixed inset-0 bg-slate-900/30 z-40"></div>
+  </dialog>
 
   <!-- ZPL Import Modal -->
   <dialog id="zpl-import-modal"
