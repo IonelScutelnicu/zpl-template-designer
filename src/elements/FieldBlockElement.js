@@ -1,5 +1,5 @@
 import { ZPLElement } from './ZPLElement.js';
-import { LINE_HEIGHT_RATIO } from '../utils/geometry.js';
+import { fieldBlockExtents } from '../utils/geometry.js';
 import { renderFieldDataCommand, encodeFieldBlockBreaks, FB_LINE_BREAK } from '../utils/zplFieldData.js';
 import { substitutePlaceholders } from '../utils/placeholders.js';
 import { DEFAULT_FONT_ID, DEFAULT_FONT_HEIGHT } from '../config/constants.js';
@@ -66,23 +66,8 @@ export class FieldBlockElement extends ZPLElement {
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
-    getBounds() {
-        const blockW = this.blockWidth || 200;
-        const fontSize = this.fontSize || 30;
-        const maxLines = this.maxLines || 1;
-        const lineSpacing = this.lineSpacing || 0;
-        // Base line height times number of lines, plus line spacing between lines (maxLines - 1)
-        const baseLineHeight = fontSize * LINE_HEIGHT_RATIO;
-        const blockH = baseLineHeight * maxLines + lineSpacing * Math.max(0, maxLines - 1) + 10;
-
-        let width = blockW;
-        let height = blockH;
-
-        if (this.orientation === 'R' || this.orientation === 'B') {
-            width = blockH;
-            height = blockW;
-        }
-
+    getBounds(_dpmm, _previewData, labelSettings = {}) {
+        const { width, height } = fieldBlockExtents(this, labelSettings);
         return { x: this.x, y: this.y, width, height };
     }
 }

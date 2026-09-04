@@ -21,13 +21,6 @@ export class TextElement extends ZPLElement {
         this.charGap = charGap; // ^FP additional inter-character gap, in dots
     }
 
-    // Geometry measures the placeholder names, not the Preview Data values, so an
-    // element's box stays put while sample values are edited. The canvas sizes
-    // TEXT through getElementBoundsResolved(), which does see Preview Data.
-    getEstimatedWidth() {
-        return Math.max(resolvePlaceholders(this.content).length * (this.fontWidth || 30) * 0.6, 50);
-    }
-
     _render(content, defaultFontId, defaultFontHeight, defaultFontWidth, customFonts = []) {
         const fontId = this.fontId || defaultFontId;
         const reverseCmd = this.reverse ? '^FR' : '';
@@ -59,14 +52,13 @@ export class TextElement extends ZPLElement {
         return `"${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}"`;
     }
 
-    getBounds() {
+    getBounds(_dpmm, previewData = {}, labelSettings = {}) {
         // Estimate text dimensions (unrotated). The canvas measures TEXT properly
         // through measureTextBounds; this is the DOM-less fallback.
-        const chars = Math.max(1, resolvePlaceholders(this.content).length);
-        const cell = this.fontSize || 30;
-        const vertical = this.printDirection === 'V';
-        const textW = vertical ? Math.max(this.fontWidth || 30, 50) : this.getEstimatedWidth();
-        const textH = (vertical ? cell * chars : cell) + 10;
+        const resolvedHeight = this.fontSize || labelSettings.defaultFontHeight || 30;
+        const resolvedWidth = this.fontWidth || labelSettings.defaultFontWidth || 30;
+        const textW = Math.max(resolvePlaceholders(this.content, previewData).length * resolvedWidth * 0.6, 50);
+        const textH = resolvedHeight;
 
         let width = textW;
         let height = textH;

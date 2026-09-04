@@ -1,7 +1,6 @@
 // Geometry and Math Utilities for ZPL Template Creator
 
 import { resolveFontLineHeight, resolveFontMetrics } from './fontMetrics.js';
-import { resolvePlaceholders } from './placeholders.js';
 
 /**
  * Line height multiplier for FieldBlock rendering.
@@ -84,36 +83,5 @@ export function isSpatial(element) {
  * @returns {Object} Bounds {x, y, width, height}
  */
 export function getElementBoundsResolved(element, labelSettings) {
-  if (element.type === 'TEXTBLOCK') {
-    const blockW = element.blockWidth || 200;
-    const blockH = element.blockHeight || 50;
-    if (element.orientation === 'R' || element.orientation === 'B') {
-      return { x: element.x, y: element.y, width: blockH, height: blockW };
-    }
-    return { x: element.x, y: element.y, width: blockW, height: blockH };
-  }
-  if (element.type === 'FIELDBLOCK') {
-    const { width, height } = fieldBlockExtents(element, labelSettings);
-    return { x: element.x, y: element.y, width, height };
-  }
-  if (element.type === 'TEXT') {
-    const resolvedHeight = element.fontSize || labelSettings.defaultFontHeight || 30;
-    const resolvedWidth = element.fontWidth || labelSettings.defaultFontWidth || 30;
-    const textW = Math.max(resolvePlaceholders(element.content, labelSettings.previewData).length * resolvedWidth * 0.6, 50);
-    let w = textW, h = resolvedHeight;
-    if (element.orientation === 'R' || element.orientation === 'B') {
-      w = resolvedHeight;
-      h = textW;
-    }
-    return { x: element.x, y: element.y, width: w, height: h };
-  }
-  if (element.type === 'GRAPHIC') {
-    const w = element.widthDots || 0;
-    const h = element.heightDots || 0;
-    if (element.orientation === 'R' || element.orientation === 'B') {
-      return { x: element.x, y: element.y, width: h, height: w };
-    }
-    return { x: element.x, y: element.y, width: w, height: h };
-  }
-  return element.getBounds(labelSettings?.dpmm, labelSettings?.previewData);
+  return element.getBounds(labelSettings?.dpmm, labelSettings?.previewData, labelSettings);
 }
