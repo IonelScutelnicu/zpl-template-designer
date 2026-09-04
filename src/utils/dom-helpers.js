@@ -45,9 +45,5 @@ export function autoGrowTextarea(el) {
  * Format an ISO-8601 date string into locale-aware human-readable text.
  */
 export function formatDate(iso) {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  return new Date(iso).toLocaleString();
 }

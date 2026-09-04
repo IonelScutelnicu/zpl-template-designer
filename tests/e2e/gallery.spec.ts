@@ -16,6 +16,15 @@ test.describe('Gallery', () => {
         await expect(page.locator('#stat-templates')).toHaveText(String(TEMPLATE_COUNT));
     });
 
+    test('formats an invalid timestamp without throwing', async ({ page }) => {
+        const value = await page.evaluate(async () => {
+            const { formatDate } = await import('/src/utils/dom-helpers.js');
+            return formatDate('not-a-date');
+        });
+
+        expect(value).toBe('Invalid Date');
+    });
+
     test('shows a Connect Drive button in the header when disconnected', async ({ page }) => {
         await expect(page.locator('#drive-connect-btn')).toBeVisible();
         await expect(page.locator('#drive-connect-btn')).toHaveText('Connect Drive');
