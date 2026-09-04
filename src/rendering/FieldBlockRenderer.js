@@ -115,10 +115,12 @@ export class FieldBlockRenderer {
 
         let lineX = lineStartX;
         if (element.justification === 'C') {
-          // Centered fields are emitted with a final \& marker, so an in-memory
-          // end line is hard-terminated in the API preview. Only a soft wrap
-          // retains Labelary's extra trailing-space advance.
-          const alignmentWidth = measuredWidth + (termination === 'soft' ? trailingSpaceWidth : 0);
+          // Zebra centres a line on its width including the space that terminates it.
+          // A soft wrap consumed one; end-of-field implies one unless the field carried
+          // a closing \& or the line already ends in a space. \& and forced breaks are
+          // not spaces.
+          const biased = termination === 'soft' || (termination === 'end' && !element.endBreak);
+          const alignmentWidth = measuredWidth + (biased && !line.endsWith(' ') ? trailingSpaceWidth : 0);
           lineX = lineStartX + (lineBlockWidth - alignmentWidth) / 2;
         } else if (element.justification === 'R') {
           lineX = lineStartX + lineBlockWidth - measuredWidth;

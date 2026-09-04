@@ -19,6 +19,10 @@ export class FieldBlockElement extends ZPLElement {
         this.maxLines = maxLines;
         this.lineSpacing = lineSpacing;
         this.justification = justification;
+        // The field data's terminating \&. Zebra centres an end-of-field line as if a
+        // space followed it, so this marker is what makes a centred block centre
+        // exactly. Editor-authored blocks emit it; import records what the source said.
+        this.endBreak = true;
         this.hangingIndent = hangingIndent;
         this.reverse = reverse; // ^FR (reverse print)
         this.orientation = orientation; // N, R, I, B
@@ -43,7 +47,7 @@ export class FieldBlockElement extends ZPLElement {
         // ^FB discards raw line feeds; its line break is the \& escape. Convert
         // before appending the centre-justification marker so both survive.
         const escaped = encodeFieldBlockBreaks(rawContent);
-        const content = this.justification === 'C' ? `${escaped}${FB_LINE_BREAK}` : escaped;
+        const content = this.justification === 'C' && this.endBreak ? `${escaped}${FB_LINE_BREAK}` : escaped;
         const reverseCmd = this.reverse ? '^FR' : '';
         // Use label defaults if element values are 0
         const fontSize = this.fontSize || defaultFontHeight;

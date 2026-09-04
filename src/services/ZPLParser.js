@@ -1751,8 +1751,11 @@ export class ZPLParser {
     let fdContent = this._decodeFieldDataToken(fdToken, fhToken);
     fdContent = fdContent.replace(/\r\n?|\n/g, '');
 
-    // Strip trailing \& for center-justified text blocks.
-    if (fdContent.endsWith(FB_LINE_BREAK)) {
+    // A trailing \& terminates the field's last line without creating another one, so
+    // record it rather than discarding it: Zebra centres an end-of-field line as if a
+    // space followed it, and this marker is what suppresses that.
+    const endBreak = fdContent.endsWith(FB_LINE_BREAK);
+    if (endBreak) {
       fdContent = fdContent.slice(0, -FB_LINE_BREAK.length);
     }
     // Any remaining \& is a real line break the user typed.
@@ -1769,6 +1772,7 @@ export class ZPLParser {
       maxLines,
       lineSpacing,
       justification,
+      endBreak,
       hangingIndent,
       reverse: hasReverse,
       orientation: font.orientation

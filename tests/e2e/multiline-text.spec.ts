@@ -124,15 +124,44 @@ test.describe('Multiline text', () => {
                     parsed.justification, parsed.hangingIndent, parsed.fontId,
                     parsed.reverse, parsed.orientation, parsed.fieldHex,
                 );
+                element.endBreak = parsed.endBreak;
 
                 return { content: parsed.content, rendered: element.render() };
             });
 
             expect(result.content).toBe('%field_x%\n%field_a%\n%field_b%\n%field_c% - %field_d%');
+            // The source carried no terminating \&, so the re-render must not invent one.
             expect(result.rendered).toContain(
-                '^FD%field_x%\\&%field_a%\\&%field_b%\\&%field_c% - %field_d%\\&^FS',
+                '^FD%field_x%\\&%field_a%\\&%field_b%\\&%field_c% - %field_d%^FS',
             );
             expect(result.rendered).not.toContain('\\&\\&');
+        });
+
+        test('^FB round-trips whether the field data carried a terminating \\&', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const [{ ZPLParser }, { SerializationService }] = await Promise.all([
+                    import('/src/services/ZPLParser.js'),
+                    import('/src/services/SerializationService.js'),
+                ]);
+                const serializer = new SerializationService();
+
+                const roundTrip = (fieldData: string) => {
+                    const zpl = '^XA^FO10,10^A0N,25^FB200,2,0,C,0^FD' + fieldData + '^FS^XZ';
+                    const parsed = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 80 }).elements[0];
+                    const element = serializer.createElementFromData(parsed);
+                    return { endBreak: element.endBreak, rendered: element.render() };
+                };
+
+                return { open: roundTrip('number'), closed: roundTrip('number\\&') };
+            });
+
+            // A trailing \& terminates the last line without creating another one, and
+            // Zebra centres an end-of-field line as if a space followed it. The marker
+            // therefore has to survive import instead of being discarded or invented.
+            expect(result.open.endBreak).toBe(false);
+            expect(result.open.rendered).toContain('^FDnumber^FS');
+            expect(result.closed.endBreak).toBe(true);
+            expect(result.closed.rendered).toContain('^FDnumber\\&^FS');
         });
     });
 
@@ -435,6 +464,52 @@ test.describe('Multiline text', () => {
             expect(bounds.centered.end.left - bounds.centered.soft.left).toBeGreaterThanOrEqual(2);
             expect(bounds.left.hard).toEqual(bounds.left.end);
             expect(bounds.right.hard).toEqual(bounds.right.end);
+        });
+
+        test('centering biases an end line unless the field carried a closing \\&', async ({ page }) => {
+            const lefts = await page.evaluate(async () => {
+                const [{ CanvasRenderer }, { FieldBlockElement }] = await Promise.all([
+                    import('/src/canvas-renderer.js'),
+                    import('/src/elements/FieldBlockElement.js'),
+                ]);
+                await document.fonts.ready;
+
+                const render = (content: string, endBreak: boolean) => {
+                    const canvas = document.createElement('canvas');
+                    const element = new FieldBlockElement(
+                        21, 57, content, 18, 0, 237, 4, 0, 'C', 9999, 'A', false, 'N',
+                    );
+                    element.endBreak = endBreak;
+                    new CanvasRenderer(canvas).renderCanvas([element], {
+                        width: 100, height: 25, dpmm: 8, fontId: 'A',
+                        defaultFontHeight: 18, defaultFontWidth: 0, previewData: {},
+                    }, null);
+
+                    const ctx = canvas.getContext('2d')!;
+                    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    let left = canvas.width;
+                    for (let y = 0; y < canvas.height; y++) {
+                        for (let x = 0; x < canvas.width; x++) {
+                            const i = (y * canvas.width + x) * 4;
+                            if (image.data[i] < 128 && image.data[i + 3] > 40) left = Math.min(left, x);
+                        }
+                    }
+                    return left;
+                };
+
+                return {
+                    closed: render('number number', true),
+                    open: render('number number', false),
+                    openTrailingSpace: render('number number ', false),
+                };
+            });
+
+            // Measured against Labelary: an end-of-field line centres on its width plus
+            // the space that terminates it, so dropping the \& moves it half a space left.
+            expect(lefts.closed - lefts.open).toBeGreaterThanOrEqual(2);
+            // ...unless the line already ends in a space. That space *is* the terminator
+            // and is already inside the measured width, so it must not be counted twice.
+            expect(Math.abs(lefts.openTrailingSpace - lefts.open)).toBeLessThanOrEqual(1);
         });
 
         test('positive line spacing extends only the R and I far-edge pivots', async ({ page }) => {

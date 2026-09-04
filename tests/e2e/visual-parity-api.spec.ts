@@ -358,8 +358,12 @@ test.describe('Visual Parity - Canvas vs API', () => {
             name: 'forced character-wrapped field',
             command: '^FO139,60^AIN,24^FB269,4,0,C,0^FDaaaaaaaaaaaaaaaaaaa\\&^FS',
         },
+        {
+            name: 'field with no end break',
+            command: '^FO25,12^ADN,18^FB381,1,0,C,9999^FDnumber^FS',
+        },
     ]) {
-        test(`should keep an imported explicit end break centered for a ${regression.name}`, async () => {
+        test(`should match Labelary centering for an imported ${regression.name}`, async () => {
             await zplOutput.openZplFromContent(`^XA
 ^FX{"labelMeta":{"w":51,"h":25,"dpmm":8}}
 ${regression.command}
