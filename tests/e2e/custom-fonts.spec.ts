@@ -474,6 +474,53 @@ test.describe('Custom fonts', () => {
     await expect(page.locator('#default-font-height')).toHaveValue('60');
   });
 
+  test('paints the font picker menu at its final position on the first frame', async ({ page }) => {
+    // Short enough that the menu flips above the trigger, which is where an
+    // unplaced first frame is visible.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+
+    const { onShow, settled } = await page.evaluate(async () => {
+      const trigger = document.querySelector('#font-picker .font-picker-trigger') as HTMLElement;
+      const menu = document.querySelector('#font-picker .font-picker-menu') as HTMLElement;
+      const at = () => {
+        const r = menu.getBoundingClientRect();
+        return `${Math.round(r.x)},${Math.round(r.y)}`;
+      };
+      trigger.click();
+      const onShow = at();
+      await new Promise((r) => setTimeout(r, 200));
+      return { onShow, settled: at() };
+    });
+
+    expect(onShow).toBe(settled);
+  });
+
+  test('closes the font picker on re-click, outside click and Escape', async ({ page }) => {
+    await page.goto('/?e2e=1');
+    await page.locator('details[data-fs-tab="font"] > summary').click();
+    const trigger = page.locator('#font-picker .font-picker-trigger');
+    const menu = page.locator('[data-menu-for="font-id"]');
+    const chevron = page.locator('#font-picker .font-picker-chevron');
+
+    for (const dismiss of [
+      () => trigger.click(),
+      () => page.mouse.click(5, 400),
+      () => page.keyboard.press('Escape'),
+    ]) {
+      await trigger.click();
+      await expect(menu).toBeVisible();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      await expect(chevron).toHaveClass(/rotate-180/);
+
+      await dismiss();
+      await expect(menu).toBeHidden();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expect(chevron).not.toHaveClass(/rotate-180/);
+    }
+  });
+
   test('an imported ^CW collision overrides one resident row and removal restores it', async ({ page }) => {
     const zplOutput = new ZPLOutput(page);
     await page.goto('/?e2e=1');

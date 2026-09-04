@@ -166,15 +166,15 @@ export function fontPickerHtml({ selectId, current, customFonts = [], labelFontI
   ].join('');
 
   return `
-    <div class="font-picker relative" data-select="${escapeHtml(selectId)}" data-open="false">
+    <div class="font-picker relative" data-select="${escapeHtml(selectId)}">
       ${nativeSelect}
       <button type="button" class="font-picker-trigger w-full flex items-center gap-2.5 rounded-lg border border-blue-300 bg-white px-2.5 py-2 text-left shadow-sm ring-1 ring-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 transition"
-        aria-haspopup="listbox" aria-expanded="false">
+        aria-haspopup="listbox" aria-expanded="false" popovertarget="font-picker-menu-${escapeHtml(selectId)}">
         ${trigger}
         <span class="font-picker-chevron material-icons-round shrink-0 text-lg text-slate-400 transition-transform">expand_more</span>
       </button>
-      <div class="font-picker-menu hidden fixed z-50 rounded-xl border border-slate-200 bg-white shadow-xl"
-        data-menu-for="${escapeHtml(selectId)}" role="listbox">
+      <div class="font-picker-menu fixed rounded-xl border border-slate-200 bg-white shadow-xl" popover
+        id="font-picker-menu-${escapeHtml(selectId)}" data-menu-for="${escapeHtml(selectId)}" role="listbox">
         <div class="font-picker-list max-h-72 overflow-auto p-1.5">${groups}</div>
       </div>
     </div>`;
@@ -191,10 +191,9 @@ export function ensureSpecimenFaces(customFonts = []) {
 }
 
 /**
- * Wire the picker inside `root`: trigger toggles the popover, an option sets the
- * canonical <select> and fires `change` so the existing handlers run. Closing
- * detaches the document listeners it added, so a re-rendered panel leaves nothing
- * behind.
+ * Wire the picker inside `root`: the trigger's popovertarget toggles the menu and
+ * the UA light-dismisses it, an option sets the canonical <select> and fires
+ * `change` so the existing handlers run.
  */
 export function attachFontPicker(root) {
   const picker = root?.classList?.contains('font-picker') ? root : root?.querySelector('.font-picker');
@@ -204,23 +203,6 @@ export function attachFontPicker(root) {
   const menu = picker.querySelector('.font-picker-menu');
   const list = menu?.querySelector('.font-picker-list');
   if (!select || !trigger || !menu || !list) return;
-  // A panel re-rendered while its menu was open leaves that menu parked on <body>.
-  document.querySelectorAll('body > .font-picker-menu').forEach(stray => stray.remove());
-
-  const close = () => {
-    if (picker._onOutside) {
-      document.removeEventListener('click', picker._onOutside, true);
-      document.removeEventListener('keydown', picker._onOutside, true);
-      window.removeEventListener('scroll', picker._onScroll, true);
-      picker._onOutside = null;
-      picker._onScroll = null;
-    }
-    menu.classList.add('hidden');
-    picker.appendChild(menu);
-    picker.dataset.open = 'false';
-    trigger.setAttribute('aria-expanded', 'false');
-    picker.querySelector('.font-picker-chevron')?.classList.remove('rotate-180');
-  };
 
   /**
    * Size and position the fixed menu against the trigger: at least MENU_MIN_WIDTH
@@ -228,10 +210,6 @@ export function attachFontPicker(root) {
    * on it, dropping below unless it doesn't fit and there's more room above.
    */
   const place = () => {
-    // #properties-card carries a backdrop-filter, which makes it the containing block
-    // for fixed descendants — the menu only lands on the viewport from <body>.
-    // Re-appending an attached node moves it, which would reset the list's scroll.
-    if (menu.parentElement !== document.body) document.body.appendChild(menu);
     const rect = trigger.getBoundingClientRect();
     const width = Math.max(rect.width, MENU_MIN_WIDTH);
     const below = window.innerHeight - rect.bottom - MENU_GAP * 2;
@@ -240,41 +218,35 @@ export function attachFontPicker(root) {
     menu.style.width = `${width}px`;
     const centred = rect.left + rect.width / 2 - width / 2;
     menu.style.left = `${Math.min(Math.max(MENU_GAP, centred), window.innerWidth - width - MENU_GAP)}px`;
-    menu.style.top = `${rect.bottom + MENU_GAP}px`;
-    menu.classList.remove('hidden');
-    // offsetHeight only reads true once the menu is laid out, so the flip decision
-    // comes after it's shown.
-    if (below < above && below < menu.offsetHeight) {
-      menu.style.top = `${Math.max(MENU_GAP, rect.top - menu.offsetHeight - MENU_GAP)}px`;
-    }
+    // Placement runs on beforetoggle, while the popover is still display:none, so
+    // the height the flip decision needs has to be forced out of it first.
+    menu.style.display = 'block';
+    const height = menu.offsetHeight;
+    menu.style.display = '';
+    menu.style.top = below < above && below < height
+      ? `${Math.max(MENU_GAP, rect.top - height - MENU_GAP)}px`
+      : `${rect.bottom + MENU_GAP}px`;
   };
 
-  const open = () => {
-    place();
-    picker.dataset.open = 'true';
-    trigger.setAttribute('aria-expanded', 'true');
-    picker.querySelector('.font-picker-chevron')?.classList.add('rotate-180');
-    picker._onOutside = (e) => {
-      if (e.key === 'Escape' || !picker.contains(e.target) && !menu.contains(e.target)) close();
-    };
-    // The menu is fixed so it can outgrow the sidebar's clipped column, which also
-    // means scrolling the panel behind it has to move it back onto the trigger.
-    // Scroll doesn't bubble but does capture, so the list's own scrolling arrives
-    // here too — that one must not re-place the menu.
-    picker._onScroll = (e) => { if (!menu.contains(e.target)) place(); };
-    document.addEventListener('click', picker._onOutside, true);
-    document.addEventListener('keydown', picker._onOutside, true);
-    window.addEventListener('scroll', picker._onScroll, true);
-  };
+  // Scrolling the panel behind the menu has to move it back onto the trigger.
+  // Scroll doesn't bubble but does capture, so the list's own scrolling arrives
+  // here too — that one must not re-place the menu.
+  const onScroll = (e) => { if (!menu.contains(e.target)) place(); };
 
-  trigger.addEventListener('click', () => {
-    if (picker.dataset.open === 'true') close();
-    else open();
+  menu.addEventListener('beforetoggle', (e) => {
+    if (e.newState === 'open') place();
+  });
+
+  menu.addEventListener('toggle', (e) => {
+    const open = e.newState === 'open';
+    trigger.setAttribute('aria-expanded', String(open));
+    picker.querySelector('.font-picker-chevron')?.classList.toggle('rotate-180', open);
+    window[open ? 'addEventListener' : 'removeEventListener']('scroll', onScroll, true);
   });
 
   menu.querySelectorAll('.font-picker-option').forEach(option => {
     option.addEventListener('click', () => {
-      close();
+      menu.hidePopover();
       const next = option.dataset.fontId;
       if (next !== select.value) {
         select.value = next;

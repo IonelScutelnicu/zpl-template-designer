@@ -2,10 +2,6 @@ export class ContextMenu {
   constructor(container, callbacks) {
     this.container = container;
     this.callbacks = callbacks;
-    this.isVisible = false;
-
-    this._boundCloseOnClickOutside = this._closeOnClickOutside.bind(this);
-    this._boundCloseOnEscape = this._closeOnEscape.bind(this);
 
     this._createMenuElement();
   }
@@ -14,11 +10,14 @@ export class ContextMenu {
     this.menuEl = document.createElement('div');
     this.menuEl.id = 'canvas-context-menu';
     this.menuEl.setAttribute('role', 'menu');
-    this.menuEl.className = 'hidden absolute bg-white border border-slate-200 rounded-lg shadow-lg py-1';
-    this.menuEl.style.zIndex = '30';
+    this.menuEl.setAttribute('popover', 'auto');
+    this.menuEl.className = 'fixed bg-white border border-slate-200 rounded-lg shadow-lg py-1';
     this.menuEl.style.width = '12rem';
-    this.menuEl.style.minWidth = '12rem';
     this.container.appendChild(this.menuEl);
+  }
+
+  get isVisible() {
+    return this.menuEl.matches(':popover-open');
   }
 
   show(clientX, clientY, targetElement) {
@@ -28,30 +27,20 @@ export class ContextMenu {
 
     this._buildItems(targetElement);
 
-    // Convert viewport coords to container-relative coords.
-    const containerRect = this.container.getBoundingClientRect();
-    const left = clientX - containerRect.left + this.container.scrollLeft;
-    const top = clientY - containerRect.top + this.container.scrollTop;
+    if (!this.isVisible) this.menuEl.showPopover();
 
-    this.menuEl.style.left = `${left}px`;
-    this.menuEl.style.top = `${top}px`;
-    this.menuEl.classList.remove('hidden');
-    this.isVisible = true;
-
-    const clampedPosition = this._positionWithinContainer(left, top);
-    this.menuEl.style.left = `${clampedPosition.left}px`;
-    this.menuEl.style.top = `${clampedPosition.top}px`;
-
-    document.addEventListener('click', this._boundCloseOnClickOutside, true);
-    document.addEventListener('keydown', this._boundCloseOnEscape, true);
+    // The top layer positions against the viewport, so the click point and the
+    // container's own rect are already in the menu's coordinate space.
+    const padding = 8;
+    const bounds = this.container.getBoundingClientRect();
+    const { width, height } = this.menuEl.getBoundingClientRect();
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), Math.max(min, max));
+    this.menuEl.style.left = `${clamp(clientX, bounds.left + padding, bounds.right - width - padding)}px`;
+    this.menuEl.style.top = `${clamp(clientY, bounds.top + padding, bounds.bottom - height - padding)}px`;
   }
 
   hide() {
-    if (!this.isVisible) return;
-    this.menuEl.classList.add('hidden');
-    this.isVisible = false;
-    document.removeEventListener('click', this._boundCloseOnClickOutside, true);
-    document.removeEventListener('keydown', this._boundCloseOnEscape, true);
+    if (this.isVisible) this.menuEl.hidePopover();
   }
 
   _buildItems(targetElement) {
@@ -158,35 +147,5 @@ export class ContextMenu {
     const hr = document.createElement('div');
     hr.className = 'border-t border-slate-100 my-1';
     this.menuEl.appendChild(hr);
-  }
-
-  _positionWithinContainer(left, top) {
-    const menuRect = this.menuEl.getBoundingClientRect();
-    const padding = 8;
-    const scrollLeft = this.container.scrollLeft;
-    const scrollTop = this.container.scrollTop;
-    const minLeft = scrollLeft + padding;
-    const minTop = scrollTop + padding;
-    const maxLeft = Math.max(minLeft, scrollLeft + this.container.clientWidth - menuRect.width - padding);
-    const maxTop = Math.max(minTop, scrollTop + this.container.clientHeight - menuRect.height - padding);
-
-    return {
-      left: Math.min(Math.max(left, minLeft), maxLeft),
-      top: Math.min(Math.max(top, minTop), maxTop)
-    };
-  }
-
-  _closeOnClickOutside(e) {
-    if (!this.menuEl.contains(e.target)) {
-      this.hide();
-    }
-  }
-
-  _closeOnEscape(e) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      this.hide();
-    }
   }
 }
