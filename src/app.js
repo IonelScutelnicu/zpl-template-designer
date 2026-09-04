@@ -21,7 +21,6 @@ import { TooltipManager } from './ui/TooltipManager.js';
 import { WarningParser } from './services/WarningParser.js';
 import { WarningsPanelRenderer } from './ui/WarningsPanelRenderer.js';
 import { highlightZPL } from './utils/zpl-highlighter.js';
-import { mmToInch, inchToMm } from './utils/units.js';
 import { ZPLParser } from './services/ZPLParser.js';
 import { UrlShareService } from './services/UrlShareService.js';
 import { SmartGuideService } from './services/SmartGuideService.js';
@@ -2010,8 +2009,8 @@ function refreshLabelDimensionInputs() {
     input.step = step;
   });
 
-  labelWidth.value = isInch ? +mmToInch(state.labelSettings.width).toFixed(2) : state.labelSettings.width;
-  labelHeight.value = isInch ? +mmToInch(state.labelSettings.height).toFixed(2) : state.labelSettings.height;
+  labelWidth.value = isInch ? +(state.labelSettings.width / 25.4).toFixed(2) : state.labelSettings.width;
+  labelHeight.value = isInch ? +(state.labelSettings.height / 25.4).toFixed(2) : state.labelSettings.height;
   labelWidthLabel.textContent = `Width (${labelUnit})`;
   labelHeightLabel.textContent = `Height (${labelUnit})`;
 
@@ -2049,7 +2048,7 @@ function parseLabelDimensionMm(rawValue, fallbackMm) {
   // `parseFloat(value) || 100` semantics of the mm inputs.
   if (!parsed) return fallbackMm;
   if (labelUnit !== 'in') return parsed;
-  return Math.min(381, Math.max(10, Math.round(inchToMm(parsed) * 10) / 10));
+  return Math.min(381, Math.max(10, Math.round(parsed * 25.4 * 10) / 10));
 }
 
 function syncLabelSettingsInputs() {
