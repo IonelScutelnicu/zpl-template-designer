@@ -34,7 +34,7 @@ npm install
 npx serve . -l 3000
 ```
 
-Open http://localhost:3000 — no build step required (vanilla JS + Tailwind CDN).
+Open <http://localhost:3000> — no build step required (vanilla JS + Tailwind CDN).
 
 ### Optional Google Drive setup
 
@@ -52,32 +52,41 @@ Use `npm run test:labelary-cache` when you want to refresh the committed Labelar
 ## Element Properties
 
 ### Text
+
 Position (X, Y), content, font size, font width, font override, orientation, reverse print.
 
 ### Text Block
+
 Position (X, Y), content, font size, font width, block width, block height, font override, orientation, reverse print.
 
 ### Field Block
+
 Position (X, Y), content, font size, font width, block width, max lines, line spacing, justification (L/C/R/J), hanging indent, font override, orientation, reverse print.
 
 ### 1D Barcode
+
 Symbology (Code 128 `^BC`, Code 39 `^B3`, EAN-13 `^BE`, UPC-A `^BU`), position (X, Y), content, height, width multiplier; ratio + mod-43 check digit (Code 39 only); orientation (N/R/I/B), show interpretation line and print it above the code, reverse print.
 
 ### 2D Barcode
+
 Symbology (QR Code `^BQ`, Data Matrix `^BX`, PDF417 `^B7`, Aztec `^B0`), position (X, Y), content, reverse print; plus per-symbology settings — QR: magnification, model, error correction (H/Q/M/L); Data Matrix: module size, quality (ECC); PDF417: module width, row height, security level, columns; Aztec: magnification, symbol type (auto/full/compact/rune), error control %, layers.
 
 On-canvas previews for all symbologies are rendered from the real encoded symbol via bwip-js; Labelary remains the authoritative preview.
 
 ### Box
+
 Position (X, Y), width, height, thickness, color (B/W), corner rounding (0–8), reverse print.
 
 ### Line
+
 Position (X, Y), length, thickness, orientation (horizontal/vertical), color (B/W), reverse print.
 
 ### Circle
+
 Position (X, Y), diameter, thickness, color (B/W), reverse print.
 
 ### Image (Graphic Field)
+
 Position (X, Y), width, height, threshold, orientation, encoding format (ASCII hex / Base64), aspect ratio lock, reverse print.
 
 ## Views
@@ -98,6 +107,7 @@ The gallery provides:
 ## ZPL Output Format
 
 The application generates ZPL code in the following format:
+
 ```
 ^XA
 ^PW[width]
@@ -119,6 +129,7 @@ The application generates ZPL code in the following format:
 ```
 
 Where:
+
 - `^XA`/`^XZ` — Start/End of label format
 - `^PW` — Print Width
 - `^PR` — Print / Slew / Backfeed speeds
@@ -138,7 +149,7 @@ Where:
 Most actions operate on the current selection, which may be one or several elements (see Multi-select).
 
 | Action | Shortcut |
-|---|---|
+| --- | --- |
 | Select element | Click element |
 | Add / remove from selection | `Shift` + Click |
 | Marquee select | Drag on empty canvas or the workspace around it |
@@ -166,6 +177,7 @@ Most actions operate on the current selection, which may be one or several eleme
 The application uses a modular architecture for maintainability and testability:
 
 ### Core Files
+
 - `index.html` — Main HTML structure and UI layout
 - `src/main.js` — Application entry point
 - `src/router.js` — View routing between the editor and gallery
@@ -175,6 +187,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/interaction-handler.js` — Canvas interaction and drag/drop logic
 
 ### Element Definitions
+
 - `src/elements/TextElement.js` — Text element with font overrides, Content placeholders, and orientation support
 - `src/elements/TextBlockElement.js` — `^TB` text block element
 - `src/elements/FieldBlockElement.js` — `^FB` multi-line text with wrapping and justification
@@ -189,6 +202,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/elements/RawElement.js` — Raw ZPL passthrough for unsupported commands
 
 ### State Management
+
 - `src/state/AppState.js` — Centralized observable state store
   - Elements collection and selection
   - Label settings configuration
@@ -196,6 +210,7 @@ The application uses a modular architecture for maintainability and testability:
   - Event subscription system
 
 ### Services (Business Logic)
+
 - `src/services/ElementService.js` — Element CRUD operations
 - `src/services/AlignmentService.js` — Element alignment calculations
 - `src/services/SerializationService.js` — JSON serialization/deserialization
@@ -208,6 +223,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/services/EmbedBridge.js` — Embed-mode postMessage protocol with host applications
 
 ### UI Components
+
 - `src/ui/PropertiesPanelRenderer.js` — Property form rendering for all element types
 - `src/ui/ElementsListRenderer.js` — Elements list sidebar rendering
 - `src/ui/PropertyListenersManager.js` — Property change event handling
@@ -219,6 +235,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/ui/OnboardingWalkthrough.js` — Guided first-run tour
 
 ### Specialized Renderers
+
 - `src/rendering/TextRenderer.js` — Text element canvas rendering
 - `src/rendering/TextBlockRenderer.js` — `^TB` text block rendering
 - `src/rendering/FieldBlockRenderer.js` — `^FB` field block rendering
@@ -232,6 +249,7 @@ The application uses a modular architecture for maintainability and testability:
 - `src/rendering/GalleryThumbnailRenderer.js` — Thumbnail generation for the gallery
 
 ### Utilities
+
 - `src/config/constants.js` — ZPL fonts and configuration
 - `src/config/drive-config.js` — Drive feature configuration
 - `src/utils/geometry.js` — Geometry helper functions
@@ -285,6 +303,23 @@ npm run test:debug
 - Tailwind CSS (CDN)
 - Labelary API for ZPL preview
 - Playwright for E2E testing
+
+## Related Projects
+
+Other open-source work in the ZPL space, useful when you need a different shape of tool than a browser-based visual editor.
+
+**Editors & designers**
+
+- [ZebraPrintLab](https://github.com/u8array/ZebraPrintLab) — browser-based ZPL editor: design visually, or import, edit, and re-export existing ZPL.
+- [ZPL-Editor](https://github.com/ButcherZV/ZPL-Editor) — native WYSIWYG designer for Windows, built with C++ and wxWidgets.
+- [Html2ZPL](https://github.com/retreat896/Html2ZPL) — React GUI editor that converts HTML layouts into ZPL.
+
+**Libraries & renderers**
+
+- [BinaryKits.Zpl](https://github.com/BinaryKits/BinaryKits.Zpl) — .NET library set for building ZPL labels, rendering previews, and converting images to Zebra's compressed graphic format.
+- [labelize](https://github.com/GOODBOY008/labelize) — Rust ZPL/EPL renderer, also shipped as WASM, a CLI, and a Docker service. An offline alternative to the Labelary API.
+- [zpl-toolchain](https://github.com/trevordcampbell/zpl-toolchain) — Rust parser/linter/formatter for ZPL, distributed for Rust, Node, and Python.
+- [zebrash](https://github.com/ingridhq/zebrash) — Go ZPL renderer that rasterises labels to images. Unmaintained, but still a useful reference implementation.
 
 ## License
 
