@@ -5,7 +5,7 @@
    401 after a silent token refresh.
    ============================================================ */
 
-import { ensureValidToken, silentRefresh, signIn } from './DriveAuth.js';
+import { ensureValidToken, getFolder, silentRefresh, signIn } from './DriveAuth.js';
 
 const DRIVE_BASE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
@@ -71,6 +71,22 @@ export async function getFileMetadata(fileId) {
   const params = new URLSearchParams({ fields: 'id,name,modifiedTime,createdTime,parents' });
   const res = await driveFetch(`${DRIVE_BASE}/files/${encodeURIComponent(fileId)}?${params}`);
   return res.json();
+}
+
+export async function loadTemplate(fileId) {
+  const json = await getFile(fileId);
+  const meta = await getFileMetadata(fileId);
+  return { json, meta };
+}
+
+export async function createTemplate({ name, json }) {
+  const folder = getFolder();
+  if (!folder) throw new Error('No Drive folder selected. Connect to Google Drive first.');
+  return createFile(folder.id, name, json);
+}
+
+export async function updateTemplate({ fileId, name, json }) {
+  return updateFile(fileId, name, json);
 }
 
 export async function createFile(folderId, name, jsonContent) {

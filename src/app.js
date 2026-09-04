@@ -34,7 +34,7 @@ import { analyzeRescale, applyRescale } from './services/DensityRescaleService.j
 import { imageToBitmap } from './utils/graphicField.js';
 import { loadImage } from './utils/loadImage.js';
 import { escapeHtml, escapeAttr, autoGrowTextarea } from './utils/dom-helpers.js';
-import { DriveTemplateService } from './services/DriveTemplateService.js';
+import { createTemplate, loadTemplate, updateTemplate } from './services/DriveFiles.js';
 import * as driveAuth from './services/DriveAuth.js';
 import { isConfigured as isDriveConfigured } from './config/drive-config.js';
 import { getCurrentView } from './router.js';
@@ -55,7 +55,6 @@ const templateManager = new TemplateManager(serializationService);
 const zplParser = new ZPLParser();
 const urlShareService = new UrlShareService(serializationService);
 const smartGuideService = new SmartGuideService();
-const driveTemplateService = new DriveTemplateService();
 let elementService; // Initialized after pushHistory is defined
 let currentTemplateMetadata = null;
 
@@ -111,7 +110,7 @@ function rehydrateFromHandoff() {
   const driveId = urlParams.get('drive');
   if (driveId && !isEmbedMode() && driveId !== lastLoadedDriveId && driveAuth.isConnected()) {
     lastLoadedDriveId = driveId;
-    driveTemplateService.load(driveId).then(({ json, meta }) => {
+    loadTemplate(driveId).then(({ json, meta }) => {
       const template = {
         metadata: json.metadata || { name: (meta.name || '').replace(/\.json$/i, '') },
         elements: json.elements || [],
@@ -3639,14 +3638,14 @@ async function doExportForGallery() {
       setSaving(true);
       if (driveDoc.driveMode === 'update') {
         // Rename / edit existing file in place.
-        const updated = await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: galleryExport });
+        const updated = await updateTemplate({ fileId: driveDoc.fileId, name, json: galleryExport });
         document.dispatchEvent(new CustomEvent('drive:template-saved', {
           detail: { json: galleryExport, fileMeta: { id: driveDoc.fileId, name: updated.name, modifiedTime: updated.modifiedTime } }
         }));
         showToast('Saved', 'success');
       } else {
         // 'create' — Save As or first save.
-        const created = await driveTemplateService.create({ name, json: galleryExport });
+        const created = await createTemplate({ name, json: galleryExport });
         driveDoc.fileId = created.id;
         document.dispatchEvent(new CustomEvent('drive:template-saved', {
           detail: { json: galleryExport, fileMeta: { id: created.id, name: created.name, modifiedTime: created.modifiedTime, createdTime: created.createdTime } }
@@ -3943,7 +3942,7 @@ async function saveToDrive() {
   };
   try {
     setSaving(true);
-    const updated = await driveTemplateService.update({ fileId: driveDoc.fileId, name, json: payload });
+    const updated = await updateTemplate({ fileId: driveDoc.fileId, name, json: payload });
     document.dispatchEvent(new CustomEvent('drive:template-saved', {
       detail: { json: payload, fileMeta: { id: driveDoc.fileId, name: updated.name, modifiedTime: updated.modifiedTime } }
     }));
