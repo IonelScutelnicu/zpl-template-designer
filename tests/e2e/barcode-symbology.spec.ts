@@ -1785,6 +1785,8 @@ test.describe('Barcode symbology', () => {
             const { normalizeBarcodeData } = await import('/src/utils/barcodeGeometry.js');
             return {
                 ean13Pad: normalizeBarcodeData('EAN13', '123'),
+                ean13Complete: normalizeBarcodeData('EAN13', '5901234123457'),
+                ean13WrongCheck: normalizeBarcodeData('EAN13', '5901234123450'),
                 ean13Truncate: normalizeBarcodeData('EAN13', '1234567890123456'),
                 ean13NonDigit: normalizeBarcodeData('EAN13', '12-45-78-01a'),
                 ean8Pad: normalizeBarcodeData('EAN8', '12'),
@@ -1799,7 +1801,9 @@ test.describe('Barcode symbology', () => {
             };
         });
         expect(cases.ean13Pad).toBe('000000000123');
-        expect(cases.ean13Truncate).toBe('567890123456');
+        expect(cases.ean13Complete).toBe('590123412345');
+        expect(cases.ean13WrongCheck).toBe('590123412345');
+        expect(cases.ean13Truncate).toBe('167890123456');
         expect(cases.ean13NonDigit).toBe('120450780010');
         expect(cases.ean8Pad).toBe('0000012');     // 7-digit field, left-padded
         expect(cases.ean8Truncate).toBe('3456789'); // keeps the trailing 7
@@ -1810,6 +1814,31 @@ test.describe('Barcode symbology', () => {
         expect(cases.upceSystem1).toBe('1234567');
         expect(cases.upceFromUpca).toBe('0123453');
         expect(cases.passthrough).toBe('abc');
+    });
+
+    test('EAN-13 complete and overflowing fields match Labelary bars and check digits', async ({ page }) => {
+        // Bar modules sampled from Labelary ^BY2^BEN,50,Y,N. A supplied check
+        // digit must not shift the data, including the 13-digit field in ean13.zpl.
+        const cases = [
+            ['590123412345', '5901234123457', '10100010110100111011001100100110111101001110101010110011011011001000010101110010011101000100101'],
+            ['5901234123457', '5901234123457', '10100010110100111011001100100110111101001110101010110011011011001000010101110010011101000100101'],
+            ['5901234123450', '5901234123457', '10100010110100111011001100100110111101001110101010110011011011001000010101110010011101000100101'],
+            ['12345678901234', '1456789012342', '10101000110110001000010101110110001001001011101010111001011001101101100100001010111001101100101'],
+            ['123456789012345', '1567890123459', '10101100010101111001000101101110010111010011101010110011011011001000010101110010011101110100101'],
+            ['1234567890123456', '1678901234566', '10101011110111011000100100010110100111011001101010110110010000101011100100111010100001010000101'],
+            ['12', '0000000000123', '10100011010001101000110100011010001101000110101010111001011100101110010110011011011001000010101'],
+        ];
+        const actual = await page.evaluate(async (inputs) => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            return ['N', 'R', 'I', 'B'].map(orientation => inputs.map(content => {
+                const element = new ZPLParser().parse(`^XA^BY2^FO50,50^BE${orientation},50,Y,N^FD${content}^FS^XZ`).elements[0];
+                const g: any = getBarcodeGeometry(element);
+                return [element.content, g.txt?.map((t: any[]) => t[0]).join(''),
+                    g.sbs?.map((width: number, i: number) => (i % 2 ? '0' : '1').repeat(width)).join('')];
+            }));
+        }, cases.map(([input]) => input));
+        for (const orientation of actual) expect(orientation).toEqual(cases);
     });
 
     test('UPC-E defaults six-digit input to number system 0 and encodes guard bars + HRI', async ({ page }) => {

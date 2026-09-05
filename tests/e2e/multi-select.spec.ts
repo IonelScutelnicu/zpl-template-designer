@@ -295,6 +295,17 @@ test.describe('Multi-select', () => {
         const canvasBox = await canvas.getBoundingBox();
         if (!canvasBox) throw new Error('no canvas');
 
+        // This test never looks at the preview image, so stub Labelary rather
+        // than leave a real request in flight when the test ends.
+        await page.route('**/api.labelary.com/**', route => route.fulfill({
+            status: 200,
+            contentType: 'image/png',
+            body: Buffer.from(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                'base64'
+            ),
+        }));
+
         // The canvas is hidden in api mode, so there is nothing to select on.
         await page.locator('#mode-api-btn').click();
         await expect(page.locator('#label-canvas')).toBeHidden();

@@ -64,6 +64,9 @@ export async function setupLabelaryCacheInterceptor(page: Page): Promise<void> {
         }
 
         // Cache miss – hit the real API, persist response
+        if (process.env.LABELARY_CACHE_STRICT === '1') {
+            throw new Error(`Labelary cache miss (strict mode): ${dpmm}dpmm ${width}x${height} ${zpl}`);
+        }
         try {
             const response = await route.fetch();
             const body = await response.body();

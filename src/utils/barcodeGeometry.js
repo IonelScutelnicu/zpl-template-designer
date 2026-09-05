@@ -219,6 +219,13 @@ export function normalizeBarcodeData(symbology, data) {
   const len = FIXED_FD_LENGTH[symbology];
   if (!len) return s;
   s = s.replace(/\D/g, '0'); // numeric-only: disallowed chars become '0'
+  if (symbology === 'EAN13') {
+    // A complete EAN includes a supplied check digit, which Labelary recomputes.
+    // Longer fields retain the leading parity digit and the trailing 11 data
+    // digits, rather than truncating away the parity digit with the overflow.
+    if (s.length === 13) return s.slice(0, 12);
+    if (s.length > 13) return s.charAt(0) + s.slice(-11);
+  }
   // UPC-A also accepts the complete 12-digit form. The last digit is supplied
   // as the check digit, but the printer recomputes it from the first 11 rather
   // than encoding it as data (including when the supplied check digit is wrong).
