@@ -1029,12 +1029,21 @@ export class ZPLParser {
     switch (token.command) {
       case 'PW': {
         const dots = parseInt(token.params);
-        if (dots > 0) {
-          state.labelSettings.width = Math.round(dots / dpmm);
-          // Also kept in dots, for _centerPrintWidthOnMedia: mm would round away
-          // the very gap it needs to measure.
-          state.printWidthDots = dots;
+        // ^PW is 2 dots minimum; below that the printer keeps its last width.
+        if (!(dots >= 2)) {
+          state.warnings.push({ command: '^PW', message: `Ignored print width "${token.params}" (minimum is 2 dots)` });
+          break;
         }
+        // A sub-mm width rounds to 0, which would leave a degenerate label and
+        // export an illegal ^PW0 - floor it at 1 mm.
+        const mm = Math.round(dots / dpmm);
+        if (mm < 1) {
+          state.warnings.push({ command: '^PW', message: `Print width ${dots} dots is narrower than 1 mm; label width set to 1 mm` });
+        }
+        state.labelSettings.width = Math.max(1, mm);
+        // Also kept in dots, for _centerPrintWidthOnMedia: mm would round away
+        // the very gap it needs to measure.
+        state.printWidthDots = dots;
         break;
       }
       case 'PR': {

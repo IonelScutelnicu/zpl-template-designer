@@ -826,4 +826,32 @@ test.describe('Import/Export - Template Persistence', () => {
             expect(result.parsedValues).toEqual(result.values);
         });
     });
+
+    test.describe('ZPL import print width', () => {
+        // ^PW is 2 dots minimum, and a sub-mm width used to round to a 0 mm label
+        // (1px canvas, illegal ^PW0 on re-export). See docs/ZPL.rst "Print Width".
+        const CASES = [
+            { name: 'floors a sub-mm ^PW at 1 mm and warns', pw: '2', width: 1, warns: true },
+            { name: 'ignores an out-of-range ^PW and warns', pw: '1', width: 100, warns: true },
+            { name: 'ignores an unparseable ^PW and warns', pw: 'abc', width: 100, warns: true },
+            { name: 'accepts an ordinary ^PW silently', pw: '300', width: 38, warns: false },
+        ];
+
+        for (const { name, pw, width, warns } of CASES) {
+            test(name, async ({ page }) => {
+                const result = await page.evaluate(async (printWidth) => {
+                    const { ZPLParser } = await import('/src/services/ZPLParser.js');
+                    const zpl = ['^XA', `^PW${printWidth}`, '^FO0,34^AEN^FD1ABC^FS', '^XZ'].join('\n');
+                    const parsed = new ZPLParser().parse(zpl, { dpmm: 8, labelHeight: 50 });
+                    return {
+                        width: parsed.labelSettings.width,
+                        pwWarnings: parsed.warnings.filter((w: { command: string }) => w.command === '^PW').length,
+                    };
+                }, pw);
+
+                expect(result.width).toBe(width);
+                expect(result.pwWarnings).toBe(warns ? 1 : 0);
+            });
+        }
+    });
 });
