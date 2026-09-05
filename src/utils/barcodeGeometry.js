@@ -154,7 +154,7 @@ export const DEFAULT_PREVIEW_DATA = {
 // exactly this many ^FD chars (printer computes the trailing check digit). These
 // barcodes are digit-only, so any disallowed character is mapped to '0' first.
 // Mirror that here so the canvas (bwip-js) matches Labelary/printer output. (^BE doc)
-const FIXED_FD_LENGTH = { EAN13: 12, EAN8: 7, UPCA: 11, UPCE: 6 };
+const FIXED_FD_LENGTH = { EAN13: 12, EAN8: 7, UPCA: 11 };
 
 // Code 39 (^B3), Code 93 (^BA) and LOGMARS (^BL) all encode the same 43-character
 // set. Zebra and Labelary don't reject data outside it: lowercase is folded to
@@ -196,27 +196,25 @@ export function normalizeBarcodeData(symbology, data) {
   }
   if (symbology === 'UPCE') {
     s = s.replace(/\D/g, '0');
-    // ^B9 also accepts an uncompressed UPC-A body. Convert its manufacturer
-    // and product fields to the six UPC-E data digits when the standard zero
-    // suppression rules allow it (for example 1230000045 -> 123453).
-    if (s.length >= 8) {
-      const body = s.padStart(11, '0').slice(-11);
-      const manufacturer = body.slice(1, 6);
-      const product = body.slice(6);
-      const productNumber = Number(product);
-      if (/^[012]$/.test(manufacturer.charAt(2)) && manufacturer.endsWith('00') && productNumber <= 999) {
-        return manufacturer.slice(0, 2) + product.slice(-3) + manufacturer.charAt(2);
-      }
-      if (manufacturer.endsWith('00') && productNumber <= 99) {
-        return manufacturer.slice(0, 3) + product.slice(-2) + '3';
-      }
-      if (manufacturer.endsWith('0') && productNumber <= 9) {
-        return manufacturer.slice(0, 4) + product.slice(-1) + '4';
-      }
-      if (productNumber >= 5 && productNumber <= 9) {
-        return manufacturer + product.slice(-1);
-      }
+    // Short form: [number system] + six digits + [check]. Keep the number
+    // system and let bwip recompute the check, including when one was supplied.
+    if (s.length <= 8) return s.length <= 6 ? s.padStart(7, '0') : s.slice(0, 7);
+
+    // Zebra ^B9 documents a five-digit manufacturer + five-digit product.
+    // Labelary takes the FIRST ten digits (right-padding nine-digit fields),
+    // with number system 0 even for an eleven-digit UPC-A input. It also
+    // suppresses invalid product ranges instead of falling back to six digits.
+    const body = s.padEnd(10, '0').slice(0, 10);
+    const manufacturer = body.slice(0, 5);
+    const product = body.slice(5);
+    if (manufacturer.endsWith('00')) {
+      const third = manufacturer.charAt(2);
+      return '0' + (third <= '2'
+        ? manufacturer.slice(0, 2) + product.slice(-3) + third
+        : manufacturer.slice(0, 3) + product.slice(-2) + '3');
     }
+    if (manufacturer.endsWith('0')) return '0' + manufacturer.slice(0, 4) + product.slice(-1) + '4';
+    return '0' + manufacturer + Math.max(5, Number(product.slice(-1)));
   }
   const len = FIXED_FD_LENGTH[symbology];
   if (!len) return s;
@@ -752,12 +750,6 @@ function buildBwipOptions(element, data) {
     // pad) and feed bwip the literal string with no implicit check digit — bwip's own
     // includecheck/even-padding behaviour doesn't match Zebra's. (See interleaved2of5Digits.)
     opts.text = interleaved2of5Digits(data, element.checkDigit);
-  }
-  if (symbology === 'UPCE') {
-    // ZPL ^B9 takes 6 data digits with the number-system digit fixed at 0 (Zebra doc;
-    // confirmed on Labelary: ^FD123456 -> "0 123456 5"). bwip's `upce` needs the
-    // 7-digit number-system + 6 form, so prepend the fixed 0; bwip computes the check.
-    opts.text = '0' + normalizeBarcodeData(symbology, data);
   }
   if (symbology === 'UPCEANEXT') {
     // ^BS is a 2- or 5-digit add-on; the data length selects bwip's ean2/ean5 bcid.

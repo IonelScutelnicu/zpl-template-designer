@@ -1793,7 +1793,7 @@ test.describe('Barcode symbology', () => {
                 upcaComplete: normalizeBarcodeData('UPCA', '123456789302'),
                 upcaWrongCheck: normalizeBarcodeData('UPCA', '123456789307'),
                 upcePad: normalizeBarcodeData('UPCE', '12'),
-                upceTruncate: normalizeBarcodeData('UPCE', '1234567'),
+                upceSystem1: normalizeBarcodeData('UPCE', '1234567'),
                 upceFromUpca: normalizeBarcodeData('UPCE', '1230000045'),
                 passthrough: normalizeBarcodeData('CODE128', 'abc'),
             };
@@ -1806,17 +1806,13 @@ test.describe('Barcode symbology', () => {
         expect(cases.upcaPad).toBe('00000000012');
         expect(cases.upcaComplete).toBe('12345678930');
         expect(cases.upcaWrongCheck).toBe('12345678930');
-        expect(cases.upcePad).toBe('000012');      // 6-digit field, left-padded
-        expect(cases.upceTruncate).toBe('234567'); // keeps the trailing 6
-        expect(cases.upceFromUpca).toBe('123453');
+        expect(cases.upcePad).toBe('0000012'); // number system 0 + six data digits
+        expect(cases.upceSystem1).toBe('1234567');
+        expect(cases.upceFromUpca).toBe('0123453');
         expect(cases.passthrough).toBe('abc');
     });
 
-    test('UPC-E prepends the fixed 0 number-system digit and encodes guard bars + HRI', async ({ page }) => {
-        // ^B9 takes 6 digits; the number system is fixed at 0 and the printer computes
-        // the trailing check digit. Labelary renders ^FD123456 as "0 123456 5"; bwip's
-        // `upce` needs the 7-digit form, so buildBwipOptions prepends the 0. Assert the
-        // geometry is a guard-bar linear symbol whose HRI fragments are exactly that.
+    test('UPC-E defaults six-digit input to number system 0 and encodes guard bars + HRI', async ({ page }) => {
         const r = await page.evaluate(async () => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const g: any = getBarcodeGeometry({ type: 'BARCODE', symbology: 'UPCE', content: '123456', showText: true, width: 2 });
@@ -1829,6 +1825,39 @@ test.describe('Barcode symbology', () => {
         expect(r.kind).toBe('linear');
         expect(r.hasGuardBars).toBe(true);
         expect(r.fragments).toBe('01234565'); // number-system 0 + 123456 + check 5
+    });
+
+    test('UPC-E short and long inputs match Labelary bar patterns and check digits', async ({ page }) => {
+        // Sampled from Labelary ^BY2^B9N,30,Y,N,Y, including every ^B9 field
+        // in binarykits/tests/BarcodeUpcE.zpl. Long fields use the first ten
+        // manufacturer/product digits; they do not carry a number-system prefix.
+        const cases = [
+            ['981231', '09812312', '101001011100010010011001001001101000010011001010101'],
+            ['1981231', '19812319', '101000101100010010110011001001101000010011001010101'],
+            ['9810000123', '09812312', '101001011100010010011001001001101000010011001010101'],
+            ['19810000123', '01981245', '101011001100010110110111011001100110110100011010101'],
+            ['7000002198', '07019807', '101001000100011010110011000101100010010001101010101'],
+            ['19812319', '19812319', '101000101100010010110011001001101000010011001010101'],
+            ['09812312', '09812312', '101001011100010010011001001001101000010011001010101'],
+            ['12345678', '12345670', '101001001101111010100011011100100001010010001010101'],
+            ['123456789', '01234558', '101011001100100110100001010001101100010111001010101'],
+            ['1230000045', '01234531', '101011001100110110111101001110101100010111101010101'],
+            ['1234000008', '01234844', '101011001100100110100001001110101101110100011010101'],
+            ['1234500003', '01234558', '101011001100100110100001010001101100010111001010101'],
+            ['1234500009', '01234596', '101011001100100110111101010001101110010010111010101'],
+            ['12', '00000125', '101010011100011010001101010011101100110010011010101'],
+        ];
+        const actual = await page.evaluate(async (inputs) => {
+            const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
+            const { ZPLParser } = await import('/src/services/ZPLParser.js');
+            return inputs.map(content => {
+                const element = new ZPLParser().parse(`^XA^BY2^FO60,30^B9N,30,Y,N,Y^FD${content}^FS^XZ`).elements[0];
+                const g: any = getBarcodeGeometry(element);
+                return [element.content, g.txt?.map((t: any[]) => t[0]).join(''),
+                    g.sbs?.map((width: number, i: number) => (i % 2 ? '0' : '1').repeat(width)).join('')];
+            });
+        }, cases.map(([input]) => input));
+        expect(actual).toEqual(cases);
     });
 
     // ============== MICRO-PDF417 (^BF) ==============
