@@ -617,4 +617,59 @@ test.describe('Drag - Element Position', () => {
         const zpl = await zplOutput.getZPLCode();
         expect(zpl).toMatch(/\^FO\d{3,},/);
     });
+
+    // A negative ^LT can pull a field's effective origin (y + ^LH y + ^LT) above the
+    // top edge, where the printer pins it at 0 instead of shifting it off. The canvas
+    // draws the pin, so the interaction floor has to rise with it — otherwise dragging
+    // past it keeps rewriting ^FO with nothing moving on screen. Note that the Canvas
+    // page object's label coordinates are canvas rows, so a pinned element is grabbed
+    // at its drawn row, not its stored y.
+    async function setLabelTop(page: import('@playwright/test').Page, value: number): Promise<void> {
+        // The Offsets section is collapsed by default.
+        await page.locator('details[data-fs-tab="offsets"] summary').click();
+        await page.locator('#label-top').fill(String(value));
+        await page.locator('#label-top').dispatchEvent('input');
+        await canvas.waitForReady();
+    }
+
+    test('should stop an arrow-key nudge at the origin floor raised by a negative ^LT', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await setPosition(page, 50, 60);
+        await setLabelTop(page, -40);
+
+        await elementsPanel.selectElementByIndex(0);
+        await canvas.moveSelectedWithArrowKeys('up', 30);
+        await canvas.waitForReady();
+
+        // 20 presses reach the floor at 40 (60 - 40); the remaining 10 do nothing.
+        expect((await canvas.getElementGeometry(0)).y).toBe(40);
+    });
+
+    test('should stop a drag at the origin floor raised by a negative ^LT', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await setPosition(page, 50, 60);
+        await setLabelTop(page, -40);
+
+        // Stored y 60 with ^LT-40 draws at canvas row 20; grab inside and drag to the
+        // top edge, which is as far up as the pointer can go.
+        await dragAndWait(70, 30, 70, 0);
+
+        expect((await canvas.getElementGeometry(0)).y).toBe(40);
+    });
+
+    test('should select a ^LT-pinned element where it is drawn', async ({ page }) => {
+        await elementsPanel.addBoxElement();
+        await elementsPanel.selectElementByIndex(0);
+        await setPosition(page, 50, 10);
+        await setLabelTop(page, -40);
+        await canvas.deselect();
+
+        // Effective origin 10 - 40 = -30, so the box is pinned and drawn from canvas
+        // row 0. Its stored bounds start at row 10 — hit testing has to follow the pin.
+        await canvas.clickAtLabelCoords(70, 20);
+
+        expect(await canvas.getSelectionCount()).toBe(1);
+    });
 });

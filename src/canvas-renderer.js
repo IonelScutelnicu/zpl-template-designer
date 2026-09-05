@@ -295,6 +295,15 @@ export class CanvasRenderer {
   }
 
   /**
+   * Labelary pins a field's effective origin at the top edge: a negative ^LT shifts a
+   * field up only until its origin reaches y=0, per field, and ink above the origin is
+   * then clipped by the bitmap. Measured against the API, which the ^LT docs do not cover.
+   */
+  pinnedLabelTop(elementY) {
+    return Math.max(this.labelTop, -(elementY + this.homeY));
+  }
+
+  /**
    * Draw a single element on canvas
    */
   drawElement(element, labelSettings) {
@@ -305,7 +314,7 @@ export class CanvasRenderer {
       scale: this.scale,
       homeX: this.homeX,
       homeY: this.homeY,
-      labelTop: this.labelTop,
+      labelTop: this.pinnedLabelTop(element.y),
       transparentBackground: this.transparentBackground
     };
 
@@ -392,7 +401,7 @@ export class CanvasRenderer {
       // resize handles are hit-tested against these same measured bounds.
       const bounds = this.measureTextBounds(element, labelSettings);
       x = (bounds.x + this.homeX) * this.scale;
-      y = (bounds.y + this.homeY + this.labelTop) * this.scale;
+      y = (bounds.y + this.homeY + this.pinnedLabelTop(element.y)) * this.scale;
       width = bounds.width * this.scale;
       height = bounds.height * this.scale;
     } else if (element.type === 'FIELDBLOCK' && labelSettings) {
@@ -401,7 +410,7 @@ export class CanvasRenderer {
       // actually draws.
       const extents = fieldBlockExtents(element, labelSettings, this.scale);
       x = (element.x + this.homeX) * this.scale;
-      y = (element.y + this.homeY + this.labelTop) * this.scale;
+      y = (element.y + this.homeY + this.pinnedLabelTop(element.y)) * this.scale;
       width = extents.width;
       height = extents.height;
     } else {
@@ -410,7 +419,7 @@ export class CanvasRenderer {
       // placeholder name rather than to the symbol actually drawn.
       const bounds = element.getBounds(labelSettings?.dpmm, labelSettings?.previewData);
       x = (bounds.x + this.homeX) * this.scale;
-      y = (bounds.y + this.homeY + this.labelTop) * this.scale;
+      y = (bounds.y + this.homeY + this.pinnedLabelTop(element.y)) * this.scale;
       width = bounds.width * this.scale;
       height = bounds.height * this.scale;
     }

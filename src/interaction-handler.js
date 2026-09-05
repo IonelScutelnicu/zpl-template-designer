@@ -591,7 +591,8 @@ export class InteractionHandler {
    * Move every member of the drag group, keeping their relative offsets.
    * Content may hang past the label edges (clipped, like a real printer), but
    * every member's origin stays on the label: ^FO coordinates cannot be
-   * negative, and an on-label origin keeps the element reachable.
+   * negative, and an on-label origin keeps the element reachable. A negative
+   * ^LT raises that floor — see minOriginY.
    */
   handleGroupDrag(coords) {
     let newX = coords.x - this.dragOffsetX;
@@ -603,7 +604,7 @@ export class InteractionHandler {
 
     const minX = -gb.minDx;
     const maxX = labelW - 1 - gb.maxDx;
-    const minY = -gb.minDy;
+    const minY = -gb.minDy + this.minOriginY();
     const maxY = labelH - 1 - gb.maxDy;
 
     newX = Math.max(minX, Math.min(newX, maxX));
@@ -631,7 +632,8 @@ export class InteractionHandler {
     return this.elements.filter(el => {
       if (el.locked || !isSpatial(el)) return false;
       const b = this.getSelectionBounds(el);
-      return !(b.x > rx2 || b.x + b.width < rect.x || b.y > ry2 || b.y + b.height < rect.y);
+      const by = b.y + this.topPinShift(el);
+      return !(b.x > rx2 || b.x + b.width < rect.x || by > ry2 || by + b.height < rect.y);
     });
   }
 
@@ -781,15 +783,16 @@ export class InteractionHandler {
             break;
         }
 
-        // Boundary Constraints: the top-left cannot cross 0 (^FO coordinates
-        // are non-negative); growth past the right/bottom label edge is
-        // allowed — overflowing content is clipped, like a real printer.
+        // Boundary Constraints: the top-left cannot cross the origin floor (^FO
+        // coordinates are non-negative, and a negative ^LT raises it — see
+        // minOriginY); growth past the right/bottom label edge is allowed —
+        // overflowing content is clipped, like a real printer.
         if (this.resizeHandle.includes('l') && newX < 0) {
           newX = 0;
           newWidth = (this.resizeStartX + this.resizeStartWidth) - newX;
         }
-        if (this.resizeHandle.includes('t') && newY < 0) {
-          newY = 0;
+        if (this.resizeHandle.includes('t') && newY < this.minOriginY()) {
+          newY = this.minOriginY();
           newHeight = (this.resizeStartY + this.resizeStartHeight) - newY;
         }
 
@@ -914,7 +917,7 @@ export class InteractionHandler {
           // ink edge means the stored origin moves to compensate.
           const inkOffset = this.dragElement.getBounds();
           this.dragElement.x = Math.max(0, Math.round(newX - (inkOffset.x - this.dragElement.x)));
-          this.dragElement.y = Math.max(0, Math.round(newY - (inkOffset.y - this.dragElement.y)));
+          this.dragElement.y = Math.max(this.minOriginY(), Math.round(newY - (inkOffset.y - this.dragElement.y)));
         } else if (this.dragElement.type === 'LINE') {
           if (this.dragElement.orientation === 'H') {
             this.dragElement.width = Math.round(newWidth);
@@ -1020,12 +1023,12 @@ export class InteractionHandler {
         // Constrain the origin (not the full bounds) to the label: content may
         // hang past the label edges and get clipped, like a real printer, but
         // ^FO coordinates cannot be negative and an on-label origin keeps the
-        // element reachable.
+        // element reachable. A negative ^LT raises that floor — see minOriginY.
         const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
         newX = Math.max(0, Math.min(newX, labelW - 1));
-        newY = Math.max(0, Math.min(newY, labelH - 1));
+        newY = Math.max(this.minOriginY(), Math.min(newY, labelH - 1));
 
         // Round to nearest dot
         this.dragElement.x = Math.round(newX);
@@ -1336,7 +1339,7 @@ export class InteractionHandler {
     // Clamp the delta so every element's origin stays on the label: content
     // may hang past the edges (clipped, like a real printer), but ^FO
     // coordinates cannot be negative and an on-label origin keeps the
-    // element reachable.
+    // element reachable. A negative ^LT raises that floor — see minOriginY.
     const labelW = this.labelSettings.width * this.labelSettings.dpmm;
     const labelH = this.labelSettings.height * this.labelSettings.dpmm;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1348,7 +1351,8 @@ export class InteractionHandler {
     }
     if (minX + dx < 0) dx = -minX;
     if (maxX + dx > labelW - 1) dx = labelW - 1 - maxX;
-    if (minY + dy < 0) dy = -minY;
+    const floorY = this.minOriginY();
+    if (minY + dy < floorY) dy = floorY - minY;
     if (maxY + dy > labelH - 1) dy = labelH - 1 - maxY;
 
     if (dx === 0 && dy === 0) {
@@ -1434,12 +1438,13 @@ export class InteractionHandler {
       const element = this.elements[i];
       if (!isSpatial(element)) continue;
       const bounds = this.getSelectionBounds(element);
+      const by = bounds.y + this.topPinShift(element);
 
       if (
         x >= bounds.x &&
         x <= bounds.x + bounds.width &&
-        y >= bounds.y &&
-        y <= bounds.y + bounds.height
+        y >= by &&
+        y <= by + bounds.height
       ) {
         return element;
       }
@@ -1457,16 +1462,33 @@ export class InteractionHandler {
       const element = this.elements[i];
       if (!isSpatial(element)) continue;
       const bounds = this.getSelectionBounds(element);
+      const by = bounds.y + this.topPinShift(element);
       if (
         x >= bounds.x &&
         x <= bounds.x + bounds.width &&
-        y >= bounds.y &&
-        y <= bounds.y + bounds.height
+        y >= by &&
+        y <= by + bounds.height
       ) {
         hits.push(element);
       }
     }
     return hits;
+  }
+
+  /**
+   * Lowest stored y whose origin still lands on the label. A negative ^LT can pull a
+   * field's effective origin above the top edge, where the printer pins it at 0 rather
+   * than shifting it off — see CanvasRenderer.pinnedLabelTop.
+   */
+  minOriginY() {
+    const { homeY = 0, labelTop = 0 } = this.labelSettings || {};
+    return Math.max(0, -(homeY + labelTop));
+  }
+
+  /** Dots the top pin pushed this element down by — 0 when it is not pinned. */
+  topPinShift(element) {
+    const { homeY = 0, labelTop = 0 } = this.labelSettings || {};
+    return Math.max(0, -(element.y + homeY + labelTop));
   }
 
   /**
@@ -1506,7 +1528,7 @@ export class InteractionHandler {
       ? this.renderer.measureTextBounds(element, this.labelSettings)
       : this.getSelectionBounds(element);
     const bx = bounds.x;
-    const by = bounds.y;
+    const by = bounds.y + this.topPinShift(element);
     const bw = bounds.width;
     const bh = bounds.height;
 

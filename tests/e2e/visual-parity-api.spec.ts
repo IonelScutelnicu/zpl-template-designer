@@ -729,4 +729,72 @@ ${fpCase.zpl}
             expect(Math.abs(canvasDots.height - apiDots.height), 'height').toBeLessThan(8);
         });
     }
+
+    // A negative ^LT never pushes a field above the top edge: measured against
+    // Labelary, each field's effective origin (y + ^LH y + ^LT) is clamped to 0
+    // per field, then ink above the origin is clipped by the bitmap. Fields that
+    // stay on the label move by the full shift. The ^LT docs do not cover this.
+    for (const pinCase of [
+        { name: 'a pinned upright field', zpl: '^FO20,10^A0N,40,40^FDTOP^FS' },
+        { name: 'a pinned rotated field', zpl: '^FO20,10^A0R,40,40^FDTOP^FS' },
+    ]) {
+        test(`should stop at the top edge like the API for ${pinCase.name} under a negative ^LT`, async () => {
+            const labelWidthDots = 406;
+            const labelHeightDots = 203;
+            await zplOutput.openZplFromContent(`^XA
+^FX{"labelMeta":{"w":51,"h":25,"dpmm":8}}
+^PW406
+^LT-40
+${pinCase.zpl}
+^XZ`);
+
+            await canvas.waitForReady();
+            const canvasImage = await canvas.takeFullResolutionScreenshot();
+            await previewPanel.switchToAPIMode();
+            await previewPanel.waitForAPIPreviewLoaded();
+            const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+            const canvasBounds = findContentBounds(canvasImage);
+            const apiBounds = findContentBounds(apiImage);
+            const canvasDims = getImageDimensions(canvasImage);
+            const apiDims = getImageDimensions(apiImage);
+            const toDots = (bounds: any, dims: any) => ({
+                top: bounds.top * labelHeightDots / dims.height,
+                height: bounds.height * labelHeightDots / dims.height,
+            });
+            const canvasDots = toDots(canvasBounds, canvasDims);
+            const apiDots = toDots(apiBounds, apiDims);
+
+            // Both start at the top edge; the height is what separates a pinned
+            // field from one merely clipped as it slides off.
+            expect(apiDots.top, 'API pins at the top edge').toBeLessThan(2);
+            expect(Math.abs(canvasDots.top - apiDots.top), 'top').toBeLessThan(6);
+            expect(Math.abs(canvasDots.height - apiDots.height), 'height').toBeLessThan(8);
+        });
+    }
+
+    test('should move a field that stays on the label by the full negative ^LT', async () => {
+        const labelHeightDots = 203;
+        await zplOutput.openZplFromContent(`^XA
+^FX{"labelMeta":{"w":51,"h":25,"dpmm":8}}
+^PW406
+^LT-40
+^FO20,150^A0N,40,40^FDBOT^FS
+^XZ`);
+
+        await canvas.waitForReady();
+        const canvasImage = await canvas.takeFullResolutionScreenshot();
+        await previewPanel.switchToAPIMode();
+        await previewPanel.waitForAPIPreviewLoaded();
+        const apiImage = await previewPanel.getAPIPreviewFullResolution();
+
+        const canvasBounds = findContentBounds(canvasImage);
+        const apiBounds = findContentBounds(apiImage);
+        const canvasTop = canvasBounds.top * labelHeightDots / getImageDimensions(canvasImage).height;
+        const apiTop = apiBounds.top * labelHeightDots / getImageDimensions(apiImage).height;
+
+        // 149 - 40; the pin must not drag an on-label field to the edge too.
+        expect(apiTop, 'API applies the full shift').toBeGreaterThan(100);
+        expect(Math.abs(canvasTop - apiTop), 'top').toBeLessThan(6);
+    });
 });
