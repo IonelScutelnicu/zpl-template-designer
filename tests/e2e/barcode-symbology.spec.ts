@@ -1324,7 +1324,8 @@ test.describe('Barcode symbology', () => {
             const geom = (startChar: string, stopChar: string) =>
                 getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', content: '12345', startChar, stopChar, showText: true, ratio: 3, width: 2 } as any) as any;
             const ok = geom('A', 'A');
-            // The body must be digits / - $ : / . + only; letters can't encode -> fallback.
+            // The body keeps digits / - $ : / . + only; a letters-only body encodes
+            // nothing, and the printer draws no symbol for it.
             const bad = getBarcodeGeometry({ type: 'BARCODE', symbology: 'CODABAR', content: 'AB', startChar: 'A', stopChar: 'A', showText: true } as any) as any;
             return { kind: ok.kind, modules: ok.modules, badKind: bad.kind };
         });

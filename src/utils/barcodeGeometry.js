@@ -176,6 +176,13 @@ export function normalizeBarcodeData(symbology, data) {
     // (UspsPostalSymbology.displayText).
     return s.replace(/\D/g, '');
   }
+  if (symbology === 'CODABAR') {
+    // ^BK's body alphabet is digits plus - $ : / . + ; the start/stop letters live
+    // in the k/l parameters, not the data. Zebra and Labelary drop anything else
+    // instead of rejecting the field (verified on Labelary: ^FD12A45* renders
+    // pixel-identical to ^FD1245, bars and HRI both, as do ^FD12a45 and ^FD12b45).
+    return s.replace(/[^0-9\-$:/.+]/gu, '');
+  }
   if (symbology === 'MSI') {
     // ^BM silently discards characters outside its numeric alphabet. Keeping
     // them makes bwip reject the entire field and turns a printable symbol into
@@ -1201,6 +1208,12 @@ export function getBarcodeGeometry(element, previewData = {}) {
   // draws nothing, so neither does the canvas (see qrPrintsNothing).
   if (resolveSymbology(element) === 'QR'
     && (Number(element.model) === 1 || qrPrintsNothing(element, data))) {
+    return { kind: 'empty' };
+  }
+  // ^BK with nothing encodable left in the body (its start/stop letters live in the
+  // k/l params, not the data) prints no symbol at all — verified on Labelary, where
+  // ^FDABCD comes back byte-identical to an empty ^FD.
+  if (resolveSymbology(element) === 'CODABAR' && !normalizeBarcodeData('CODABAR', data)) {
     return { kind: 'empty' };
   }
   if (resolveSymbology(element) === 'TLC39') return getTlc39Geometry(element, data);

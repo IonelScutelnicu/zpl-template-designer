@@ -253,7 +253,7 @@ class CodabarSymbology extends BarcodeSymbology {
   displayText(element, data = '') {
     const start = (element.startChar || 'A').toUpperCase();
     const stop = (element.stopChar || 'A').toUpperCase();
-    return `${start}${data}${stop}`;
+    return `${start}${normalizeBarcodeData('CODABAR', data)}${stop}`;
   }
 
   extraSettings(panel, element) {
