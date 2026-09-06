@@ -344,6 +344,103 @@ test.describe('ZPL Output - Generation and Validation', () => {
 
     // ============== FIELD HEX ESCAPES ==============
     test.describe('^FH field hex escapes', () => {
+        test('keeps imported underscores literal and updates automatic hex state while editing', async ({ page }) => {
+            await zplOutput.openZplFromContent('^XA\n^FO50,50^AAN,72,50^FD____^FS\n^XZ');
+            await elementsPanel.selectElementByIndex(0);
+            const toggle = page.locator('#prop-field-hex');
+            const content = page.locator('#prop-content');
+
+            await expect(content).toHaveValue('____');
+            await expect(toggle).not.toBeChecked();
+            await expect(page.locator('#prop-field-hex-description')).toBeHidden();
+            await zplOutput.verifyZPLContains('^FD____^FS');
+            await zplOutput.verifyZPLNotContains('^FH');
+
+            await content.fill('_41^');
+            await expect(toggle).toBeChecked();
+            await expect(toggle).toBeDisabled();
+            await expect(page.locator('#prop-field-hex-description')).toContainText('Enabled automatically');
+            await expect(page.locator('#prop-field-hex-description')).toBeVisible();
+            await zplOutput.verifyZPLContains('^FH^FD_5F41_5E^FS');
+            await expect(content).toHaveValue('_41^');
+
+            await content.fill('_41');
+            await expect(toggle).not.toBeChecked();
+            await expect(toggle).toBeEnabled();
+            await expect(page.locator('#prop-field-hex-description')).toBeHidden();
+            await zplOutput.verifyZPLContains('^FD_41^FS');
+            await zplOutput.verifyZPLNotContains('^FH');
+
+            await toggle.check({ force: true });
+            await zplOutput.verifyZPLContains('^FH^FD_5F41^FS');
+
+            // Content that needs hex locks the toggle even when it was switched on
+            // by hand, because switching it back off would not remove the ^FH.
+            await content.fill('_41^');
+            await expect(toggle).toBeDisabled();
+            await expect(page.locator('#prop-field-hex-label')).toHaveClass(/cursor-not-allowed/);
+            await content.fill('_41');
+            await expect(toggle).toBeEnabled();
+            await expect(toggle).toBeChecked();
+
+            await toggle.uncheck({ force: true });
+            await zplOutput.verifyZPLContains('^FD_41^FS');
+            await zplOutput.verifyZPLNotContains('^FH');
+        });
+
+        for (const type of ['barcode', 'QR code']) {
+            test(`reflects automatic hex escapes for a ${type}`, async ({ page }) => {
+                if (type === 'barcode') await elementsPanel.addBarcodeElement();
+                else await elementsPanel.addQRCodeElement();
+                await elementsPanel.selectElementByIndex(0);
+                const toggle = page.locator('#prop-field-hex');
+                await page.locator('#prop-content').fill('____');
+                await expect(toggle).not.toBeChecked();
+                await zplOutput.verifyZPLNotContains('^FH');
+
+                await page.locator('#prop-content').fill('_41^');
+                await expect(toggle).toBeChecked();
+                await expect(toggle).toBeDisabled();
+                await zplOutput.verifyZPLContains('_5F41_5E^FS');
+
+                await elementsPanel.addTextElement();
+                await elementsPanel.selectElementByIndex(0);
+                await expect(toggle).toBeChecked();
+                await expect(toggle).toBeDisabled();
+                await page.locator('#prop-content').fill('_41');
+                await expect(toggle).not.toBeChecked();
+                await expect(toggle).toBeEnabled();
+                await zplOutput.verifyZPLNotContains('^FH');
+            });
+        }
+
+        test('protects literal indicators only when hex mode is needed or forced', async ({ page }) => {
+            const result = await page.evaluate(async () => {
+                const { renderFieldDataCommand, decodeFieldData } = await import('/src/utils/zplFieldData.js');
+                const cases = [
+                    { value: '____', indicator: '_', force: false, expected: '^FD____' },
+                    { value: '_41', indicator: '_', force: false, expected: '^FD_41' },
+                    { value: '_41^', indicator: '_', force: false, expected: '^FH^FD_5F41_5E' },
+                    { value: '^_41', indicator: '_', force: false, expected: '^FH^FD_5E_5F41' },
+                    { value: '____', indicator: '_', force: true, expected: '^FH^FD_5F_5F_5F_5F' },
+                    { value: '_😀', indicator: '_', force: false, expected: '^FH^FD_5F_F0_9F_98_80' },
+                    { value: '#41', indicator: '#', force: false, expected: '^FD#41' },
+                    { value: '#41', indicator: '#', force: true, expected: '^FH#^FD#2341' },
+                    { value: '%first_name%_', indicator: '_', force: false, expected: '^FD%first_name%_' },
+                ];
+                return cases.map(({ value, indicator, force, expected }) => {
+                    const zpl = renderFieldDataCommand(value, indicator, force);
+                    const data = zpl.split('^FD')[1];
+                    const decoded = zpl.startsWith('^FH') ? decodeFieldData(data, indicator) : data;
+                    return { zpl, expected, decoded, value };
+                });
+            });
+            for (const { zpl, expected, decoded, value } of result) {
+                expect(zpl).toBe(expected);
+                expect(decoded).toBe(value);
+            }
+        });
+
         test('should emit ^FH only when field data needs escaping and parse it back', async ({ page }) => {
             const result = await page.evaluate(async () => {
                 const [{ SerializationService }, { ZPLGenerator }, { ZPLParser }] = await Promise.all([

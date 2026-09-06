@@ -23,31 +23,35 @@ test.describe('Multiline text', () => {
     });
 
     test.describe('line-break token per command', () => {
-        test('^TB encodes the break as _0A and turns on ^FH', async () => {
+        test('^TB encodes the break as _0A and turns on ^FH', async ({ page }) => {
             await elementsPanel.addTextBlockElement();
             await elementsPanel.selectElementByIndex(0);
             await propertiesPanel.setProperty('prop-content', TWO_LINES);
 
             await zplOutput.verifyZPLContains('^FH^FDLine1_0ALine2^FS');
             await zplOutput.verifyZPLNotContains('\\&');
+            await expect(page.locator('#prop-field-hex')).toBeChecked();
+            await expect(page.locator('#prop-field-hex')).toBeDisabled();
         });
 
-        test('^FB encodes the break as \\& and needs no ^FH', async () => {
+        test('^FB encodes the break as \\& and needs no ^FH', async ({ page }) => {
             await elementsPanel.addFieldBlockElement();
             await elementsPanel.selectElementByIndex(0);
             await propertiesPanel.setProperty('prop-content', TWO_LINES);
 
             await zplOutput.verifyZPLContains('^FDLine1\\&Line2^FS');
             await zplOutput.verifyZPLNotContains('_0A');
+            await expect(page.locator('#prop-field-hex')).not.toBeChecked();
         });
 
-        test('^A collapses the break to a space', async () => {
+        test('^A collapses the break to a space', async ({ page }) => {
             await elementsPanel.addTextElement();
             await elementsPanel.selectElementByIndex(0);
             await propertiesPanel.setProperty('prop-content', TWO_LINES);
 
             await zplOutput.verifyZPLContains('^FDLine1 Line2^FS');
             await zplOutput.verifyZPLNotContains('_0A');
+            await expect(page.locator('#prop-field-hex')).not.toBeChecked();
         });
 
         test('^FB keeps the centre-justification marker after a real break', async ({ page }) => {

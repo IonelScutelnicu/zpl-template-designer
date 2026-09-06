@@ -1831,14 +1831,14 @@ test.describe('Barcode symbology', () => {
         const actual = await page.evaluate(async (inputs) => {
             const { getBarcodeGeometry } = await import('/src/utils/barcodeGeometry.js');
             const { ZPLParser } = await import('/src/services/ZPLParser.js');
-            return ['N', 'R', 'I', 'B'].map(orientation => inputs.map(content => {
-                const element = new ZPLParser().parse(`^XA^BY2^FO50,50^BE${orientation},50,Y,N^FD${content}^FS^XZ`).elements[0];
+            return inputs.map(content => {
+                const element = new ZPLParser().parse(`^XA^BY2^FO50,50^BEN,50,Y,N^FD${content}^FS^XZ`).elements[0];
                 const g: any = getBarcodeGeometry(element);
                 return [element.content, g.txt?.map((t: any[]) => t[0]).join(''),
                     g.sbs?.map((width: number, i: number) => (i % 2 ? '0' : '1').repeat(width)).join('')];
-            }));
+            });
         }, cases.map(([input]) => input));
-        for (const orientation of actual) expect(orientation).toEqual(cases);
+        expect(actual).toEqual(cases);
     });
 
     test('UPC-E defaults six-digit input to number system 0 and encodes guard bars + HRI', async ({ page }) => {

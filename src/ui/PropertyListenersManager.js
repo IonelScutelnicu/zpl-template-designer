@@ -5,7 +5,7 @@ import { normalizeElementFontSize } from '../utils/zplFontSnap.js';
 import { DEFAULT_PREVIEW_DATA } from '../utils/barcodeGeometry.js';
 import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
-import { hasEnvelopeCommand, anchorToggleHtml, ANCHOR_TOGGLE_HOST_ID } from './PropertiesPanelRenderer.js';
+import { hasEnvelopeCommand, anchorToggleHtml, ANCHOR_TOGGLE_HOST_ID, fieldHexToggleState } from './PropertiesPanelRenderer.js';
 import { PlaceholderAutocomplete } from './PlaceholderAutocomplete.js';
 import { PlaceholderInsertMenu } from './PlaceholderInsertMenu.js';
 import { autoGrowTextarea } from '../utils/dom-helpers.js';
@@ -23,7 +23,23 @@ export class PropertyListenersManager {
     this.callbacks.onPropertyChange = (element) => {
       onPropertyChange(element);
       this._refreshAnchorToggle(element);
+      this._refreshFieldHexToggle(element);
     };
+  }
+
+  _refreshFieldHexToggle(element) {
+    const toggle = document.getElementById('prop-field-hex');
+    if (!toggle) return;
+    const { enabled, automatic, description } = fieldHexToggleState(element);
+    toggle.checked = enabled;
+    toggle.disabled = automatic;
+    const label = document.getElementById('prop-field-hex-label');
+    label?.classList.toggle('cursor-not-allowed', automatic);
+    label?.classList.toggle('cursor-pointer', !automatic);
+    const help = document.getElementById('prop-field-hex-description');
+    if (!help) return;
+    help.classList.toggle('hidden', !enabled);
+    help.textContent = description;
   }
 
   /**

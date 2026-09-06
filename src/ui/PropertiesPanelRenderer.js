@@ -13,6 +13,30 @@ import { getBarcodeSymbology } from '../barcodes/BarcodeSymbologies.js';
 import { getQRCodeSymbology } from '../barcodes/QRCodeSymbologies.js';
 import { placeholderNames } from '../utils/placeholders.js';
 
+// Whether the content alone forces ^FH, asked of render() so each element type's
+// own line-break handling counts (^TB escapes a break, ^FB and ^A do not). The
+// fieldHex flag is lifted for the probe because it would answer for the content.
+function contentNeedsHex(element) {
+  const forced = element.fieldHex;
+  element.fieldHex = false;
+  try {
+    return element.render().includes('^FH');
+  } finally {
+    element.fieldHex = forced;
+  }
+}
+
+export function fieldHexToggleState(element) {
+  const automatic = contentNeedsHex(element);
+  return {
+    enabled: element.fieldHex === true || automatic,
+    automatic,
+    description: automatic
+      ? 'Enabled automatically because this content requires hex escapes.'
+      : 'Includes ^FH in the exported field, even when the content needs no escaping.',
+  };
+}
+
 // Small inline-SVG glyphs for the symbology picker. Linear symbologies share one
 // barcode glyph; the 2D ones get a representative matrix/stacked glyph.
 const THUMB_LINEAR = `<svg viewBox="0 0 40 32" class="w-7 h-7" fill="currentColor" aria-hidden="true"><rect x="3" y="6" width="2" height="20"/><rect x="7" y="6" width="1" height="20"/><rect x="10" y="6" width="3" height="20"/><rect x="15" y="6" width="1" height="20"/><rect x="18" y="6" width="2" height="20"/><rect x="22" y="6" width="1" height="20"/><rect x="25" y="6" width="2" height="20"/><rect x="29" y="6" width="3" height="20"/><rect x="34" y="6" width="1" height="20"/><rect x="37" y="6" width="2" height="20"/></svg>`;
@@ -656,10 +680,9 @@ ${escapeHtml(values[name] ?? "")}</textarea>
   }
 
   renderFieldHexToggle(element) {
-    const fieldHexEnabled = element.fieldHex === true;
-    const alignmentClass = fieldHexEnabled ? "items-start" : "items-center";
+    const { enabled: fieldHexEnabled, automatic, description } = fieldHexToggleState(element);
     return `
-      <div class="mb-4 flex ${alignmentClass} justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
+      <div class="mb-4 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
         <span class="min-w-0">
           <span class="flex items-center gap-2 text-xs font-medium text-slate-800">
             <span>Hex escapes in data</span>
@@ -669,16 +692,14 @@ ${escapeHtml(values[name] ?? "")}</textarea>
               ^FH
             </a>
           </span>
-          ${fieldHexEnabled ? `
-            <span class="mt-2 block text-[11px] leading-4 text-slate-500">
-              Replaces _XX sequences in the Content with hex bytes at print time.
-            </span>
-          ` : ""}
+          <span id="prop-field-hex-description" class="mt-2 block text-[11px] leading-4 text-slate-500 ${fieldHexEnabled ? '' : 'hidden'}">
+            ${description}
+          </span>
         </span>
-        <label class="relative shrink-0 cursor-pointer" aria-label="Hex escapes in data">
-          <input type="checkbox" id="prop-field-hex" class="sr-only peer" ${fieldHexEnabled ? "checked" : ""}>
-          <span class="block h-6 w-11 rounded-full bg-slate-200 transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:bg-blue-600"></span>
-          <span class="absolute left-[2px] top-[2px] h-5 w-5 rounded-full border border-slate-300 bg-white transition-transform peer-checked:translate-x-full peer-checked:border-white"></span>
+        <label id="prop-field-hex-label" class="relative shrink-0 ${automatic ? 'cursor-not-allowed' : 'cursor-pointer'}" aria-label="Hex escapes in data">
+          <input type="checkbox" id="prop-field-hex" aria-describedby="prop-field-hex-description" class="sr-only peer" ${fieldHexEnabled ? "checked" : ""} ${automatic ? 'disabled' : ''}>
+          <span class="block h-6 w-11 rounded-full bg-slate-200 transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:bg-blue-600 peer-disabled:opacity-50"></span>
+          <span class="absolute left-[2px] top-[2px] h-5 w-5 rounded-full border border-slate-300 bg-white transition-transform peer-checked:translate-x-full peer-checked:border-white peer-disabled:opacity-50"></span>
         </label>
       </div>
     `;

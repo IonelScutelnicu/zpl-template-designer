@@ -3,6 +3,7 @@ import { decodeBytes } from './zplCodePages.js';
 
 const DEFAULT_HEX_INDICATOR = '_';
 const HEX_RE = /^[0-9A-Fa-f]{2}$/;
+const NEEDS_HEX_RE = /[\^~]|[^\x20-\x7E]/u;
 
 // Each ZPL text command breaks lines its own way: ^FB uses the
 // \& escape and discards raw line feeds, ^TB uses a real line feed (so _0A via
@@ -42,24 +43,27 @@ export function getFieldHexIndicator(fhParams = '') {
   return fhParams ? fhParams.charAt(0) : DEFAULT_HEX_INDICATOR;
 }
 
-export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
+export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false) {
   const text = String(value ?? '');
   const marker = indicator || DEFAULT_HEX_INDICATOR;
+  const segments = text.split(PLACEHOLDER_SPLIT_RE);
+  // The indicator is literal until ^FH is enabled for the field. Once enabled,
+  // escape every literal indicator so sequences such as _41 stay literal data.
+  const hexEnabled = forceHex || NEEDS_HEX_RE.test(text);
   const encoder = new TextEncoder();
   let encoded = '';
   let escaped = false;
 
   // Placeholders pass through untouched so the host's templating system
   // still sees %name%; only the literal text around them is hex-escaped.
-  for (const segment of text.split(PLACEHOLDER_SPLIT_RE)) {
+  for (const segment of segments) {
     if (!segment) continue;
     if (WHOLE_PLACEHOLDER_RE.test(segment)) {
       encoded += segment;
       continue;
     }
     for (const char of segment === '%%' ? '%' : segment) {
-      const codePoint = char.codePointAt(0);
-      const mustEscape = char === marker || char === '^' || char === '~' || codePoint < 0x20 || codePoint > 0x7E;
+      const mustEscape = NEEDS_HEX_RE.test(char) || (hexEnabled && char === marker);
 
       if (!mustEscape) {
         encoded += char;
@@ -78,8 +82,8 @@ export function encodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR) {
 
 /**
  * `encoding` is the character set the ^FH bytes are in — the one ^CI selected on
- * import. It defaults to UTF-8 because that is what encodeFieldData emits, so
- * decode(encode(x)) === x without the caller naming a code page.
+ * import. It defaults to UTF-8 because that is what encodeFieldData emits for
+ * escaped bytes. Only decode fields whose ^FH indicator is enabled.
  */
 export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR, encoding = 'utf-8') {
   const text = String(value ?? '');
@@ -113,7 +117,7 @@ export function decodeFieldData(value, indicator = DEFAULT_HEX_INDICATOR, encodi
  * ^FV has to be carried back out rather than inferred.
  */
 export function renderFieldDataCommand(value, indicator = DEFAULT_HEX_INDICATOR, forceHex = false, command = 'FD', options = {}) {
-  const encoded = encodeFieldData(value, indicator);
+  const encoded = encodeFieldData(value, indicator, forceHex);
   const fh = encoded.escaped || forceHex
     ? `^FH${encoded.indicator === DEFAULT_HEX_INDICATOR ? '' : encoded.indicator}`
     : '';
