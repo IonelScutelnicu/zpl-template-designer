@@ -43,7 +43,7 @@ test.describe('Density rescale', () => {
         Object.assign(t('FIELDBLOCK'), { x: 3, y: 3, fontId: '0', fontSize: 26, fontWidth: 16, blockWidth: 90, lineSpacing: 4, hangingIndent: 8 });
         Object.assign(t('BARCODE'), { x: 1, y: 1, width: 3, height: 50 });
         Object.assign(t('QRCODE'), { x: 0, y: 0, symbology: 'QR', magnification: 3, byHeight: 10 });
-        Object.assign(s.labelSettings, { fontId: '0', defaultFontHeight: 20, defaultFontWidth: 10, homeX: 10, homeY: 6, labelTop: 4 });
+        Object.assign(s.labelSettings, { fontId: '0', defaultFontHeight: 20, defaultFontWidth: 10, homeX: 10, homeY: 6, labelTop: 4, labelShift: -12 });
       });
 
       const before = await page.evaluate(() => (window as unknown as { appState: any }).appState.getHistoryEntries().length);
@@ -64,7 +64,7 @@ test.describe('Density rescale', () => {
           box: t('BOX'), line: t('LINE'), circle: t('CIRCLE'), diagonal: t('DIAGONALLINE'),
           text: t('TEXT'), textblock: t('TEXTBLOCK'), fieldblock: t('FIELDBLOCK'),
           barcode: t('BARCODE'), qrcode: t('QRCODE'),
-          label: { defaultFontHeight: ls.defaultFontHeight, defaultFontWidth: ls.defaultFontWidth, homeX: ls.homeX, homeY: ls.homeY, labelTop: ls.labelTop },
+          label: { defaultFontHeight: ls.defaultFontHeight, defaultFontWidth: ls.defaultFontWidth, homeX: ls.homeX, homeY: ls.homeY, labelTop: ls.labelTop, labelShift: ls.labelShift },
         };
       });
 
@@ -81,7 +81,7 @@ test.describe('Density rescale', () => {
       expect(r.fieldblock).toMatchObject({ fontSize: 78, fontWidth: 48, blockWidth: 270, lineSpacing: 12, hangingIndent: 24 });
       expect(r.barcode).toMatchObject({ width: 9, height: 150 });
       expect(r.qrcode).toMatchObject({ magnification: 9, byHeight: 30 });
-      expect(r.label).toEqual({ defaultFontHeight: 60, defaultFontWidth: 30, homeX: 30, homeY: 18, labelTop: 4 });
+      expect(r.label).toEqual({ defaultFontHeight: 60, defaultFontWidth: 30, homeX: 30, homeY: 18, labelTop: 4, labelShift: -12 });
     });
 
     test('updates the ZPL output to the new density and dimensions', async ({ page }) => {

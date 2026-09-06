@@ -117,6 +117,8 @@ export class SmartGuideService {
       bounds = getElementBoundsResolved(element, labelSettings);
     }
 
+    if (labelSettings.labelShift && renderer) bounds.x += renderer.leftPinShift(element, labelSettings);
+
     // Restore original position
     element.x = origX;
     element.y = origY;
@@ -132,9 +134,10 @@ export class SmartGuideService {
     const yEdges = [];
 
     // Label edges and center
-    xEdges.push({ position: 0, type: 'label-edge' });
-    xEdges.push({ position: Math.round(labelW / 2), type: 'label-center' });
-    xEdges.push({ position: labelW, type: 'label-edge' });
+    const labelX = labelSettings.labelShift ? labelSettings.labelShift - (labelSettings.homeX || 0) : 0;
+    xEdges.push({ position: labelX, type: 'label-edge' });
+    xEdges.push({ position: labelX + Math.round(labelW / 2), type: 'label-center' });
+    xEdges.push({ position: labelX + labelW, type: 'label-edge' });
 
     yEdges.push({ position: 0, type: 'label-edge' });
     yEdges.push({ position: Math.round(labelH / 2), type: 'label-center' });
@@ -151,6 +154,8 @@ export class SmartGuideService {
       } else {
         bounds = getElementBoundsResolved(el, labelSettings);
       }
+
+      if (labelSettings.labelShift && renderer) bounds.x += renderer.leftPinShift(el, labelSettings);
 
       // X edges: left, center, right
       xEdges.push({ position: bounds.x, type: 'element-edge' });

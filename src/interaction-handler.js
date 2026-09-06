@@ -346,6 +346,7 @@ export class InteractionHandler {
             this.resizeStartHeight = selectedElement.type === 'BOX' ? selectedElement.height : (selectedElement.fontSize || this.labelSettings?.defaultFontHeight || 30) * (selectedElement.maxLines || 1);
           }
         }
+        this.resizeStartX += this.leftPinShift(selectedElement);
         this.resizeMouseStartX = coords.x;
         this.resizeMouseStartY = coords.y;
 
@@ -392,7 +393,7 @@ export class InteractionHandler {
 
       if (!element.locked) {
         this.dragElement = element;
-        this.dragOffsetX = coords.x - element.x;
+        this.dragOffsetX = coords.x - element.x - this.leftPinShift(element);
         this.dragOffsetY = coords.y - element.y;
         this.dragStartX = element.x;
         this.dragStartY = element.y;
@@ -575,7 +576,8 @@ export class InteractionHandler {
     // Non-spatial members would contribute a phantom origin to the span below,
     // clamping how far the real elements can move.
     const members = (inMulti ? selection : [primary]).filter(el => !el.locked && isSpatial(el));
-    this.dragGroup = members.map(el => ({ el, dx: el.x - primary.x, dy: el.y - primary.y }));
+    const primaryX = primary.x + this.leftPinShift(primary);
+    this.dragGroup = members.map(el => ({ el, dx: el.x + this.leftPinShift(el) - primaryX, dy: el.y - primary.y }));
 
     let minDx = Infinity, minDy = Infinity, maxDx = -Infinity, maxDy = -Infinity;
     for (const m of this.dragGroup) {
@@ -598,12 +600,11 @@ export class InteractionHandler {
     let newX = coords.x - this.dragOffsetX;
     let newY = coords.y - this.dragOffsetY;
 
-    const labelW = this.labelSettings.width * this.labelSettings.dpmm;
     const labelH = this.labelSettings.height * this.labelSettings.dpmm;
     const gb = this.dragGroupOriginSpan;
 
-    const minX = -gb.minDx;
-    const maxX = labelW - 1 - gb.maxDx;
+    const minX = this.dragGroup.reduce((min, m) => Math.max(min, this.minOriginX(m.el) - m.dx), -Infinity);
+    const maxX = this.dragGroup.reduce((max, m) => Math.min(max, this.maxOriginX(m.el) - m.dx), Infinity);
     const minY = -gb.minDy + this.minOriginY();
     const maxY = labelH - 1 - gb.maxDy;
 
@@ -632,8 +633,9 @@ export class InteractionHandler {
     return this.elements.filter(el => {
       if (el.locked || !isSpatial(el)) return false;
       const b = this.getSelectionBounds(el);
+      const bx = b.x + this.leftPinShift(el);
       const by = b.y + this.topPinShift(el);
-      return !(b.x > rx2 || b.x + b.width < rect.x || by > ry2 || by + b.height < rect.y);
+      return !(bx > rx2 || bx + b.width < rect.x || by > ry2 || by + b.height < rect.y);
     });
   }
 
@@ -787,8 +789,8 @@ export class InteractionHandler {
         // coordinates are non-negative, and a negative ^LT raises it — see
         // minOriginY); growth past the right/bottom label edge is allowed —
         // overflowing content is clipped, like a real printer.
-        if (this.resizeHandle.includes('l') && newX < 0) {
-          newX = 0;
+        if (this.resizeHandle.includes('l') && newX < this.minOriginX(this.dragElement)) {
+          newX = this.minOriginX(this.dragElement);
           newWidth = (this.resizeStartX + this.resizeStartWidth) - newX;
         }
         if (this.resizeHandle.includes('t') && newY < this.minOriginY()) {
@@ -916,7 +918,7 @@ export class InteractionHandler {
           // offset that depends on the new quantized size, so anchoring an
           // ink edge means the stored origin moves to compensate.
           const inkOffset = this.dragElement.getBounds();
-          this.dragElement.x = Math.max(0, Math.round(newX - (inkOffset.x - this.dragElement.x)));
+          this.dragElement.x = Math.max(this.minOriginX(this.dragElement), Math.round(newX - (inkOffset.x - this.dragElement.x)));
           this.dragElement.y = Math.max(this.minOriginY(), Math.round(newY - (inkOffset.y - this.dragElement.y)));
         } else if (this.dragElement.type === 'LINE') {
           if (this.dragElement.orientation === 'H') {
@@ -1024,10 +1026,9 @@ export class InteractionHandler {
         // hang past the label edges and get clipped, like a real printer, but
         // ^FO coordinates cannot be negative and an on-label origin keeps the
         // element reachable. A negative ^LT raises that floor — see minOriginY.
-        const labelW = this.labelSettings.width * this.labelSettings.dpmm;
         const labelH = this.labelSettings.height * this.labelSettings.dpmm;
 
-        newX = Math.max(0, Math.min(newX, labelW - 1));
+        newX = Math.max(this.minOriginX(this.dragElement), Math.min(newX, this.maxOriginX(this.dragElement)));
         newY = Math.max(this.minOriginY(), Math.min(newY, labelH - 1));
 
         // Round to nearest dot
@@ -1340,17 +1341,18 @@ export class InteractionHandler {
     // may hang past the edges (clipped, like a real printer), but ^FO
     // coordinates cannot be negative and an on-label origin keeps the
     // element reachable. A negative ^LT raises that floor — see minOriginY.
-    const labelW = this.labelSettings.width * this.labelSettings.dpmm;
     const labelH = this.labelSettings.height * this.labelSettings.dpmm;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
     for (const el of movable) {
-      minX = Math.min(minX, el.x);
       minY = Math.min(minY, el.y);
-      maxX = Math.max(maxX, el.x);
       maxY = Math.max(maxY, el.y);
     }
-    if (minX + dx < 0) dx = -minX;
-    if (maxX + dx > labelW - 1) dx = labelW - 1 - maxX;
+    const movingX = dx !== 0;
+    if (movingX) {
+      const minDelta = movable.reduce((min, el) => Math.max(min, this.minOriginX(el) - el.x - this.leftPinShift(el)), -Infinity);
+      const maxDelta = movable.reduce((max, el) => Math.min(max, this.maxOriginX(el) - el.x - this.leftPinShift(el)), Infinity);
+      dx = Math.max(minDelta, Math.min(dx, maxDelta));
+    }
     const floorY = this.minOriginY();
     if (minY + dy < floorY) dy = floorY - minY;
     if (maxY + dy > labelH - 1) dy = labelH - 1 - maxY;
@@ -1360,7 +1362,7 @@ export class InteractionHandler {
       return;
     }
 
-    movable.forEach(el => { el.x += dx; el.y += dy; });
+    movable.forEach(el => { el.x += dx + (movingX ? this.leftPinShift(el) : 0); el.y += dy; });
     e.preventDefault();
     this.startKeyboardMove(movable);
     if (movable.length > 1 && this.callbacks.onElementsMoved) {
@@ -1438,11 +1440,12 @@ export class InteractionHandler {
       const element = this.elements[i];
       if (!isSpatial(element)) continue;
       const bounds = this.getSelectionBounds(element);
+      const bx = bounds.x + this.leftPinShift(element);
       const by = bounds.y + this.topPinShift(element);
 
       if (
-        x >= bounds.x &&
-        x <= bounds.x + bounds.width &&
+        x >= bx &&
+        x <= bx + bounds.width &&
         y >= by &&
         y <= by + bounds.height
       ) {
@@ -1462,10 +1465,11 @@ export class InteractionHandler {
       const element = this.elements[i];
       if (!isSpatial(element)) continue;
       const bounds = this.getSelectionBounds(element);
+      const bx = bounds.x + this.leftPinShift(element);
       const by = bounds.y + this.topPinShift(element);
       if (
-        x >= bounds.x &&
-        x <= bounds.x + bounds.width &&
+        x >= bx &&
+        x <= bx + bounds.width &&
         y >= by &&
         y <= by + bounds.height
       ) {
@@ -1483,6 +1487,25 @@ export class InteractionHandler {
   minOriginY() {
     const { homeY = 0, labelTop = 0 } = this.labelSettings || {};
     return Math.max(0, -(homeY + labelTop));
+  }
+
+  minOriginX(element) {
+    const { homeX = 0, labelShift = 0 } = this.labelSettings || {};
+    if (!labelShift) return 0;
+    return Math.max(0, labelShift - homeX) - this.renderer.labelShiftAnchorOffset(element, this.labelSettings);
+  }
+
+  maxOriginX(element) {
+    const { width, dpmm, homeX = 0, labelShift = 0 } = this.labelSettings;
+    const labelWidth = width * dpmm;
+    if (!labelShift) return labelWidth - 1;
+    return Math.max(this.minOriginX(element), labelWidth - 1 - homeX + labelShift
+      - this.renderer.labelShiftAnchorOffset(element, this.labelSettings));
+  }
+
+  leftPinShift(element) {
+    if (!this.labelSettings?.labelShift) return 0;
+    return this.renderer.leftPinShift(element, this.labelSettings);
   }
 
   /** Dots the top pin pushed this element down by — 0 when it is not pinned. */
@@ -1527,7 +1550,7 @@ export class InteractionHandler {
     const bounds = (element.type === 'TEXT' && this.labelSettings && this.renderer)
       ? this.renderer.measureTextBounds(element, this.labelSettings)
       : this.getSelectionBounds(element);
-    const bx = bounds.x;
+    const bx = bounds.x + this.leftPinShift(element);
     const by = bounds.y + this.topPinShift(element);
     const bw = bounds.width;
     const bh = bounds.height;

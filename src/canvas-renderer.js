@@ -6,6 +6,7 @@ import { resolveFontMetrics, resolveFontCellHeight, measureStyledText } from './
 import { effectiveCharGap, layoutCharOffsets, normalizePrintDirection, runLeadOffset, segmentForDirection } from './utils/fieldParameter.js';
 import { resolvePlaceholders } from './utils/placeholders.js';
 import { collapseLineBreaks } from './utils/zplFieldData.js';
+import { emittedOriginOffset } from './utils/fieldAnchor.js';
 import { TextRenderer } from './rendering/TextRenderer.js';
 import { FieldBlockRenderer } from './rendering/FieldBlockRenderer.js';
 import { BarcodeRenderer } from './rendering/BarcodeRenderer.js';
@@ -102,7 +103,7 @@ export class CanvasRenderer {
    * @param {Object} labelSettings - Label configuration
    */
   renderCanvas(elements, labelSettings, selection = null) {
-    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, printOrientation = 'N', printMirror = 'N' } = labelSettings;
+    const { width, height, dpmm, homeX = 0, homeY = 0, labelTop = 0, labelShift = 0, printOrientation = 'N', printMirror = 'N' } = labelSettings;
 
     // Normalize selection to a list so a single element, an array, or null all work.
     const selectedList = Array.isArray(selection) ? selection : (selection ? [selection] : []);
@@ -114,6 +115,8 @@ export class CanvasRenderer {
     this.homeX = homeX;
     this.homeY = homeY;
     this.labelTop = labelTop;
+    this.labelShift = labelShift;
+    this.labelSettings = labelSettings;
     this.printOrientation = printOrientation;
     this.printMirror = printMirror;
 
@@ -213,10 +216,11 @@ export class CanvasRenderer {
    * Shows the area affected by homeX, homeY, and labelTop offsets
    */
   drawOffsetZones(labelWidthDots, labelHeightDots) {
+    const totalXOffset = this.homeX - (this.labelShift || 0);
     const totalYOffset = this.homeY + this.labelTop;
 
     // Only draw if there are offsets
-    if (this.homeX <= 0 && totalYOffset <= 0) return;
+    if (totalXOffset <= 0 && totalYOffset <= 0) return;
 
     this.ctx.save();
 
@@ -229,8 +233,8 @@ export class CanvasRenderer {
     this.ctx.lineWidth = 1;
 
     // Draw left offset zone (homeX)
-    if (this.homeX > 0) {
-      const zoneWidth = this.homeX * this.scale;
+    if (totalXOffset > 0) {
+      const zoneWidth = totalXOffset * this.scale;
       const zoneHeight = labelHeightDots * this.scale;
 
       // Clip to the left zone
@@ -303,6 +307,26 @@ export class CanvasRenderer {
     return Math.max(this.labelTop, -(elementY + this.homeY));
   }
 
+  labelShiftAnchorOffset(element, labelSettings = this.labelSettings) {
+    if (!labelSettings?.labelShift) return 0;
+    return emittedOriginOffset(element, labelSettings, {
+      content: resolvePlaceholders(element.content, labelSettings.previewData)
+    }).dx;
+  }
+
+  /** Labelary pins the command anchor, before justification/rotation moves the ink. */
+  leftPinShift(element, labelSettings = this.labelSettings) {
+    const { homeX = 0, labelShift = 0 } = labelSettings || {};
+    if (!labelShift) return 0;
+    const anchorX = Math.round(element.x + this.labelShiftAnchorOffset(element, labelSettings));
+    return Math.max(0, labelShift - homeX - anchorX);
+  }
+
+  horizontalOffset(element, labelSettings = this.labelSettings) {
+    return (labelSettings?.homeX ?? this.homeX) - (labelSettings?.labelShift || 0)
+      + this.leftPinShift(element, labelSettings);
+  }
+
   /**
    * Draw a single element on canvas
    */
@@ -312,7 +336,7 @@ export class CanvasRenderer {
     // Prepare transform parameters for renderers
     const transform = {
       scale: this.scale,
-      homeX: this.homeX,
+      homeX: this.horizontalOffset(element, labelSettings),
       homeY: this.homeY,
       labelTop: this.pinnedLabelTop(element.y),
       transparentBackground: this.transparentBackground
@@ -400,7 +424,7 @@ export class CanvasRenderer {
       // bounds.x/y, not element.x/y: a ^FPR run starts before its own origin, and the
       // resize handles are hit-tested against these same measured bounds.
       const bounds = this.measureTextBounds(element, labelSettings);
-      x = (bounds.x + this.homeX) * this.scale;
+      x = (bounds.x + this.horizontalOffset(element, labelSettings)) * this.scale;
       y = (bounds.y + this.homeY + this.pinnedLabelTop(element.y)) * this.scale;
       width = bounds.width * this.scale;
       height = bounds.height * this.scale;
@@ -409,7 +433,7 @@ export class CanvasRenderer {
       // line-spacing slot an R/I rotation pivots from — the box FieldBlockRenderer
       // actually draws.
       const extents = fieldBlockExtents(element, labelSettings, this.scale);
-      x = (element.x + this.homeX) * this.scale;
+      x = (element.x + this.horizontalOffset(element, labelSettings)) * this.scale;
       y = (element.y + this.homeY + this.pinnedLabelTop(element.y)) * this.scale;
       width = extents.width;
       height = extents.height;
@@ -418,7 +442,7 @@ export class CanvasRenderer {
       // string, so measuring the raw Content would size the box to the
       // placeholder name rather than to the symbol actually drawn.
       const bounds = element.getBounds(labelSettings?.dpmm, labelSettings?.previewData);
-      x = (bounds.x + this.homeX) * this.scale;
+      x = (bounds.x + this.horizontalOffset(element, labelSettings)) * this.scale;
       y = (bounds.y + this.homeY + this.pinnedLabelTop(element.y)) * this.scale;
       width = bounds.width * this.scale;
       height = bounds.height * this.scale;
@@ -567,7 +591,7 @@ export class CanvasRenderer {
 
     // Subtract offsets to get element-relative coordinates
     return {
-      x: dotX - this.homeX,
+      x: dotX - this.homeX + (this.labelShift || 0),
       y: dotY - this.homeY - this.labelTop
     };
   }
@@ -595,7 +619,7 @@ export class CanvasRenderer {
 
     for (const guide of this.smartGuides) {
       const pos = guide.axis === 'x'
-        ? (guide.position + this.homeX) * this.scale
+        ? (guide.position + this.homeX - (this.labelShift || 0)) * this.scale
         : (guide.position + this.homeY + this.labelTop) * this.scale;
 
       // Guide line style — constant on-screen weight

@@ -40,6 +40,7 @@ export class AppState {
       homeX: 0,                // ^LH x position
       homeY: 0,                // ^LH y position
       labelTop: 0,             // ^LT label top shift
+      labelShift: 0,           // ^LS horizontal calibration (positive shifts left)
     };
 
     // History management

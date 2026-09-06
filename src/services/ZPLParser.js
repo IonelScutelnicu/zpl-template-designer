@@ -25,7 +25,7 @@ const POWER_UP_FONT_HEIGHT = 9;
  * Known ZPL commands that the parser handles (won't generate warnings)
  */
 const KNOWN_COMMANDS = new Set([
-  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
+  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'LS', 'CI', 'MT',
   'CF', 'CW', 'DY', 'PQ', 'FO', 'FT', 'A', 'FB', 'TB', 'FD', 'FH', 'FS', 'FR', 'SN', 'BC', 'BY',
   'BQ', 'GB', 'GE', 'GC', 'GD', 'GF', 'GS', 'FX',
   // Native variable and clock commands are supported no-ops during import.
@@ -155,7 +155,7 @@ function tokenFwOrientation(token) {
  * along: it is global rather than field-scoped, so it takes the same route.
  */
 const HEADER_COMMANDS = new Set([
-  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'CI', 'MT',
+  'XA', 'XZ', 'PW', 'PR', 'PO', 'PM', 'MN', 'LL', 'SD', 'LH', 'LT', 'LS', 'CI', 'MT',
   'CF', 'CW', 'DY', 'PQ', 'LR'
 ]);
 
@@ -665,6 +665,7 @@ export class ZPLParser {
     // Resolve the one ^LH the label carries and fold it out of the absolute
     // coordinates the fields were parsed in. Runs before _applyLabelMeta because
     // _centerPrintWidthOnMedia adds the ^PW gap on top of the adopted home.
+    this._flattenLabelShift(state);
     this._flattenLabelHome(state);
 
     // Apply validated label metadata last so it overrides ^PW-derived width and
@@ -812,6 +813,7 @@ export class ZPLParser {
           defaultFontWidth: state.defaultFont.width,
         });
         element._fieldHome = { ...group.homeAtOpen, offX: dx, offY: dy };
+        element._fieldLabelShift = state.labelSettings.labelShift;
         state.elements.push(element);
         if (group.isFT && !anchored && !state.ftWarningAdded) {
           // Only what the anchor module can't invert is still converted:
@@ -937,7 +939,7 @@ export class ZPLParser {
     // The home in force where the span opened, not where it closed — an ^LH can
     // sit between the ^FO and the ^FS. _flattenLabelHome compares it against the
     // adopted home once that exists, then drops the key.
-    return { type: 'RAW', text, _rawHome: { ...homeAtOpen } };
+    return { type: 'RAW', text, _rawHome: { ...homeAtOpen }, _rawLabelShift: state.labelSettings.labelShift };
   }
 
   /**
@@ -1017,6 +1019,10 @@ export class ZPLParser {
     if (!printWidthDots) return;
     const mediaWidthDots = Math.floor((width / 25.4) * Math.floor(dpmm * 25.4));
     if (printWidthDots >= mediaWidthDots) return;
+    // Centering happens after Labelary pins anchors at the print strip's edge.
+    // Once the strip offset becomes ^LH, bake that pin into the field first so
+    // the added home cannot partially undo it on the wider exported label.
+    for (const { element, pin } of state.labelShiftPins || []) element.x += pin;
     state.labelSettings.homeX += Math.floor((mediaWidthDots - printWidthDots) / 2);
   }
 
@@ -1116,6 +1122,16 @@ export class ZPLParser {
       }
       case 'LT': {
         state.labelSettings.labelTop = parseInt(token.params) || 0;
+        break;
+      }
+      case 'LS': {
+        const value = parseInt(token.params);
+        if (!Number.isFinite(value)) break;
+        const shift = clampNumber(value, -9999, 9999);
+        state.labelSettings.labelShift = shift;
+        if (shift !== value) {
+          state.warnings.push({ command: '^LS', message: `Label Shift ${value} was clamped to ${shift} dots (range -9999 to 9999).` });
+        }
         break;
       }
       case 'CF': {
@@ -1560,10 +1576,41 @@ export class ZPLParser {
   }
 
   /**
-   * Fold per-field ^LH origins into one label home. Choose the smallest used
-   * home that keeps every emitted ^FO/^FT coordinate within 0..32000, then
-   * subtract it from each absolute element position.
+   * Fold sequential ^LS values into one editable shift before resolving ^LH.
    */
+  _flattenLabelShift(state) {
+    const shifted = state.elements.filter(element => element._fieldLabelShift !== undefined);
+    const adopted = shifted.length
+      ? shifted.reduce((max, element) => Math.max(max, element._fieldLabelShift), -Infinity)
+      : state.labelSettings.labelShift;
+    const shifts = new Set();
+    state.labelShiftPins = [];
+    let rawMismatch = false;
+    for (const element of state.elements) {
+      if (element._fieldLabelShift !== undefined) {
+        shifts.add(element._fieldLabelShift);
+        // Preserve the effective anchor before pinning, without creating negative
+        // command coordinates. Label-home normalization handles the upper bound.
+        element.x += adopted - element._fieldLabelShift;
+        const pin = adopted ? Math.max(0, adopted - Math.round(element.x + element._fieldHome.offX)) : 0;
+        if (pin) state.labelShiftPins.push({ element, pin });
+        delete element._fieldLabelShift;
+      }
+      if (element._rawLabelShift !== undefined) {
+        if (element._rawLabelShift !== adopted && rawDependsOnLabelHome(element.text)) rawMismatch = true;
+        delete element._rawLabelShift;
+      }
+    }
+    state.labelSettings.labelShift = adopted;
+    if (shifts.size > 1) {
+      state.warnings.push({ command: '^LS', message: '^LS changed between fields. Field positions were folded into their X coordinates under a single Label Shift, preserving geometry but not the original command structure.' });
+    }
+    if (rawMismatch) {
+      state.warnings.push({ command: '^LS', message: 'Preserved raw ZPL was written under a different ^LS and its coordinates were not adjusted, so it may print in the wrong place.' });
+    }
+  }
+
+  /** Fold per-field homes into one label home, keeping emitted coordinates in range. */
   _flattenLabelHome(state) {
     const homed = state.elements.filter(element => element._fieldHome);
 
@@ -2515,6 +2562,7 @@ export class ZPLParser {
       homeX: 0,
       homeY: 0,
       labelTop: 0,
+      labelShift: 0,
       printQuantity: 1,
       pauseCount: 0,
       replicates: 0,

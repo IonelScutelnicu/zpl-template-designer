@@ -64,8 +64,7 @@ export class ZPLGenerator {
   }
 
   /**
-   * Restore the label home after a RAW element's persistent ^LH, preventing it
-   * from shifting later elements twice.
+   * Restore label offsets after a RAW element changes persistent ^LH or ^LS.
    *
    * @param {string} command - The element's rendered ZPL
    * @param {Object} element - The element it came from
@@ -73,8 +72,12 @@ export class ZPLGenerator {
    * @returns {string} The command, with the home restored behind it if needed
    */
   restoreLabelHome(command, element, labelSettings) {
-    if (element.type !== 'RAW' || !/\^LH/i.test(command)) return command;
-    return `${command}^LH${labelSettings.homeX || 0},${labelSettings.homeY || 0}`;
+    if (element.type !== 'RAW') return command;
+    const restoreHome = /\^LH/i.test(command);
+    const restoreShift = /\^LS/i.test(command);
+    if (restoreHome) command += `^LH${labelSettings.homeX || 0},${labelSettings.homeY || 0}`;
+    if (restoreShift) command += `^LS${labelSettings.labelShift || 0}`;
+    return command;
   }
 
   /**
@@ -89,6 +92,7 @@ export class ZPLGenerator {
       homeX = 0,
       homeY = 0,
       labelTop = 0,
+      labelShift = 0,
       printOrientation = 'N',
       printMirror = 'N',
       mediaTracking = '',
@@ -138,6 +142,7 @@ export class ZPLGenerator {
 
     // Label top (additional Y offset)
     header += `^LT${labelTop}\n`;
+    header += `^LS${labelShift}\n`;
 
     // Character encoding (CI28 = UTF-8)
     header += '^CI28\n';

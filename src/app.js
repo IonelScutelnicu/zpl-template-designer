@@ -306,6 +306,7 @@ const labelDpmm = document.getElementById("label-dpmm");
 const homeX = document.getElementById("home-x");
 const homeY = document.getElementById("home-y");
 const labelTop = document.getElementById("label-top");
+const labelShift = document.getElementById("label-shift");
 const orientationButtons = document.querySelectorAll('[data-orientation]');
 const mirrorButtons = document.querySelectorAll('[data-mirror]');
 
@@ -1300,6 +1301,15 @@ export function initApp() {
     scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
   });
 
+  labelShift.addEventListener("input", (e) => {
+    const value = Math.max(-9999, Math.min(9999, parseInt(e.target.value) || 0));
+    if (e.target.value !== '' && e.target.value !== String(value)) e.target.value = value;
+    state.updateLabelSettings({ labelShift: value });
+    updateZPLOutput();
+    renderCanvasPreview();
+    scheduleHistoryCommit("label-settings", "Updated label settings", { kind: "settings" });
+  });
+
   // Set up event delegation for elements list (only once)
   elementsList.addEventListener("click", (e) => {
     // Check if lock button was clicked
@@ -2057,6 +2067,7 @@ function syncLabelSettingsInputs() {
   homeX.value = state.labelSettings.homeX;
   homeY.value = state.labelSettings.homeY;
   labelTop.value = state.labelSettings.labelTop;
+  labelShift.value = state.labelSettings.labelShift;
   setOrientationActive(state.labelSettings.printOrientation);
   setMirrorActive(state.labelSettings.printMirror);
   setMediaTrackingActive(state.labelSettings.mediaTracking || '');
