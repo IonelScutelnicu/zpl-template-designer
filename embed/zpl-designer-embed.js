@@ -1,6 +1,7 @@
 // ZPL Template Designer embed SDK.
 // Wraps iframe/new-tab embedding of the editor and its postMessage protocol
-// (v1). Dependency-free; include via:
+// (v1; editor messages are accepted from v1 up, so a newer editor build stays
+// readable). Dependency-free; include via:
 //   <script src="https://ionelscutelnicu.github.io/zpl-template-designer/embed/zpl-designer-embed.js"></script>
 // Docs: https://github.com/IonelScutelnicu/zpl-template-designer/blob/main/docs/EMBEDDING.md
 (function () {
@@ -63,10 +64,22 @@
       if (win) win.postMessage({ source: SOURCE_HOST, version: PROTOCOL_VERSION, type: type, payload: payload }, target);
     }
 
+    // The editor keeps host fonts registered for the life of the page and
+    // re-matches them on every load, so a later load message leaves them out —
+    // re-sending multi-MB faces per swap is pure cost. They stay on initPayload
+    // for the re-init after a reload, where the editor's registry is gone.
+    function withoutFonts(payload) {
+      var out = {};
+      for (var key in payload) {
+        if (key !== 'fonts') out[key] = payload[key];
+      }
+      return out;
+    }
+
     function onMessage(event) {
       if (event.source !== getWindow() || event.origin !== getEditorOrigin()) return;
       var msg = event.data;
-      if (!msg || msg.source !== SOURCE_EDITOR || msg.version !== PROTOCOL_VERSION) return;
+      if (!msg || msg.source !== SOURCE_EDITOR || !(typeof msg.version === 'number' && msg.version >= PROTOCOL_VERSION)) return;
       switch (msg.type) {
         case 'ready':
           // Fires on first load and again on reload — re-init each time.
@@ -94,12 +107,15 @@
       loadTemplate: function (template, previewData) {
         initPayload = { template: template, fonts: initPayload.fonts };
         if (previewData !== undefined) initPayload.previewData = previewData;
-        postToEditor('loadTemplate', initPayload);
+        postToEditor('loadTemplate', withoutFonts(initPayload));
       },
+      // Replaces the whole document, keeping the editor's history so the user
+      // can undo back to what they had. `setZpl` is the same message under the
+      // name used by hosts that only ever swap the ZPL body.
       loadZPL: function (zpl, previewData) {
         initPayload = { zpl: zpl, fonts: initPayload.fonts };
         if (previewData !== undefined) initPayload.previewData = previewData;
-        postToEditor('loadZPL', initPayload);
+        postToEditor('loadZPL', withoutFonts(initPayload));
       },
       // Preview fonts for the printer-resident fonts a template names: a
       // template declaring E:NOTO.TTF renders in the NOTO.TTF sent here,

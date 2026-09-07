@@ -1,9 +1,14 @@
 // Embed bridge — owns the postMessage protocol used when the editor runs
 // inside a host application (?embed=1), either as an iframe or a window
-// opened from the host. Protocol v1, envelope both ways:
+// opened from the host. Envelope both ways:
 //   { source, version, type, payload }
-// host→editor: init, loadTemplate, loadZPL, setPreviewData, setFonts, requestSave
+// host→editor: init, loadTemplate, loadZPL, setZpl, setPreviewData, setFonts,
+//              requestSave
 // editor→host: ready, save, cancel, change, error
+//
+// `ready` lists the host→editor types this build understands, so a host
+// feature-detects a message instead of inferring it from a version number —
+// the wire version stays 1 and nothing that speaks v1 has to change.
 
 import { isValidPlaceholderName } from '../utils/placeholders.js';
 import { fontBytesFromSource } from '../utils/customFonts.js';
@@ -11,6 +16,22 @@ import { fontBytesFromSource } from '../utils/customFonts.js';
 const PROTOCOL_VERSION = 1;
 const SOURCE_EDITOR = 'zpl-designer';
 const SOURCE_HOST = 'zpl-designer-host';
+
+// A host may have moved on to a later revision of this envelope than the build
+// it is talking to. Anything from PROTOCOL_VERSION up is accepted and
+// dispatched on `type`, with unknown types ignored, so a newer host keeps
+// working instead of going silent on a version equality check.
+const isSupportedVersion = (version) => typeof version === 'number' && version >= PROTOCOL_VERSION;
+
+// Advertised in `ready`. `setZpl` is the same whole-document ZPL load as
+// `loadZPL` under the name hosts that only ever swap the ZPL body use.
+const CAPABILITIES = [
+  'init', 'loadTemplate', 'loadZPL', 'setZpl', 'setPreviewData', 'setFonts', 'requestSave',
+];
+
+// A body with no command in it parses to an empty label, which would read as
+// the editor wiping the canvas on its own — see applyContent.
+const ZPL_COMMAND = /[\^~][A-Za-z]/;
 
 export function isEmbedMode() {
   return new URLSearchParams(window.location.search).get('embed') === '1';
@@ -20,8 +41,8 @@ export function isEmbedMode() {
  * Wire the editor side of the protocol. All callbacks are supplied by app.js:
  * @param {Object} deps
  * @param {Object} deps.state - AppState (for change subscriptions)
- * @param {Function} deps.importTemplateJson - (jsonString) => boolean success
- * @param {Function} deps.importZPL - (zpl) => warnings[] (never throws)
+ * @param {Function} deps.importTemplateJson - (jsonString, {undoable}) => boolean success
+ * @param {Function} deps.importZPL - (zpl, {undoable}) => warnings[] (never throws)
  * @param {Function} deps.getResult - () => { template, zpl }
  * @param {Function} deps.setPreviewData - (map) => void, merges host Preview Data
  * @param {Function} deps.setHostFonts - ([{name, bytes}]) => Promise<string[]> rejected names
@@ -117,7 +138,11 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
     }
   };
 
-  const applyContent = async (payload) => {
+  // `undoable` is for a load that lands on a document the user may already have
+  // worked in: it keeps the history and adds the swap as one more step, so Undo
+  // returns to what they had. Fonts are never required — the ones from `init`
+  // stay registered for the life of the page and are re-matched on every load.
+  const applyContent = async (payload, { undoable = false } = {}) => {
     loading++;
     try {
       // Before the import, so the fonts a template declares are matched on the
@@ -129,13 +154,20 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
         const json = typeof payload.template === 'string'
           ? payload.template
           : JSON.stringify(payload.template);
-        if (!await importTemplateJson(json)) {
+        if (!await importTemplateJson(json, { undoable })) {
           post('error', { message: 'Invalid template' }, hostOrigin);
         }
-      } else if (typeof payload.zpl === 'string') {
-        const warnings = await importZPL(payload.zpl);
-        if (warnings.length > 0) {
-          post('error', { message: 'ZPL imported with warnings', warnings }, hostOrigin);
+      } else if (payload.zpl !== undefined) {
+        // Refused rather than imported: importing it would blank the canvas
+        // with nothing to say why, so the open document stays put and the host
+        // hears about it the way it hears about any other bad payload.
+        if (typeof payload.zpl !== 'string' || !ZPL_COMMAND.test(payload.zpl)) {
+          post('error', { message: 'ZPL could not be parsed' }, hostOrigin);
+        } else {
+          const warnings = await importZPL(payload.zpl, { undoable });
+          if (warnings.length > 0) {
+            post('error', { message: 'ZPL imported with warnings', warnings }, hostOrigin);
+          }
         }
       }
       // After the import, so host values win over whatever the template carried.
@@ -156,15 +188,20 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
     // forge event.source.
     if (event.source !== hostWindow) return;
     const msg = event.data;
-    if (!msg || msg.source !== SOURCE_HOST || msg.version !== PROTOCOL_VERSION) return;
+    if (!msg || msg.source !== SOURCE_HOST || !isSupportedVersion(msg.version)) return;
     if (hostOrigin === null) {
       if (msg.type !== 'init') return;
       hostOrigin = event.origin;
     } else if (event.origin !== hostOrigin) {
       return;
     }
-    if (msg.type === 'init' || msg.type === 'loadTemplate' || msg.type === 'loadZPL') {
-      enqueue(() => applyContent(msg.payload || {}));
+    if (msg.type === 'init' || msg.type === 'loadTemplate' || msg.type === 'loadZPL' || msg.type === 'setZpl') {
+      // `init` opens the session and takes the history with it. Anything after
+      // it reaches an editor that is already showing a document — and, because
+      // the origin lock above only opens on `init`, that is the only way a load
+      // gets here — so it applies as one undoable step.
+      const undoable = msg.type !== 'init';
+      enqueue(() => applyContent(msg.payload || {}, { undoable }));
     } else if (msg.type === 'setPreviewData') {
       enqueue(() => applyPreviewData((msg.payload || {}).previewData));
     } else if (msg.type === 'setFonts') {
@@ -200,5 +237,5 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
 
   // `ready` carries no data, so '*' is safe; the host origin is unknown
   // until its init arrives.
-  post('ready', { version: PROTOCOL_VERSION }, '*');
+  post('ready', { version: PROTOCOL_VERSION, capabilities: CAPABILITIES }, '*');
 }

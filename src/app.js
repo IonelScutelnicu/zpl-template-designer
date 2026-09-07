@@ -1457,25 +1457,32 @@ export function initApp() {
   });
 
   if (isEmbedMode()) {
+    // The load that opens the session owns history; a host swapping the
+    // document into an editor that is already showing one lands as a single
+    // undoable step, so the user can get back to what they had.
+    const hostImportHistory = (undoable) => (undoable
+      ? { historyLabel: 'Replaced template', replaceHistory: false }
+      : {});
+
     initEmbedBridge({
       state,
       // Both imports normalize font sources before committing: the parser is
       // synchronous and cannot hash, and an unhashed source has no FontFace.
-      importTemplateJson: async (json) => {
+      importTemplateJson: async (json, { undoable = false } = {}) => {
         const template = serializationService.importTemplate(json);
         if (!template) return false;
         await normalizeCustomFontSources(template.labelSettings?.customFonts);
         applyHostFontsToImport(template.labelSettings || {});
-        importTemplate(template);
+        importTemplate(template, hostImportHistory(undoable));
         return true;
       },
-      importZPL: async (zpl) => {
+      importZPL: async (zpl, { undoable = false } = {}) => {
         const dpmm = state.labelSettings.dpmm || 8;
         const labelHeightVal = state.labelSettings.height || 50;
         const result = zplParser.parse(zpl, { dpmm, labelHeight: labelHeightVal });
         await normalizeCustomFontSources(result.labelSettings.customFonts);
         applyHostFontsToImport(result.labelSettings);
-        importTemplate({ elements: result.elements, labelSettings: result.labelSettings });
+        importTemplate({ elements: result.elements, labelSettings: result.labelSettings }, hostImportHistory(undoable));
         return result.warnings;
       },
       setHostFonts: (fonts) => setHostPreviewFonts(fonts),
@@ -3789,7 +3796,7 @@ async function finalizeZPLImport(result) {
 }
 
 // Import Template from JSON
-function importTemplate(template, { historyLabel = "Imported template", historyKind = "import" } = {}) {
+function importTemplate(template, { historyLabel = "Imported template", historyKind = "import", replaceHistory = true } = {}) {
   // Every load path (gallery, share URL, file import, Drive, embed, New) funnels
   // through here, so this is the one place the pre-Content format is upgraded.
   // Must run before the label settings below are merged — it seeds Preview Data.
@@ -3840,7 +3847,16 @@ function importTemplate(template, { historyLabel = "Imported template", historyK
   renderPropertiesPanel();
   updateZPLOutput();
   renderCanvasPreview();
-  resetHistory(historyLabel, { kind: historyKind });
+  if (replaceHistory) {
+    resetHistory(historyLabel, { kind: historyKind });
+  } else {
+    // The document was swapped under an editor the user has already been
+    // working in, so history survives and the swap is one more step on it —
+    // Undo goes back to what they had. The pending debounced commits belong to
+    // the document that just left and would commit under its label.
+    state.clearHistoryCommitTimers();
+    pushHistory(historyLabel, { kind: historyKind });
+  }
   updateCopyExportUI();
 }
 

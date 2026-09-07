@@ -305,9 +305,19 @@ export class AppState {
   resetHistory() {
     this.history.entries = [];
     this.history.index = -1;
+    this.clearHistoryCommitTimers();
+    this.notify('historyChanged', { entries: this.history.entries, index: this.history.index });
+  }
+
+  /**
+   * Drop every pending debounced commit, leaving the entries alone. Any
+   * document swap has to do this: an edit debounced just before the swap
+   * would otherwise commit a snapshot of the new document under the old
+   * document's label.
+   */
+  clearHistoryCommitTimers() {
     this.history.commitTimers.forEach(timer => clearTimeout(timer));
     this.history.commitTimers.clear();
-    this.notify('historyChanged', { entries: this.history.entries, index: this.history.index });
   }
 
   /**

@@ -231,21 +231,192 @@ test.describe('Embed mode', () => {
         await host.expectStatus('error: Invalid template');
     });
 
-    test('protocol-version mismatches are ignored', async ({ page }) => {
+    // A host that has moved on to a later revision of the envelope must not go
+    // silent against an older editor: anything from v1 up is dispatched on its
+    // type. Below v1 is not this protocol at all.
+    test('a later protocol version is accepted; a lower one is ignored', async ({ page }) => {
         const host = new EmbedHost(page);
         await host.goto();
         await host.loadTemplateBtn.click();
         await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
 
         await page.evaluate(() => {
-            const iframe = document.querySelector('iframe') as HTMLIFrameElement;
-            iframe.contentWindow!.postMessage(
-                { source: 'zpl-designer-host', version: 99, type: 'loadTemplate', payload: { template: null } },
+            const editor = (document.querySelector('#editor-container iframe') as HTMLIFrameElement).contentWindow!;
+            editor.postMessage(
+                { source: 'zpl-designer-host', version: 0, type: 'loadZPL', payload: { zpl: '^XA^FO10,10^A0N,30,30^FDv0^FS^XZ' } },
+                '*',
+            );
+            editor.postMessage(
+                { source: 'zpl-designer-host', version: '2', type: 'loadZPL', payload: { zpl: '^XA^FO10,10^A0N,30,30^FDstring^FS^XZ' } },
+                '*',
+            );
+            editor.postMessage(
+                { source: 'zpl-designer-host', version: 99, type: 'loadZPL', payload: { zpl: '^XA^FO10,10^A0N,30,30^FDv99^FS^XZ' } },
                 '*',
             );
         });
-        // Element still present — the message was ignored.
-        await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+
+        // Only the v99 message got through — the other two never reached the editor.
+        await expect(host.frame.locator('#elements-list')).toContainText('v99');
+        await expect(host.frame.locator('#elements-list')).not.toContainText('v0');
+        await expect(host.frame.locator('#elements-list')).not.toContainText('string');
+    });
+
+    // `setZpl` is the whole-document ZPL load under the name a host that only
+    // swaps the ZPL body uses. Everything below drives it the way such a host
+    // does — raw postMessage, no SDK, no fonts on the message.
+    test.describe('setZpl', () => {
+        // Sends as the host would: the envelope at a version this editor was
+        // not built against, dispatched on its type all the same.
+        const setZpl = (page: Page, zpl: string, previewData?: Record<string, string>) =>
+            page.evaluate(({ zpl, previewData }) => {
+                const payload: Record<string, unknown> = { zpl };
+                if (previewData) payload.previewData = previewData;
+                (document.querySelector('#editor-container iframe') as HTMLIFrameElement)
+                    .contentWindow!.postMessage(
+                        { source: 'zpl-designer-host', version: 2, type: 'setZpl', payload },
+                        '*',
+                    );
+            }, { zpl, previewData });
+
+        test('replaces the document without a reload, and the last one wins', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            await host.loadZplBtn.click();
+            await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
+
+            // A mark on the editor's own window, which a reload would wipe —
+            // the reload fallback this message exists to replace does exactly
+            // that, and with it goes the font registry the swaps below reuse.
+            await page.evaluate(() => {
+                const editor = (document.querySelector('#editor-container iframe') as HTMLIFrameElement).contentWindow!;
+                (editor as unknown as Record<string, string>).__noReloadProbe = 'kept';
+            });
+
+            await setZpl(page, '^XA^FO40,40^A0N,40,40^FDFirst body^FS^XZ');
+            await expect(host.frame.locator('#elements-list')).toContainText('First body');
+
+            await setZpl(page, '^XA^FO40,40^A0N,40,40^FDSecond body^FS^XZ');
+            await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+            await expect(host.frame.locator('#elements-list')).toContainText('Second body');
+            await expect(host.frame.locator('#elements-list')).not.toContainText('First body');
+
+            // Same editor document throughout — no reload, so no font re-send.
+            const probe = await page.evaluate(() => {
+                const editor = (document.querySelector('#editor-container iframe') as HTMLIFrameElement).contentWindow!;
+                return (editor as unknown as Record<string, string>).__noReloadProbe;
+            });
+            expect(probe).toBe('kept');
+        });
+
+        test('honours the labelMeta comment for the canvas size', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            // Same shape the generator emits: first command after ^XA, unterminated.
+            await setZpl(page, '^XA\n^FX{"labelMeta":{"w":76.2,"h":25.4,"dpmm":12}}\n^FO20,20^A0N,30,30^FDMeta^FS\n^XZ');
+
+            await expect(host.frame.locator('#elements-list')).toContainText('Meta');
+            await expect(host.frame.locator('#label-width')).toHaveValue('76.2');
+            await expect(host.frame.locator('#label-height')).toHaveValue('25.4');
+            await expect(host.frame.locator('#label-dpmm')).toHaveValue('12');
+        });
+
+        test('renders in a font supplied only by an earlier message', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            // The font arrives once, with the demo's font-ZPL button.
+            await host.loadFontZplBtn.click();
+            await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(1);
+
+            // A later body naming the same printer font carries no font data.
+            await setZpl(page, '^XA\n^CWK,E:OCRA.TTF\n^CI28\n^FO40,60^AKN,50,50^FDSecond run^FS\n^XZ');
+            await expect(host.frame.locator('#elements-list')).toContainText('Second run');
+
+            await host.frame.locator('#fs-icon-rail [data-fs-tab="font"]').click();
+            await expect(host.frame.locator('#custom-fonts-list')).toContainText('Ready');
+            await expect(host.frame.locator('.replace-preview-font')).toHaveCSS('font-family', /zpl-custom-/);
+        });
+
+        test('replaces preview data when the message carries it', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            await host.setPreviewDataBtn.click();
+
+            await setZpl(page, '^XA^FO40,40^A0N,40,40^FDLot %lot%^FS^XZ', { lot: 'L-77' });
+
+            await host.frame.locator('#fs-icon-rail [data-fs-tab="preview-data"]').click();
+            const panel = host.frame.locator('#preview-data-panel');
+            await expect(panel.locator('[data-placeholder="lot"]')).toHaveValue('L-77');
+            // The values that belonged to the document it replaced are gone.
+            await expect(panel.locator('[data-placeholder="price"]')).toHaveCount(0);
+        });
+
+        test('requestSave returns the new body plus the edits made since', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            await host.loadTemplateBtn.click();
+            await expect(host.frame.locator('#elements-list')).toContainText('Hello from host');
+
+            await setZpl(page, '^XA^FO40,40^A0N,40,40^FDFrom setZpl^FS^XZ');
+            await expect(host.frame.locator('#elements-list')).toContainText('From setZpl');
+
+            await host.frame.locator('#add-text-btn').click();
+            await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(2);
+
+            await page.evaluate(() => {
+                (document.querySelector('#editor-container iframe') as HTMLIFrameElement)
+                    .contentWindow!.postMessage(
+                        { source: 'zpl-designer-host', version: 2, type: 'requestSave', payload: {} },
+                        '*',
+                    );
+            });
+
+            await host.expectStatus('saved');
+            const result = await host.getResultText();
+            expect(result).toContain('From setZpl');
+            expect(result).not.toContain('Hello from host');
+            // The element added after the swap is in the payload too.
+            expect(result.match(/"type": "TEXT"/g)).toHaveLength(2);
+        });
+
+        test('applies as one undoable step, keeping the history it landed on', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            await host.loadZplBtn.click();
+            await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
+
+            // `init` opened the session (one entry) and the demo's own load
+            // landed on top of it as a second — the same undoable swap.
+            const chip = host.frame.locator('#history-count-chip');
+            await expect(chip).toHaveText('2');
+
+            await setZpl(page, '^XA^FO40,40^A0N,40,40^FDSwapped in^FS^XZ');
+            await expect(host.frame.locator('#elements-list')).toContainText('Swapped in');
+            await expect(chip).toHaveText('3');
+
+            await host.frame.locator('#undo-btn').click();
+            await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
+            await expect(host.frame.locator('#elements-list')).not.toContainText('Swapped in');
+
+            await host.frame.locator('#redo-btn').click();
+            await expect(host.frame.locator('#elements-list')).toContainText('Swapped in');
+        });
+
+        test('a body with no ZPL in it is refused, not imported over the document', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            await host.loadZplBtn.click();
+            await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(2);
+
+            await setZpl(page, 'this is not ZPL');
+
+            await host.expectStatus('error: ZPL could not be parsed');
+            // The canvas was left alone rather than blanked.
+            await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(2);
+            await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
+        });
     });
 
     test('SDK hidePanels option reaches the editor as ?hidePanels=', async ({ page }) => {
