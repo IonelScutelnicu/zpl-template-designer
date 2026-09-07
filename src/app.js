@@ -1486,6 +1486,7 @@ export function initApp() {
         return result.warnings;
       },
       setHostFonts: (fonts) => setHostPreviewFonts(fonts),
+      focusPanel: (panel) => fullscreen.focusPanel(panel),
       getResult: () => {
         const template = JSON.parse(
           serializationService.exportTemplate(state.elements, withoutHostFontSources(state.labelSettings))

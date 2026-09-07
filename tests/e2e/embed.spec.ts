@@ -419,6 +419,113 @@ test.describe('Embed mode', () => {
         });
     });
 
+    // The host's own chrome may need to point the user at the settings that fix
+    // a problem it detected — it can't drive the editor's navigation across
+    // origins any other way.
+    test.describe('focusPanel', () => {
+        const focusPanel = (page: Page, panel: unknown) =>
+            page.evaluate((panel) => {
+                (document.querySelector('#editor-container iframe') as HTMLIFrameElement)
+                    .contentWindow!.postMessage(
+                        { source: 'zpl-designer-host', version: 2, type: 'focusPanel', payload: { panel } },
+                        '*',
+                    );
+            }, panel);
+
+        test('opens the named panel in the icon rail', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            // The demo launches fullscreen, which lands on Add element.
+            const rail = host.frame.locator('#fs-icon-rail');
+            await expect(rail.locator('[data-fs-tab="add"]')).toHaveClass(/active/);
+            await expect(host.frame.locator('#label-width')).toBeHidden();
+
+            await focusPanel(page, 'labelSetup');
+
+            await expect(rail.locator('[data-fs-tab="label-setup"]')).toHaveClass(/active/);
+            await expect(rail.locator('[data-fs-tab="add"]')).not.toHaveClass(/active/);
+            await expect(host.frame.locator('#label-width')).toBeVisible();
+        });
+
+        test('accepts the editor\'s own kebab-case tab key too', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            await focusPanel(page, 'preview-data');
+
+            await expect(host.frame.locator('#fs-icon-rail [data-fs-tab="preview-data"]')).toHaveClass(/active/);
+            await expect(host.frame.locator('#preview-data-panel')).toBeVisible();
+        });
+
+        test('re-opens a rail the user had collapsed', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            // Clicking the active icon collapses the panel to just the rail.
+            await host.frame.locator('#fs-icon-rail [data-fs-tab="add"]').click();
+            await expect(host.frame.locator('#view-editor')).toHaveClass(/fs-rail-collapsed/);
+
+            await focusPanel(page, 'labelSetup');
+
+            await expect(host.frame.locator('#view-editor')).not.toHaveClass(/fs-rail-collapsed/);
+            await expect(host.frame.locator('#label-width')).toBeVisible();
+        });
+
+        test('leaves the document alone', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+            await host.loadZplBtn.click();
+            await expect(host.frame.locator('#elements-list')).toContainText('Sample ZPL');
+
+            await focusPanel(page, 'labelSetup');
+            await expect(host.frame.locator('#label-width')).toBeVisible();
+
+            // Same elements, and no dirty ping — this is chrome, not an edit.
+            await expect(host.frame.locator('#elements-list .element-item')).toHaveCount(2);
+            await host.expectStatus('editor ready');
+        });
+
+        test('an unknown panel is reported with the names that work', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            await focusPanel(page, 'nope');
+
+            await host.expectStatus('error: Unknown panel');
+            const result = await host.getResultText();
+            expect(result).toContain('labelSetup');
+            expect(result).toContain('previewData');
+            // The panel the user was on is untouched.
+            await expect(host.frame.locator('#fs-icon-rail [data-fs-tab="add"]')).toHaveClass(/active/);
+        });
+
+        test('outside fullscreen it opens the panel\'s accordion section', async ({ page }) => {
+            await page.goto('/embed/demo.html');
+            await page.locator('#fullscreen-cb').uncheck();
+            const host = new EmbedHost(page);
+            await expect(host.status).toHaveText('editor ready', { timeout: 15000 });
+
+            // Label Setup happens to start open; Font Settings does not.
+            await expect(host.frame.locator('#add-custom-font-btn')).toBeHidden();
+
+            await focusPanel(page, 'font');
+
+            await expect(host.frame.locator('#add-custom-font-btn')).toBeVisible();
+            await expect(host.frame.locator('#font-picker')).toBeVisible();
+        });
+
+        test('the SDK exposes it as handle.focusPanel()', async ({ page }) => {
+            const host = new EmbedHost(page);
+            await host.goto();
+
+            await host.focusPanelBtn.click();
+
+            await expect(host.frame.locator('#fs-icon-rail [data-fs-tab="label-setup"]')).toHaveClass(/active/);
+            await expect(host.frame.locator('#label-width')).toBeVisible();
+        });
+    });
+
     test('SDK hidePanels option reaches the editor as ?hidePanels=', async ({ page }) => {
         const host = new EmbedHost(page);
         await host.goto();

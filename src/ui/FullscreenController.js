@@ -158,6 +158,27 @@ export class FullscreenController {
     }
   }
 
+  // Open a named panel as if its rail icon had been clicked. In fullscreen
+  // that is exactly the rail; outside it the same content is a <details> in
+  // the settings card (add/layers live in the always-visible elements card),
+  // so the panel is opened and scrolled to instead. Used by the embed bridge
+  // to let a host point the user at the settings it wants them to fix.
+  focusPanel(tab) {
+    if (this._on) {
+      // A collapsed rail would swallow the panel we were asked to show.
+      this.viewEditor.classList.remove('fs-rail-collapsed');
+      this.setActiveTab(tab);
+      return;
+    }
+    // enter() force-opens every <details>; outside fullscreen they are a real
+    // accordion, so the panel has to be opened before it can be seen.
+    const panel = document.querySelector(`#settings-card details[data-fs-tab="${tab}"]`);
+    if (panel) panel.open = true;
+    const target = panel
+      || document.querySelector(`#elements-card [data-fs-tab="${tab}"]`);
+    if (target) target.scrollIntoView({ block: 'nearest' });
+  }
+
   setActiveTab(tab) {
     this._activeTab = tab;
     this.viewEditor.setAttribute('data-fs-active-tab', tab);

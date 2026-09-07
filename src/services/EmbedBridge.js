@@ -3,7 +3,7 @@
 // opened from the host. Envelope both ways:
 //   { source, version, type, payload }
 // host→editor: init, loadTemplate, loadZPL, setZpl, setPreviewData, setFonts,
-//              requestSave
+//              focusPanel, requestSave
 // editor→host: ready, save, cancel, change, error
 //
 // `ready` lists the host→editor types this build understands, so a host
@@ -26,8 +26,30 @@ const isSupportedVersion = (version) => typeof version === 'number' && version >
 // Advertised in `ready`. `setZpl` is the same whole-document ZPL load as
 // `loadZPL` under the name hosts that only ever swap the ZPL body use.
 const CAPABILITIES = [
-  'init', 'loadTemplate', 'loadZPL', 'setZpl', 'setPreviewData', 'setFonts', 'requestSave',
+  'init', 'loadTemplate', 'loadZPL', 'setZpl', 'setPreviewData', 'setFonts', 'focusPanel',
+  'requestSave',
 ];
+
+// Panels a host may open with `focusPanel`, mapped to the editor's own tab
+// keys. Named in camelCase to match `hidePanels`; the kebab-case keys the DOM
+// carries are accepted too, since that is what a host reading the markup sees.
+// Advertised in `ready` so the host knows which names this build takes.
+const PANELS = {
+  add: 'add',
+  layers: 'layers',
+  labelSetup: 'label-setup',
+  printConfig: 'print-config',
+  offsets: 'offsets',
+  font: 'font',
+  previewData: 'preview-data',
+};
+
+const resolvePanel = (name) => {
+  if (typeof name !== 'string') return null;
+  const key = name.trim();
+  if (Object.hasOwn(PANELS, key)) return PANELS[key];
+  return Object.values(PANELS).includes(key) ? key : null;
+};
 
 // A body with no command in it parses to an empty label, which would read as
 // the editor wiping the canvas on its own — see applyContent.
@@ -46,9 +68,10 @@ export function isEmbedMode() {
  * @param {Function} deps.getResult - () => { template, zpl }
  * @param {Function} deps.setPreviewData - (map) => void, merges host Preview Data
  * @param {Function} deps.setHostFonts - ([{name, bytes}]) => Promise<string[]> rejected names
+ * @param {Function} deps.focusPanel - (tab) => void, opens a settings panel
  * @param {Function} deps.onSaveSent - () => void, the payload reached the host
  */
-export function initEmbedBridge({ state, importTemplateJson, importZPL, getResult, setPreviewData, setHostFonts, onSaveSent }) {
+export function initEmbedBridge({ state, importTemplateJson, importZPL, getResult, setPreviewData, setHostFonts, focusPanel, onSaveSent }) {
   const hostWindow = window.parent !== window ? window.parent : window.opener;
   if (!hostWindow) return;
 
@@ -208,6 +231,15 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
       // Through applyContent so matching a font doesn't read as a user edit
       // either. `?? null` keeps a payload with no fonts an error, not a no-op.
       enqueue(() => applyContent({ fonts: (msg.payload || {}).fonts ?? null }));
+    } else if (msg.type === 'focusPanel') {
+      // Chrome only — it moves no data and dirties nothing. Queued anyway so a
+      // host that sends it with a load gets the panel opened over the document
+      // that load brought, not over the one it replaced.
+      enqueue(() => {
+        const panel = resolvePanel((msg.payload || {}).panel);
+        if (panel) focusPanel(panel);
+        else post('error', { message: 'Unknown panel', names: Object.keys(PANELS) }, hostOrigin);
+      });
     } else if (msg.type === 'requestSave') {
       // Same payload the Save button sends — a host driving the editor from
       // its own chrome gets an identical `save` back. Queued so it reports the
@@ -237,5 +269,5 @@ export function initEmbedBridge({ state, importTemplateJson, importZPL, getResul
 
   // `ready` carries no data, so '*' is safe; the host origin is unknown
   // until its init arrives.
-  post('ready', { version: PROTOCOL_VERSION, capabilities: CAPABILITIES }, '*');
+  post('ready', { version: PROTOCOL_VERSION, capabilities: CAPABILITIES, panels: Object.keys(PANELS) }, '*');
 }

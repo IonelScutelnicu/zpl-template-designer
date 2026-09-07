@@ -134,6 +134,7 @@
     <button id="load-zpl-btn">Load sample ZPL</button>
     <button id="set-preview-data-btn" title="Define placeholders and their sample values from the host">Set preview data</button>
     <button id="load-font-zpl-btn" title="Load ZPL naming a printer-resident font and send that font from the host">Load ZPL + host font</button>
+    <button id="focus-panel-btn" title="Open the editor's Label Setup panel from the host">Focus label setup</button>
     <button id="open-tab-btn">Open in new tab</button>
     <button id="host-save-btn" title="Ask the editor for its state via handle.save()">Save (host)</button>
     <span id="panels" title="Panel visibility is fixed when the iframe is created — toggling re-embeds the editor">
@@ -294,6 +295,11 @@
     // a host with its own footer would wire up.
     document.getElementById('host-save-btn').addEventListener('click', function () {
       handle.save();
+    });
+    // What a host's "Edit label size" action wires up: point the user straight
+    // at the panel that fixes the problem, without touching the document.
+    document.getElementById('focus-panel-btn').addEventListener('click', function () {
+      handle.focusPanel('labelSetup');
     });
     document.getElementById('open-tab-btn').addEventListener('click', function () {
       ZplDesigner.open(Object.assign({

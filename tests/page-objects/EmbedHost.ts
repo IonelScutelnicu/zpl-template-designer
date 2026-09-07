@@ -14,6 +14,7 @@ export class EmbedHost {
     readonly openTabBtn: Locator;
     readonly setPreviewDataBtn: Locator;
     readonly loadFontZplBtn: Locator;
+    readonly focusPanelBtn: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -25,6 +26,7 @@ export class EmbedHost {
         this.openTabBtn = page.locator('#open-tab-btn');
         this.setPreviewDataBtn = page.locator('#set-preview-data-btn');
         this.loadFontZplBtn = page.locator('#load-font-zpl-btn');
+        this.focusPanelBtn = page.locator('#focus-panel-btn');
     }
 
     /** Navigate to the demo and wait for the ready handshake. */

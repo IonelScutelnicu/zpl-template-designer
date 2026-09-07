@@ -131,6 +131,13 @@
         initPayload.previewData = Object.assign({}, initPayload.previewData, previewData);
         postToEditor('setPreviewData', { previewData: previewData });
       },
+      // Open one of the editor's settings panels, as if the user had clicked
+      // its icon in the fullscreen rail: 'add', 'layers', 'labelSetup',
+      // 'printConfig', 'offsets', 'font', 'previewData'. `ready` reports the
+      // list the embedded build accepts as payload.panels.
+      focusPanel: function (panel) {
+        postToEditor('focusPanel', { panel: panel });
+      },
       save: function () {
         postToEditor('requestSave', {});
       },
@@ -147,7 +154,7 @@
      *                     hidePanels?, hideElements?, fullscreen?, onReady?,
      *                     onSave?, onCancel?, onChange?, onError? })
      * Returns { iframe, loadTemplate(t), loadZPL(z), setPreviewData(m),
-     *            setFonts(f), save(), destroy() }.
+     *            setFonts(f), focusPanel(p), save(), destroy() }.
      */
     embed: function (opts) {
       var container = typeof opts.container === 'string'
@@ -183,6 +190,7 @@
         loadZPL: conn.loadZPL,
         setPreviewData: conn.setPreviewData,
         setFonts: conn.setFonts,
+        focusPanel: conn.focusPanel,
         save: conn.save,
         destroy: function () {
           conn.disconnect();
@@ -194,7 +202,7 @@
     /**
      * Open the editor in a new tab. Same options as embed() minus container.
      * Returns { window, loadTemplate(t), loadZPL(z), setPreviewData(m),
-     * setFonts(f), save(), close() } or null
+     * setFonts(f), focusPanel(p), save(), close() } or null
      * when the popup was blocked.
      */
     open: function (opts) {
@@ -217,6 +225,7 @@
         loadZPL: conn.loadZPL,
         setPreviewData: conn.setPreviewData,
         setFonts: conn.setFonts,
+        focusPanel: conn.focusPanel,
         save: conn.save,
         close: function () {
           conn.disconnect();
