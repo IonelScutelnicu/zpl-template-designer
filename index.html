@@ -702,7 +702,7 @@
       left: 16px;
       top: auto;
       bottom: calc(76px + var(--embed-bar-h));
-      width: max(220px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
+      width: max(240px, calc((min(100vw, 1920px) - 312px) / 6 + 24px));
       max-height: 50vh;
       overflow-y: auto;
       border: 1px solid #e2e8f0;
@@ -1055,6 +1055,12 @@
       border: 1px solid #e2e8f0;
       border-left: 0;
       border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    /* The settings tabs hold two-column form rows, so this panel needs more
+       room than the shared floor above gives it on narrower viewports. */
+    #view-editor.is-fullscreen #settings-card {
+      min-width: 240px;
     }
 
     /* In fullscreen, the chevron-collapse header is no longer needed:
